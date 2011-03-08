@@ -1,0 +1,29 @@
+{
+  "name": "ChromeVox",
+  "version": "1.0",
+  "description": "ChromeVox - Giving Voice to Chrome (uncompiled).",
+  "background_page": "chromevox/background/background.html",
+  "permissions": [
+    "bookmarks",
+    "tabs",
+    "experimental",
+    "http://*/",
+    "https://*/"
+  ],
+  "content_scripts": [
+    {
+      "matches": [ "<all_urls>" ],
+      "all_frames": true,
+      "js": [
+        "build/build_defs.js",
+        "build/build_config_chrome.js",
+        "closure/closure_preinit.js",
+        "closure/base.js",
+        "chromevox/injected/deps.js",
+        "chromevox/injected/main.js",
+	      "common/extension_bridge.js"
+      ]
+    }
+  ],
+  "options_page": "chromevox/background/options.html"
+}
