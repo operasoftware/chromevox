@@ -64,7 +64,7 @@ cvox.ChromeVox.init = function() {
   // Load the enhancement script loader
   var enhancementLoaderScript = document.createElement('script');
   enhancementLoaderScript.type = 'text/javascript';
-  enhancementLoaderScript.src = 'http://www.corp.google.com/~chaitanyag/no_crawl/chromevox/scripts/loader.js';
+  enhancementLoaderScript.src = 'http://www.gstatic.com/accessibility/javascript/ext/loader.js';
   document.head.appendChild(enhancementLoaderScript);
 
   // Perform build type specific initialization
