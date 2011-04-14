@@ -236,13 +236,27 @@ cvox.DomUtil.getLabel = function(node, useHeuristics) {
     }
   }
 
+  // If the node is an ARIA button without an explicit label, then the text of
+  // its child nodes should be treated as its label.
+  if ((label.length < 1) && node.hasAttribute &&
+      (node.getAttribute('role') == 'button')) {
+    for (var i = 0, child; child = node.childNodes[i]; i++) {
+      var childStyle = window.getComputedStyle(child, null);
+      if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+          !cvox.AriaUtil.isHidden(node)) {
+        label += ' ' + cvox.DomUtil.getText(child);
+      }
+    }
+  }
+
   // If no description has been found yet and heuristics are enabled,
   // then try using table heuristics if possible.
-  if (useHeuristics && (label.length < 1)) {
-    // TODO (clchen, rshearer): Implement heuristics for getting the label
-    // information from the table headers once the code for getting table
-    // headers quickly is implemented.
-  }
+  // TODO (clchen, rshearer): Implement heuristics for getting the label
+  // information from the table headers once the code for getting table
+  // headers quickly is implemented.
+  //if (useHeuristics && (label.length < 1)) {
+  //}
+
   // If no description has been found yet and heuristics are enabled,
   // then try getting the content from the closest node.
   if (useHeuristics && (label.length < 1)) {
@@ -292,6 +306,7 @@ cvox.DomUtil.getLabel = function(node, useHeuristics) {
       label += cvox.DomUtil.getText(guessedLabelNode) + ' ';
     }
   }
+
   return label;
 };
 
@@ -349,7 +364,7 @@ cvox.DomUtil.getTitle = function(node) {
  * Not recursive.
  *
  * @param {Node} node The node to get the value from.
- * @return {String} The value of the node.
+ * @return {string} The value of the node.
  */
 cvox.DomUtil.getValue = function(node) {
   if (node.constructor == HTMLSelectElement) {
@@ -405,6 +420,10 @@ cvox.DomUtil.getValue = function(node) {
 cvox.DomUtil.getText = function(node) {
   var title = cvox.DomUtil.getTitle(node);
   var value = cvox.DomUtil.getValue(node);
+  if (title.length == 0) {
+    title = cvox.DomUtil.getLabel(node, false);
+  }
+
   var text = '';
   if (title && value) {
     text = value + ' ' + title;

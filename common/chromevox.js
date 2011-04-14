@@ -10,7 +10,7 @@ goog.provide('cvox.ChromeVox');
 /**
  * @constructor
  */
-cvox.ChromeVox = {};
+cvox.ChromeVox = function() {};
 
 /**
  * @type {Object}
@@ -49,7 +49,7 @@ cvox.ChromeVox.isStickyOn = false;
  */
 cvox.ChromeVox.isChromeOS = navigator.userAgent.indexOf('CrOS') != -1;
 /**
- * @type {String}
+ * @type {string}
  */
 cvox.ChromeVox.stickyKeyStr = 'Cvox';
 /**
@@ -57,7 +57,7 @@ cvox.ChromeVox.stickyKeyStr = 'Cvox';
  */
 cvox.ChromeVox.stickyKeyCode = cvox.ChromeVox.isChromeOS ? 91 : 45; // Lwin/Ins
 /**
- * @type {String}
+ * @type {string}
  */
 cvox.ChromeVox.modKeyStr = cvox.ChromeVox.isChromeOS ?
     'Cvox+Shift' : 'Ctrl+Alt';
@@ -67,7 +67,7 @@ cvox.ChromeVox.modKeyStr = cvox.ChromeVox.isChromeOS ?
  * are a part of the same shortcut. This array is populated in
  * cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable().
  * @const
- * @type {Array}
+ * @type {Object.<string, number>}
  */
 cvox.ChromeVox.sequenceSwitchKeyCodes = {};
 

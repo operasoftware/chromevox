@@ -81,7 +81,7 @@ cvox.TableUtil.determineColGroups = function(colGroups) {
         var colElement = childCols[colNodeCtr];
 
         if (colElement.hasAttribute('span')) {
-          var span = parseInt(colElement.getAttribute('span'));
+          var span = parseInt(colElement.getAttribute('span'), 10);
 
           for (var s = 0; s < span; s++) {
             colToColGroup.push(colGroupCtr);
@@ -93,7 +93,7 @@ cvox.TableUtil.determineColGroups = function(colGroups) {
     } else {
       // No children of the current colgroup. Does it have a span attribute?
       if (currentColGroup.hasAttribute('span')) {
-        var span = parseInt(currentColGroup.getAttribute('span'));
+        var span = parseInt(currentColGroup.getAttribute('span'), 10);
 
         for (var s = 0; s < span; s++) {
           colToColGroup.push(colGroupCtr);

@@ -23,12 +23,14 @@ goog.provide('cvox.CustomWalker');
  */
 
 
+
 /**
  * @constructor
  */
 cvox.CustomWalker = function() {
 
 };
+
 
 /**
  * Moves selection to the next item.
@@ -38,6 +40,7 @@ cvox.CustomWalker.prototype.next = function() {
   return false;
 };
 
+
 /**
  * Moves selection to the previous item.
  * @return {boolean} Returns true if the selection was moved successfully.
@@ -45,6 +48,7 @@ cvox.CustomWalker.prototype.next = function() {
 cvox.CustomWalker.prototype.previous = function() {
   return false;
 };
+
 
 /**
  * Does the primary action for the current item (ie, if it is a link,
@@ -58,6 +62,7 @@ cvox.CustomWalker.prototype.actOnCurrentItem = function() {
   return false;
 };
 
+
 /**
  * Returns the current node.
  * @return {Object} The current node.
@@ -65,6 +70,7 @@ cvox.CustomWalker.prototype.actOnCurrentItem = function() {
 cvox.CustomWalker.prototype.getCurrentNode = function() {
   return null;
 };
+
 
 /**
  * Returns the current content.
@@ -74,15 +80,19 @@ cvox.CustomWalker.prototype.getCurrentContent = function() {
   return '';
 };
 
+
 /**
  * Returns a description of the current content. This is secondary
  * information about the current content which may be omitted if
  * the user has a lower verbosity setting.
- * @return {String} The current description.
+ * @return {Array.<string>} An array of length 2 containing the current text
+ * content in the first cell and the description annotations in the second
+ * cell in the form [<content>, <description>]}.
  */
 cvox.CustomWalker.prototype.getCurrentDescription = function() {
-  return '';
+  return [];
 };
+
 
 /**
  * Sets the given targetNode as the current position.
@@ -91,11 +101,13 @@ cvox.CustomWalker.prototype.getCurrentDescription = function() {
 cvox.CustomWalker.prototype.setCurrentNode = function(targetNode) {
 };
 
+
 /**
  * Moves selection to the current item and speaks it.
  */
 cvox.CustomWalker.prototype.goToCurrentItem = function() {
 };
+
 
 /**
  * Checks if the custom walker is able to act on the current item.

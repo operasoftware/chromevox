@@ -22,6 +22,8 @@ goog.provide('cvox.AbstractTts');
 
 goog.require('cvox.AbstractLogger');
 
+
+
 /**
  * Creates a new instance.
  * @constructor
@@ -34,12 +36,14 @@ cvox.AbstractTts = function() {
 };
 goog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
 
+
 /**
  * Default TTS properties for this TTS engine.
  * @type {Object}
  * @protected
  */
 cvox.AbstractTts.prototype.ttsProperties;
+
 
 /**
  * Override the super class method to configure logging.
@@ -48,6 +52,7 @@ cvox.AbstractTts.prototype.ttsProperties;
 cvox.AbstractTts.prototype.logEnabled = function() {
   return cvox.AbstractTts.DEBUG;
 };
+
 
 /**
  * Speaks the given string using the specified queueMode and properties.
@@ -64,6 +69,7 @@ cvox.AbstractTts.prototype.speak = function(textString, queueMode,
   }
 };
 
+
 /**
  * Returns true if the TTS is currently speaking.
  * @return {boolean} True if the TTS is speaking.
@@ -75,6 +81,7 @@ cvox.AbstractTts.prototype.isSpeaking = function() {
   return false;
 };
 
+
 /**
  * Stops speech.
  */
@@ -84,6 +91,7 @@ cvox.AbstractTts.prototype.stop = function() {
   }
 };
 
+
 /**
  * Retrieves the default TTS properties for this TTS engine.
  * @return {Object} Default TTS properties.
@@ -91,6 +99,7 @@ cvox.AbstractTts.prototype.stop = function() {
 cvox.AbstractTts.prototype.getDefaultTtsProperties = function() {
   return this.ttsProperties;
 };
+
 
 /**
  * Sets the default TTS properties for this TTS engine.
@@ -100,45 +109,64 @@ cvox.AbstractTts.prototype.setDefaultTtsProperties = function(ttsProperties) {
   this.ttsProperties = ttsProperties;
 };
 
+
 /**
  * Increases a TTS speech property.
  * @param {string} property_name The name of the property to increase.
+ * @param {boolean} announce Whether to announce that the property is changing.
  */
-cvox.AbstractTts.prototype.increaseProperty = function(property_name) {
+cvox.AbstractTts.prototype.increaseProperty =
+    function(property_name, announce) {
   if (property_name == cvox.AbstractTts.TTS_PROPERTY_RATE) {
     this.ttsProperties.rate = this.increasePropertyValue(
         this.ttsProperties.rate);
-    this.speak(cvox.AbstractTts.str.increaseRate, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.increaseRate, 0, this.ttsProperties);
+    }
   } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_PITCH) {
     this.ttsProperties.pitch = this.increasePropertyValue(
         this.ttsProperties.pitch);
-    this.speak(cvox.AbstractTts.str.increasePitch, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.increasePitch, 0, this.ttsProperties);
+    }
   } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_VOLUME) {
     this.ttsProperties.volume = this.increasePropertyValue(
         this.ttsProperties.volume);
-    this.speak(cvox.AbstractTts.str.increaseVolume, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.increaseVolume, 0, this.ttsProperties);
+    }
   }
 };
+
 
 /**
  * Decreases a TTS speech property.
  * @param {string} property_name The name of the property to decrease.
+ * @param {boolean} announce Whether to announce that the property is changing.
  */
-cvox.AbstractTts.prototype.decreaseProperty = function(property_name) {
+cvox.AbstractTts.prototype.decreaseProperty =
+    function(property_name, announce) {
   if (property_name == cvox.AbstractTts.TTS_PROPERTY_RATE) {
     this.ttsProperties.rate = this.decreasePropertyValue(
         this.ttsProperties.rate);
-    this.speak(cvox.AbstractTts.str.decreaseRate, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.decreaseRate, 0, this.ttsProperties);
+    }
   } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_PITCH) {
     this.ttsProperties.pitch = this.decreasePropertyValue(
         this.ttsProperties.pitch);
-    this.speak(cvox.AbstractTts.str.decreasePitch, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.decreasePitch, 0, this.ttsProperties);
+    }
   } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_VOLUME) {
     this.ttsProperties.volume = this.decreasePropertyValue(
         this.ttsProperties.volume);
-    this.speak(cvox.AbstractTts.str.decreaseVolume, 0, this.ttsProperties);
+    if (announce) {
+      this.speak(cvox.AbstractTts.str.decreaseVolume, 0, this.ttsProperties);
+    }
   }
 };
+
 
 /**
  * Merges the given properties with the default ones.
@@ -162,6 +190,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
   return mergedProperties;
 };
 
+
 /**
  * Decrease by 0.1 the value of a TTS property that's normally in the range
  * 0.0 - 1.0, and make sure it doesn't end up smaller than 0.0. Return the
@@ -172,6 +201,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 cvox.AbstractTts.prototype.decreasePropertyValue = function(current_value) {
   return Math.max(0.0, current_value - 0.1);
 };
+
 
 /**
  * Increase by 0.1 the value of a TTS property that's normally in the range
@@ -184,11 +214,13 @@ cvox.AbstractTts.prototype.increasePropertyValue = function(current_value) {
   return Math.min(1.0, current_value + 0.1);
 };
 
+
 /**
  * TTS rate property.
  * @type {string}
  */
 cvox.AbstractTts.TTS_PROPERTY_RATE = 'Rate';
+
 
 /**
  * TTS pitch property.
@@ -196,11 +228,13 @@ cvox.AbstractTts.TTS_PROPERTY_RATE = 'Rate';
  */
 cvox.AbstractTts.TTS_PROPERTY_PITCH = 'Pitch';
 
+
 /**
  * TTS volume property.
  * @type {string}
  */
 cvox.AbstractTts.TTS_PROPERTY_VOLUME = 'Volume';
+
 
 /**
  * Flag indicating if the TTS is being debugged.
@@ -208,17 +242,20 @@ cvox.AbstractTts.TTS_PROPERTY_VOLUME = 'Volume';
  */
 cvox.AbstractTts.DEBUG = true;
 
+
 /**
  * Speech queue mode that interrupts the current utterance.
  * @type {number}
  */
 cvox.AbstractTts.QUEUE_MODE_FLUSH = 0;
 
+
 /**
  * Speech queue mode that does not interrupt the current utterance.
  * @type {number}
  */
 cvox.AbstractTts.QUEUE_MODE_QUEUE = 1;
+
 
 /**
 * String constants.

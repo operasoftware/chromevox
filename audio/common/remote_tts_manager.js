@@ -54,11 +54,11 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
     cvox.RemoteTtsManager.superClass_.speak.call(this, textString, queueMode,
         properties);
     cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'speak',
-       'text': textString,
-       'queueMode': queueMode,
-       'properties': properties});
+        {'target': 'TTS',
+          'action': 'speak',
+          'text': textString,
+          'queueMode': queueMode,
+          'properties': properties});
   };
 
   /**
@@ -76,8 +76,8 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.RemoteTtsManager.prototype.stop = function() {
     cvox.RemoteTtsManager.superClass_.stop.call(this);
     cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'stop'});
+        {'target': 'TTS',
+          'action': 'stop'});
   };
 
   /**
@@ -89,32 +89,40 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.RemoteTtsManager.prototype.nextEngine = function(announce) {
     cvox.RemoteTtsManager.superClass_.nextTtsEngine.call(this, announce);
     cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'nextEngine'});
+        {'target': 'TTS',
+          'action': 'nextEngine'});
   };
 
   /**
    * Decreases a TTS speech property.
    * @param {string} property_name The name of the property to decrease.
+   * @param {boolean} announce Whether to announce that the property is
+   * changing.
    */
-  cvox.RemoteTtsManager.prototype.decreaseProperty = function(property_name) {
+  cvox.RemoteTtsManager.prototype.decreaseProperty =
+      function(property_name, announce) {
     cvox.RemoteTtsManager.superClass_.decreaseProperty.call(this,
-      property_name);
+        property_name);
     cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'decrease' + property_name });
+        {'target': 'TTS',
+          'action': 'decrease' + property_name,
+          'modifier': announce});
   };
 
   /**
    * Increases a TTS speech property.
    * @param {string} property_name The name of the property to increase.
+   * @param {boolean} announce Whether to announce that the property is
+   * changing.
    */
-  cvox.RemoteTtsManager.prototype.increaseProperty = function(property_name) {
+  cvox.RemoteTtsManager.prototype.increaseProperty =
+      function(property_name, announce) {
     cvox.RemoteTtsManager.superClass_.increaseProperty.call(this,
-      property_name);
+        property_name);
     cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'increase' + property_name});
+        {'target': 'TTS',
+          'action': 'increase' + property_name,
+          'modifier': announce});
   };
 } else {
   cvox.RemoteTtsManager = function() {};

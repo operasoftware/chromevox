@@ -256,7 +256,7 @@ cvox.ChromeVox.getStringifiedAndroidKeyBindings = function() {
     'Ctrl+Alt+Shift+U' : ['previousButton', 'Previous button'],
     'Ctrl+Alt+X' : ['nextComboBox', 'Next combo box'],
     'Ctrl+Alt+Shift+X' : ['previousComboBox', 'Previous combo box']
-  });
+  }, null, null);
 };
 
 window.setTimeout(cvox.ChromeVox.init, 0);

@@ -133,6 +133,18 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
 
 
 /**
+ * Assuming we are in table mode, checks whether the current position is within
+ * the boundaries of the current cell.
+ * @return {boolean} True if the current position is within the boundaries of
+ * the current cell. False if it is not.
+ */
+cvox.ChromeVoxNavigationManager.prototype.checkCellBoundaries = function() {
+  return cvox.DomUtil.isDescendantOfNode(this.currentNode,
+      this.smartDomWalker.currentTableNavigator.getCell());
+};
+
+
+/**
  * Moves backward using the current navigation strategy.
  * @param {boolean} navigateIframes If true, will jump in and out of iframes.
  * @return {boolean} Whether or not navigation was performed successfully. Note
@@ -309,7 +321,7 @@ cvox.ChromeVoxNavigationManager.prototype.enterTable = function() {
   var originalNavStrategy = this.currentNavStrategy;
   var originalGranularity = this.selectionWalker.currentGranularity;
 
-  this.switchToStrategy_(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
 
   if (this.smartDomWalker.enterTable()) {
     // Go to the first cell of the table
@@ -320,17 +332,28 @@ cvox.ChromeVoxNavigationManager.prototype.enterTable = function() {
     }
     return true;
   } else {
-    this.switchToStrategy_(originalNavStrategy, originalGranularity);
+    this.switchToStrategy(originalNavStrategy, originalGranularity);
     return false;
   }
 };
 
 
 /**
- * Stops traversing all tables.
+ * Stops traversing a table. Moves the cursor to the first element (found by
+ * smart navigation) after the end of the table.
  */
 cvox.ChromeVoxNavigationManager.prototype.exitTable = function() {
-  this.smartDomWalker.exitTable();
+  if (this.smartDomWalker.tableMode) {
+    // Go to the last cell of the table
+    var smartNode = this.smartDomWalker.goToLastCell();
+    if (smartNode) {
+      cvox.SelectionUtil.selectAllTextInNode(smartNode);
+      this.currentNode = smartNode;
+
+      this.next(true);
+    }
+    this.smartDomWalker.exitTable();
+  }
 };
 
 
@@ -383,6 +406,92 @@ cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
 
 
 /**
+ * Returns the text content of the row header(s) of the current cell.
+ * @return {string} The text content of the row header(s) of the current cell
+ * or '' if the cell has no row headers.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getRowHeaderText();
+};
+
+
+/**
+ * Returns the text content of best-guess row header of the current cell.
+ * This is used when the table does not specify row and column headers.
+ * @return {string} The text content of the guessed row header of the current
+ * cell.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getRowHeaderGuess();
+};
+
+
+/**
+ * Returns the text content of the col header(s) of the current cell.
+ * @return {string} The text content of the col header(s) of the current cell
+ * or '' if the cell has no col headers.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getColHeaderText();
+};
+
+
+/**
+ * Returns the text content of best-guess col header of the current cell.
+ * This is used when the table does not specify col and column headers.
+ * @return {string} The text content of the guessed col header of the current
+ * cell.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getColHeaderGuess();
+};
+
+
+/**
+ * Returns the current row index.
+ * @return {?number} The current row index. Null if we aren't in table mode.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getRowIndex = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getRowIndex();
+};
+
+
+/**
+ * Returns the current column index.
+ * @return {?number} The current column index. Null if we aren't in table mode.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getColIndex = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getColIndex();
+};
+
+
+/**
+ * Returns the current number of rows.
+ * @return {?number} The number of rows. Null if we aren't in table mode.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getRowCount = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getRowCount();
+};
+
+
+/**
+ * Returns the current number of columns.
+ * @return {?number} The number of columns. Null if we aren't in table mode.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getColCount = function() {
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  return this.smartDomWalker.getColCount();
+};
+
+
+/**
  * Traverses to the first cell of the current table.
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
@@ -407,6 +516,54 @@ cvox.ChromeVoxNavigationManager.prototype.goToLastCell = function() {
 
 
 /**
+ * Traverses to the first cell of the current row of the current table.
+ * @return {boolean} Whether or not the traversal was successful. False implies
+ * that we are not currently inside a table.
+ */
+cvox.ChromeVoxNavigationManager.prototype.goToRowFirstCell = function() {
+  return this.trySwitchToStrategyAndSelect_(
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
+      this.smartDomWalker.goToRowFirstCell, this.smartDomWalker);
+};
+
+
+/**
+ * Traverses to the last cell of the current row of the current table.
+ * @return {boolean} Whether or not the traversal was successful. False implies
+ * that we are not currently inside a table.
+ */
+cvox.ChromeVoxNavigationManager.prototype.goToRowLastCell = function() {
+  return this.trySwitchToStrategyAndSelect_(
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
+      this.smartDomWalker.goToRowLastCell, this.smartDomWalker);
+};
+
+
+/**
+ * Traverses to the first cell of the current column of the current table.
+ * @return {boolean} Whether or not the traversal was successful. False implies
+ * that we are not currently inside a table.
+ */
+cvox.ChromeVoxNavigationManager.prototype.goToColFirstCell = function() {
+  return this.trySwitchToStrategyAndSelect_(
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
+      this.smartDomWalker.goToColFirstCell, this.smartDomWalker);
+};
+
+
+/**
+ * Traverses to the last cell of the current column of the current table.
+ * @return {boolean} Whether or not the traversal was successful. False implies
+ * that we are not currently inside a table.
+ */
+cvox.ChromeVoxNavigationManager.prototype.goToColLastCell = function() {
+  return this.trySwitchToStrategyAndSelect_(
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
+      this.smartDomWalker.goToColLastCell, this.smartDomWalker);
+};
+
+
+/**
  * Helper function to try switching to a strategy, given that the provided
  * function executes successfully.
  * @param {number} strategy The strategy to switch to.
@@ -421,7 +578,7 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
   var originalNavStrategy = this.currentNavStrategy;
   var originalGranularity = this.selectionWalker.currentGranularity;
 
-  this.switchToStrategy_(strategy);
+  this.switchToStrategy(strategy);
 
   var smartNode = functionToTry.call(obj);
   if (smartNode) {
@@ -429,7 +586,7 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
     this.currentNode = smartNode;
     return true;
   } else {
-    this.switchToStrategy_(originalNavStrategy, originalGranularity);
+    this.switchToStrategy(originalNavStrategy, originalGranularity);
     return false;
   }
 };
@@ -525,6 +682,16 @@ cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
 
 
 /**
+ * Returns whether we are currently navigating a table.
+ *
+ * @return {boolean} If we are currently navigating a table.
+ */
+cvox.ChromeVoxNavigationManager.prototype.inTableMode = function() {
+  return this.smartDomWalker.tableMode;
+};
+
+
+/**
  * Synchronizes the current position between the different navigation
  * strategies.
  */
@@ -564,6 +731,16 @@ cvox.ChromeVoxNavigationManager.prototype.syncToSelection = function() {
       !cvox.DomUtil.isDescendantOfNode(this.currentNode,
       window.getSelection().anchorNode)) {
     this.currentNode = window.getSelection().anchorNode;
+    // For composite controls, the anchorNode will often fall below the leaf
+    // level. Set it to the earliest ancestor that is considered a leaf node.
+    var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
+    for (var i = 0, node; node = ancestors[i]; i++) {
+      if (cvox.DomUtil.isControl(node)) {
+        this.currentNode = node;
+        break;
+      }
+    }
+
     this.linearDomWalker.setCurrentNode(this.currentNode);
     this.smartDomWalker.setCurrentNode(this.currentNode);
   }
@@ -610,7 +787,11 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentContent = function() {
       break;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
-      return cvox.DomUtil.getText(this.currentNode);
+      if (this.currentNode !== null) {
+        return cvox.DomUtil.getText(this.currentNode);
+      } else {
+        return '';
+      }
       break;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
@@ -624,7 +805,10 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentContent = function() {
  * Returns a complete description of the current position, including
  * the text content and annotations such as "link", "button", etc.
  *
- * @return {string} The summary of the current position.
+ * @return {Array.<string>} The summary of the current position. This is an
+ * array of length 2 containing the current text content in the first cell and
+ * the description annotations in the second cell in the form [<content>,
+ * <description>].
  */
 cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
   switch (this.currentNavStrategy) {
@@ -636,14 +820,17 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
       return this.smartDomWalker.getCurrentDescription();
       break;
 
+    // Return '' for description part because linear and selection navigation
+    // strategies only generally include text content for the current position.
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
-      return this.getCurrentContent() + ' ' +
-          cvox.DomUtil.getInformationFromAncestors(this.getChangedAncestors());
+      return [this.getCurrentContent() + ' ' +
+            cvox.DomUtil.getInformationFromAncestors(
+            this.getChangedAncestors()), ''];
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
-      return this.getCurrentContent() + ' ' +
-          cvox.DomUtil.getInformationFromAncestors(
-          this.selectionUniqueAncestors);
+      return [this.getCurrentContent() + ' ' +
+            cvox.DomUtil.getInformationFromAncestors(
+            this.selectionUniqueAncestors), ''];
   }
 };
 
@@ -800,9 +987,8 @@ cvox.ChromeVoxNavigationManager.prototype.setCustomWalker =
  * @param {boolean=} opt_forwards True if the selection is moving forwards
  *     (affects whether the beginning or end of the current selection is
  *     selected).
- * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.switchToStrategy_ =
+cvox.ChromeVoxNavigationManager.prototype.switchToStrategy =
     function(newStrategy, opt_newGranularity, opt_forwards) {
 
   if (opt_forwards !== true && opt_forwards !== false) {
@@ -897,7 +1083,7 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
     window.focus();
 
     // First switch to linear DOM and focus the right starting element.
-    self.switchToStrategy_(
+    self.switchToStrategy(
         cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM);
 
     if (message['command'] == 'exitIframe') {
@@ -918,9 +1104,9 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
     }
 
     // Switch to the same strategy & granularity as before the iframe jump.
-    self.switchToStrategy_(message['strategy'],
-                           message['granularity'],
-                           message['forwards']);
+    self.switchToStrategy(message['strategy'],
+                          message['granularity'],
+                          message['forwards']);
 
     // Now speak what ended up being selected.
     cvox.ChromeVox.executeUserCommand('speakCurrentPosition');

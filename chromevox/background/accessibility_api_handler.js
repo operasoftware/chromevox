@@ -150,6 +150,7 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
                 ctl.details.value,
                 ctl.details.selectionStart,
                 ctl.details.selectionEnd,
+                ctl.isPassword,
                 tts);
       } else {
         cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler = null;
@@ -182,7 +183,8 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
       cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler.changed(
           ctl.details.value,
           ctl.details.selectionStart,
-          ctl.details.selectionEnd);
+          ctl.details.selectionEnd,
+          ctl.details.isPassword);
     }
   });
 };
@@ -260,7 +262,8 @@ cvox.ChromeVoxAccessibilityApiHandler.describe = function(control,
       if (name != '') {
         s += ', ' + name;
       }
-      s += ', text box';
+      s += ', ' + (control.details.isPassword ? ', password ' : '') +
+          ', text box';
       break;
     case 'button':
       earcon = cvox.AbstractEarcons.BUTTON;

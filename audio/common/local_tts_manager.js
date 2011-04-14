@@ -26,6 +26,8 @@ goog.provide('cvox.LocalTtsManager');
 goog.require('cvox.AbstractTts');
 goog.require('cvox.AbstractTtsManager');
 
+
+
 /**
  * This class is responsible for the ChromeVox feedback in terms of
  * speech. It also stores the TTS configuration state.
@@ -48,12 +50,14 @@ cvox.LocalTtsManager = function(ttsEngines, ttsProperties) {
 };
 goog.inherits(cvox.LocalTtsManager, cvox.AbstractTtsManager);
 
+
 /**
  * @return {string} The human-readable name of this instance.
  */
 cvox.LocalTtsManager.prototype.getName = function() {
   return 'LocalTtsManager';
 };
+
 
 /**
  * Speaks the given string using the specified queueMode and properties.
@@ -71,6 +75,7 @@ cvox.LocalTtsManager.prototype.speak = function(textString, queueMode,
   this.currentTtsEngine.speak(textString, queueMode, properties);
 };
 
+
 /**
  * Returns true if the TTS is currently speaking.
  * @return {boolean} True if the TTS is speaking.
@@ -83,6 +88,7 @@ cvox.LocalTtsManager.prototype.isSpeaking = function() {
   return this.currentTtsEngine.isSpeaking();
 };
 
+
 /**
  * Stops speech.
  */
@@ -93,6 +99,7 @@ cvox.LocalTtsManager.prototype.stop = function() {
   }
   this.currentTtsEngine.stop();
 };
+
 
 /**
  * Initializes the default properties of all the available TTS engines.
@@ -108,6 +115,7 @@ cvox.LocalTtsManager.prototype.initializeTtsPropertiesToDefault =
       this.ttsEngines[i].setDefaultTtsProperties(this.ttsProperties[i]);
   }
 };
+
 
 /**
  * Switch to the next TTS engine and optionally announce its name.
@@ -135,8 +143,8 @@ cvox.LocalTtsManager.prototype.nextTtsEngine = function(announce) {
     this.log('Switching to speech engine: ' + this.currentTtsEngine.getName());
     if (announce) {
       this.speak(this.currentTtsEngine.getName(),
-        cvox.AbstractTts.QUEUE_MODE_FLUSH,
-        this.ttsProperties[this.currentTtsEngineIndex]);
+          cvox.AbstractTts.QUEUE_MODE_FLUSH,
+          this.ttsProperties[this.currentTtsEngineIndex]);
     }
   } catch (err) {
     this.log('error switching to engine #' +
@@ -144,21 +152,27 @@ cvox.LocalTtsManager.prototype.nextTtsEngine = function(announce) {
   }
 };
 
+
 /**
  * Increases a TTS speech property.
  * @param {string} property_name The name of the property to increase.
+ * @param {boolean} announce Whether to announce that the property is changing.
  */
-cvox.LocalTtsManager.prototype.increaseProperty = function(property_name) {
+cvox.LocalTtsManager.prototype.increaseProperty =
+    function(property_name, announce) {
   cvox.LocalTtsManager.superClass_.increaseProperty.call(this, property_name);
-  this.currentTtsEngine.increaseProperty(property_name);
+  this.currentTtsEngine.increaseProperty(property_name, announce);
 };
+
 
 /**
  * Decreases a TTS speech property.
  * @param {string} property_name The name of the property to decrease.
+ * @param {boolean} announce Whether to announce that the property is changing.
  */
-cvox.LocalTtsManager.prototype.decreaseProperty = function(property_name) {
+cvox.LocalTtsManager.prototype.decreaseProperty =
+    function(property_name, announce) {
   cvox.LocalTtsManager.superClass_.decreaseProperty.call(this, property_name);
-  this.currentTtsEngine.decreaseProperty(property_name);
+  this.currentTtsEngine.decreaseProperty(property_name, announce);
 };
 

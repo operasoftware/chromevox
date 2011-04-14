@@ -51,7 +51,7 @@ cvox.ChromeVoxKbHandler.powerkeyShortcuts = [];
 cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
     keyToFunctionsTable) {
   console.log('Got keyToFunctionsTable: ' +
-      cvox.ChromeVoxJSON.stringify(keyToFunctionsTable));
+      cvox.ChromeVoxJSON.stringify(keyToFunctionsTable, null, null));
   cvox.ChromeVoxKbHandler.keyToFunctionsTable = keyToFunctionsTable;
   cvox.ChromeVox.sequenceSwitchKeyCodes =
       cvox.ChromeVoxKbHandler.getSequenceSwitchKeys();
@@ -89,7 +89,7 @@ cvox.ChromeVoxKbHandler.powerkeyActionHandler = function(completion, index) {
  * sequential mode, indicating that the subsequent keys are a part fo the same
  * keyboard shortcut.
  *
- * @return {Object} A set containing the switch keys.
+ * @return {Object.<string, number>} A set containing the switch keys.
  */
 cvox.ChromeVoxKbHandler.getSequenceSwitchKeys = function() {
   // Find the keys that act as a switch for sequential mode.
@@ -165,7 +165,8 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
         cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
       // if PowerKey is visible, hide it, since modifier keys have no use when
       // PowerKey is visible.
-      return cvox.ChromeVoxUserCommands.hidePowerKey();
+      cvox.ChromeVoxUserCommands.hidePowerKey();
+      return false;
     }
     // Modifier keys are active -- prevent default action
     return false;

@@ -70,6 +70,13 @@ cvox.ChromeVoxEventWatcher.previousTextHandlerState = null;
 cvox.ChromeVoxEventWatcher.lastKeypressTime = 0;
 
 /**
+ * Array of event listeners we've added so we can unregister them if needed.
+ * @type {Array}
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.listeners_ = [];
+
+/**
  * The delay before the timer function is first called to check on a
  * focused text control, to see if it's been modified without an event
  * being generated.
@@ -90,22 +97,50 @@ cvox.ChromeVoxEventWatcher.TEXT_TIMER_DELAY_MS = 250;
  * Add all of our event listeners to the document.
  */
 cvox.ChromeVoxEventWatcher.addEventListeners = function() {
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'keypress', cvox.ChromeVoxEventWatcher.keyPressEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'keydown', cvox.ChromeVoxEventWatcher.keyDownEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'keyup', cvox.ChromeVoxEventWatcher.keyUpEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'focus', cvox.ChromeVoxEventWatcher.focusEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'blur', cvox.ChromeVoxEventWatcher.blurEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'change', cvox.ChromeVoxEventWatcher.changeEventWatcher, true);
-  document.addEventListener(
+  cvox.ChromeVoxEventWatcher.addEventListener_(
       'select', cvox.ChromeVoxEventWatcher.selectEventWatcher, true);
-  document.addEventListener('DOMNodeInserted',
+  cvox.ChromeVoxEventWatcher.addEventListener_('DOMNodeInserted',
       cvox.ChromeVoxEventWatcher.domInsertedEventWatcher, true);
+};
+
+/**
+ * Remove all registered event watchers.
+ */
+cvox.ChromeVoxEventWatcher.removeEventListeners = function() {
+  for (var i = 0; i < cvox.ChromeVoxEventWatcher.listeners_.length; i++) {
+    var listener = cvox.ChromeVoxEventWatcher.listeners_[i];
+    document.removeEventListener(
+        listener.type, listener.listener, listener.useCapture);
+  }
+  cvox.ChromeVoxEventWatcher.listeners_ = [];
+};
+
+/**
+ * Add one event listener and save the data so it can be removed later.
+ * @param {string} type The event type.
+ * @param {EventListener|function(Event):(boolean|undefined)} listener
+ *     The function to be called when the event is fired.
+ * @param {boolean} useCapture Whether this listener should capture events
+ *     before they're sent to targets beneath it in the DOM tree.
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.addEventListener_ = function(
+    type, listener, useCapture) {
+  cvox.ChromeVoxEventWatcher.listeners_.push(
+      {'type': type, 'listener': listener, 'useCapture': useCapture});
+  document.addEventListener(type, listener, useCapture);
 };
 
 /**
@@ -128,16 +163,21 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
     return true;
   }
   if (evt.target) {
-    if (cvox.DomUtil.isControl(evt.target)) {
+    var target = /** @type {Element} */(evt.target);
+    if (cvox.DomUtil.isControl(target)) {
       cvox.ChromeVoxEventWatcher.lastFocusedNodeValue =
-          cvox.DomUtil.getControlValueAndStateString(
-              /** @type {Element} */(evt.target));
-      cvox.ChromeVox.tts.speak(cvox.ChromeVoxEventWatcher.lastFocusedNodeValue,
-          0, null);
-    } else if (cvox.ChromeVoxUserCommands.silenceLevel == 0) {
-      cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(evt.target), 0, null);
+          cvox.DomUtil.getControlValueAndStateString(target);
+      if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+        cvox.ChromeVox.tts.speak(
+            cvox.ChromeVoxEventWatcher.lastFocusedNodeValue, 0, null);
+      }
+    } else if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+      cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(target), 0, null);
     }
-    cvox.ChromeVox.navigationManager.syncToNode(evt.target);
+
+    if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+      cvox.ChromeVox.navigationManager.syncToNode(target);
+    }
   } else {
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
   }
@@ -418,7 +458,7 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
     }
   }
 
-  if (announceChange && cvox.ChromeVoxUserCommands.silenceLevel == 0) {
+  if (announceChange && !cvox.ChromeVoxUserCommands.isInUserCommand()) {
     cvox.ChromeVox.tts.speak(newValue, 0, null);
   }
 };

@@ -46,13 +46,15 @@ goog.require('cvox.DomUtil');
  * @param {string} value The string value of the editable text control.
  * @param {number} start The 0-based start cursor/selection index.
  * @param {number} end The 0-based end cursor/selection index.
+ * @param {boolean} isPassword Whether the text control if a password field.
  * @param {Object} tts A TTS object implementing speak() and stop() methods.
  * @constructor
  */
-cvox.ChromeVoxEditableTextBase = function(value, start, end, tts) {
+cvox.ChromeVoxEditableTextBase = function(value, start, end, isPassword, tts) {
   this.value = value;
   this.start = start;
   this.end = end;
+  this.isPassword = isPassword;
   this.tts = tts;
 };
 
@@ -293,22 +295,24 @@ cvox.ChromeVoxEditableTextBase.prototype.needsUpdate = function() {
  * @param {string} newValue The new string value of the editable text control.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
+ * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.changed = function(
-    newValue, newStart, newEnd) {
+    newValue, newStart, newEnd, isPassword) {
   if (newValue == this.value && newStart == this.start && newEnd == this.end) {
     return;
   }
 
   if (newValue == this.value) {
-    this.describeSelectionChanged(newStart, newEnd);
+    this.describeSelectionChanged(newStart, newEnd, isPassword);
   } else {
-    this.describeTextChanged(newValue, newStart, newEnd);
+    this.describeTextChanged(newValue, newStart, newEnd, isPassword);
   }
 
   this.value = newValue;
   this.start = newStart;
   this.end = newEnd;
+  this.isPassword = isPassword;
 };
 
 /**
@@ -316,9 +320,14 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(
  * stays the same.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
+ * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
-    function(newStart, newEnd) {
+    function(newStart, newEnd, isPassword) {
+  if (isPassword) {
+    this.speak('*');
+    return;
+  }
   if (newStart == newEnd) {
     // It's currently a cursor.
     if (this.start != this.end) {
@@ -388,9 +397,10 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
  * @param {string} newValue The new string value of the editable text control.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
+ * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
-    newValue, newStart, newEnd) {
+    newValue, newStart, newEnd, isPassword) {
   var value = this.value;
   var len = value.length;
   var newLen = newValue.length;
@@ -415,7 +425,8 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
       newValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
       newValue.substr(newLen - suffixLen) == value.substr(this.end)) {
     this.describeTextChangedHelper(
-        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix);
+        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
+        isPassword);
     return;
   }
 
@@ -430,7 +441,8 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
       newValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
       newValue.substr(newLen - suffixLen) == value.substr(len - suffixLen)) {
     this.describeTextChangedHelper(
-        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix);
+        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
+        isPassword);
     return;
   }
 
@@ -442,7 +454,8 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
 
   // If the text is short, just speak the whole thing.
   if (newLen <= this.maxShortPhraseLen) {
-    this.describeTextChangedHelper(newValue, newStart, newEnd, 0, 0, '');
+    this.describeTextChangedHelper(newValue, newStart, newEnd, 0, 0, '',
+        isPassword);
     return;
   }
 
@@ -469,7 +482,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
   }
 
   this.describeTextChangedHelper(
-      newValue, newStart, newEnd, prefixLen, suffixLen, '');
+      newValue, newStart, newEnd, prefixLen, suffixLen, '', isPassword);
 };
 
 /**
@@ -486,9 +499,16 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
  * @param {string} autocompleteSuffix The autocomplete string that was added
  *     to the end, if any. It should be spoken at the end of the utterance
  *     describing the change.
+ * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
-    newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix) {
+    newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
+    isPassword) {
+    
+  if (isPassword) {
+    this.speak('*');
+    return;
+  }
   var len = this.value.length;
   var newLen = newValue.length;
   var deletedLen = len - prefixLen - suffixLen;

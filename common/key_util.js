@@ -216,11 +216,12 @@ cvox.KeyUtil.isModifierKey = function(keyCode) {
  * @return {boolean} true if it is a sequence switch keycode, false otherwise.
  */
 cvox.KeyUtil.isSequenceSwitchKeyCode = function(keyCode) {
-  for (var keyStr in cvox.ChromeVox.sequenceSwitchKeyCodes) {
-    if (cvox.KeyUtil.keyCodeToString(keyCode) == keyStr)
-      return true;
+  var keyStr = cvox.KeyUtil.keyCodeToString(keyCode);
+  if (cvox.ChromeVox.sequenceSwitchKeyCodes[keyStr]) {
+    return true;
+  } else {
+    return false;
   }
-  return false;
 };
 
 
@@ -303,8 +304,8 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
  * Get readable string description for an internal string representation of a
  * key or a keyboard shortcut.
  *
- * @param {string} The internal string repsentation of a key or a keyboard
- *     shortcut.
+ * @param {string} keyStr The internal string repsentation of a key or
+ *     a keyboard shortcut.
  * @return {?string} Readable string representation of the input.
  */
 cvox.KeyUtil.getReadableNameForStr = function(keyStr) {
@@ -313,4 +314,3 @@ cvox.KeyUtil.getReadableNameForStr = function(keyStr) {
   }
   return null;
 };
-

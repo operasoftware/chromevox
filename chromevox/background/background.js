@@ -34,6 +34,7 @@ goog.require('cvox.LocalEarconsManager');
 goog.require('cvox.LocalTtsManager');
 
 
+
 /**
  * This object manages the global and persistent state for ChromeVox.
  * It listens for messages from the content scripts on pages and
@@ -79,9 +80,10 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   keyMap[(mod1 + '+#32')] =
       ['forceClickOnCurrentItem', 'Click on current item']; // SPACE
 
-    // General commands
+  // General commands
   keyMap[(mod1 + '+#190')] = ['showPowerKey', 'Show ChromeVox help']; // '.'
   keyMap[(mod1)] = ['hidePowerKey', 'Hide ChromeVox help']; // modifier
+  keyMap[(mod1 + '+H')] = ['help', 'Open ChromeVox help documentation'];
   keyMap[(mod1 + '+#191')] =
       ['toggleSearchWidget', 'Toggle search widget'];    // '/'
   keyMap[(mod1 + '+O>B')] = ['showBookmarkManager', 'Open bookmark manager'];
@@ -89,7 +91,7 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   keyMap[(mod1 + '+O>K')] = ['showKbExplorerPage', 'Open keyboard explorer'];
   keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
   keyMap[(mod1 + '+#189')] =
-      ['decreaseTtsRate', 'Decreaste rate of speech']; // '-'
+      ['decreaseTtsRate', 'Decrease rate of speech']; // '-'
   keyMap[(mod1 + '+#187')] =
       ['increaseTtsRate', 'Increase rate of speech']; // '='
   keyMap[(mod1 + '+#186')] = ['decreaseTtsPitch', 'Decrease pitch']; // ';'
@@ -100,20 +102,58 @@ cvox.ChromeVoxBackground.prototype.init = function() {
       ['increaseTtsVolume', 'Increase speech volume']; // ']'
 
   // Mode commands
-  keyMap[(mod1 + '+T>#13')] = ['enterTable', 'Enter table']; // T > Enter
-  keyMap[(mod1 + '+T>#27')] = ['exitTable', 'Exit table']; // T > Esc
+  keyMap[(mod1 + '+T>E')] = ['enterTable', 'Enter table']; //'T' > 'E'
+  keyMap[(mod1 + '+T>#8')] = ['exitTable', 'Exit table']; // ']' > 'Backspace'
+
+  keyMap[(mod1 + '+T>I')] =
+      ['previousRow', 'Previous table row']; // 'T' > 'I'
+  keyMap[(mod1 + '+T>M')] = ['nextRow', 'Next table row']; // 'T' > 'M'
+  keyMap[(mod1 + '+T>J')] =
+      ['previousCol', 'Previous table column']; // 'T' > 'J'
+  keyMap[(mod1 + '+T>K')] =
+      ['nextCol', 'Next table column']; // 'T' > 'K'
 
   keyMap[(mod1 + '+T>#38')] =
-      ['previousRow', 'Go to previous table row']; // up arrow
-  keyMap[(mod1 + '+T>#40')] = ['nextRow', 'Go to next table row']; // down arrow
+      ['previousRow', 'Previous table row']; // 'T' > Up
+  keyMap[(mod1 + '+T>#40')] = ['nextRow', 'Next table row']; // 'T' > Down
   keyMap[(mod1 + '+T>#37')] =
-      ['previousCol', 'Go to previous table column']; // left arrow
+      ['previousCol', 'Previous table column']; // 'T' > Left
   keyMap[(mod1 + '+T>#39')] =
-      ['nextCol', 'Go to next table column']; // right arrow
+      ['nextCol', 'Next table column']; // 'T' > Right
+
+  keyMap[(mod1 + '+T>W')] =
+      ['previousRow', 'Previous table row']; // 'T' > 'W'
+  keyMap[(mod1 + '+T>S')] = ['nextRow', 'Next table row']; // 'T' > 'S'
+  keyMap[(mod1 + '+T>A')] =
+      ['previousCol', 'Previous table column']; // 'T' > 'A'
+  keyMap[(mod1 + '+T>D')] =
+      ['nextCol', 'Next table column']; // 'T' > 'D'
+
+  keyMap[(mod1 + '+T>H')] =
+      ['announceHeaders', 'Announce the headers of the current cell']; // T > H
+  keyMap[(mod1 + '+T>L')] =
+      ['speakTableLocation', 'Announce the current table location']; // T > L
+
+  keyMap[(mod1 + '+T>R')] =
+      ['guessRowHeader', 'Make a guess at the row header of the current cell'];
+  // T > R
+  keyMap[(mod1 + '+T>C')] = ['guessColHeader',
+    'Make a guess at the column header of the current cell']; // T > L
+
+  keyMap[(mod1 + '+T>#219')] =
+      ['skipToBeginning', 'Go to beginning of table']; // 'T' > '['
+  keyMap[(mod1 + '+T>#221')] =
+      ['skipToEnd', 'Go to end of table']; // 'T' > ']'
+
+  keyMap[(mod1 + '+T>#186')] =
+      ['skipToRowBeginning', 'Go to beginning of the current row']; // 'T' > ';'
+  keyMap[(mod1 + '+T>#222')] =
+      ['skipToRowEnd', 'Go to end of the current row']; // 'T' > '''
 
   keyMap[(mod1 + '+T>#188')] =
-      ['skipToBeginning', 'Go to beginning of table']; // ','
-  keyMap[(mod1 + '+T>#190')] = ['skipToEnd', 'Go to end of table']; // '.'
+      ['skipToColBeginning', 'Go to beginning of the current column'];
+  keyMap[(mod1 + '+T>#190')] =
+      ['skipToColEnd', 'Go to end of the current column']; // 'T' > '.'
 
   // Jump commands
   keyMap[(mod1 + '+N>1')] = ['nextHeading1', 'Next level 1 heading'];
@@ -219,22 +259,22 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
     this.ttsManager.nextTtsEngine(true);
   } else if (msg.action == 'increaseRate') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_RATE);
+        cvox.AbstractTtsManager.TTS_PROPERTY_RATE, msg.modifier);
   } else if (msg.action == 'decreaseRate') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_RATE);
+        cvox.AbstractTtsManager.TTS_PROPERTY_RATE, msg.modifier);
   } else if (msg.action == 'increasePitch') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH);
+        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH, msg.modifier);
   } else if (msg.action == 'decreasePitch') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH);
+        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH, msg.modifier);
   } else if (msg.action == 'increaseVolume') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME);
+        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME, msg.modifier);
   } else if (msg.action == 'decreaseVolume') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME);
+        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME, msg.modifier);
   }
 };
 

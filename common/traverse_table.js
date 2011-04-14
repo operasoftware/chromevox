@@ -34,7 +34,7 @@ function ShadowTableNode() {}
 
 /**
  * Whether or not the active cell is spanned by a preceding cell.
- * @type {?boolean}
+ * @type {boolean}
  */
 ShadowTableNode.prototype.spanned;
 
@@ -335,7 +335,7 @@ cvox.TraverseTable.prototype.buildShadowTable_ = function() {
         if (activeTableCell.hasAttribute('colspan')) {
 
           colsSpanned =
-              parseInt(activeTableCell.getAttribute('colspan'));
+              parseInt(activeTableCell.getAttribute('colspan'), 10);
 
           if ((isNaN(colsSpanned)) || (colsSpanned <= 0)) {
             // The HTML5 spec defines colspan MUST be greater than 0:
@@ -352,7 +352,7 @@ cvox.TraverseTable.prototype.buildShadowTable_ = function() {
         }
         if (activeTableCell.hasAttribute('rowspan')) {
           rowsSpanned =
-              parseInt(activeTableCell.getAttribute('rowspan'));
+              parseInt(activeTableCell.getAttribute('rowspan'), 10);
 
           if ((isNaN(rowsSpanned)) || (rowsSpanned <= 0)) {
             // The HTML5 spec defines that rowspan can be any non-negative
@@ -720,6 +720,62 @@ cvox.TraverseTable.prototype.getCell = function() {
 
 
 /**
+ * Gets the cell at the specified location.
+ * @param {Array.<number>} index The index <i, j> of the required cell.
+ * @return {?Node} The cell <TD> or <TH> node at the specified location. Null
+ * if that cell does not exist.
+ */
+cvox.TraverseTable.prototype.getCellAt = function(index) {
+  if (((index[0] < this.rowCount) && (index[0] >= 0)) &&
+      ((index[1] < this.colCount) && (index[1] >= 0))) {
+    var shadowEntry = this.shadowTable_[index[0]][index[1]];
+    if (shadowEntry != null) {
+      return shadowEntry.activeCell;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Gets the cells that are row headers of the current cell.
+ * @return {?Array} The cells that are row headers of the current cell. Null if
+ * the current cell does not have row headers.
+ */
+cvox.TraverseTable.prototype.getCellRowHeaders = function() {
+  var shadowEntry =
+      this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
+
+  return shadowEntry.rowHeaderCells;
+};
+
+
+/**
+ * Gets the cells that are col headers of the current cell.
+ * @return {?Array} The cells that are col headers of the current cell. Null if
+ * the current cell does not have col headers.
+ */
+cvox.TraverseTable.prototype.getCellColHeaders = function() {
+  var shadowEntry =
+      this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
+
+  return shadowEntry.colHeaderCells;
+};
+
+
+/**
+ * Whether or not the current cell is spanned by another cell.
+ * @return {boolean} Whether or not the current cell is spanned by another cell.
+ */
+cvox.TraverseTable.prototype.isSpanned = function() {
+  var shadowEntry =
+      this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
+
+  return shadowEntry.spanned;
+};
+
+
+/**
  * Gets the active column, represented as an array of <TH> or <TD> nodes that
  * make up a column. In this context, "active" means that this is the column
  * that contains the cell the user is currently looking at.
@@ -1013,11 +1069,13 @@ cvox.TraverseTable.prototype.goToCol = function(index) {
  *       at that location).
  */
 cvox.TraverseTable.prototype.goToCell = function(index) {
-  var cell =
-      this.shadowTable_[index[0]][index[1]];
-  if (cell != null) {
-    this.currentCellCursor = index;
-    return true;
+  if (((index[0] < this.rowCount) && (index[0] >= 0)) &&
+      ((index[1] < this.colCount) && (index[1] >= 0))) {
+    var cell = this.shadowTable_[index[0]][index[1]];
+    if (cell != null) {
+      this.currentCellCursor = index;
+      return true;
+    }
   }
   return false;
 };
@@ -1033,6 +1091,46 @@ cvox.TraverseTable.prototype.goToLastCell = function() {
   var numRows = this.shadowTable_.length;
   var lastRow = this.shadowTable_[numRows - 1];
   var lastIndex = [(numRows - 1), (lastRow.length - 1)];
+  var cell =
+      this.shadowTable_[lastIndex[0]][lastIndex[1]];
+  if (cell != null) {
+    this.currentCellCursor = lastIndex;
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Moves to the cell at the last index in the current row  of the table. Update
+ * the cell cursor.
+ * @return {boolean} Either:
+ *    1) True if the index is valid and the update has been made.
+ *    2) False if the index is not valid (there is no cell at that location).
+ */
+cvox.TraverseTable.prototype.goToRowLastCell = function() {
+  var currentRow = this.currentCellCursor[0];
+  var lastIndex = [currentRow, (this.shadowTable_[currentRow].length - 1)];
+  var cell =
+      this.shadowTable_[lastIndex[0]][lastIndex[1]];
+  if (cell != null) {
+    this.currentCellCursor = lastIndex;
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Moves to the cell at the last index in the current column  of the table.
+ * Update the cell cursor.
+ * @return {boolean} Either:
+ *    1) True if the index is valid and the update has been made.
+ *    2) False if the index is not valid (there is no cell at that location).
+ */
+cvox.TraverseTable.prototype.goToColLastCell = function() {
+  var currentCol = this.getCol();
+  var lastIndex = [(currentCol.length - 1), this.currentCellCursor[1]];
   var cell =
       this.shadowTable_[lastIndex[0]][lastIndex[1]];
   if (cell != null) {

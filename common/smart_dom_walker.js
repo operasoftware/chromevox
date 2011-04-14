@@ -133,9 +133,8 @@ cvox.SmartDomWalker.prototype.enterTable = function() {
     if (cvox.DomUtil.isDescendantOf(this.currentNode, 'TABLE')) {
       var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
 
-      for (var i = 0; i < ancestors.length; i++) {
+      for (var i = (ancestors.length - 1); i >= 0; i--) {
         if (ancestors[i].tagName == 'TABLE') {
-
           this.currentTableNavigator = new cvox.TraverseTable(ancestors[i]);
           this.tables.push(this.currentTableNavigator);
 
@@ -207,6 +206,82 @@ cvox.SmartDomWalker.prototype.goToFirstCell = function() {
 cvox.SmartDomWalker.prototype.goToLastCell = function() {
   if (this.tableMode) {
     if (this.currentTableNavigator.goToLastCell()) {
+
+      this.previousNode = this.currentNode;
+      this.setCurrentNode(this.currentTableNavigator.getCell());
+
+      return this.currentNode;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Navigates to the first cell of current row of the table.
+ * @return {Node} Returns the first cell of the row. Null if the table row does
+ * not have a valid first cell.
+ */
+cvox.SmartDomWalker.prototype.goToRowFirstCell = function() {
+  if (this.tableMode) {
+    var cursor = this.currentTableNavigator.currentCellCursor;
+    if (this.currentTableNavigator.goToCell([cursor[0], 0])) {
+      this.previousNode = this.currentNode;
+      this.setCurrentNode(this.currentTableNavigator.getCell());
+
+      return this.currentNode;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Navigates to the last cell of the current column of the table.
+ * @return {Node} Returns the last cell of the row. Null if the table row
+ * does not have a valid last cell.
+ */
+cvox.SmartDomWalker.prototype.goToRowLastCell = function() {
+  if (this.tableMode) {
+    if (this.currentTableNavigator.goToRowLastCell()) {
+
+      this.previousNode = this.currentNode;
+      this.setCurrentNode(this.currentTableNavigator.getCell());
+
+      return this.currentNode;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Navigates to the first cell of current column of the table.
+ * @return {Node} Returns the first cell of the column. Null if the table column
+ * does not have a valid first cell.
+ */
+cvox.SmartDomWalker.prototype.goToColFirstCell = function() {
+  if (this.tableMode) {
+    var cursor = this.currentTableNavigator.currentCellCursor;
+    if (this.currentTableNavigator.goToCell([0, cursor[1]])) {
+      this.previousNode = this.currentNode;
+      this.setCurrentNode(this.currentTableNavigator.getCell());
+
+      return this.currentNode;
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Navigates to the last cell of the current column of the table.
+ * @return {Node} Returns the last cell of the column. Null if the table column
+ * does not have a valid last cell.
+ */
+cvox.SmartDomWalker.prototype.goToColLastCell = function() {
+  if (this.tableMode) {
+    if (this.currentTableNavigator.goToColLastCell()) {
 
       this.previousNode = this.currentNode;
       this.setCurrentNode(this.currentTableNavigator.getCell());
@@ -363,6 +438,132 @@ cvox.SmartDomWalker.prototype.previous = function() {
 
 
 /**
+ * Returns the text content of the row header(s) of the active table cell.
+ * @return {string} The text content of the row header(s) of the current cell
+ * or '' if the cell has no row headers. If there is more than one header,
+ * their text content is concatenated into one string which is returned.
+ */
+cvox.SmartDomWalker.prototype.getRowHeaderText = function() {
+  var rowHeaderText = '';
+  if (this.tableMode) {
+    var rowHeaders = this.currentTableNavigator.getCellRowHeaders();
+    for (var i = 0; i < rowHeaders.length; i++) {
+      rowHeaderText += cvox.DomUtil.getText(rowHeaders[i]);
+    }
+  }
+  return rowHeaderText;
+};
+
+
+/**
+ * Returns the text content for the first cell in the current row. This is
+ * used as the 'best guess' at a row header for the current cell, when no
+ * row header is explicitly specified.
+ * @return {string} The text content of the guessed row header of the current
+ * cell or '' if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getRowHeaderGuess = function() {
+  var rowHeaderText = '';
+  if (this.tableMode) {
+    var currentCursor = this.currentTableNavigator.currentCellCursor;
+    var firstCellInRow =
+        this.currentTableNavigator.getCellAt([currentCursor[0], 0]);
+    rowHeaderText += cvox.DomUtil.getText(firstCellInRow);
+  }
+  return rowHeaderText;
+};
+
+
+/**
+ * Returns the text content of the col header(s) of the active table cell.
+ * @return {string} The text content of the col header(s) of the current cell
+ * or '' if the cell has no col headers. If there is more than one header,
+ * their text content is concatenated into one string which is returned.
+ */
+cvox.SmartDomWalker.prototype.getColHeaderText = function() {
+  var colHeaderText = '';
+  if (this.tableMode) {
+    var colHeaders = this.currentTableNavigator.getCellColHeaders();
+    for (var i = 0; i < colHeaders.length; i++) {
+      colHeaderText += cvox.DomUtil.getText(colHeaders[i]);
+    }
+  }
+  return colHeaderText;
+};
+
+
+/**
+ * Returns the text content for the first cell in the current col. This is
+ * used as the 'best guess' at a col header for the current cell, when no
+ * col header is explicitly specified.
+ * @return {string} The text content of the guessed col header of the current
+ * cell or '' if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getColHeaderGuess = function() {
+  var colHeaderText = '';
+  if (this.tableMode) {
+    var currentCursor = this.currentTableNavigator.currentCellCursor;
+    var firstCellInCol =
+        this.currentTableNavigator.getCellAt([0, currentCursor[1]]);
+    colHeaderText += cvox.DomUtil.getText(firstCellInCol);
+  }
+  return colHeaderText;
+};
+
+
+/**
+ * Returns the current row index.
+ * @return {?number} The current row index. Null if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getRowIndex = function() {
+  if (this.tableMode) {
+    // Add 1 because the table navigator is zero-indexed.
+    return this.currentTableNavigator.currentCellCursor[0] + 1;
+  }
+  return null;
+};
+
+
+/**
+ * Returns the current column index.
+ * @return {?number} The current column index. Null if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getColIndex = function() {
+  if (this.tableMode) {
+    // Add 1 because the table navigator is zero-indexed.
+    return this.currentTableNavigator.currentCellCursor[1] + 1;
+  }
+  return null;
+};
+
+
+/**
+ * Returns the current number of rows.
+ * @return {?number} The number of rows. Null if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getRowCount = function() {
+  if (this.tableMode) {
+    // Add 1 because the table navigator is zero-indexed.
+    return this.currentTableNavigator.rowCount;
+  }
+  return null;
+};
+
+
+/**
+ * Returns the current number of columns.
+ * @return {?number} The number of columns. Null if we aren't in table mode.
+ */
+cvox.SmartDomWalker.prototype.getColCount = function() {
+  if (this.tableMode) {
+    // Add 1 because the table navigator is zero-indexed.
+    return this.currentTableNavigator.colCount;
+  }
+  return null;
+};
+
+
+/**
  * Returns the current content.
  * @return {string} The current content.
  */
@@ -375,7 +576,9 @@ cvox.SmartDomWalker.prototype.getCurrentContent = function() {
  * Returns a description of the current content. This is secondary
  * information about the current content which may be omitted if
  * the user has a lower verbosity setting.
- * @return {string} The current description.
+ * @return {Array.<string>} An array of length 2 containing the current text
+ * content in the first cell and the description annotations in the second
+ * cell in the form [<content>, <description>].
  */
 cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
 
@@ -390,13 +593,6 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     this.announceTable = false;
   }
 
-  if (this.tableMode) {
-    if (this.currentTableNavigator.currentCellCursor) {
-      description += (' row ' +
-          (this.currentTableNavigator.currentCellCursor[0] + 1) + ' column ' +
-          (this.currentTableNavigator.currentCellCursor[1] + 1));
-    }
-  }
   var walker = new cvox.LinearDomWalker();
   walker.currentNode = this.currentNode;
   walker.useSmartNav = false;
@@ -408,9 +604,9 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
   var previousDescriptions = {};
   while (cvox.DomUtil.isDescendantOfNode(
       walker.currentNode, this.currentNode)) {
-    contentStr += cvox.DomUtil.getText(walker.currentNode);
+    contentStr += ' ' + cvox.DomUtil.getText(walker.currentNode);
     var descp = cvox.DomUtil.getInformationFromAncestors(
-                walker.getUniqueAncestors());
+        walker.getUniqueAncestors());
     if (!previousDescriptions[descp] && descp != '') {
       previousDescriptions[descp] = 1;
     } else if (descp != '') {
@@ -419,14 +615,24 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     walker.next();
   }
 
+  if (this.tableMode) {
+    if (contentStr == '') {
+      contentStr = ' empty cell';
+    }
+
+    // Deal with spanned cells
+    if (this.currentTableNavigator.isSpanned()) {
+      contentStr = 'spanned ' + contentStr;
+    }
+  }
+
   // Use only unique descriptions. If a description is produced >1, treat it as
   // a collection.
   for (var descp in previousDescriptions) {
     description += descp + ' ' +
         (previousDescriptions[descp] > 1 ? 'collection ' : '');
   }
-
-  return contentStr + ' ' + description;
+  return [contentStr, description];
 };
 
 
