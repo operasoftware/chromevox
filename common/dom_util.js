@@ -902,6 +902,9 @@ cvox.DomUtil.isControl = function(node) {
         return true;
     }
   }
+  if (node.isContentEditable) {
+    return true;
+  }
   return false;
 };
 

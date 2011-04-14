@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+goog.provide('cvox.ChromeVoxEditableContentEditable');
 goog.provide('cvox.ChromeVoxEditableHTMLInput');
 goog.provide('cvox.ChromeVoxEditableTextArea');
 goog.provide('cvox.ChromeVoxEditableTextBase');
@@ -88,6 +89,8 @@ cvox.ChromeVoxEditableTextBase.prototype.cursorIsBlock = false;
  * @type {number}
  */
 cvox.ChromeVoxEditableTextBase.prototype.maxShortPhraseLen = 60;
+
+cvox.ChromeVoxEditableTextBase.prototype.isPassword = false;
 
 /**
  * Describe the current state of the text control.
@@ -295,24 +298,22 @@ cvox.ChromeVoxEditableTextBase.prototype.needsUpdate = function() {
  * @param {string} newValue The new string value of the editable text control.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
- * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.changed = function(
-    newValue, newStart, newEnd, isPassword) {
+    newValue, newStart, newEnd) {
   if (newValue == this.value && newStart == this.start && newEnd == this.end) {
     return;
   }
 
   if (newValue == this.value) {
-    this.describeSelectionChanged(newStart, newEnd, isPassword);
+    this.describeSelectionChanged(newStart, newEnd);
   } else {
-    this.describeTextChanged(newValue, newStart, newEnd, isPassword);
+    this.describeTextChanged(newValue, newStart, newEnd);
   }
 
   this.value = newValue;
   this.start = newStart;
   this.end = newEnd;
-  this.isPassword = isPassword;
 };
 
 /**
@@ -320,11 +321,10 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(
  * stays the same.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
- * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
-    function(newStart, newEnd, isPassword) {
-  if (isPassword) {
+    function(newStart, newEnd) {
+  if (this.isPassword) {
     this.speak('*');
     return;
   }
@@ -397,10 +397,9 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
  * @param {string} newValue The new string value of the editable text control.
  * @param {number} newStart The new 0-based start cursor/selection index.
  * @param {number} newEnd The new 0-based end cursor/selection index.
- * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
-    newValue, newStart, newEnd, isPassword) {
+    newValue, newStart, newEnd) {
   var value = this.value;
   var len = value.length;
   var newLen = newValue.length;
@@ -425,8 +424,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
       newValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
       newValue.substr(newLen - suffixLen) == value.substr(this.end)) {
     this.describeTextChangedHelper(
-        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
-        isPassword);
+        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix);
     return;
   }
 
@@ -441,8 +439,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
       newValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
       newValue.substr(newLen - suffixLen) == value.substr(len - suffixLen)) {
     this.describeTextChangedHelper(
-        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
-        isPassword);
+        newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix);
     return;
   }
 
@@ -454,8 +451,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
 
   // If the text is short, just speak the whole thing.
   if (newLen <= this.maxShortPhraseLen) {
-    this.describeTextChangedHelper(newValue, newStart, newEnd, 0, 0, '',
-        isPassword);
+    this.describeTextChangedHelper(newValue, newStart, newEnd, 0, 0, '');
     return;
   }
 
@@ -482,7 +478,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
   }
 
   this.describeTextChangedHelper(
-      newValue, newStart, newEnd, prefixLen, suffixLen, '', isPassword);
+      newValue, newStart, newEnd, prefixLen, suffixLen, '');
 };
 
 /**
@@ -499,13 +495,10 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(
  * @param {string} autocompleteSuffix The autocomplete string that was added
  *     to the end, if any. It should be spoken at the end of the utterance
  *     describing the change.
- * @param {boolean} isPassword Whether the text control if a password field.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
-    newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix,
-    isPassword) {
-    
-  if (isPassword) {
+    newValue, newStart, newEnd, prefixLen, suffixLen, autocompleteSuffix) {
+  if (this.isPassword) {
     this.speak('*');
     return;
   }
@@ -726,7 +719,6 @@ cvox.ChromeVoxEditableTextArea.prototype.getLineIndex = function(index) {
   if (!this.shadowIsCurrent) {
     this.updateShadow();
   }
-
   return this.characterToLineMap[index];
 };
 
@@ -781,6 +773,213 @@ cvox.ChromeVoxEditableTextArea.prototype.updateShadow = function() {
   shadow.appendChild(shadowWrap);
 
   var text = this.node.value;
+  var outputHtml = '';
+  var lastWasWhitespace = false;
+  var currentSpan = null;
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    var isWhitespace = this.isWhitespaceChar(ch);
+    if ((isWhitespace != lastWasWhitespace) || i == 0) {
+      currentSpan = document.createElement('span');
+      currentSpan.startIndex = i;
+      shadowWrap.appendChild(currentSpan);
+    }
+    currentSpan.innerText += ch;
+    currentSpan.endIndex = i;
+    lastWasWhitespace = isWhitespace;
+  }
+  if (currentSpan) {
+    currentSpan.endIndex = text.length;
+  } else {
+    currentSpan = document.createElement('span');
+    currentSpan.startIndex = 0;
+    currentSpan.endIndex = 0;
+    shadowWrap.appendChild(currentSpan);
+  }
+
+  this.characterToLineMap = {};
+  this.lines = {};
+  var firstSpan = shadowWrap.childNodes[0];
+  var lineIndex = -1;
+  var lineOffset = -1;
+  for (var n = firstSpan; n; n = n.nextSibling) {
+    if (n.offsetTop > lineOffset) {
+      lineIndex++;
+      this.lines[lineIndex] = {};
+      this.lines[lineIndex].startIndex = n.startIndex;
+      lineOffset = n.offsetTop;
+    }
+    this.lines[lineIndex].endIndex = n.endIndex;
+    for (var j = n.startIndex; j <= n.endIndex; j++) {
+      this.characterToLineMap[j] = lineIndex;
+    }
+  }
+
+  this.shadowIsCurrent = true;
+};
+
+/******************************************/
+
+/**
+ * A subclass of ChromeVoxEditableElement for elements that are contentEditable.
+ * @param {element} node The contentEditable node.
+ * @param {Object} tts A TTS object implementing speak() and stop() methods.
+ * @extends {cvox.ChromeVoxEditableElement}
+ * @constructor
+ */
+cvox.ChromeVoxEditableContentEditable = function(node, tts) {
+  this.node = node;
+  this.value = node.textContent;
+
+  // TODO (clchen): This ignores the case of the selection going across more
+  // than one child node.
+  var sel = window.getSelection();
+  this.currentChildNode = sel.anchorNode;
+  this.start = 0;
+  this.end = 0;
+
+  this.tts = tts;
+  this.multiline = true;
+  this.shadowIsCurrent = false;
+  this.characterToLineMap = {};
+  this.lines = {};
+};
+goog.inherits(cvox.ChromeVoxEditableContentEditable,
+    cvox.ChromeVoxEditableElement);
+
+/**
+ * An offscreen div used to compute the line numbers. A single div is
+ * shared by all instances of the class.
+ */
+cvox.ChromeVoxEditableContentEditable.shadow;
+
+/**
+ * Update the state of the text and selection and describe any changes as
+ * appropriate.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.update = function() {
+  var sel = window.getSelection();
+  var cursorNode = sel.anchorNode;
+
+  if (this.currentChildNode != cursorNode) {
+    this.currentChildNode = cursorNode;
+    this.start = 0;
+    this.end = 0;
+  }
+
+  var cursorOffset = sel.anchorOffset;
+
+  var updatedValue = cursorNode.textContent;
+  var updatedSelectionStart = sel.anchorOffset;
+  var updatedSelectionEnd = sel.focusOffset;
+  var goingBackwards = false;
+
+  // This can be backwards if the user is navigating in reverse. Flip it around.
+  if (updatedSelectionStart > updatedSelectionEnd) {
+    updatedSelectionEnd = sel.anchorOffset;
+    updatedSelectionStart = sel.focusOffset;
+    goingBackwards = true;
+  }
+
+  // TODO (clchen): Fix this! this.value doesn't make sense since
+  // contentEditable doesn't have value!
+  if (updatedValue != this.value) {
+    this.shadowIsCurrent = false;
+  }
+
+  this.changed(
+      updatedValue, updatedSelectionStart, updatedSelectionEnd);
+
+  // Move the start pointer after the change has been processed.
+  if (goingBackwards) {
+    this.start = updatedSelectionStart;
+  } else {
+    this.start = updatedSelectionEnd;
+  }
+};
+
+/**
+ * @return {boolean} True if the object needs to be updated.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.needsUpdate = function() {
+  // TODO: Fix this! Make it agree with the window selection.
+  return (this.value != this.node.textContent ||
+          this.start != this.node.selectionStart ||
+          this.end != this.node.selectionEnd);
+};
+
+/**
+ * Get the line number corresponding to a particular index.
+ * @param {number} index The 0-based character index.
+ * @return {number} The 0-based line number corresponding to that character.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.getLineIndex = function(index) {
+  if (!this.shadowIsCurrent) {
+    this.updateShadow();
+  }
+
+  // TODO: Change this back to using the characterToLineMap once updateShadow
+  // is fixed. Returning 0 all the time is a hack and is not always correct.
+  //return this.characterToLineMap[index];
+  return 0;
+};
+
+/**
+ * Get the start character index of a line.
+ * @param {number} index The 0-based line index.
+ * @return {number} The 0-based index of the first character in this line.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.getLineStart = function(index) {
+  if (!this.shadowIsCurrent) {
+    this.updateShadow();
+  }
+  return this.lines[index].startIndex;
+};
+
+/**
+ * Get the end character index of a line.
+ * @param {number} index The 0-based line index.
+ * @return {number} The 0-based index of the end of this line.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.getLineEnd = function(index) {
+  if (!this.shadowIsCurrent) {
+    this.updateShadow();
+  }
+
+  return this.lines[index].endIndex;
+};
+
+/**
+ * Update the shadow object, an offscreen div used to compute line numbers.
+ * TODO (clchen): Go through this code and make it work for contentEditable.
+ * Currently, it is just a clone of what was there for textArea and it does
+ * is not giving the right results.
+ */
+cvox.ChromeVoxEditableContentEditable.prototype.updateShadow = function() {
+  var shadow = cvox.ChromeVoxEditableContentEditable.shadow;
+  if (!shadow) {
+    shadow = document.createElement('div');
+    document.body.appendChild(shadow);
+    cvox.ChromeVoxEditableContentEditable.shadow = shadow;
+  }
+
+  while (shadow.childNodes.length) {
+    shadow.removeChild(shadow.childNodes[0]);
+  }
+
+  shadow.style.cssText = window.getComputedStyle(this.node, null).cssText;
+  shadow.style.visibility = 'hidden';
+  shadow.style.position = 'absolute';
+  shadow.style.top = -9999;
+  shadow.style.left = -9999;
+
+  var shadowWrap = document.createElement('div');
+  shadow.appendChild(shadowWrap);
+
+  var text = this.node.value;
+  if (!text) {
+    text = this.node.textContent;
+  }
   var outputHtml = '';
   var lastWasWhitespace = false;
   var currentSpan = null;

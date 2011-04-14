@@ -115,12 +115,17 @@ cvox.ChromeVoxKbHandler.getSequenceSwitchKeys = function() {
  * @return {boolean} True if an Enter key event must be passed to the browser.
  */
 cvox.ChromeVoxKbHandler.mustPassEnterKey = function() {
-  return (document.activeElement &&
-      ((document.activeElement.tagName == 'INPUT') ||
+  if (!document.activeElement) {
+    return false;
+  }
+  if (document.activeElement.isContentEditable) {
+    return true;
+  }
+  return (document.activeElement.tagName == 'INPUT') ||
        (document.activeElement.tagName == 'A') ||
        (document.activeElement.tagName == 'SELECT') ||
        (document.activeElement.tagName == 'BUTTON') ||
-       (document.activeElement.tagName == 'TEXTAREA')));
+       (document.activeElement.tagName == 'TEXTAREA');
 };
 
 /**

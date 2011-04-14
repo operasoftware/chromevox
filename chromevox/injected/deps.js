@@ -28,7 +28,7 @@ goog.addDependency('../common/chromevox.js', ['cvox.ChromeVox'], []);
 goog.addDependency('../common/chromevox_json.js', ['cvox.ChromeVoxJSON'], []);
 goog.addDependency('../common/custom_walker.js', ['cvox.CustomWalker'], []);
 goog.addDependency('../common/dom_util.js', ['cvox.DomUtil'], ['cvox.AriaUtil', 'cvox.XpathUtil']);
-goog.addDependency('../common/editable_text.js', ['cvox.ChromeVoxEditableHTMLInput', 'cvox.ChromeVoxEditableTextArea', 'cvox.ChromeVoxEditableTextBase'], ['cvox.DomUtil']);
+goog.addDependency('../common/editable_text.js', ['cvox.ChromeVoxEditableContentEditable', 'cvox.ChromeVoxEditableHTMLInput', 'cvox.ChromeVoxEditableTextArea', 'cvox.ChromeVoxEditableTextBase'], ['cvox.DomUtil']);
 goog.addDependency('../common/extension_bridge.js', ['cvox.ExtensionBridge'], ['cvox.BuildConfig', 'cvox.ChromeVoxJSON']);
 goog.addDependency('../common/focus_util.js', ['cvox.FocusUtil'], []);
 goog.addDependency('../common/interframe.js', ['cvox.Interframe'], ['cvox.ChromeVoxJSON']);

@@ -150,7 +150,7 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
                 ctl.details.value,
                 ctl.details.selectionStart,
                 ctl.details.selectionEnd,
-                ctl.isPassword,
+                ctl.details.isPassword,
                 tts);
       } else {
         cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler = null;
@@ -183,8 +183,7 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
       cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler.changed(
           ctl.details.value,
           ctl.details.selectionStart,
-          ctl.details.selectionEnd,
-          ctl.details.isPassword);
+          ctl.details.selectionEnd);
     }
   });
 };

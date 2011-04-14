@@ -331,7 +331,6 @@ cvox.ChromeVoxEventWatcher.domInsertedEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
   var currentFocus = document.activeElement;
-
   if (currentFocus != cvox.ChromeVoxEventWatcher.currentTextControl) {
     if (cvox.ChromeVoxEventWatcher.currentTextControl) {
       cvox.ChromeVoxEventWatcher.currentTextControl.removeEventListener(
@@ -356,6 +355,11 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
       cvox.ChromeVoxEventWatcher.currentTextHandler =
           new cvox.ChromeVoxEditableTextArea(currentFocus, cvox.ChromeVox.tts);
+    } else if (currentFocus.isContentEditable) {
+      cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
+      cvox.ChromeVoxEventWatcher.currentTextHandler =
+          new cvox.ChromeVoxEditableContentEditable(currentFocus,
+          cvox.ChromeVox.tts);
     }
 
     if (cvox.ChromeVoxEventWatcher.currentTextControl) {
