@@ -307,19 +307,33 @@ cvox.ChromeVoxEventWatcher.selectEventWatcher = function(evt) {
  * Handles DOM insertion events.
  * If the insertion involves an ARIA live region, then speak it if the live
  * region is assertive.
- * TODO (clchen): Add handling of polite live regions; implement it after we
- * have TTS queuing fixed.
  *
  * @param {Object} evt The event to process.
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.domInsertedEventWatcher = function(evt) {
-  if (evt && evt.target && evt.target.hasAttribute &&
-      evt.target.hasAttribute('aria-live')) {
-    var liveRegionValue = evt.target.getAttribute('aria-live');
-    if (liveRegionValue.toLowerCase() == 'assertive') {
-      cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(evt.target), 0, null);
+  if (!evt || !evt.target) {
+    return true;
+  }
+  var node = evt.target;
+  while (node) {
+    if (node.hasAttribute && node.hasAttribute('aria-live')) {
+      var liveRegionValue = node.getAttribute('aria-live');
+      var message = '';
+      if (node.hasAttribute('aria-atomic') &&
+        (node.hasAttribute('aria-atomic') == 'true')) {
+        message = cvox.DomUtil.getText(node);
+      } else {
+        message = cvox.DomUtil.getText(evt.target);
+      }
+      if (liveRegionValue == 'assertive') {
+        cvox.ChromeVox.tts.speak(message, 0, null);
+      } else if (liveRegionValue == 'polite') {
+        cvox.ChromeVox.tts.speak(message, 1, null);
+      }
+      return true;
     }
+    node = node.parentNode;
   }
   return true;
 };

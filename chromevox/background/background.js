@@ -307,6 +307,11 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       var explorerPage = new Object();
       explorerPage.url = 'chromevox/background/kbexplorer.html';
       chrome.tabs.create(explorerPage);
+    } else if (msg.target == 'HelpDocs') {
+      var helpPage = new Object();
+      helpPage.url = 'http://google-axs-chrome.googlecode.com/svn/trunk/' +
+          'chromevox/tutorial/index.html';
+      chrome.tabs.create(helpPage);
     } else if (msg.target == 'Options') {
       if (msg.action == 'getSettings') {
         context.sendSettingsToActiveTab();

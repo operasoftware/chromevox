@@ -72,3 +72,14 @@ cvox.XpathUtil.getLeafNodes = function(rootNode) {
   return results;
 };
 
+/**
+ * Returns whether or not xpath is supported.
+ * @return {boolean} True if xpath is supported.
+ */
+cvox.XpathUtil.xpathSupported = function() {
+  if (typeof(XPathResult) == 'undefined') {
+    return false;
+  }
+  return true;
+};
+

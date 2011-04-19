@@ -415,15 +415,11 @@ cvox.ChromeVoxUserCommands.speakAtLowerPitch = function(lowerPitchStr, queue) {
   // "properties" speech utterance parameter. Specifying what pitch to speak
   // at should live in there.
   cvox.ChromeVox.tts.decreaseProperty('Pitch', false);
-  cvox.ChromeVox.tts.decreaseProperty('Pitch', false);
-  cvox.ChromeVox.tts.decreaseProperty('Pitch', false);
   if (queue) {
     cvox.ChromeVox.tts.speak(lowerPitchStr, queue, null);
   } else {
     cvox.ChromeVox.tts.speak(lowerPitchStr, 0, null);
   }
-  cvox.ChromeVox.tts.increaseProperty('Pitch', false);
-  cvox.ChromeVox.tts.increaseProperty('Pitch', false);
   cvox.ChromeVox.tts.increaseProperty('Pitch', false);
 };
 

@@ -641,6 +641,14 @@ cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
   if (cvox.DomUtil.isLeafNode(targetNode)) {
     return true;
   }
+  if (!cvox.XpathUtil.xpathSupported()) {
+    // If there is no xpath, don't bother trying to do the other checks, just
+    // return false. While this is not strictly correct, it will at least allow
+    // this to fail gracefully in cases where xpath is not available (ie, older
+    // versions of Android) by making it behave the same way as linear DOM
+    // walker.
+    return false;
+  }
   var content = cvox.DomUtil.getText(targetNode);
   if (content.length > cvox.SmartDomWalker.SMARTNAV_MAX_CHARCOUNT) {
     return false;
