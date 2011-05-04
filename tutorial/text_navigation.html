@@ -86,16 +86,17 @@
                 var resultElt = document.getElementById('result');
                 resultElt.innerHTML = '';
                 resultElt.appendChild(advanceNode);
+                advanceNode.focus();
             } else {
                 document.getElementById('result').innerHTML =
-                    'Misspelled fleurppel! Try again.';
+                    'Misspelled fleurppel! Go back to the text box to try again.';
             }
         }
 </script>
 
     <input id="spellbox" title="Type fleurppel here to continue.">
         <input type='button' id='unhide' onclick='validateSpelling()' value='Check Spelling'>
-        <div id='result'>
+        <div id='result' aria-live='assertive'>
         </p>
         </div>
         <a href="item_navigation.html">Skip exercise.</a>
