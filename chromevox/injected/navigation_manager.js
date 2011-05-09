@@ -48,6 +48,7 @@ cvox.ChromeVoxNavigationManager = function() {
   this.choiceWidget = new cvox.ChromeVoxChoiceWidget();
   this.iframeIdMap = {};
   this.nextIframeId = 1;
+  this.currentDialog = null;
   this.addInterframeListener_();
 };
 
@@ -815,18 +816,17 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
       return this.customWalker.getCurrentDescription();
-      break;
+
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
       return this.smartDomWalker.getCurrentDescription();
-      break;
 
-    // Return '' for description part because linear and selection navigation
-    // strategies only generally include text content for the current position.
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
-      return [this.getCurrentContent() + ' ' +
-            cvox.DomUtil.getInformationFromAncestors(
-            this.getChangedAncestors()), ''];
+      return [this.getCurrentContent(),
+              cvox.DomUtil.getInformationFromAncestors(
+                  this.getChangedAncestors())];
 
+    // Return '' for description part because selection navigation
+    // only generally includes text content for the current position.
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
       return [this.getCurrentContent() + ' ' +
             cvox.DomUtil.getInformationFromAncestors(

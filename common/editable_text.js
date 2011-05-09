@@ -119,7 +119,7 @@ cvox.ChromeVoxEditableTextBase.prototype.getDescription = function() {
     }
   } else {
     if (this.node) {
-      speech += cvox.DomUtil.getControlValueAndStateString(this.node);
+      speech += cvox.DomUtil.getControlValueAndStateString(this.node, true);
     } else {
       speech += this.value;
     }
@@ -595,19 +595,9 @@ cvox.ChromeVoxEditableElement.prototype.changed = function(
  * @return {string} The speakable description.
  */
 cvox.ChromeVoxEditableElement.prototype.getDescription = function() {
-  var speech = '';
-
-  if (this.node.title) {
-    speech = cvox.DomUtil.getTitle(this.node) + '. ';
-  }
-
-  // Find the label and use heuristics if there was no title.
-  speech = cvox.DomUtil.getLabel(this.node, (speech.length < 1));
-
   this.justSpokeDescription = true;
 
-  return speech + ' ' +
-      cvox.ChromeVoxEditableTextBase.prototype.getDescription.apply(this);
+  return cvox.ChromeVoxEditableTextBase.prototype.getDescription.apply(this);
 };
 
 /******************************************/
@@ -822,7 +812,7 @@ cvox.ChromeVoxEditableTextArea.prototype.updateShadow = function() {
 
 /**
  * A subclass of ChromeVoxEditableElement for elements that are contentEditable.
- * @param {element} node The contentEditable node.
+ * @param {Element} node The contentEditable node.
  * @param {Object} tts A TTS object implementing speak() and stop() methods.
  * @extends {cvox.ChromeVoxEditableElement}
  * @constructor

@@ -10,14 +10,13 @@ goog.addDependency('../audio/common/abstract_tts_manager.js', ['cvox.AbstractTts
 goog.addDependency('../audio/common/local_earcons_manager.js', ['cvox.LocalEarconsManager'], ['cvox.AbstractEarconsManager']);
 goog.addDependency('../audio/common/local_tts_manager.js', ['cvox.LocalTtsManager'], ['cvox.AbstractTts', 'cvox.AbstractTtsManager']);
 goog.addDependency('../audio/common/remote_earcons_manager.js', ['cvox.RemoteEarconsManager'], ['cvox.AbstractEarconsManager', 'cvox.ExtensionBridge']);
-goog.addDependency('../audio/common/remote_tts_manager.js', ['cvox.RemoteTtsManager'], ['cvox.AbstractTts', 'cvox.AbstractTtsManager']);
+goog.addDependency('../audio/common/remote_tts_manager.js', ['cvox.RemoteTtsManager'], ['cvox.AbstractTtsManager']);
 goog.addDependency('../build/build_config_chrome.js', ['cvox.BuildConfig'], ['cvox.BuildDefs']);
 goog.addDependency('../build/build_defs.js', ['cvox.BuildDefs'], []);
 goog.addDependency('../chromevis/injected/lens.js', ['chromevis.ChromeVisLens'], ['cvox.BuildConfig', 'cvox.ExtensionBridge', 'cvox.SelectionUtil']);
 goog.addDependency('../chromevox/injected/event_watcher.js', ['cvox.ChromeVoxEventWatcher'], ['cvox.ChromeVox', 'cvox.ChromeVoxEditableTextBase', 'cvox.ChromeVoxKbHandler', 'cvox.ChromeVoxUserCommands', 'cvox.DomUtil']);
 goog.addDependency('../chromevox/injected/init.js', ['cvox.ChromeVoxInit'], ['chromevis.ChromeVisLens', 'cvox.AndroidDevTtsEngine', 'cvox.AndroidEarcons', 'cvox.AndroidRelTtsEngine', 'cvox.BuildConfig', 'cvox.ChromeVox', 'cvox.ChromeVoxEventWatcher', 'cvox.ChromeVoxKbHandler', 'cvox.ChromeVoxNavigationManager', 'cvox.ChromeVoxSearch', 'cvox.ExtensionBridge', 'cvox.LocalEarconsManager', 'cvox.LocalTtsManager', 'cvox.RemoteEarconsManager', 'cvox.RemoteTtsManager', 'cvox.TraverseContent']);
 goog.addDependency('../chromevox/injected/keyboard_handler.js', ['cvox.ChromeVoxKbHandler'], ['cvox.ChromeVox', 'cvox.ChromeVoxJSON', 'cvox.ChromeVoxSearch', 'cvox.ChromeVoxUserCommands', 'cvox.KeyUtil']);
-goog.addDependency('../chromevox/injected/main.js', [], ['cvox.ChromeVoxInit']);
 goog.addDependency('../chromevox/injected/navigation_manager.js', ['cvox.ChromeVoxNavigationManager'], ['cvox.ChromeVoxChoiceWidget', 'cvox.DomUtil', 'cvox.Interframe', 'cvox.LinearDomWalker', 'cvox.SelectionUtil', 'cvox.SelectionWalker', 'cvox.SmartDomWalker']);
 goog.addDependency('../chromevox/injected/tools/choice_widget.js', ['cvox.ChromeVoxChoiceWidget'], ['cvox.AbstractEarcons', 'cvox.AbstractTts', 'cvox.ChromeVox']);
 goog.addDependency('../chromevox/injected/tools/search.js', ['cvox.ChromeVoxSearch'], ['cvox.AbstractEarcons', 'cvox.ChromeVox', 'cvox.SelectionUtil', 'cvox.XpathUtil']);

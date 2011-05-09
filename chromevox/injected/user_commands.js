@@ -246,9 +246,13 @@ cvox.ChromeVoxUserCommands.commands['stopSpeech'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['toggleStickyMode'] = function() {
   cvox.ChromeVox.isStickyOn = !cvox.ChromeVox.isStickyOn;
-  cvox.ChromeVoxUserCommands.speakAtLowerPitch(cvox.ChromeVox.isStickyOn ?
-      cvox.ChromeVoxUserCommands.stickyModeEnabledMessage :
-      cvox.ChromeVoxUserCommands.stickyModeDisabledMessage);
+  cvox.ChromeVox.tts.speak(
+      cvox.ChromeVox.isStickyOn ?
+          cvox.ChromeVoxUserCommands.stickyModeEnabledMessage :
+          cvox.ChromeVoxUserCommands.stickyModeDisabledMessage,
+      0,
+      cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
   return false;
 };
 
@@ -368,9 +372,6 @@ cvox.ChromeVoxUserCommands.commands['nop'] = function() {
  * is spoken to the user.
  */
 cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
-  if (cvox.ChromeVox.lens) {
-    cvox.ChromeVox.lens.updateText();
-  }
   var descriptionArray =
       cvox.ChromeVox.navigationManager.getCurrentDescription();
   var contentStr = descriptionArray[0];
@@ -385,42 +386,19 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   }, 0);
   cvox.SelectionUtil.scrollToSelection(window.getSelection());
   cvox.ChromeVox.navigationManager.syncToSelection();
-  if ((messagePrefixStr != '') && (descriptionStr != '')) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(messagePrefixStr);
-    cvox.ChromeVox.tts.speak(contentStr, 1, null);
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(descriptionStr, 1);
-  } else if (messagePrefixStr != '') {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(messagePrefixStr);
-    cvox.ChromeVox.tts.speak(contentStr, 1, null);
-  } else if (descriptionStr != '') {
-    cvox.ChromeVox.tts.speak(contentStr, 0, null);
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(descriptionStr, 1);
-  } else {
-    cvox.ChromeVox.tts.speak(contentStr, 0, null);
+
+  var queueMode = 0;
+  if (messagePrefixStr) {
+    cvox.ChromeVox.tts.speak(
+        messagePrefixStr, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    queueMode = 1;
+  }
+  cvox.ChromeVox.tts.speak(contentStr, queueMode, null);
+  if (descriptionStr != '') {
+    cvox.ChromeVox.tts.speak(
+        descriptionStr, 1, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
   cvox.ChromeVoxUserCommands.playEarcons();
-};
-
-
-/**
- * Speak a string to the user at a lower pitch. This should be used for
- * changing mode commands and other strings that aren't page content.
- *
- * @param {string} lowerPitchStr The string to be spoken to the user at a lower
- * pitch.
- * @param {number=} queue The queuing level. Default is 0.
- */
-cvox.ChromeVoxUserCommands.speakAtLowerPitch = function(lowerPitchStr, queue) {
-  // TODO(rshearer): This can be deprecated when we've implemented the
-  // "properties" speech utterance parameter. Specifying what pitch to speak
-  // at should live in there.
-  cvox.ChromeVox.tts.decreaseProperty('Pitch', false);
-  if (queue) {
-    cvox.ChromeVox.tts.speak(lowerPitchStr, queue, null);
-  } else {
-    cvox.ChromeVox.tts.speak(lowerPitchStr, 0, null);
-  }
-  cvox.ChromeVox.tts.increaseProperty('Pitch', false);
 };
 
 
@@ -516,7 +494,8 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
     errorStr) {
   cvox.ChromeVoxUserCommands.markInUserCommand_();
   if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(errorStr);
+    cvox.ChromeVox.tts.speak(
+        errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   cvox.ChromeVoxUserCommands.finishNavCommand('');
@@ -534,7 +513,8 @@ cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
     errorStr) {
   cvox.ChromeVoxUserCommands.markInUserCommand_();
   if (!cvox.ChromeVox.navigationManager.findPrevious(predicate)) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch(errorStr);
+    cvox.ChromeVox.tts.speak(
+        errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   cvox.ChromeVoxUserCommands.finishNavCommand('');
@@ -657,10 +637,12 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
 cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
   if (cvox.ChromeVoxSearch.isActive()) {
     cvox.ChromeVoxSearch.hide();
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Browse');
+    cvox.ChromeVox.tts.speak(
+        'Browse', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   } else {
     cvox.ChromeVoxSearch.show();
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Search');
+    cvox.ChromeVox.tts.speak(
+        'Search', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
   return false;
 };
@@ -830,7 +812,8 @@ cvox.ChromeVoxUserCommands.commands['enterTable'] = function() {
   if (cvox.ChromeVox.navigationManager.enterTable()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('Inside table ');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No table found.');
+    cvox.ChromeVox.tts.speak(
+        'No table found.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -850,13 +833,15 @@ cvox.ChromeVoxUserCommands.commands['exitTable'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousRow'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   if (cvox.ChromeVox.navigationManager.previousRow()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No cell above.');
+    cvox.ChromeVox.tts.speak(
+        'No cell above.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -866,13 +851,15 @@ cvox.ChromeVoxUserCommands.commands['previousRow'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextRow'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   if (cvox.ChromeVox.navigationManager.nextRow()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No cell below.');
+    cvox.ChromeVox.tts.speak(
+        'No cell below.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -882,13 +869,15 @@ cvox.ChromeVoxUserCommands.commands['nextRow'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousCol'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   if (cvox.ChromeVox.navigationManager.previousCol()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No cell on left.');
+    cvox.ChromeVox.tts.speak(
+        'No cell on left.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -898,13 +887,15 @@ cvox.ChromeVoxUserCommands.commands['previousCol'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextCol'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   if (cvox.ChromeVox.navigationManager.nextCol()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No cell on right.');
+    cvox.ChromeVox.tts.speak(
+        'No cell on right.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -914,7 +905,8 @@ cvox.ChromeVoxUserCommands.commands['nextCol'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var rowHeader = cvox.ChromeVox.navigationManager.getRowHeaderText();
@@ -940,7 +932,8 @@ cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
 
@@ -960,7 +953,8 @@ cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var rowHeader = cvox.ChromeVox.navigationManager.getRowHeaderText();
@@ -980,17 +974,18 @@ cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['guessColHeader'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var colHeader = cvox.ChromeVox.navigationManager.getColHeaderText();
   if (colHeader != '') {
-    cvox.ChromeVox.tts.speak('Col header: ' + colHeader, 0, null);
+    cvox.ChromeVox.tts.speak('Column header: ' + colHeader, 0, null);
   }
   else {
     // No explicit col header, ask for best guess
     var guessColHeader = cvox.ChromeVox.navigationManager.getColHeaderGuess();
-    cvox.ChromeVox.tts.speak('Col header: ' + guessColHeader, 0, null);
+    cvox.ChromeVox.tts.speak('Column header: ' + guessColHeader, 0, null);
   }
 };
 
@@ -1002,7 +997,8 @@ cvox.ChromeVoxUserCommands.commands['skipToBeginning'] = function() {
   if (cvox.ChromeVox.navigationManager.goToFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1014,7 +1010,8 @@ cvox.ChromeVoxUserCommands.commands['skipToEnd'] = function() {
   if (cvox.ChromeVox.navigationManager.goToLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1026,7 +1023,8 @@ cvox.ChromeVoxUserCommands.commands['skipToRowBeginning'] = function() {
   if (cvox.ChromeVox.navigationManager.goToRowFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1038,7 +1036,8 @@ cvox.ChromeVoxUserCommands.commands['skipToRowEnd'] = function() {
   if (cvox.ChromeVox.navigationManager.goToRowLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1050,7 +1049,8 @@ cvox.ChromeVoxUserCommands.commands['skipToColBeginning'] = function() {
   if (cvox.ChromeVox.navigationManager.goToColFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1062,7 +1062,8 @@ cvox.ChromeVoxUserCommands.commands['skipToColEnd'] = function() {
   if (cvox.ChromeVox.navigationManager.goToColLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('Not inside table.');
+    cvox.ChromeVox.tts.speak(
+        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1673,7 +1674,8 @@ cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
 cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
   var actionTaken = cvox.ChromeVox.navigationManager.actOnCurrentItem();
   if (!actionTaken) {
-    cvox.ChromeVoxUserCommands.speakAtLowerPitch('No actions available.');
+    cvox.ChromeVox.tts.speak(
+        'No actions available.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
   return false;
 };
@@ -1686,8 +1688,110 @@ cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
-  cvox.ChromeVoxUserCommands.speakAtLowerPitch('Clicked.');
+  cvox.ChromeVox.tts.speak(
+        'Clicked.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   cvox.DomUtil.clickElem(cvox.ChromeVox.navigationManager.currentNode, false);
+  return false;
+};
+
+
+/**
+ * Show the lens.
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
+  if (cvox.ChromeVox.lens) {
+    cvox.ChromeVox.lens.showLens(true);
+    cvox.ExtensionBridge.send({
+      'target': 'Options',
+      'action': 'setPref',
+      'pref': 'lensVisible',
+      'value': '1'
+    });
+  }
+  return false;
+};
+
+
+/**
+ * Hide the lens.
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['hideLens'] = function() {
+  if (cvox.ChromeVox.lens) {
+    cvox.ChromeVox.lens.showLens(false);
+    cvox.ExtensionBridge.send({
+      'target': 'Options',
+      'action': 'setPref',
+      'pref': 'lensVisible',
+      'value': '0'
+    });
+  }
+  return false;
+};
+
+
+/**
+ * Toggle showing the lens.
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['toggleLens'] = function() {
+  if (cvox.ChromeVox.lens) {
+    if (cvox.ChromeVox.lens.isLensDisplayed()) {
+      cvox.ChromeVoxUserCommands.commands['hideLens']();
+    } else {
+      cvox.ChromeVoxUserCommands.commands['showLens']();
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Float the lens.
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['floatLens'] = function() {
+  try {
+    cvox.ChromeVox.lens.setAnchoredLens(false);
+    cvox.ChromeVox.lens.showLens(false);
+    cvox.ChromeVox.lens.showLens(true);
+  } catch (err) {
+  }
+  cvox.ExtensionBridge.send({
+      'target': 'Options',
+      'action': 'setPref',
+      'pref': 'lensAnchored',
+      'value': '0'
+    });
+
+  return false;
+};
+
+
+/**
+ * Anchor the lens
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['anchorLens'] = function() {
+  try {
+    cvox.ChromeVox.lens.setAnchoredLens(true);
+    cvox.ChromeVox.lens.showLens(false);
+    cvox.ChromeVox.lens.showLens(true);
+  } catch (err) {
+  }
+  cvox.ExtensionBridge.send({
+      'target': 'Options',
+      'action': 'setPref',
+      'pref': 'lensAnchored',
+      'value': '1'
+    });
+
   return false;
 };
 
@@ -1707,7 +1811,8 @@ cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
  */
 cvox.ChromeVoxUserCommands.checkboxPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'checkbox' ||
+    if ((nodes[i].getAttribute &&
+         nodes[i].getAttribute('role') == 'checkbox') ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'checkbox')) {
       return nodes[i];
     }
@@ -1724,7 +1829,7 @@ cvox.ChromeVoxUserCommands.checkboxPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.radioPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'radio' ||
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'radio') ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'radio')) {
       return nodes[i];
     }
@@ -1741,7 +1846,7 @@ cvox.ChromeVoxUserCommands.radioPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.sliderPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'slider' ||
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'slider') ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'range')) {
       return nodes[i];
     }
@@ -1775,7 +1880,7 @@ cvox.ChromeVoxUserCommands.graphicPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.buttonPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'button' ||
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'button') ||
         nodes[i].tagName == 'BUTTON' ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'submit') ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'reset')) {
@@ -1794,7 +1899,9 @@ cvox.ChromeVoxUserCommands.buttonPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.comboBoxPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'combobox' || nodes[i].tagName == 'SELECT') {
+    if ((nodes[i].getAttribute &&
+         nodes[i].getAttribute('role') == 'combobox') ||
+        nodes[i].tagName == 'SELECT') {
       return nodes[i];
     }
   }
@@ -1810,7 +1917,7 @@ cvox.ChromeVoxUserCommands.comboBoxPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.editTextPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'textbox' ||
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'textbox') ||
         nodes[i].tagName == 'TEXTAREA' ||
         (nodes[i].tagName == 'INPUT' &&
         cvox.DomUtil.isInputTypeText(nodes[i]))) {
@@ -1829,7 +1936,8 @@ cvox.ChromeVoxUserCommands.editTextPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.headingPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'heading') {
+      if ((nodes[i].getAttribute &&
+           nodes[i].getAttribute('role') == 'heading')) {
       return nodes[i];
     }
     switch (nodes[i].tagName) {
@@ -1932,7 +2040,8 @@ cvox.ChromeVoxUserCommands.notLinkPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.linkPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'link' || nodes[i].tagName == 'A') {
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'link') ||
+        nodes[i].tagName == 'A') {
       return nodes[i];
     }
   }
@@ -1947,6 +2056,7 @@ cvox.ChromeVoxUserCommands.linkPredicate_ = function(nodes) {
  * @private
  */
 cvox.ChromeVoxUserCommands.tablePredicate_ = function(nodes) {
+  // TODO: support ARIA grid
   return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'TABLE');
 };
 
@@ -1959,7 +2069,9 @@ cvox.ChromeVoxUserCommands.tablePredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.listPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].tagName == 'UL' || nodes[i].tagName == 'OL') {
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'list') ||
+        nodes[i].tagName == 'UL' ||
+        nodes[i].tagName == 'OL') {
       return nodes[i];
     }
   }
@@ -1974,7 +2086,14 @@ cvox.ChromeVoxUserCommands.listPredicate_ = function(nodes) {
  * @private
  */
 cvox.ChromeVoxUserCommands.listItemPredicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'LI');
+  for (var i = 0; i < nodes.length; i++) {
+    if ((nodes[i].getAttribute &&
+         nodes[i].getAttribute('role') == 'listitem') ||
+        nodes[i].tagName == 'LI') {
+      return nodes[i];
+    }
+  }
+  return null;
 };
 
 
@@ -1997,13 +2116,18 @@ cvox.ChromeVoxUserCommands.blockquotePredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.formFieldPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].role == 'button' ||
-        nodes[i].role == 'checkbox' ||
-        nodes[i].role == 'combobox' ||
-        nodes[i].role == 'radio' ||
-        nodes[i].role == 'slider' ||
-        nodes[i].role == 'spinbutton' ||
-        nodes[i].role == 'textbox' ||
+    var tagName = nodes[i].tagName;
+    var role = '';
+    if (nodes[i].getAttribute) {
+      role = nodes[i].getAttribute('role');
+    }
+    if (role == 'button' ||
+        role == 'checkbox' ||
+        role == 'combobox' ||
+        role == 'radio' ||
+        role == 'slider' ||
+        role == 'spinbutton' ||
+        role == 'textbox' ||
         nodes[i].tagName == 'INPUT' ||
         nodes[i].tagName == 'SELECT' ||
         nodes[i].tagName == 'BUTTON') {

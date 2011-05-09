@@ -48,10 +48,13 @@ cvox.ChromeVox.init = function() {
   // Setup globals
   cvox.ChromeVox.isActive = true;
   cvox.ChromeVox.lens = new chromevis.ChromeVisLens();
+  // TODO:(rshearer) Added this multiplier for I/O presentation.
+  cvox.ChromeVox.lens.multiplier = 2.25;
   cvox.ChromeVox.traverseContent = new cvox.TraverseContent();
   cvox.ChromeVox.navigationManager =
       new cvox.ChromeVoxNavigationManager();
   cvox.ChromeVox.tts = cvox.ChromeVox.createTtsManager();
+  cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
   cvox.ChromeVox.earcons = cvox.ChromeVox.createEarconsManager(
       cvox.ChromeVox.tts);
 
@@ -64,14 +67,14 @@ cvox.ChromeVox.init = function() {
   // Load the enhancement script loader
   var enhancementLoaderScript = document.createElement('script');
   enhancementLoaderScript.type = 'text/javascript';
-  enhancementLoaderScript.src = 'http://www.gstatic.com/accessibility/javascript/ext/loader.js';
+  enhancementLoaderScript.src = 'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js';
   document.head.appendChild(enhancementLoaderScript);
 
   // Perform build type specific initialization
   cvox.ChromeVox.performBuildTypeSpecificInitialization();
 
   // Read the settings
-  cvox.ChromeVox.loadKeyBindings();
+  cvox.ChromeVox.loadPrefs();
 
   // Provide a way for modules that can't dependon cvox.ChromeVoxUserCommands
   // to execute commands.
@@ -88,7 +91,7 @@ cvox.ChromeVox.init = function() {
       cvox.ChromeVox.navigationManager.syncToNode(activeElem);
       cvox.ChromeVox.navigationManager.setFocus();
       message = message + '. ' +
-          cvox.DomUtil.getControlValueAndStateString(activeElem);
+          cvox.DomUtil.getControlValueAndStateString(activeElem, true);
     }
     cvox.ChromeVox.tts.speak(message, 0, null);
   }
@@ -153,13 +156,29 @@ cvox.ChromeVox.performBuildTypeSpecificInitialization = function() {
 };
 
 /**
- * Loads the key bindings.
+ * Loads preferences.
  */
-cvox.ChromeVox.loadKeyBindings = function() {
+cvox.ChromeVox.loadPrefs = function() {
   if (BUILD_TYPE == BUILD_TYPE_CHROME) {
     cvox.ExtensionBridge.addMessageListener(function(message) {
-      if (message.keyBindings) {
-        cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message.keyBindings);
+      if (message['keyBindings']) {
+        cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message['keyBindings']);
+      }
+      if (message['prefs']) {
+        var prefs = message['prefs'];
+        if (prefs['lensVisible'] == '1' &&
+            cvox.ChromeVox.lens &&
+            !cvox.ChromeVox.lens.isLensDisplayed()) {
+          cvox.ChromeVox.lens.showLens(true);
+        }
+        if (prefs['lensVisible'] == '0' &&
+            cvox.ChromeVox.lens &&
+            cvox.ChromeVox.lens.isLensDisplayed()) {
+          cvox.ChromeVox.lens.showLens(false);
+        }
+        if (cvox.ChromeVox.lens) {
+          cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == '1');
+        }
       }
     });
   } else if (BUILD_TYPE == BUILD_TYPE_ANDROID ||

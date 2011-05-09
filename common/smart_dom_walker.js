@@ -638,6 +638,9 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
 
 /** @inheritDoc */
 cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
+  if (targetNode.tagName == 'LABEL') {
+    return cvox.DomUtil.isLeafNode(targetNode);
+  }
   if (cvox.DomUtil.isLeafNode(targetNode)) {
     return true;
   }

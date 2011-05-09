@@ -227,3 +227,59 @@ cvox.AriaUtil.isControlWidget = function(targetNode) {
   return false;
 };
 
+/**
+ * Given a node, returns its live region value.
+ *
+ * @param {Node} node The node to be checked.
+ * @return {?string} The live region value, like 'polite' or
+ *     'assertive', or null if none.
+ */
+cvox.AriaUtil.getLiveRegionValue = function(node) {
+  if (!node.hasAttribute)
+    return null;
+  var value = node.getAttribute('aria-live');
+  if (value) {
+    return value;
+  }
+  var role = node.getAttribute('role');
+  switch (role) {
+    case 'alert':
+      return 'assertive';
+    case 'log':
+    case 'status':
+      return 'polite';
+    default:
+      return null;
+  }
+};
+
+/**
+ * Given a node, return all live regions that are either rooted at this
+ * node or contain this node.
+ *
+ * @param {Node} node The node to be checked.
+ * @return {Array.<Element>} All live regions affected by this node changing.
+ */
+cvox.AriaUtil.getLiveRegions = function(node) {
+  var result = [];
+  if (node.querySelectorAll) {
+    var nodes = node.querySelectorAll(
+        '[role="alert"], [role="log"],  [role="marquee"], ' +
+        '[role="status"], [role="timer"],  [aria-live]');
+    if (nodes) {
+      for (var i = 0; i < nodes.length; i++) {
+        result.push(nodes[i]);
+      }
+    }
+  }
+
+  while (node) {
+    if (cvox.AriaUtil.getLiveRegionValue(node)) {
+      result.push(node);
+      return result;
+    }
+    node = node.parentElement;
+  }
+
+  return result;
+};

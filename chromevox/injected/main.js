@@ -44,8 +44,11 @@ function initialize() {
       throw 'Unknown or unsupported build type: ' + BUILD_TYPE;
     }
   } else {
-    goog.writeScriptTag_(chrome.extension.getURL('/closure/base.js'));
-    goog.writeScriptTag_(chrome.extension.getURL('../powerkey-bundle.js'));
+    goog.importScript_(chrome.extension.getURL('/closure/base.js'));
+    goog.importScript_(chrome.extension.getURL('/build/build_defs.js'));
+    goog.importScript_(
+        chrome.extension.getURL('/build/build_config_chrome.js'));
+    goog.importScript_(chrome.extension.getURL('../powerkey-bundle.js'));
     goog.require('cvox.ChromeVoxInit');
   }
 }

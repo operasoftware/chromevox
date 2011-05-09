@@ -50,8 +50,7 @@ cvox.ChromeVoxKbHandler.powerkeyShortcuts = [];
  */
 cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
     keyToFunctionsTable) {
-  console.log('Got keyToFunctionsTable: ' +
-      cvox.ChromeVoxJSON.stringify(keyToFunctionsTable, null, null));
+  console.log('Got keyToFunctionsTable');
   cvox.ChromeVoxKbHandler.keyToFunctionsTable = keyToFunctionsTable;
   cvox.ChromeVox.sequenceSwitchKeyCodes =
       cvox.ChromeVoxKbHandler.getSequenceSwitchKeys();

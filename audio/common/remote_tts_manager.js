@@ -21,7 +21,6 @@
 
 goog.provide('cvox.RemoteTtsManager');
 
-goog.require('cvox.AbstractTts');
 goog.require('cvox.AbstractTtsManager');
 
 if (BUILD_TYPE == BUILD_TYPE_CHROME) {
@@ -53,6 +52,27 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
       properties) {
     cvox.RemoteTtsManager.superClass_.speak.call(this, textString, queueMode,
         properties);
+
+    // Do some preprocessing to make text sound better.
+    var allCapsWords = textString.match(/([A-Z]+)/g);
+    // This is null if there are no such matches.
+    if (allCapsWords) {
+      for (var word, i = 0; word = allCapsWords[i]; i++) {
+        var replacement;
+        // If a word contains vowels and is more than 3 letters long,
+        // it is probably a real word and not just an abbreviation.
+        // Convert it to lower case and speak it normally.
+        if ((word.length > 3) && word.match(/([AEIOUY])/g)) {
+          replacement = word.toLowerCase();
+        } else {
+          // This regex will space out any camelCased/all CAPS words
+          // so they sound better when spoken by TTS engines.
+          replacement = word.replace(/([A-Z])/g, ' $1');
+        }
+        textString = textString.replace(word, replacement);
+      }
+    }
+
     cvox.ExtensionBridge.send(
         {'target': 'TTS',
           'action': 'speak',

@@ -45,10 +45,16 @@ cvox.TraverseContent = function(domObj) {
 };
 
 /**
+ * Whether the last navigated selection only contained whitespace.
+ * @type {boolean}
+ */
+cvox.TraverseContent.prototype.lastSelectionWasWhitespace = false;
+
+/**
  * Whether we should skip whitespace when traversing individual characters.
  * @type {boolean}
  */
-cvox.TraverseContent.prototype.skipWhitespace = true;
+cvox.TraverseContent.prototype.skipWhitespace = false;
 
 /**
  * The maximum number of characters that can be on one line when doing
@@ -143,8 +149,10 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
   // whitespace, ensure that the next returned selection will NOT be
   // only whitespace - otherwise you can get trapped.
   var skipWhitespace = this.skipWhitespace;
-  if (!cvox.SelectionUtil.isSelectionValid(selection))
+
+  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
     skipWhitespace = true;
+  }
 
   var nodesCrossed = [];
   var str;
@@ -182,6 +190,22 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
       return null;
     }
   } while (this.skipInvalidSelections && selection.isCollapsed);
+
+  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
+    // It's OK if the selection navigation lands on whitespace once, but if it
+    // hits whitespace more than once, then skip forward until there is real
+    // content.
+    if (!this.lastSelectionWasWhitespace) {
+      this.lastSelectionWasWhitespace = true;
+    } else {
+      while (!cvox.SelectionUtil.isSelectionValid(
+          selection = window.getSelection())) {
+        this.moveNext(grain);
+      }
+    }
+  } else {
+    this.lastSelectionWasWhitespace = false;
+  }
 
   if (!cvox.DomUtil.isDescendantOfNode(
       selection.focusNode, selection.anchorNode)) {
@@ -263,6 +287,22 @@ cvox.TraverseContent.prototype.movePrev = function(grain) {
       return null;
     }
   } while (this.skipInvalidSelections && selection.isCollapsed);
+
+  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
+    // It's OK if the selection navigation lands on whitespace once, but if it
+    // hits whitespace more than once, then skip forward until there is real
+    // content.
+    if (!this.lastSelectionWasWhitespace) {
+      this.lastSelectionWasWhitespace = true;
+    } else {
+      while (!cvox.SelectionUtil.isSelectionValid(
+          selection = window.getSelection())) {
+        this.movePrev(grain);
+      }
+    }
+  } else {
+    this.lastSelectionWasWhitespace = false;
+  }
 
   if (!cvox.DomUtil.isDescendantOfNode(
       selection.focusNode, selection.anchorNode)) {

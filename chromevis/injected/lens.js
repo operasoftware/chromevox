@@ -234,6 +234,14 @@ chromevis.ChromeVisLens.prototype.showLens = function(show) {
 
 
 /**
+ * @return {boolean} True if the lens is currently shown.
+ */
+chromevis.ChromeVisLens.prototype.isLensDisplayed = function() {
+  return this.isLensDisplayed_;
+};
+
+
+/**
  * Initializes the lens CSS.
  * @private
  */
@@ -386,70 +394,85 @@ chromevis.ChromeVisLens.prototype.updateBubbleLens = function() {
 
 
 /**
+ * Set the lens to the given content, which should be an unparented
+ * <div> html element containing the text to be displayed.
+ * @param {Element} contentElem The element to display in the lens.
+ */
+chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
+  if (!this.isLensDisplayed_) {
+    return;
+  }
+
+  // Need to replace current lens node due to Webkit caching some
+  // display settings between lens changes.
+  chromevis.ChromeVisLens.ACTIVE_DOC = window.document;
+  chromevis.ChromeVisLens.ACTIVE_DOC.body.removeChild(this.lens);
+  this.lens = chromevis.ChromeVisLens.ACTIVE_DOC.createElement('span');
+
+  this.initializeLensCSS_();
+
+  chromevis.ChromeVisLens.ACTIVE_DOC.body.appendChild(this.lens);
+
+  while (this.lens.firstChild) {
+    this.lens.removeChild(this.lens.firstChild);
+  }
+
+  // Style settings
+  contentElem.style.fontFamily = 'Verdana, Arial, Helvetica, sans-serif';
+  contentElem.style.fontWeight = 'normal';
+  contentElem.style.fontStyle = 'normal';
+  contentElem.style.color = this.textColor;
+  contentElem.style.textDecoration = 'none';
+  contentElem.style.textAlign = 'left';
+  contentElem.style.lineHeight = 1.2;
+
+  this.lens.appendChild(contentElem);
+
+  this.magnifyText_();
+  this.padText_();
+  this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
+};
+
+/**
  * Update the text displayed inside the lens.  This is done in response to the
  * selection changing.
  */
 chromevis.ChromeVisLens.prototype.updateText = function() {
-  if (this.isLensDisplayed_) {
-    // Need to replace current lens node due to Webkit caching some
-    // display settings between lens changes.
-    chromevis.ChromeVisLens.ACTIVE_DOC = window.document;
-    chromevis.ChromeVisLens.ACTIVE_DOC.body.removeChild(this.lens);
-    this.lens = chromevis.ChromeVisLens.ACTIVE_DOC.createElement('span');
-
-    this.initializeLensCSS_();
-
-    chromevis.ChromeVisLens.ACTIVE_DOC.body.appendChild(this.lens);
-
-    var sel = window.getSelection();
-    var selectedText = sel.toString();
-
-    if (selectedText == null) {
-      // No selection, but still need to update the lens so it
-      // has a consistent appearance
-      selectedText = '';
-    }
-
-    while (this.lens.firstChild) {
-      this.lens.removeChild(this.lens.firstChild);
-    }
-
-    var clonedNode = document.createElement('div');
-
-    // To preserve new lines in selected text, need to create child div nodes
-    // of the new element.
-    // This also guards against selected text that includes HTML tags.
-    var newSelectedText = '';
-    var childNode = document.createElement('div');
-
-    for (var i = 0; i < selectedText.length; i++) {
-      if ((selectedText.charCodeAt(i) == 10)) {
-        childNode.textContent = newSelectedText;
-        clonedNode.appendChild(childNode);
-        childNode = document.createElement('div');
-        newSelectedText = '';
-      } else {
-        newSelectedText = newSelectedText + selectedText.charAt(i);
-      }
-    }
-    childNode.textContent = newSelectedText;
-    clonedNode.appendChild(childNode);
-
-    // Style settings
-    clonedNode.style.fontFamily = 'Verdana, Arial, Helvetica, sans-serif';
-    clonedNode.style.fontWeight = 'normal';
-    clonedNode.style.fontStyle = 'normal';
-    clonedNode.style.color = this.textColor;
-    clonedNode.style.textDecoration = 'none';
-    clonedNode.style.textAlign = 'left';
-    clonedNode.style.lineHeight = 1.2;
-
-    this.lens.appendChild(clonedNode);
-
-    this.magnifyText_();
-    this.padText_();
-    this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
+  if (!this.isLensDisplayed_) {
+    return;
   }
+
+  var sel = window.getSelection();
+  var selectedText = sel.toString();
+
+  if (selectedText == null) {
+    // No selection, but still need to update the lens so it
+    // has a consistent appearance
+    selectedText = '';
+  }
+
+  var clonedNode = document.createElement('div');
+
+  // To preserve new lines in selected text, need to create child div nodes
+  // of the new element.
+  // This also guards against selected text that includes HTML tags.
+  var newSelectedText = '';
+  var childNode = document.createElement('div');
+
+  for (var i = 0; i < selectedText.length; i++) {
+    if ((selectedText.charCodeAt(i) == 10)) {
+      childNode.textContent = newSelectedText;
+      clonedNode.appendChild(childNode);
+      childNode = document.createElement('div');
+      newSelectedText = '';
+    } else {
+      newSelectedText = newSelectedText + selectedText.charAt(i);
+    }
+  }
+  childNode.textContent = newSelectedText;
+  clonedNode.appendChild(childNode);
+
+  this.setLensContent(clonedNode);
 };
 
 

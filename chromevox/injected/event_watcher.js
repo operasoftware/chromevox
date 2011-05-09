@@ -111,8 +111,8 @@ cvox.ChromeVoxEventWatcher.addEventListeners = function() {
       'change', cvox.ChromeVoxEventWatcher.changeEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(
       'select', cvox.ChromeVoxEventWatcher.selectEventWatcher, true);
-  cvox.ChromeVoxEventWatcher.addEventListener_('DOMNodeInserted',
-      cvox.ChromeVoxEventWatcher.domInsertedEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_('DOMSubtreeModified',
+      cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher, true);
 };
 
 /**
@@ -158,26 +158,49 @@ cvox.ChromeVoxEventWatcher.getLastFocusedNode = function() {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
+  if (evt.target &&
+      evt.target.hasAttribute &&
+      evt.target.getAttribute('aria-hidden') == 'true') {
+    cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
+    cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+    return true;
+  }
+
   cvox.ChromeVoxEventWatcher.lastFocusedNode = evt.target;
   if (cvox.ChromeVoxEventWatcher.handleTextChanged(false)) {
     return true;
   }
   if (evt.target) {
     var target = /** @type {Element} */(evt.target);
+
+    var textToSpeak = '';
     if (cvox.DomUtil.isControl(target)) {
       cvox.ChromeVoxEventWatcher.lastFocusedNodeValue =
-          cvox.DomUtil.getControlValueAndStateString(target);
-      if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
-        cvox.ChromeVox.tts.speak(
-            cvox.ChromeVoxEventWatcher.lastFocusedNodeValue, 0, null);
-      }
-    } else if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
-      cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(target), 0, null);
+          cvox.DomUtil.getControlValueAndStateString(target, false);
     }
 
-    if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
-      cvox.ChromeVox.navigationManager.syncToNode(target);
+    if (cvox.ChromeVoxUserCommands.isInUserCommand()) {
+      return true;
     }
+
+    if (cvox.DomUtil.isControl(target)) {
+      textToSpeak = cvox.DomUtil.getControlValueAndStateString(target, true);
+    } else {
+      textToSpeak = cvox.DomUtil.getText(target);
+    }
+
+    var dialogInfo = cvox.ChromeVoxEventWatcher.handleDialogFocus(target);
+    if (dialogInfo) {
+      textToSpeak = dialogInfo + ' ' + textToSpeak;
+    }
+
+    cvox.ChromeVox.tts.speak(textToSpeak, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.DomUtil.getBasicNodeRole(target),
+        1,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
+    cvox.ChromeVox.navigationManager.syncToNode(target);
   } else {
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
   }
@@ -215,6 +238,12 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
   evt.cvoxKey = cvox.ChromeVoxEventWatcher.cvoxKey;
   evt.stickyMode = cvox.ChromeVox.isStickyOn;
 
+  setTimeout(function() {
+    if (document.activeElement == evt.target) {
+      cvox.ChromeVoxEventWatcher.handleControlChanged(evt.target);
+    }
+  }, 0);
+
   cvox.ChromeVoxEventWatcher.eventToEat = null;
   if (!cvox.ChromeVoxKbHandler.basicKeyDownActionsListener(evt) ||
           cvox.ChromeVoxEventWatcher.handleControlAction(evt)) {
@@ -228,11 +257,6 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
     return false;
   }
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
-  setTimeout(function() {
-    if (document.activeElement == evt.target) {
-      cvox.ChromeVoxEventWatcher.handleControlChanged(evt.target);
-    }
-  }, 0);
   return true;
 };
 
@@ -304,38 +328,48 @@ cvox.ChromeVoxEventWatcher.selectEventWatcher = function(evt) {
 };
 
 /**
- * Handles DOM insertion events.
- * If the insertion involves an ARIA live region, then speak it if the live
- * region is assertive.
+ * Handles DOM subtree modified events.
+ * If the change involves an ARIA live region, then speak it.
  *
  * @param {Object} evt The event to process.
  * @return {boolean} True if the default action should be performed.
  */
-cvox.ChromeVoxEventWatcher.domInsertedEventWatcher = function(evt) {
+cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher = function(evt) {
   if (!evt || !evt.target) {
     return true;
   }
   var node = evt.target;
-  while (node) {
-    if (node.hasAttribute && node.hasAttribute('aria-live')) {
-      var liveRegionValue = node.getAttribute('aria-live');
-      var message = '';
-      if (node.hasAttribute('aria-atomic') &&
-        (node.hasAttribute('aria-atomic') == 'true')) {
-        message = cvox.DomUtil.getText(node);
-      } else {
-        message = cvox.DomUtil.getText(evt.target);
-      }
-      if (liveRegionValue == 'assertive') {
-        cvox.ChromeVox.tts.speak(message, 0, null);
-      } else if (liveRegionValue == 'polite') {
-        cvox.ChromeVox.tts.speak(message, 1, null);
-      }
-      return true;
-    }
-    node = node.parentNode;
+  var regions = cvox.AriaUtil.getLiveRegions(node);
+  for (var i = 0; i < regions.length; i++) {
+    cvox.ChromeVoxEventWatcher.speakChangedLiveRegion(regions[i], node);
   }
   return true;
+};
+
+/**
+ * Speak the contents of a live region that changed value.
+ * TODO: this is sometimes too verbose! If content is deleted we shouldn't
+ * say anything, and if two descendants change we should only speak those,
+ * not all descendants of the root of the DOMSubtreeModified event.
+ *
+ * @param {Node} node The live region node that changed.
+ * @param {Node} target The specific node that changed, if different.
+ */
+cvox.ChromeVoxEventWatcher.speakChangedLiveRegion = function(node, target) {
+  var liveRegionValue = cvox.AriaUtil.getLiveRegionValue(node);
+  var message = '';
+  if (!target ||
+      (node.hasAttribute('aria-atomic') &&
+       node.getAttribute('aria-atomic') == 'true')) {
+    message = cvox.DomUtil.getText(node);
+  } else {
+    message = cvox.DomUtil.getText(target);
+  }
+  if (liveRegionValue == 'assertive') {
+    cvox.ChromeVox.tts.speak(message, 0, null);
+  } else if (liveRegionValue == 'polite') {
+    cvox.ChromeVox.tts.speak(message, 1, null);
+  }
 };
 
 /**
@@ -345,6 +379,12 @@ cvox.ChromeVoxEventWatcher.domInsertedEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
   var currentFocus = document.activeElement;
+  if (currentFocus &&
+      currentFocus.hasAttribute &&
+      currentFocus.getAttribute('aria-hidden') == 'true') {
+    currentFocus = null;
+  }
+
   if (currentFocus != cvox.ChromeVoxEventWatcher.currentTextControl) {
     if (cvox.ChromeVoxEventWatcher.currentTextControl) {
       cvox.ChromeVoxEventWatcher.currentTextControl.removeEventListener(
@@ -384,8 +424,10 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
       cvox.ChromeVoxEventWatcher.currentTextHandler.describe();
       window.setTimeout(cvox.ChromeVoxEventWatcher.textTimer,
                         cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS);
-      cvox.ChromeVox.navigationManager.syncToNode(
-          cvox.ChromeVoxEventWatcher.currentTextControl);
+      if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+        cvox.ChromeVox.navigationManager.syncToNode(
+            cvox.ChromeVoxEventWatcher.currentTextControl);
+      }
     }
 
     return (null != cvox.ChromeVoxEventWatcher.currentTextHandler);
@@ -438,7 +480,7 @@ cvox.ChromeVoxEventWatcher.textTimer = function() {
  * @param {Element} control The target control.
  */
 cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
-  var newValue = cvox.DomUtil.getControlValueAndStateString(control);
+  var newValue = cvox.DomUtil.getControlValueAndStateString(control, false);
 
   if (control != cvox.ChromeVoxEventWatcher.lastFocusedNode) {
     cvox.ChromeVoxEventWatcher.lastFocusedNode = control;
@@ -474,6 +516,11 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
       default:
         break;
     }
+  }
+
+  // Always announce changes for anything with an ARIA role.
+  if (control.hasAttribute && control.hasAttribute('role')) {
+    announceChange = true;
   }
 
   if (announceChange && !cvox.ChromeVoxUserCommands.isInUserCommand()) {
@@ -532,3 +579,54 @@ cvox.ChromeVoxEventWatcher.handleControlAction = function(evt) {
   return false;
 };
 
+/**
+ * When an element receives focus, see if we've entered or left a dialog
+ * and return a string describing the event.
+ *
+ * @param {Element} target The element that just received focus.
+ * @return {?string} The description of the dialog event, or null if a
+ *     dialog was not involved in this focus.
+ */
+cvox.ChromeVoxEventWatcher.handleDialogFocus = function(target) {
+  var dialog = target;
+  while (dialog) {
+    if (dialog.hasAttribute) {
+      var role = dialog.getAttribute('role');
+      if (role == 'dialog' || role == 'alertdialog') {
+        break;
+      }
+    }
+    dialog = dialog.parentElement;
+  }
+
+  if (dialog == cvox.ChromeVox.navigationManager.currentDialog) {
+    return null;
+  }
+
+  if (cvox.ChromeVox.navigationManager.currentDialog && !dialog) {
+    // If exiting a dialog, delay a bit in case the page is managing focus
+    // and moves focus immediately back to the dialog.  After the delay,
+    // if the focus is still outside the dialog, queue a message that the
+    // dialog was exited.
+    window.setTimeout(function() {
+      if (!cvox.DomUtil.isDescendantOfNode(
+              document.activeElement,
+              cvox.ChromeVox.navigationManager.currentDialog)) {
+        cvox.ChromeVox.navigationManager.currentDialog = null;
+        cvox.ChromeVox.tts.speak('Exiting dialog.', 1, null);
+      }
+    }, 100);
+    return null;
+  } else {
+    cvox.ChromeVox.navigationManager.currentDialog = dialog;
+    if (dialog.getAttribute('role') == 'alertdialog') {
+      // If it's an alert dialog, also queue up the text of the dialog.
+      window.setTimeout(function() {
+        cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(dialog), 1, null);
+      }, 0);
+    }
+    return 'Entering dialog ' +
+          cvox.DomUtil.getLabel(dialog, false) + ' ' +
+          cvox.DomUtil.getTitle(dialog) + '.';
+  }
+};

@@ -69,21 +69,3 @@ cvox.AbstractTtsManager.prototype.decreaseProperty = function(
         property_name + ')');
   }
 };
-
-/**
- * TTS rate property.
- * @type {string}
- */
-cvox.AbstractTtsManager.TTS_PROPERTY_RATE = 'Rate';
-
-/**
- * TTS pitch property.
- * @type {string}
- */
-cvox.AbstractTtsManager.TTS_PROPERTY_PITCH = 'Pitch';
-
-/**
- * TTS volume property.
- * @type {string}
- */
-cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME = 'Volume';

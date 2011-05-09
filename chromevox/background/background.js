@@ -24,11 +24,8 @@ goog.require('cvox.BuildConfig');
 
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxAccessibilityApiHandler');
-goog.require('cvox.ChromeVoxChromeOsTtsEngine');
+goog.require('cvox.ChromeVoxChromeNativeTtsEngine');
 goog.require('cvox.ChromeVoxEarcons');
-goog.require('cvox.ChromeVoxEmacspeakTtsServerEngine');
-goog.require('cvox.ChromeVoxExtensionTtsEngine');
-goog.require('cvox.ChromeVoxLocalTtsServerEngine');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.LocalEarconsManager');
 goog.require('cvox.LocalTtsManager');
@@ -46,9 +43,22 @@ cvox.ChromeVoxBackground = function() {
 
 
 /**
+ * The default value of all preferences stored in localStorage.
+ * @const
+ * @type {Object}
+ */
+cvox.ChromeVoxBackground.DEFAULT_PREFS = {
+  'lensVisible': 0,
+  'lensAnchored': 1
+};
+
+
+/**
  * Initialize the background page: set up TTS and bridge listeners.
  */
 cvox.ChromeVoxBackground.prototype.init = function() {
+  this.loadPrefs();
+
   var stkyKey = cvox.ChromeVox.stickyKeyStr;
   var stkyKeyCode = cvox.ChromeVox.stickyKeyCode;
   var mod1 = cvox.ChromeVox.modKeyStr;
@@ -100,6 +110,13 @@ cvox.ChromeVoxBackground.prototype.init = function() {
       ['decreaseTtsVolume', 'Decrease speech volume']; // '['
   keyMap[(mod1 + '+#221')] =
       ['increaseTtsVolume', 'Increase speech volume']; // ']'
+
+  // Lens
+  keyMap[(mod1 + '+L>E')] = ['showLens', 'Show lens']; //'L' > 'E'
+  keyMap[(mod1 + '+L>#8')] = ['hideLens', 'Hide lens']; // 'L' > 'Backspace'
+  keyMap[(mod1 + '+L>L')] = ['toggleLens', 'Toggle lens']; // 'L' > 'L'
+  keyMap[(mod1 + '+L>A')] = ['anchorLens', 'Anchor lens at top']; //'L' > 'A'
+  keyMap[(mod1 + '+L>F')] = ['floatLens', 'Float lens near text']; // 'L' > 'F'
 
   // Mode commands
   keyMap[(mod1 + '+T>E')] = ['enterTable', 'Enter table']; //'T' > 'E'
@@ -196,6 +213,7 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   keyMap[(mod1 + '+P>U')] = ['previousButton', 'Previous button'];
   keyMap[(mod1 + '+N>X')] = ['nextCheckbox', 'Next checkbox'];
   keyMap[(mod1 + '+P>X')] = ['previousCheckbox', 'Previous checkbox'];
+  keyMap[(mod1 + '+B>B')] = ['benchmark', 'Debug benchmark'];
 
   localStorage['keyBindings'] = JSON.stringify(keyMap);
 
@@ -209,11 +227,35 @@ cvox.ChromeVoxBackground.prototype.init = function() {
 
 
 /**
+ * For each default pref, add it to localStorage if there wasn't
+ * already a value there.
+ */
+cvox.ChromeVoxBackground.prototype.loadPrefs = function() {
+  for (var key in cvox.ChromeVoxBackground.DEFAULT_PREFS) {
+    if (localStorage[key] === undefined) {
+      localStorage[key] = cvox.ChromeVoxBackground.DEFAULT_PREFS[key];
+    }
+  }
+};
+
+
+/**
+ * @return {Object} A map of all prefs from localStorage.
+ */
+cvox.ChromeVoxBackground.prototype.getPrefs = function() {
+  var prefs = {};
+  for (var key in cvox.ChromeVoxBackground.DEFAULT_PREFS) {
+    prefs[key] = localStorage[key];
+  }
+  return prefs;
+};
+
+
+/**
  * @return {cvox.AbstractTtsManager} New initialized TTS manager.
  */
 cvox.ChromeVoxBackground.prototype.createTtsManager = function() {
-  var ttsEngines = [cvox.ChromeVoxChromeOsTtsEngine,
-    cvox.ChromeVoxEmacspeakTtsServerEngine];
+  var ttsEngines = [cvox.ChromeVoxChromeNativeTtsEngine];
   return new cvox.LocalTtsManager(ttsEngines, null);
 };
 
@@ -228,11 +270,31 @@ cvox.ChromeVoxBackground.prototype.createEarconsManager = function(ttsManager) {
 
 
 /**
- * Send all of the settings to all active tabs.
+ * Send all of the settings to the current active tab.
  */
 cvox.ChromeVoxBackground.prototype.sendSettingsToActiveTab = function() {
-  cvox.ExtensionBridge.send({'keyBindings':
-        JSON.parse(localStorage['keyBindings'])});
+  cvox.ExtensionBridge.send({
+      'keyBindings': JSON.parse(localStorage['keyBindings']),
+      'prefs': this.getPrefs()});
+};
+
+
+/**
+ * Send all of the settings to all tabs.
+ */
+cvox.ChromeVoxBackground.prototype.sendSettingsToAllTabs = function() {
+  var context = this;
+  chrome.windows.getAll({populate: true}, function(windows) {
+    for (var i = 0; i < windows.length; i++) {
+      var tabs = windows[i].tabs;
+      for (var j = 0; j < tabs.length; j++) {
+        var tab = tabs[j];
+        chrome.tabs.sendRequest(tab.id, {
+            'keyBindings': JSON.parse(localStorage['keyBindings']),
+            'prefs': context.getPrefs()});
+      }
+    }
+  });
 };
 
 
@@ -241,8 +303,9 @@ cvox.ChromeVoxBackground.prototype.sendSettingsToActiveTab = function() {
  * @param {Port} port The port representing the connection to a content script.
  */
 cvox.ChromeVoxBackground.prototype.sendSettingsToPort = function(port) {
-  port.postMessage({'keyBindings':
-        JSON.parse(localStorage['keyBindings'])});
+  port.postMessage({
+      'keyBindings': JSON.parse(localStorage['keyBindings']),
+      'prefs': this.getPrefs()});
 };
 
 
@@ -259,22 +322,22 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
     this.ttsManager.nextTtsEngine(true);
   } else if (msg.action == 'increaseRate') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_RATE, msg.modifier);
+        cvox.AbstractTts.RATE, msg.modifier);
   } else if (msg.action == 'decreaseRate') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_RATE, msg.modifier);
+        cvox.AbstractTts.RATE, msg.modifier);
   } else if (msg.action == 'increasePitch') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH, msg.modifier);
+        cvox.AbstractTts.PITCH, msg.modifier);
   } else if (msg.action == 'decreasePitch') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_PITCH, msg.modifier);
+        cvox.AbstractTts.PITCH, msg.modifier);
   } else if (msg.action == 'increaseVolume') {
     this.ttsManager.increaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME, msg.modifier);
+        cvox.AbstractTts.VOLUME, msg.modifier);
   } else if (msg.action == 'decreaseVolume') {
     this.ttsManager.decreaseProperty(
-        cvox.AbstractTtsManager.TTS_PROPERTY_VOLUME, msg.modifier);
+        cvox.AbstractTts.VOLUME, msg.modifier);
   }
 };
 
@@ -299,33 +362,36 @@ cvox.ChromeVoxBackground.prototype.onEarconMessage = function(msg) {
 cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
   var context = this;
   cvox.ExtensionBridge.addMessageListener(function(msg, port) {
-    if (msg.target == 'BookmarkManager') {
+    if (msg['target'] == 'BookmarkManager') {
       var createDataObj = new Object();
       createDataObj.url = 'chromevox/background/bookmark_manager.html';
       chrome.windows.create(createDataObj);
-    } else if (msg.target == 'KbExplorer') {
+    } else if (msg['target'] == 'KbExplorer') {
       var explorerPage = new Object();
       explorerPage.url = 'chromevox/background/kbexplorer.html';
       chrome.tabs.create(explorerPage);
-    } else if (msg.target == 'HelpDocs') {
+    } else if (msg['target'] == 'HelpDocs') {
       var helpPage = new Object();
       helpPage.url = 'http://google-axs-chrome.googlecode.com/svn/trunk/' +
-          'chromevox/tutorial/index.html';
+          'chromevox_tutorial/index.html';
       chrome.tabs.create(helpPage);
-    } else if (msg.target == 'Options') {
-      if (msg.action == 'getSettings') {
+    } else if (msg['target'] == 'Options') {
+      if (msg['action'] == 'getSettings') {
         context.sendSettingsToActiveTab();
-      } else if (msg.action == 'open') {
+      } else if (msg['action'] == 'open') {
         var optionsPage = new Object();
         optionsPage.url = 'chromevox/background/options.html';
         chrome.tabs.create(optionsPage);
+      } else if (msg['action'] == 'setPref') {
+        localStorage[msg['pref']] = msg['value'];
+        context.sendSettingsToAllTabs();
       }
-    } else if (msg.target == 'TTS') {
+    } else if (msg['target'] == 'TTS') {
       context.onTtsMessage(msg);
-    } else if (msg.target == 'EARCON') {
+    } else if (msg['target'] == 'EARCON') {
       context.onEarconMessage(msg);
-    } else if (msg.target == 'KeyBindings') {
-      if (msg.action == 'getBindings') {
+    } else if (msg['target'] == 'KeyBindings') {
+      if (msg['action'] == 'getBindings') {
         context.sendSettingsToPort(port);
       }
     }

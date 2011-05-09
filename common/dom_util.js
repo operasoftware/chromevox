@@ -135,9 +135,6 @@ cvox.DomUtil.isLeafNode = function(node) {
     if (node.tagName == 'AUDIO') {
       return true;
     }
-    if (node.tagName == 'LABEL') {
-      return true;
-    }
     if (node.tagName == 'IFRAME') {
       return true;
     }
@@ -210,7 +207,7 @@ cvox.DomUtil.isDescendantOfNode = function(node, ancestor) {
  *
  * Not recursive.
  *
- * @param {Node} node The node to get the title from.
+ * @param {Node} node The node to get the label from.
  * @param {boolean} useHeuristics Whether or not to use heuristics to guess at
  * the label if one is not explicitly set in the DOM.
  * @return {string} The label of the node.
@@ -228,11 +225,24 @@ cvox.DomUtil.getLabel = function(node, useHeuristics) {
       var labelNode = document.getElementById(labelNodeId);
       label += cvox.DomUtil.getText(labelNode) + ' ';
     }
+  } else if (node.hasAttribute && node.hasAttribute('aria-label')) {
+    label += node.getAttribute('aria-label');
   } else if (node && node.id) {
     var labels = cvox.XpathUtil.evalXPath('//label[@for="' +
         node.id + '"]', document.body);
     if (labels.length > 0) {
       label += cvox.DomUtil.getText(labels[0]) + ' ';
+    }
+  }
+
+  if ((label.length < 1) && cvox.DomUtil.isControl(node)) {
+    var enclosingLabel = node;
+    while (enclosingLabel && enclosingLabel.tagName != 'LABEL') {
+      enclosingLabel = enclosingLabel.parentElement;
+    }
+    if (enclosingLabel && !enclosingLabel.hasAttribute('for')) {
+      // Get all text from the label but don't include any controls.
+      label += cvox.DomUtil.getText(enclosingLabel, true) + ' ';
     }
   }
 
@@ -267,7 +277,7 @@ cvox.DomUtil.getLabel = function(node, useHeuristics) {
       prevNode = cvox.DomUtil.previousLeafNode(prevNode);
       prevTraversalCount++;
     }
-    var nextNode = cvox.DomUtil.previousLeafNode(node);
+    var nextNode = cvox.DomUtil.nextLeafNode(node);
     var nextTraversalCount = 0;
     while (nextNode && (!cvox.DomUtil.hasContent(nextNode) ||
         cvox.DomUtil.isControl(nextNode))) {
@@ -415,9 +425,10 @@ cvox.DomUtil.getValue = function(node) {
  * of any node that doesn't have either a value or title.
 
  * @param {Node} node The node to extract the text from.
+ * @param {boolean=} excludeControls If true, excludes any controls.
  * @return {string} The text of the node.
  */
-cvox.DomUtil.getText = function(node) {
+cvox.DomUtil.getText = function(node, excludeControls) {
   var title = cvox.DomUtil.getTitle(node);
   var value = cvox.DomUtil.getValue(node);
   if (title.length == 0) {
@@ -431,9 +442,14 @@ cvox.DomUtil.getText = function(node) {
     text = title;
   } else if (value) {
     text = value;
-  } else if (!cvox.DomUtil.isControl(node)) {
+  }
+
+  if (!cvox.DomUtil.isControl(node)) {
     for (var i = 0; i < node.childNodes.length; i++) {
       var child = node.childNodes[i];
+      if (excludeControls && cvox.DomUtil.isControl(child)) {
+        continue;
+      }
       var childStyle = window.getComputedStyle(child, null);
       if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
           !cvox.AriaUtil.isHidden(node)) {
@@ -555,6 +571,29 @@ cvox.DomUtil.hasContent = function(node) {
   // We always want to try to jump into an iframe.
   if (node.tagName == 'IFRAME') {
     return true;
+  }
+
+  // Skip any non-control content inside of a label if the label is
+  // correctly associated with a control, the label text will get spoken
+  // when the control is reached.
+  var enclosingLabel = node.parentElement;
+  while (enclosingLabel && enclosingLabel.tagName != 'LABEL') {
+    enclosingLabel = enclosingLabel.parentElement;
+  }
+  if (enclosingLabel) {
+    var embeddedControl = enclosingLabel.querySelector(
+        'button,input,select,textarea');
+    if (enclosingLabel.hasAttribute('for')) {
+      var targetId = enclosingLabel.getAttribute('for');
+      var targetNode = document.getElementById(targetId);
+      if (targetNode &&
+          cvox.DomUtil.isControl(targetNode) &&
+          !embeddedControl) {
+        return false;
+      }
+    } else if (embeddedControl) {
+      return false;
+    }
   }
 
   var text = cvox.DomUtil.getText(node);
@@ -728,57 +767,77 @@ cvox.DomUtil.getInformationFromAncestors = function(ancestorsArray) {
 
 
 /**
+ * Return whether a node is focusable. This includes nodes whose tabindex
+ * attribute is set to "-1" explicitly - these nodes are not in the tab
+ * order, but they should still be focused if the user navigates to them
+ * using linear or smart DOM navigation.
+ *
+ * Note that when the tabIndex property of an Element is -1, that doesn't
+ * tell us whether the tabIndex attribute is missing or set to "-1" explicitly,
+ * so we have to check the attribute.
+ *
+ * @param {Object} targetNode The node to check if it's focusable.
+ * @return {boolean} True if the node is focusable.
+ */
+cvox.DomUtil.isFocusable = function(targetNode) {
+  if (!targetNode || typeof(targetNode.tabIndex) != 'number') {
+    return false;
+  }
+
+  if (targetNode.tabIndex >= 0) {
+    return true;
+  }
+
+  if (targetNode.hasAttribute &&
+      targetNode.hasAttribute('tabindex') &&
+      targetNode.getAttribute('tabindex') == '-1') {
+    return true;
+  }
+
+  return false;
+};
+
+
+/**
  * Sets the browser focus to the targetNode or its closest ancestor that is
  * able to get focus.
  *
  * @param {Object} targetNode The node to move the browser focus to.
  */
 cvox.DomUtil.setFocus = function(targetNode) {
+  // Save the selection because Chrome will lose it if there's a focus or blur.
+  var sel = window.getSelection();
+  var range;
+  if (sel.rangeCount > 0) {
+    range = sel.getRangeAt(0);
+  }
+
+  // Blur the currently-focused element if the target node is not a
+  // descendant.
   if (document.activeElement &&
       !cvox.DomUtil.isDescendantOfNode(targetNode, document.activeElement)) {
     document.activeElement.blur();
   }
-  while (targetNode && ((typeof(targetNode.tabIndex) == 'undefined') ||
-          (targetNode.tabIndex == -1))) {
-    // If the target is a label for a control, focus the control.
-    if (targetNode.tagName && (targetNode.tagName == 'LABEL')) {
-      if (targetNode.htmlFor && document.getElementById(targetNode.htmlFor)) {
-        targetNode = document.getElementById(targetNode.htmlFor);
-      } else {
-        // Handle the case if a label is wrapping a control
-        var inputElems = targetNode.getElementsByTagName('INPUT');
-        if (inputElems && (inputElems.length > 0)) {
-          // In case there are multiple controls, focus on the first one.
-          // The user can always read through to the next control.
-          targetNode = inputElems[0];
-        } else {
-          // No wrapped controls found. In this case, keep moving
-          // because it means the page author was misusing label
-          // and failed to associate it with anything.
-          targetNode = targetNode.parentNode;
-        }
-      }
-    } else {
-      targetNode = targetNode.parentNode;
-    }
 
+  // Search up the parent chain until a focusable node is found.x
+  while (targetNode && !cvox.DomUtil.isFocusable(targetNode)) {
+    targetNode = targetNode.parentNode;
   }
-  if (targetNode && (typeof(targetNode.tabIndex) != 'undefined') &&
-      (targetNode.tabIndex != -1)) {
+
+  // If we found something focusable, focus it - otherwise, blur it.
+  if (cvox.DomUtil.isFocusable(targetNode)) {
     targetNode.focus();
-  } else {
-    if (document.activeElement && (document.activeElement.tagName != 'BODY')) {
-      // Chrome will lose the selection if there is a blur, even if the blur
-      // does not touch the selection. To work around this, backup the
-      // selection, do the blur, then restore the selection.
-      var sel = window.getSelection();
-      if (sel.rangeCount > 0) {
-        var range = sel.getRangeAt(0);
-        document.activeElement.blur();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    }
+  } else if (document.activeElement &&
+             document.activeElement.tagName != 'BODY') {
+    document.activeElement.blur();
+  }
+
+  // Restore the selection, unless the focused item is a text box.
+  if (cvox.DomUtil.isInputTypeText(targetNode)) {
+    targetNode.select();
+  } else if (range) {
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 };
 
@@ -838,7 +897,7 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   //Clicking on a link does not cause traversal because of script
   //privilege limitations. The traversal has to be done by setting
   //document.location.
-  var href = targetNode.getAttribute('href');
+  var href = targetNode.hasAttribute ? targetNode.getAttribute('href') : '';
   if ((targetNode.tagName == 'A') &&
       href &&
       (href != '#')) {
@@ -861,7 +920,7 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
  * @return {boolean} True if the node is an INPUT with an editable text type.
  */
 cvox.DomUtil.isInputTypeText = function(node) {
-  if (node.constructor != HTMLInputElement) {
+  if (!node || node.constructor != HTMLInputElement) {
     return false;
   }
 
@@ -896,10 +955,11 @@ cvox.DomUtil.isControl = function(node) {
   if (node.tagName) {
     switch (node.tagName) {
       case 'BUTTON':
-      case 'INPUT':
       case 'TEXTAREA':
       case 'SELECT':
         return true;
+      case 'INPUT':
+        return node.type != 'hidden';
     }
   }
   if (node.isContentEditable) {
@@ -957,11 +1017,19 @@ cvox.DomUtil.previousLeafNode = function(node) {
 /**
  * Get a string representing a control's value and state.
  * @param {Element} control A control.
+ * @param {boolean} includeTitleAndLabel If true, includes the title and
+ *     label or the control, if any. Otherwise, only includes the value
+ *     and state, i.e. the part that can change.
  * @return {string} A string representing a control's value and state.
  */
-cvox.DomUtil.getControlValueAndStateString = function(control) {
+cvox.DomUtil.getControlValueAndStateString = function(
+    control, includeTitleAndLabel) {
   var controlValue = cvox.DomUtil.getValue(control);
   var controlState = cvox.DomUtil.getBasicNodeState(control);
+  if (!includeTitleAndLabel) {
+    return controlValue + ' ' + controlState;
+  }
+
   var controlTitle = cvox.DomUtil.getTitle(control);
   var controlLabel = cvox.DomUtil.getLabel(control, false);
   if ((controlTitle.length < 1) && (controlLabel.length < 1)) {
@@ -970,4 +1038,3 @@ cvox.DomUtil.getControlValueAndStateString = function(control) {
   return controlLabel + ' ' + controlTitle + ' ' + controlValue + ' ' +
       controlState;
 };
-

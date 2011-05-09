@@ -13,13 +13,13 @@
 // limitations under the License.
 
 /**
- * @fileoverview Sends Text-To-Speech commands to the TTS that is
- * embedded in ChromeOS.
+ * @fileoverview Sends Text-To-Speech commands to Chrome's native TTS
+ * extension API.
  *
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxChromeOsTtsEngine');
+goog.provide('cvox.ChromeVoxChromeNativeTtsEngine');
 
 goog.require('cvox.AbstractTts');
 goog.require('cvox.ChromeVox');
@@ -28,7 +28,7 @@ goog.require('cvox.ChromeVox');
  * @constructor
  * @extends {cvox.AbstractTts}
  */
-cvox.ChromeVoxChromeOsTtsEngine = function() {
+cvox.ChromeVoxChromeNativeTtsEngine = function() {
   //Inherit AbstractTts
   cvox.AbstractTts.call(this);
   if (cvox.ChromeVox.isChromeOS) {
@@ -43,12 +43,12 @@ cvox.ChromeVoxChromeOsTtsEngine = function() {
   }
   this.ttsProperties.pitch = .5;
 };
-goog.inherits(cvox.ChromeVoxChromeOsTtsEngine, cvox.AbstractTts);
+goog.inherits(cvox.ChromeVoxChromeNativeTtsEngine, cvox.AbstractTts);
 
 /**
  * @return {string} The human-readable name of the speech engine.
  */
-cvox.ChromeVoxChromeOsTtsEngine.prototype.getName = function() {
+cvox.ChromeVoxChromeNativeTtsEngine.prototype.getName = function() {
   return 'Chrome OS Native Speech';
 };
 
@@ -59,9 +59,9 @@ cvox.ChromeVoxChromeOsTtsEngine.prototype.getName = function() {
  *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
  */
-cvox.ChromeVoxChromeOsTtsEngine.prototype.speak = function(
+cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
     textString, queueMode, properties) {
-  cvox.ChromeVoxChromeOsTtsEngine.superClass_.speak.call(this, textString,
+  cvox.ChromeVoxChromeNativeTtsEngine.superClass_.speak.call(this, textString,
       queueMode, properties);
   if (queueMode === cvox.AbstractTts.QUEUE_MODE_FLUSH) {
     this.stop();
@@ -86,16 +86,16 @@ cvox.ChromeVoxChromeOsTtsEngine.prototype.speak = function(
  * Returns true if the TTS is currently speaking.
  * @return {boolean} True if the TTS is speaking.
  */
-cvox.ChromeVoxChromeOsTtsEngine.prototype.isSpeaking = function() {
-  cvox.ChromeVoxChromeOsTtsEngine.superClass_.isSpeaking.call(this);
+cvox.ChromeVoxChromeNativeTtsEngine.prototype.isSpeaking = function() {
+  cvox.ChromeVoxChromeNativeTtsEngine.superClass_.isSpeaking.call(this);
   return chrome.experimental.tts.isSpeaking();
 };
 
 /**
  * Stops speech.
  */
-cvox.ChromeVoxChromeOsTtsEngine.prototype.stop = function() {
-  cvox.ChromeVoxChromeOsTtsEngine.superClass_.stop.call(this);
+cvox.ChromeVoxChromeNativeTtsEngine.prototype.stop = function() {
+  cvox.ChromeVoxChromeNativeTtsEngine.superClass_.stop.call(this);
   chrome.experimental.tts.stop();
 };
 

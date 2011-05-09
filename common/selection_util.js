@@ -153,6 +153,11 @@ cvox.SelectionUtil.findSelPosition = function(sel) {
   }
 
   var clientRect = sel.getRangeAt(0).getBoundingClientRect();
+
+  if (!clientRect) {
+    return [0, 0];
+  }
+
   var top = window.pageYOffset + clientRect.top;
   var left = window.pageXOffset + clientRect.left;
   return [top, left];

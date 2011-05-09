@@ -18,12 +18,66 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-// Tell Closure to load JavaScript code from the extension root directory.
+/**
+ * Tell Closure to load JavaScript code from the extension root directory.
+ * @type {boolean}
+ */
 window.CLOSURE_BASE_PATH = chrome.extension.getURL('/closure/');
 
-// Tell Closure not to load deps.js; it's included by manifest.json already.
+/**
+ * Tell Closure not to load deps.js; it's included by manifest.json already.
+ * @type {boolean}
+ */
 window.CLOSURE_NO_DEPS = true;
 
-// Tell Closure to use a loading mechanism designed for Chrome content
-// scripts.
+/**
+ * Tell Closure to use a loading mechanism designed for Chrome content
+ * scripts.
+ * @type {boolean}
+ */
 window.CHROME_CONTENT_SCRIPT = true;
+
+/**
+ * Array of urls that should be included next, in order.
+ * @type {Array}
+ * @private
+ */
+window.queue_ = [];
+
+/**
+ * Custom function for importing ChromeVox scripts.
+ * @param {string} src The JS file to import.
+ * @return {boolean} Whether the script was imported.
+ */
+window.CLOSURE_IMPORT_SCRIPT = function(src) {
+  // Only run our version of the import script
+  // when trying to inject ChromeVox scripts.
+  if (src.indexOf('chrome-extension://') == 0) {
+    if (!goog.inHtmlDocument_() ||
+        goog.dependencies_.written[src]) {
+      return false;
+    }
+    goog.dependencies_.written[src] = true;
+    function loadNextScript() {
+      if (goog.global.queue_.length == 0)
+        return;
+      var doc = goog.global.document;
+      var scriptElt = document.createElement('script');
+      scriptElt.type = 'text/javascript';
+      scriptElt.src = goog.global.queue_[0];
+      doc.getElementsByTagName('head')[0].appendChild(scriptElt);
+      scriptElt.onload = function() {
+        goog.global.queue_ = goog.global.queue_.slice(1);
+        loadNextScript();
+      };
+    }
+    goog.global.queue_.push(src);
+    if (goog.global.queue_.length == 1) {
+      loadNextScript();
+    }
+    return true;
+  } else {
+    return goog.writeScriptTag_(src);
+  }
+};
+

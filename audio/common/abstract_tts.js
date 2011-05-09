@@ -33,6 +33,8 @@ cvox.AbstractTts = function() {
   //Inherit AbstractLogger
   cvox.AbstractLogger.call(this);
   this.ttsProperties = new Object();
+  this.lens_ = null;
+  this.lensContent_ = document.createElement('div');
 };
 goog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
 
@@ -66,6 +68,23 @@ cvox.AbstractTts.prototype.speak = function(textString, queueMode,
   if (this.logEnabled()) {
     this.log('[' + this.getName() + '] speak(' + textString + ', ' + queueMode +
         (properties ? ', ' + properties.toString() : '') + ')');
+  }
+  if (this.lens_) {
+    if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
+      this.lensContent_ = document.createElement('div');
+    }
+    var lensElem = document.createElement('span');
+    lensElem.innerText = textString;
+    lensElem.style.marginLeft = '1em !important';
+    if (properties && properties[cvox.AbstractTts.COLOR]) {
+      lensElem.style.color = properties[cvox.AbstractTts.COLOR] + ' !important';
+    }
+    if (properties && properties[cvox.AbstractTts.FONT_WEIGHT]) {
+      lensElem.style.fontWeight =
+          properties[cvox.AbstractTts.FONT_WEIGHT] + ' !important';
+    }
+    this.lensContent_.appendChild(lensElem);
+    this.lens_.setLensContent(this.lensContent_);
   }
 };
 
@@ -117,19 +136,19 @@ cvox.AbstractTts.prototype.setDefaultTtsProperties = function(ttsProperties) {
  */
 cvox.AbstractTts.prototype.increaseProperty =
     function(property_name, announce) {
-  if (property_name == cvox.AbstractTts.TTS_PROPERTY_RATE) {
+  if (property_name == cvox.AbstractTts.RATE) {
     this.ttsProperties.rate = this.increasePropertyValue(
         this.ttsProperties.rate);
     if (announce) {
       this.speak(cvox.AbstractTts.str.increaseRate, 0, this.ttsProperties);
     }
-  } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_PITCH) {
+  } else if (property_name == cvox.AbstractTts.PITCH) {
     this.ttsProperties.pitch = this.increasePropertyValue(
         this.ttsProperties.pitch);
     if (announce) {
       this.speak(cvox.AbstractTts.str.increasePitch, 0, this.ttsProperties);
     }
-  } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_VOLUME) {
+  } else if (property_name == cvox.AbstractTts.VOLUME) {
     this.ttsProperties.volume = this.increasePropertyValue(
         this.ttsProperties.volume);
     if (announce) {
@@ -146,19 +165,19 @@ cvox.AbstractTts.prototype.increaseProperty =
  */
 cvox.AbstractTts.prototype.decreaseProperty =
     function(property_name, announce) {
-  if (property_name == cvox.AbstractTts.TTS_PROPERTY_RATE) {
+  if (property_name == cvox.AbstractTts.RATE) {
     this.ttsProperties.rate = this.decreasePropertyValue(
         this.ttsProperties.rate);
     if (announce) {
       this.speak(cvox.AbstractTts.str.decreaseRate, 0, this.ttsProperties);
     }
-  } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_PITCH) {
+  } else if (property_name == cvox.AbstractTts.PITCH) {
     this.ttsProperties.pitch = this.decreasePropertyValue(
         this.ttsProperties.pitch);
     if (announce) {
       this.speak(cvox.AbstractTts.str.decreasePitch, 0, this.ttsProperties);
     }
-  } else if (property_name == cvox.AbstractTts.TTS_PROPERTY_VOLUME) {
+  } else if (property_name == cvox.AbstractTts.VOLUME) {
     this.ttsProperties.volume = this.decreasePropertyValue(
         this.ttsProperties.volume);
     if (announce) {
@@ -169,24 +188,49 @@ cvox.AbstractTts.prototype.decreaseProperty =
 
 
 /**
- * Merges the given properties with the default ones.
+ * Merges the given properties with the default ones. Always returns a
+ * new object, so that you can safely modify the result of mergeProperties
+ * without worrying that you're modifying an object used elsewhere.
  * @param {Object=} properties The properties to merge with the default.
  * @return {Object} The merged properties.
  */
 cvox.AbstractTts.prototype.mergeProperties = function(properties) {
-  if (!properties) {
-    return this.ttsProperties;
-  }
-  // Merge the default properties with the properties from this message,
-  // so that the defaults are always passed along but the message
-  // always overrides.
   var mergedProperties = new Object();
-  for (var p in this.ttsProperties) {
-    mergedProperties[p] = this.ttsProperties[p];
+  var p;
+  if (this.ttsProperties) {
+    for (p in this.ttsProperties) {
+      mergedProperties[p] = this.ttsProperties[p];
+    }
   }
-  for (var p in properties) {
-    mergedProperties[p] = properties[p];
+  if (properties) {
+    var tts = cvox.AbstractTts;
+    if (typeof(properties[tts.VOLUME]) == 'number') {
+      mergedProperties[tts.VOLUME] = properties[tts.VOLUME];
+    }
+    if (typeof(properties[tts.PITCH]) == 'number') {
+      mergedProperties[tts.PITCH] = properties[tts.PITCH];
+    }
+    if (typeof(properties[tts.RATE]) == 'number') {
+      mergedProperties[tts.RATE] = properties[tts.RATE];
+    }
+
+    function mergeRelativeProperty(abs, rel) {
+      if (typeof(properties[rel]) == 'number' &&
+          typeof(mergedProperties[abs]) == 'number') {
+        mergedProperties[abs] += properties[rel];
+        if (mergedProperties[abs] > 1.0) {
+          mergedProperties[abs] = 1.0;
+        } else if (mergedProperties[abs] < 0.0) {
+          mergedProperties[abs] = 0.0;
+        }
+      }
+    }
+
+    mergeRelativeProperty(tts.VOLUME, tts.RELATIVE_VOLUME);
+    mergeRelativeProperty(tts.PITCH, tts.RELATIVE_PITCH);
+    mergeRelativeProperty(tts.RATE, tts.RELATIVE_RATE);
   }
+
   return mergedProperties;
 };
 
@@ -204,6 +248,15 @@ cvox.AbstractTts.prototype.decreasePropertyValue = function(current_value) {
 
 
 /**
+ * Set a chromevis.ChromeVisLens to display any messages spoken via speak().
+ * @param {Object} lens The chromevis.ChromeVisLens object.
+ */
+cvox.AbstractTts.prototype.setLens = function(lens) {
+  this.lens_ = lens;
+};
+
+
+/**
  * Increase by 0.1 the value of a TTS property that's normally in the range
  * 0.0 - 1.0, and make sure it doesn't end up larger than 1.0. Return the
  * new value.
@@ -215,25 +268,80 @@ cvox.AbstractTts.prototype.increasePropertyValue = function(current_value) {
 };
 
 
-/**
- * TTS rate property.
- * @type {string}
- */
-cvox.AbstractTts.TTS_PROPERTY_RATE = 'Rate';
+/** TTS rate property. @type {string} */
+cvox.AbstractTts.RATE = 'rate';
+/** TTS pitch property. @type {string} */
+cvox.AbstractTts.PITCH = 'pitch';
+/** TTS volume property. @type {string} */
+cvox.AbstractTts.VOLUME = 'volume';
+
+/** TTS relative rate property. @type {string} */
+cvox.AbstractTts.RELATIVE_RATE = 'relativeRate';
+/** TTS relative pitch property. @type {string} */
+cvox.AbstractTts.RELATIVE_PITCH = 'relativePitch';
+/** TTS relative volume property. @type {string} */
+cvox.AbstractTts.RELATIVE_VOLUME = 'relativeVolume';
+
+/** TTS color property (for the lens display). @type {string} */
+cvox.AbstractTts.COLOR = 'color';
+/** TTS CSS font-weight property (for the lens display). @type {string} */
+cvox.AbstractTts.FONT_WEIGHT = 'fontWeight';
 
 
 /**
- * TTS pitch property.
- * @type {string}
+ * TTS personality for annotations - text spoken by ChromeVox that
+ * doesn't come from the web page or user interface.
+ * @type {Object}
  */
-cvox.AbstractTts.TTS_PROPERTY_PITCH = 'Pitch';
+cvox.AbstractTts.PERSONALITY_ANNOTATION = {
+  'relativePitch': -0.1,
+  // TODO:(rshearer) Added this color change for I/O presentation.
+  'color': 'yellow'
+};
 
 
 /**
- * TTS volume property.
- * @type {string}
+ * TTS personality for an aside - text in parentheses.
+ * @type {Object}
  */
-cvox.AbstractTts.TTS_PROPERTY_VOLUME = 'Volume';
+cvox.AbstractTts.PERSONALITY_ASIDE = {
+  'relativePitch': -0.1,
+  'color': '#669'
+};
+
+
+/**
+ * TTS personality for quoted text.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_QUOTE = {
+  'relativePitch': 0.1,
+  'color': '#b6b',
+  'fontWeight': 'bold'
+};
+
+
+/**
+ * TTS personality for strong or bold text.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_STRONG = {
+  'relativePitch': 0.1,
+  'color': '#b66',
+  'fontWeight': 'bold'
+};
+
+
+/**
+ * TTS personality for emphasis or italicized text.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_EMPHASIS = {
+  'relativeVolume': 0.1,
+  'relativeRate': -0.1,
+  'color': '#6bb',
+  'fontWeight': 'bold'
+};
 
 
 /**
