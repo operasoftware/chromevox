@@ -228,17 +228,20 @@ cvox.AriaUtil.isControlWidget = function(targetNode) {
 };
 
 /**
- * Given a node, returns its live region value.
+ * Given a node, returns its 'aria-live' value if it's a live region, or
+ * null otherwise.
  *
  * @param {Node} node The node to be checked.
  * @return {?string} The live region value, like 'polite' or
- *     'assertive', or null if none.
+ *     'assertive', or null if 'off' or none.
  */
-cvox.AriaUtil.getLiveRegionValue = function(node) {
+cvox.AriaUtil.getAriaLive = function(node) {
   if (!node.hasAttribute)
     return null;
   var value = node.getAttribute('aria-live');
-  if (value) {
+  if (value == 'off') {
+    return null;
+  } else if (value) {
     return value;
   }
   var role = node.getAttribute('role');
@@ -250,6 +253,77 @@ cvox.AriaUtil.getLiveRegionValue = function(node) {
       return 'polite';
     default:
       return null;
+  }
+};
+
+/**
+ * Given a node, returns its 'aria-atomic' value.
+ *
+ * @param {Node} node The node to be checked.
+ * @return {boolean} The aria-atomic live region value, either true or false.
+ */
+cvox.AriaUtil.getAriaAtomic = function(node) {
+  if (!node.hasAttribute)
+    return false;
+  var value = node.getAttribute('aria-atomic');
+  if (value) {
+    return (value === 'true');
+  }
+  var role = node.getAttribute('role');
+  if (role == 'alert') {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Given a node, returns its 'aria-busy' value.
+ *
+ * @param {Node} node The node to be checked.
+ * @return {boolean} The aria-busy live region value, either true or false.
+ */
+cvox.AriaUtil.getAriaBusy = function(node) {
+  if (!node.hasAttribute)
+    return false;
+  var value = node.getAttribute('aria-busy');
+  if (value) {
+    return (value === 'true');
+  }
+  return false;
+};
+
+/**
+ * Given a node, checks its aria-relevant attribute (with proper inheritance)
+ * and determines whether the given change (additions, removals, text, all)
+ * is relevant and should be announced.
+ *
+ * @param {Node} node The node to be checked.
+ * @param {string} change The name of the change to check - one of
+ *     'additions', 'removals', 'text', 'all'.
+ * @return {boolean} True if that change is relevant to that node as part of
+ *     a live region.
+ */
+cvox.AriaUtil.getAriaRelevant = function(node, change) {
+  if (!node.hasAttribute)
+    return false;
+  var value;
+  if (node.hasAttribute('aria-relevant')) {
+    value = node.getAttribute('aria-relevant');
+  } else {
+    value = 'additions text';
+  }
+  if (value == 'all') {
+    value = 'additions removals text';
+  }
+
+  var tokens = value.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').split(' ');
+
+  if (change == 'all') {
+    return (tokens.indexOf('additions') >= 0 &&
+            tokens.indexOf('text') >= 0 &&
+            tokens.indexOf('removals') >= 0);
+  } else {
+    return (tokens.indexOf(change) >= 0);
   }
 };
 
@@ -274,7 +348,7 @@ cvox.AriaUtil.getLiveRegions = function(node) {
   }
 
   while (node) {
-    if (cvox.AriaUtil.getLiveRegionValue(node)) {
+    if (cvox.AriaUtil.getAriaLive(node)) {
       result.push(node);
       return result;
     }

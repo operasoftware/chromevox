@@ -31,6 +31,7 @@ goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.ExtensionBridge');
+goog.require('cvox.LiveRegions');
 goog.require('cvox.LocalEarconsManager');
 goog.require('cvox.LocalTtsManager');
 goog.require('cvox.RemoteEarconsManager');
@@ -62,6 +63,7 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVoxSearch.init();
 
   // Start the event watchers
+  cvox.LiveRegions.init(new Date());
   cvox.ChromeVoxEventWatcher.addEventListeners();
 
   // Load the enhancement script loader

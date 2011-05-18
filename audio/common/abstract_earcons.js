@@ -15,6 +15,8 @@
 /**
  * @fileoverview Base class for implementing earcons.
  *
+ * When adding earcons, please add them to getEarconName and getEarconId.
+ *
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
@@ -41,6 +43,14 @@ cvox.AbstractEarcons.prototype.playEarcon = function(earcon) {
     this.log('[' + this.getName() + '] playEarcon(' +
         this.getEarconName(earcon) + ')');
   }
+};
+
+/**
+ * Plays the specified earcon sound, given the name of the earcon.
+ * @param {string} earconName The name of the earcon.
+ */
+cvox.AbstractEarcons.prototype.playEarconByName = function(earconName) {
+  this.playEarcon(this.getEarconId(earconName));
 };
 
 /**
@@ -82,6 +92,54 @@ cvox.AbstractEarcons.prototype.getEarconName = function(earcon) {
     this.earconNames.push('WRAP_EDGE');
   }
   return this.earconNames[earcon];
+};
+
+
+/**
+ * @param {string} earconName An earcon name.
+ * @return {number} The earcon ID.
+ */
+cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
+  if (!this.earconNamesToIds) {
+    this.earconNamesToIds = new Object();
+    this.earconNamesToIds['ALERT_MODAL'] = cvox.AbstractEarcons.ALERT_MODAL;
+    this.earconNamesToIds['ALERT_NONMODAL'] =
+        cvox.AbstractEarcons.ALERT_NONMODAL;
+    this.earconNamesToIds['BULLET'] = cvox.AbstractEarcons.BULLET;
+    this.earconNamesToIds['BUSY_PROGRESS_LOOP'] =
+        cvox.AbstractEarcons.BUSY_PROGRESS_LOOP;
+    this.earconNamesToIds['BUSY_WORKING_LOOP'] =
+        cvox.AbstractEarcons.BUSY_WORKING_LOOP;
+    this.earconNamesToIds['BUTTON'] = cvox.AbstractEarcons.BUTTON;
+    this.earconNamesToIds['CHECK_OFF'] = cvox.AbstractEarcons.CHECK_OFF;
+    this.earconNamesToIds['CHECK_ON'] = cvox.AbstractEarcons.CHECK_ON;
+    this.earconNamesToIds['COLLAPSED'] = cvox.AbstractEarcons.COLLAPSED;
+    this.earconNamesToIds['EDITABLE_TEXT'] = cvox.AbstractEarcons.EDITABLE_TEXT;
+    this.earconNamesToIds['ELLIPSIS'] = cvox.AbstractEarcons.ELLIPSIS;
+    this.earconNamesToIds['EXPANDED'] = cvox.AbstractEarcons.EXPANDED;
+    this.earconNamesToIds['FONT_CHANGE'] = cvox.AbstractEarcons.FONT_CHANGE;
+    this.earconNamesToIds['INVALID_KEYPRESS'] =
+        cvox.AbstractEarcons.INVALID_KEYPRESS;
+    this.earconNamesToIds['LINK'] = cvox.AbstractEarcons.LINK;
+    this.earconNamesToIds['LISTBOX'] = cvox.AbstractEarcons.LISTBOX;
+    this.earconNamesToIds['LIST_ITEM'] = cvox.AbstractEarcons.LIST_ITEM;
+    this.earconNamesToIds['NEW_MAIL'] = cvox.AbstractEarcons.NEW_MAIL;
+    this.earconNamesToIds['OBJECT_CLOSE'] = cvox.AbstractEarcons.OBJECT_CLOSE;
+    this.earconNamesToIds['OBJECT_DELETE'] = cvox.AbstractEarcons.OBJECT_DELETE;
+    this.earconNamesToIds['OBJECT_DESELECT'] =
+        cvox.AbstractEarcons.OBJECT_DESELECT;
+    this.earconNamesToIds['OBJECT_OPEN'] = cvox.AbstractEarcons.OBJECT_OPEN;
+    this.earconNamesToIds['OBJECT_SELECT'] = cvox.AbstractEarcons.OBJECT_SELECT;
+    this.earconNamesToIds['PARAGRAPH_BREAK'] =
+        cvox.AbstractEarcons.PARAGRAPH_BREAK;
+    this.earconNamesToIds['SEARCH_HIT'] = cvox.AbstractEarcons.SEARCH_HIT;
+    this.earconNamesToIds['SEARCH_MISS'] = cvox.AbstractEarcons.SEARCH_MISS;
+    this.earconNamesToIds['SECTION'] = cvox.AbstractEarcons.SECTION;
+    this.earconNamesToIds['TASK_SUCCESS'] = cvox.AbstractEarcons.TASK_SUCCESS;
+    this.earconNamesToIds['WRAP'] = cvox.AbstractEarcons.WRAP;
+    this.earconNamesToIds['WRAP_EDGE'] = cvox.AbstractEarcons.WRAP_EDGE;
+  }
+  return this.earconNamesToIds[earconName];
 };
 
 /**

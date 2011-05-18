@@ -71,15 +71,16 @@ cvox.Interframe.init = function() {
     if (event.data.indexOf(cvox.Interframe.IF_MSG_PREFIX) == 0) {
       var suffix = event.data.substr(cvox.Interframe.IF_MSG_PREFIX.length);
       var message = cvox.ChromeVoxJSON.parse(suffix, null);
-      if (message.command == cvox.Interframe.SET_ID) {
-        cvox.Interframe.id = message.id;
+      if (message['command'] == cvox.Interframe.SET_ID) {
+        cvox.Interframe.id = message['id'];
       }
       for (var i = 0, listener; listener = cvox.Interframe.listeners[i]; i++) {
         listener(message);
       }
     }
+    return false;
   };
-  window.addEventListener('message', cvox.Interframe.messageListener, false);
+  window.addEventListener('message', cvox.Interframe.messageListener, true);
 };
 
 /**
@@ -87,7 +88,7 @@ cvox.Interframe.init = function() {
  * normally there's no reason to call this outside of a test.
  */
 cvox.Interframe.shutdown = function() {
-  window.removeEventListener('message', cvox.Interframe.messageListener, false);
+  window.removeEventListener('message', cvox.Interframe.messageListener, true);
 };
 
 /**
@@ -117,7 +118,46 @@ cvox.Interframe.sendMessageToWindow = function(message, window) {
  * @param {HTMLIFrameElement} iframe The iframe to send the message to.
  */
 cvox.Interframe.sendMessageToIFrame = function(message, iframe) {
-  cvox.Interframe.sendMessageToWindow(message, iframe.contentWindow);
+  if (iframe.contentWindow) {
+    cvox.Interframe.sendMessageToWindow(message, iframe.contentWindow);
+    return;
+  }
+
+  // A content script can't access window.parent, but the page can, so
+  // inject a tiny bit of javascript into the page.
+  var encodedMessage = cvox.Interframe.IF_MSG_PREFIX +
+      cvox.ChromeVoxJSON.stringify(message, null, null);
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+
+  if (iframe.hasAttribute('id') &&
+      document.getElementById(iframe.id) == iframe) {
+    // Ideally, try to send it based on the iframe's existing id.
+    script.innerHTML =
+        'document.getElementById(decodeURI(\'' +
+        encodeURI(iframe.id) + '\')).contentWindow.postMessage(decodeURI(\'' +
+        encodeURI(encodedMessage) + '\'), \'*\');';
+  } else {
+    // If not, add a style name and send it based on that.
+    var styleName = 'cvox_iframe' + message['id'];
+    if (iframe.className === '') {
+      iframe.className = styleName;
+    } else if (iframe.className.indexOf(styleName) == -1) {
+      iframe.className += ' ' + styleName;
+    }
+
+    script.innerHTML =
+        'document.getElementsByClassName(decodeURI(\'' +
+        encodeURI(styleName) +
+        '\'))[0].contentWindow.postMessage(decodeURI(\'' +
+        encodeURI(encodedMessage) + '\'), \'*\');';
+  }
+
+  // Remove the script so we don't leave any clutter.
+  document.head.appendChild(script);
+  window.setTimeout(function() {
+    document.head.removeChild(script);
+  }, 1000);
 };
 
 /**
@@ -126,10 +166,23 @@ cvox.Interframe.sendMessageToIFrame = function(message, iframe) {
  * @param {Object} message The message to send.
  */
 cvox.Interframe.sendMessageToParentWindow = function(message) {
-  if (window.parent != window) {
-    message.sourceId = cvox.Interframe.id;
+  if (window.parent == window) {
+    return;
+  }
+
+  message['sourceId'] = cvox.Interframe.id;
+  if (window.parent) {
     cvox.Interframe.sendMessageToWindow(message, window.parent);
   }
+
+  // A content script can't access window.parent, but the page can, so
+  // use window.location.href to execute a simple line of javascript in
+  // the page context.
+  var encodedMessage = cvox.Interframe.IF_MSG_PREFIX +
+      cvox.ChromeVoxJSON.stringify(message, null, null);
+  window.location.href =
+      'javascript:window.parent.postMessage(\'' +
+      encodeURI(encodedMessage) + '\', \'*\');';
 };
 
 /**
@@ -139,9 +192,8 @@ cvox.Interframe.sendMessageToParentWindow = function(message) {
  * @param {HTMLIFrameElement} iframe The iframe to assign.
  */
 cvox.Interframe.sendIdToIFrame = function(id, iframe) {
-  cvox.Interframe.sendMessageToIFrame(
-      {'command': cvox.Interframe.SET_ID, 'id': id},
-       iframe);
+  var message = {'command': cvox.Interframe.SET_ID, 'id': id};
+  cvox.Interframe.sendMessageToIFrame(message, iframe);
 };
 
 cvox.Interframe.init();

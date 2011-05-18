@@ -25,6 +25,7 @@ goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.DomUtil');
+goog.require('cvox.LiveRegions');
 
 /**
  * @constructor
@@ -341,35 +342,9 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher = function(evt) {
   var node = evt.target;
   var regions = cvox.AriaUtil.getLiveRegions(node);
   for (var i = 0; i < regions.length; i++) {
-    cvox.ChromeVoxEventWatcher.speakChangedLiveRegion(regions[i], node);
+    cvox.LiveRegions.updateLiveRegion(regions[i]);
   }
   return true;
-};
-
-/**
- * Speak the contents of a live region that changed value.
- * TODO: this is sometimes too verbose! If content is deleted we shouldn't
- * say anything, and if two descendants change we should only speak those,
- * not all descendants of the root of the DOMSubtreeModified event.
- *
- * @param {Node} node The live region node that changed.
- * @param {Node} target The specific node that changed, if different.
- */
-cvox.ChromeVoxEventWatcher.speakChangedLiveRegion = function(node, target) {
-  var liveRegionValue = cvox.AriaUtil.getLiveRegionValue(node);
-  var message = '';
-  if (!target ||
-      (node.hasAttribute('aria-atomic') &&
-       node.getAttribute('aria-atomic') == 'true')) {
-    message = cvox.DomUtil.getText(node);
-  } else {
-    message = cvox.DomUtil.getText(target);
-  }
-  if (liveRegionValue == 'assertive') {
-    cvox.ChromeVox.tts.speak(message, 0, null);
-  } else if (liveRegionValue == 'polite') {
-    cvox.ChromeVox.tts.speak(message, 1, null);
-  }
 };
 
 /**
