@@ -49,6 +49,7 @@ function initialize() {
     goog.importScript_(
         chrome.extension.getURL('/build/build_config_chrome.js'));
     goog.importScript_(chrome.extension.getURL('../powerkey-bundle.js'));
+    goog.require('cvox.Api');
     goog.require('cvox.ChromeVoxInit');
   }
 }
