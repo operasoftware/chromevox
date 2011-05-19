@@ -39,6 +39,11 @@ cvox.ChromeVoxEventWatcher = function() {
 cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
 
 /**
+ * @type {Object}
+ */
+cvox.ChromeVoxEventWatcher.lastMouseOverNode = null;
+
+/**
  * @type {string?}
  */
 cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
@@ -114,6 +119,8 @@ cvox.ChromeVoxEventWatcher.addEventListeners = function() {
       'select', cvox.ChromeVoxEventWatcher.selectEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_('DOMSubtreeModified',
       cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(
+      'mouseover', cvox.ChromeVoxEventWatcher.mouseOverEventWatcher, true);
 };
 
 /**
@@ -205,6 +212,28 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
   } else {
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
   }
+  return true;
+};
+
+/**
+ * Handles mouseover events.
+ * Mouseover events are only triggered if the user touches the mouse, so
+ * for users who only use the keyboard, this will have no effect.
+ *
+ * @param {Event} evt The mouseover event to process.
+ * @return {boolean} True if the default action should be performed.
+ */
+cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
+  if (evt.target.tagName && (evt.target.tagName == 'BODY')) {
+    cvox.ChromeVoxEventWatcher.lastMouseOverNode = null;
+    return true;
+  }
+  if (!cvox.DomUtil.isDescendantOfNode(
+      cvox.ChromeVoxEventWatcher.lastMouseOverNode, evt.target)) {
+    cvox.DomUtil.setFocus(evt.target);
+    cvox.ChromeVoxEventWatcher.focusEventWatcher(evt);
+  }
+  cvox.ChromeVoxEventWatcher.lastMouseOverNode = evt.target;
   return true;
 };
 
