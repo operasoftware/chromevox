@@ -40,10 +40,10 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.ExtensionBridge');
+cvoxgoog.provide('cvox.ExtensionBridge');
 
-goog.require('cvox.BuildConfig');
-goog.require('cvox.ChromeVoxJSON');
+cvoxgoog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.ChromeVoxJSON');
 
 if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   /**
@@ -79,10 +79,14 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
         return;
       }
     } catch (e) {
-      // Ignore exception that might be raised if we try to access
+      // Ignore exception that will be raised if we try to access
       // chrome.windows from a content script.
     }
 
+    // TODO (clchen, dmazzoni): Find a cleaner way to get here.
+    // Right now, we are relying on the fact that there will be
+    // an exception thrown in the if statement to get to this
+    // part of the code.
     if (chrome && chrome.extension) {
       self.json = JSON;
       self.context = self.CONTENT_SCRIPT;
@@ -219,8 +223,13 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
         self.port.onmessage = function(event) {
           self.backgroundPort.postMessage(self.json.parse(event.data));
         };
+
+        // Stop propagation if it was our message.
+        event.stopPropagation();
+        return false;
       }
-    }, false);
+      return true;
+    }, true);
   };
 
   /**
@@ -228,16 +237,7 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    */
   cvox.ExtensionBridge.setupBackgroundPort = function() {
     var self = cvox.ExtensionBridge;
-    if (window.location.toString().indexOf('chrome-extension://') == 0 &&
-        window.location.toString().indexOf('bdcfgfeioooifpgmbfjpopbcbgdmehnb') == -1) {
-      // If we are connecting from an extension page of another extension,
-      // use cross extension messaging to connect to ChromeVox.
-      self.backgroundPort = chrome.extension.connect('bdcfgfeioooifpgmbfjpopbcbgdmehnb',
-                                                     {name: self.PORT_NAME});
-    } else {
-      self.backgroundPort = chrome.extension.connect({name: self.PORT_NAME});
-    }
-
+    self.backgroundPort = chrome.extension.connect({name: self.PORT_NAME});
     self.backgroundPort.onMessage.addListener(
         function(message) {
           for (var i = 0; i < self.listeners.length; i++) {
@@ -277,7 +277,11 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    * @param {Object} message The message to send.
    */
   cvox.ExtensionBridge.sendContentScriptToBackground = function(message) {
-    cvox.ExtensionBridge.backgroundPort.postMessage(message);
+    if (cvox.ExtensionBridge.backgroundPort) {
+      cvox.ExtensionBridge.backgroundPort.postMessage(message);
+    } else {
+      chrome.extension.sendRequest(message);
+    }
   };
 
   /**
@@ -304,7 +308,7 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
 
   cvox.ExtensionBridge.init();
 } else {
-  if (window.goog == undefined) {
+  if (window.cvoxgoog == undefined) {
     cvox = {};
   }
   cvox.ExtensionBridge = function() {};

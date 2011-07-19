@@ -19,9 +19,9 @@
  */
 
 
-goog.provide('cvox.KeyUtil');
+cvoxgoog.provide('cvox.KeyUtil');
 
-goog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVox');
 
 
 /**

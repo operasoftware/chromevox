@@ -58,7 +58,7 @@ Cursor.prototype.copyFrom = function(otherCursor) {
   this.text = otherCursor.text;
 };
 
-goog.provide('cvox.TraverseUtil');
+cvoxgoog.provide('cvox.TraverseUtil');
 
 
 /**

@@ -20,15 +20,16 @@
  */
 
 
-goog.provide('cvox.ChromeVoxNavigationManager');
+cvoxgoog.provide('cvox.ChromeVoxNavigationManager');
 
-goog.require('cvox.ChromeVoxChoiceWidget');
-goog.require('cvox.DomUtil');
-goog.require('cvox.Interframe');
-goog.require('cvox.LinearDomWalker');
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.SelectionWalker');
-goog.require('cvox.SmartDomWalker');
+cvoxgoog.require('cvox.ChromeVoxChoiceWidget');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.Interframe');
+cvoxgoog.require('cvox.LinearDomWalker');
+cvoxgoog.require('cvox.NavDescription');
+cvoxgoog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.SelectionWalker');
+cvoxgoog.require('cvox.SmartDomWalker');
 
 
 
@@ -92,7 +93,7 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
         return true;
       }
       if (smartNode) {
-        cvox.SelectionUtil.selectAllTextInNode(smartNode);
+        this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
         return true;
       }
@@ -104,7 +105,7 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
         return true;
       }
       if (node) {
-        cvox.SelectionUtil.selectAllTextInNode(node);
+        this.selectAllTextInNode_(node);
         this.currentNode = node;
         return true;
       }
@@ -170,7 +171,7 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
         return true;
       }
       if (smartNode) {
-        cvox.SelectionUtil.selectAllTextInNode(smartNode);
+        this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
         return true;
       }
@@ -182,7 +183,7 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
         return true;
       }
       if (node) {
-        cvox.SelectionUtil.selectAllTextInNode(node);
+        this.selectAllTextInNode_(node);
         this.currentNode = node;
         return true;
       }
@@ -201,7 +202,7 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
         if (selectionNode) {
           this.currentNode = selectionNode;
           this.selectionWalker.setCurrentNode(this.currentNode);
-          cvox.SelectionUtil.selectAllTextInNode(this.currentNode);
+          this.selectAllTextInNode_(this.currentNode);
           cvox.SelectionUtil.collapseToEnd(this.currentNode);
           this.selectionWalker.previous();
           return true;
@@ -254,7 +255,7 @@ cvox.ChromeVoxNavigationManager.prototype.up = function() {
         this.lastUsedNavStrategy = this.currentNavStrategy;
         this.currentNavStrategy =
             cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
-        cvox.SelectionUtil.selectAllTextInNode(this.currentNode);
+        this.selectAllTextInNode_(this.currentNode);
       }
       break;
   }
@@ -297,7 +298,7 @@ cvox.ChromeVoxNavigationManager.prototype.down = function() {
           cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION;
       this.selectionWalker.setCurrentNode(this.currentNode);
       if (!!this.currentNode) {
-        cvox.SelectionUtil.selectAllTextInNode(this.currentNode);
+        this.selectAllTextInNode_(this.currentNode);
         cvox.SelectionUtil.collapseToStart(this.currentNode);
       }
       this.selectionWalker.next();
@@ -328,7 +329,7 @@ cvox.ChromeVoxNavigationManager.prototype.enterTable = function() {
     // Go to the first cell of the table
     var smartNode = this.smartDomWalker.goToFirstCell();
     if (smartNode) {
-      cvox.SelectionUtil.selectAllTextInNode(smartNode);
+      this.selectAllTextInNode_(smartNode);
       this.currentNode = smartNode;
     }
     return true;
@@ -348,7 +349,7 @@ cvox.ChromeVoxNavigationManager.prototype.exitTable = function() {
     // Go to the last cell of the table
     var smartNode = this.smartDomWalker.goToLastCell();
     if (smartNode) {
-      cvox.SelectionUtil.selectAllTextInNode(smartNode);
+      this.selectAllTextInNode_(smartNode);
       this.currentNode = smartNode;
 
       this.next(true);
@@ -583,7 +584,7 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
 
   var smartNode = functionToTry.call(obj);
   if (smartNode) {
-    cvox.SelectionUtil.selectAllTextInNode(smartNode);
+    this.selectAllTextInNode_(smartNode);
     this.currentNode = smartNode;
     return true;
   } else {
@@ -616,7 +617,7 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
   }
 
   if (node) {
-    cvox.SelectionUtil.selectAllTextInNode(node);
+    this.selectAllTextInNode_(node);
     this.currentNode = node;
     this.linearDomWalker.setCurrentNode(this.currentNode);
     this.smartDomWalker.setCurrentNode(this.currentNode);
@@ -650,7 +651,7 @@ cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
   }
 
   if (node) {
-    cvox.SelectionUtil.selectAllTextInNode(node);
+    this.selectAllTextInNode_(node);
     this.currentNode = node;
     this.linearDomWalker.setCurrentNode(this.currentNode);
     this.smartDomWalker.setCurrentNode(this.currentNode);
@@ -728,15 +729,16 @@ cvox.ChromeVoxNavigationManager.prototype.syncToSelection = function() {
   // Only try to sync with the selection if there is a valid selection and
   // if current node is not part of the selection (ie, never sync to something
   // less specific).
-  if (window.getSelection() && window.getSelection().anchorNode &&
-      !cvox.DomUtil.isDescendantOfNode(this.currentNode,
-      window.getSelection().anchorNode)) {
-    this.currentNode = window.getSelection().anchorNode;
+  var sel = window.getSelection();
+  if (sel && (sel.toString().length > 0) &&
+      sel.anchorNode &&
+      !cvox.DomUtil.isDescendantOfNode(this.currentNode, sel.anchorNode)) {
+    this.currentNode = sel.anchorNode;
     // For composite controls, the anchorNode will often fall below the leaf
     // level. Set it to the earliest ancestor that is considered a leaf node.
     var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
     for (var i = 0, node; node = ancestors[i]; i++) {
-      if (cvox.DomUtil.isControl(node)) {
+      if (cvox.DomUtil.isLeafNode(node)) {
         this.currentNode = node;
         break;
       }
@@ -773,31 +775,46 @@ cvox.ChromeVoxNavigationManager.prototype.syncToNode = function(targetNode) {
 
 
 /**
- * Returns only the text content for the current position.
+ * Starts reading the page from the current node.
  *
- * @return {string} The current text content.
+ * @param {number=} queueMode Indicates whether queue mode or flush mode should
+ * be used.
  */
-cvox.ChromeVoxNavigationManager.prototype.getCurrentContent = function() {
-  switch (this.currentNavStrategy) {
-    default:
-    case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
-      return this.customWalker.getCurrentContent();
-      break;
-    case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
-      return this.smartWalker.getCurrentContent();
-      break;
+cvox.ChromeVoxNavigationManager.prototype.startReadingFromNode =
+    function(queueMode) {
+  // TODO (gkonyukh) This function duplicates what api.syncToNode does in terms
+  // of reading the current element description.
+  var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
+  var length = currentDesc.length;
 
-    case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
-      if (this.currentNode !== null) {
-        return cvox.DomUtil.getText(this.currentNode);
-      } else {
-        return '';
-      }
-      break;
+  if (queueMode == undefined) {
+    queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
+  }
 
-    case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
-      return this.selectionWalker.getCurrentContent();
-      break;
+  for (var i = 0; i < length; i++) {
+    if (i == length - 1) {
+      currentDesc[i].speak(queueMode,
+          cvox.ChromeVox.navigationManager.moveOn);
+    } else {
+      currentDesc[i].speak(queueMode);
+    }
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  }
+
+  if (currentDesc.length == 0) {
+    cvox.ChromeVox.navigationManager.moveOn();
+  }
+};
+
+
+/**
+ * Moves current cursor position forward and calls the function to start
+ * reading the current node. Stops when the end of the page is reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.moveOn = function() {
+  if (cvox.ChromeVox.navigationManager.next()) {
+    cvox.ChromeVox.navigationManager.startReadingFromNode(
+        cvox.AbstractTts.QUEUE_MODE_QUEUE);
   }
 };
 
@@ -806,31 +823,24 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentContent = function() {
  * Returns a complete description of the current position, including
  * the text content and annotations such as "link", "button", etc.
  *
- * @return {Array.<string>} The summary of the current position. This is an
- * array of length 2 containing the current text content in the first cell and
- * the description annotations in the second cell in the form [<content>,
- * <description>].
+ * @return {Array.<cvox.NavDescription>} The summary of the current position.
  */
 cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
   switch (this.currentNavStrategy) {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
-      return this.customWalker.getCurrentDescription();
+      return [this.customWalker.getCurrentDescription()];
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
       return this.smartDomWalker.getCurrentDescription();
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
-      return [this.getCurrentContent(),
-              cvox.DomUtil.getInformationFromAncestors(
+      return [cvox.DomUtil.getDescriptionFromAncestors(
                   this.getChangedAncestors())];
 
-    // Return '' for description part because selection navigation
-    // only generally includes text content for the current position.
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
-      return [this.getCurrentContent() + ' ' +
-            cvox.DomUtil.getInformationFromAncestors(
-            this.selectionUniqueAncestors), ''];
+      return [this.selectionWalker.getCurrentDescription(
+                  this.selectionUniqueAncestors)];
   }
 };
 
@@ -905,7 +915,8 @@ cvox.ChromeVoxNavigationManager.prototype.actOnCurrentItem = function() {
         var functions = new Array();
         for (var i = 0, link; link = aNodes[i]; i++) {
           if (cvox.DomUtil.hasContent(link)) {
-            descriptions.push(cvox.DomUtil.getText(link));
+            descriptions.push(cvox.DomUtil.collapseWhitespace(
+                cvox.DomUtil.getName(link)));
             functions.push(cvox.ChromeVoxNavigationManager
                 .createSimpleClickFunction(link));
           }
@@ -932,8 +943,11 @@ cvox.ChromeVoxNavigationManager.prototype.canActOnCurrentItem = function() {
   }
   if (this.currentNavStrategy ==
       cvox.ChromeVoxNavigationManager.STRATEGIES.SMART) {
-    if (this.currentNode && this.currentNode.tagName &&
-        (this.currentNode.tagName == 'A')) {
+    if (!this.currentNode) {
+      // Don't try to do anything if the currentNode is not set.
+      return false;
+    }
+    if (this.currentNode.tagName && (this.currentNode.tagName == 'A')) {
       return true;
     } else {
       var aNodes = this.currentNode.getElementsByTagName('A');
@@ -1138,7 +1152,7 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
     return true;
   }
 
-  if (node == null || node.tagName != 'IFRAME') {
+  if (node == null || node.tagName != 'IFRAME' || !node.src) {
     return false;
   }
 
@@ -1169,4 +1183,24 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
   cvox.Interframe.sendMessageToIFrame(message, iframeElement);
 
   return true;
+};
+
+/**
+ * Select all of the text in a node, unless it's an ARIA composite control
+ * like a listbox where it'd look funny to select the text.
+ * @param {Node} node The node to try to select text.
+ * @private
+ */
+cvox.ChromeVoxNavigationManager.prototype.selectAllTextInNode_ =
+    function(node) {
+  if (cvox.AriaUtil.isCompositeControl(node)) {
+    var newRange = document.createRange();
+    newRange.setStart(node, 0);
+    newRange.setEnd(node, 0);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  } else {
+    cvox.SelectionUtil.selectAllTextInNode(node);
+  }
 };

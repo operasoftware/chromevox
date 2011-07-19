@@ -19,10 +19,11 @@
  */
 
 
-goog.provide('cvox.DomUtil');
+cvoxgoog.provide('cvox.DomUtil');
 
-goog.require('cvox.AriaUtil');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.AriaUtil');
+cvoxgoog.require('cvox.NavDescription');
+cvoxgoog.require('cvox.XpathUtil');
 
 
 
@@ -68,16 +69,19 @@ cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE = {
  */
 cvox.DomUtil.TAG_TO_INFORMATION_TABLE = {
   'A' : 'Link',
+  'BUTTON' : 'Button',
   'H1' : 'Heading 1',
   'H2' : 'Heading 2',
   'H3' : 'Heading 3',
   'H4' : 'Heading 4',
   'H5' : 'Heading 5',
   'H6' : 'Heading 6',
-  'BUTTON' : 'Button',
-  'SELECT' : 'Combo box',
+  'LI' : 'List item',
+  'OL' : 'List',
+  'SELECT' : 'List box',
   'TABLE' : 'Table',
-  'TEXTAREA' : 'Text area'
+  'TEXTAREA' : 'Text area',
+  'UL' : 'List'
 };
 
 
@@ -106,6 +110,25 @@ cvox.DomUtil.isInvisibleStyle = function(style) {
 
 
 /**
+ * Determines whether a control is disabled.
+ *
+ * @param {Node} node The node to be examined.
+ * @return {boolean} Whether or not the node is disabled.
+ *
+ */
+cvox.DomUtil.isDisabled = function(node) {
+  // TODO (gkonyukh) When http://b/issue?id=5021204 is fixed in Chrome, do the
+  // respective fix here. For spec, see http://dev.w3.org/html5/
+  // spec-author-view/attributes-common-to-form-controls.html#attr-fe-disabled
+  if (node.getAttribute('disabled') != null) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
+
+/**
  * Determines whether or not a node is a leaf node.
  *
  * @param {Node} node The node to be checked.
@@ -120,6 +143,9 @@ cvox.DomUtil.isLeafNode = function(node) {
     }
   }
   if (cvox.AriaUtil.isHidden(node)) {
+    return true;
+  }
+  if (cvox.AriaUtil.isLeafNode(node)) {
     return true;
   }
   if (node.tagName) {
@@ -140,6 +166,19 @@ cvox.DomUtil.isLeafNode = function(node) {
     }
     if (node.tagName == 'FRAME') {
       return true;
+    }
+    if (node.tagName == 'A' && node.getAttribute('href')) {
+      var children = node.childNodes;
+      var noChildrenWithContent = true;
+      for (var i = 0; i < children.length; i++) {
+        if (cvox.DomUtil.hasContent(children[i])) {
+          noChildrenWithContent = false;
+          break;
+        }
+      }
+      if (noChildrenWithContent) {
+        return true;
+      }
     }
   }
   if (cvox.DomUtil.isControl(node)) {
@@ -203,165 +242,221 @@ cvox.DomUtil.isDescendantOfNode = function(node, ancestor) {
 
 
 /**
- * Get the label of a node.
- *
- * Not recursive.
- *
- * @param {Node} node The node to get the label from.
- * @param {boolean} useHeuristics Whether or not to use heuristics to guess at
- * the label if one is not explicitly set in the DOM.
- * @return {string} The label of the node.
+ * Remove all whitespace from the beginning and end, and collapse all
+ * inner strings of whitespace to a single space.
+ * @param {string} str The input string.
+ * @return {string} The string with whitespace collapsed.
  */
-cvox.DomUtil.getLabel = function(node, useHeuristics) {
-  var label = '';
-  if (!node) {
-    return '';
+cvox.DomUtil.collapseWhitespace = function(str) {
+  return str.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+};
+
+
+/**
+ * Get the name of a node: this includes all static text content and any
+ * HTML-author-specified label, title, alt text, aria-label, etc. - but
+ * does not include:
+ * - the user-generated control value (use getValue)
+ * - the current state (use getState)
+ * - the role (use getRole)
+ *
+ * Order of precedence:
+ *   Text content if it's a text node.
+ *   aria-labelledby
+ *   aria-label
+ *   alt (for an image)
+ *   title
+ *   label (for a control)
+ *   placeholder (for an input element)
+ *   recursive calls to getName on all children
+ *
+ * @param {Node} node The node to get the name from.
+ * @param {boolean=} recursive Whether or not the element's subtree should
+ *     be used; true by default.
+ * @param {boolean=} includeControls Whether or not controls in the subtree
+ *     should be included; true by default.
+ * @return {string} The name of the node, with whitespace collapsed.
+ */
+cvox.DomUtil.getName = function(node, recursive, includeControls) {
+  if (typeof(recursive) === 'undefined') {
+    recursive = true;
   }
-  // Find any labels that are associated with this text control.
-  // aria-labelledby takes precedence and overrides any label for= elements.
+
+  if (node.constructor == Text) {
+    return cvox.DomUtil.collapseWhitespace(node.data);
+  }
+
+  var label = '';
   if (node.hasAttribute && node.hasAttribute('aria-labelledby')) {
     var labelNodeIds = node.getAttribute('aria-labelledby').split(' ');
     for (var labelNodeId, i = 0; labelNodeId = labelNodeIds[i]; i++) {
       var labelNode = document.getElementById(labelNodeId);
-      label += cvox.DomUtil.getText(labelNode) + ' ';
+      if (labelNode) {
+        label += ' ' + cvox.DomUtil.getName(
+            labelNode, recursive, includeControls);
+      }
     }
   } else if (node.hasAttribute && node.hasAttribute('aria-label')) {
-    label += node.getAttribute('aria-label');
-  } else if (node && node.id) {
+    label = node.getAttribute('aria-label');
+  } else if (node.constructor == HTMLImageElement) {
+    label = cvox.DomUtil.getImageTitle(node);
+  } else if (node.hasAttribute && node.hasAttribute('title')) {
+    label = node.getAttribute('title');
+  }
+
+  if (label.length == 0 && node && node.id) {
     var labels = cvox.XpathUtil.evalXPath('//label[@for="' +
         node.id + '"]', document.body);
     if (labels.length > 0) {
-      label += cvox.DomUtil.getText(labels[0]) + ' ';
+      label = cvox.DomUtil.getName(labels[0], recursive, includeControls);
     }
   }
 
-  if ((label.length < 1) && cvox.DomUtil.isControl(node)) {
+  if (label.length == 0 && cvox.DomUtil.isControl(node)) {
     var enclosingLabel = node;
     while (enclosingLabel && enclosingLabel.tagName != 'LABEL') {
       enclosingLabel = enclosingLabel.parentElement;
     }
     if (enclosingLabel && !enclosingLabel.hasAttribute('for')) {
       // Get all text from the label but don't include any controls.
-      label += cvox.DomUtil.getText(enclosingLabel, true) + ' ';
+      label = cvox.DomUtil.getName(enclosingLabel, true, false);
     }
   }
 
-  // If the node is an ARIA button without an explicit label, then the text of
-  // its child nodes should be treated as its label.
-  if ((label.length < 1) && node.hasAttribute &&
-      (node.getAttribute('role') == 'button')) {
-    for (var i = 0, child; child = node.childNodes[i]; i++) {
-      var childStyle = window.getComputedStyle(child, null);
-      if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
-          !cvox.AriaUtil.isHidden(node)) {
-        label += ' ' + cvox.DomUtil.getText(child);
-      }
-    }
-  }
-
-  // If no description has been found yet and heuristics are enabled,
-  // then try using table heuristics if possible.
-  // TODO (clchen, rshearer): Implement heuristics for getting the label
-  // information from the table headers once the code for getting table
-  // headers quickly is implemented.
-  //if (useHeuristics && (label.length < 1)) {
-  //}
-
-  // If no description has been found yet and heuristics are enabled,
-  // then try getting the content from the closest node.
-  if (useHeuristics && (label.length < 1)) {
-    var prevNode = cvox.DomUtil.previousLeafNode(node);
-    var prevTraversalCount = 0;
-    while (prevNode && (!cvox.DomUtil.hasContent(prevNode) ||
-        cvox.DomUtil.isControl(prevNode))) {
-      prevNode = cvox.DomUtil.previousLeafNode(prevNode);
-      prevTraversalCount++;
-    }
-    var nextNode = cvox.DomUtil.nextLeafNode(node);
-    var nextTraversalCount = 0;
-    while (nextNode && (!cvox.DomUtil.hasContent(nextNode) ||
-        cvox.DomUtil.isControl(nextNode))) {
-      nextNode = cvox.DomUtil.nextLeafNode(nextNode);
-      nextTraversalCount++;
-    }
-    var guessedLabelNode;
-    if (prevNode && nextNode) {
-      var parentNode = node;
-      // Count the number of parent nodes until there is a shared parent; the
-      // label is most likely in the same branch of the DOM as the control.
-      // TODO (chaitanyag): Try to generalize this algorithm and move it to
-      // its own function in DOM Utils.
-      var prevCount = 0;
-      while (parentNode) {
-        if (cvox.DomUtil.isDescendantOfNode(prevNode, parentNode)) {
-          break;
-        }
-        parentNode = parentNode.parentNode;
-        prevCount++;
-      }
-      parentNode = node;
-      var nextCount = 0;
-      while (parentNode) {
-        if (cvox.DomUtil.isDescendantOfNode(nextNode, parentNode)) {
-          break;
-        }
-        parentNode = parentNode.parentNode;
-        nextCount++;
-      }
-      guessedLabelNode = nextCount < prevCount ? nextNode : prevNode;
-    } else {
-      guessedLabelNode = prevNode || nextNode;
-    }
-    if (guessedLabelNode) {
-      label += cvox.DomUtil.getText(guessedLabelNode) + ' ';
-    }
-  }
-
-  return label;
-};
-
-
-/**
- * Get the title of a node.  In many cases this is equivalent to the
- * text of the node, but it can be overridden by a title tag or alt tag,
- * and for some form controls (like submit buttons) the title is actually
- * the value.
- *
- * Not recursive.
- *
- * @param {Node} node The node to get the title from.
- * @return {string} The title of the node.
- */
-cvox.DomUtil.getTitle = function(node) {
-  if (node.constructor == Text) {
-    return node.data;
-  } else if (node.constructor == HTMLImageElement) {
-    return cvox.DomUtil.getImageTitle(node);
-  } else if (node.hasAttribute && node.hasAttribute('title')) {
-    return node.getAttribute('title');
-  } else if (node.constructor == HTMLInputElement) {
+  if (label.length == 0 && node.constructor == HTMLInputElement) {
     if (node.type == 'image') {
-      return cvox.DomUtil.getImageTitle(node);
+      label = cvox.DomUtil.getImageTitle(node);
     } else if (node.type == 'submit') {
       if (node.hasAttribute && node.hasAttribute('value')) {
-        return node.getAttribute('value');
+        label = cvox.DomUtil.collapseWhitespace(node.getAttribute('value'));
       } else {
-        return 'Submit';
+        label = 'Submit';
       }
     } else if (node.type == 'reset') {
       if (node.hasAttribute && node.hasAttribute('value')) {
-        return node.getAttribute('value');
+        label = cvox.DomUtil.collapseWhitespace(node.getAttribute('value'));
       } else {
-        return 'Reset';
+        label = 'Reset';
       }
     }
-  } else if (node.constructor == HTMLButtonElement) {
-    var titleText = '';
-    for (var i = 0, child; child = node.childNodes[i]; i++) {
-      titleText += cvox.DomUtil.getText(child) + ' ';
-    }
-    return titleText;
   }
+
+  label = cvox.DomUtil.collapseWhitespace(label);
+
+  if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
+    var placeholder = cvox.DomUtil.collapseWhitespace(
+        node.getAttribute('placeholder'));
+    if (label.length > 0) {
+      return label + ' with hint ' + placeholder;
+    } else {
+      return placeholder;
+    }
+  }
+
+  if (label.length > 0) {
+    return label;
+  }
+
+  if (!recursive) {
+    return '';
+  }
+
+  var getTextFromSubtree = !cvox.DomUtil.isLeafNode(node);
+  if (node.tagName == 'BUTTON') {
+    getTextFromSubtree = true;
+  }
+  if (cvox.AriaUtil.isControlWidget(node)) {
+    getTextFromSubtree = true;
+  }
+  if (cvox.AriaUtil.isCompositeControl(node)) {
+    getTextFromSubtree = false;
+  }
+  if (getTextFromSubtree) {
+    var name = '';
+    for (var i = 0; i < node.childNodes.length; i++) {
+      var child = node.childNodes[i];
+      if (!includeControls && cvox.DomUtil.isControl(child)) {
+        continue;
+      }
+      var childStyle = window.getComputedStyle(child, null);
+      if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+          !cvox.AriaUtil.isHidden(child)) {
+        name += ' ' + cvox.DomUtil.getName(child, recursive, includeControls);
+      }
+    }
+
+    name = cvox.DomUtil.collapseWhitespace(name);
+    if (name.length > 0) {
+      return name;
+    }
+  }
+
+  return '';
+};
+
+/**
+ * Use heuristics to guess at the label of a control, to be used if one
+ * is not explicitly set in the DOM. This is useful when a control
+ * field gets focus, but probably not useful when browsing the page
+ * element at a time.
+ * @param {Node} node The node to get the label from.
+ * @return {string} The name of the control, using heuristics.
+ */
+cvox.DomUtil.getControlLabelHeuristics = function(node) {
+  // TODO (clchen, rshearer): Implement heuristics for getting the label
+  // information from the table headers once the code for getting table
+  // headers quickly is implemented.
+
+  // If no description has been found yet and heuristics are enabled,
+  // then try getting the content from the closest node.
+  var prevNode = cvox.DomUtil.previousLeafNode(node);
+  var prevTraversalCount = 0;
+  while (prevNode && (!cvox.DomUtil.hasContent(prevNode) ||
+      cvox.DomUtil.isControl(prevNode))) {
+    prevNode = cvox.DomUtil.previousLeafNode(prevNode);
+    prevTraversalCount++;
+  }
+  var nextNode = cvox.DomUtil.nextLeafNode(node);
+  var nextTraversalCount = 0;
+  while (nextNode && (!cvox.DomUtil.hasContent(nextNode) ||
+      cvox.DomUtil.isControl(nextNode))) {
+    nextNode = cvox.DomUtil.nextLeafNode(nextNode);
+    nextTraversalCount++;
+  }
+  var guessedLabelNode;
+  if (prevNode && nextNode) {
+    var parentNode = node;
+    // Count the number of parent nodes until there is a shared parent; the
+    // label is most likely in the same branch of the DOM as the control.
+    // TODO (chaitanyag): Try to generalize this algorithm and move it to
+    // its own function in DOM Utils.
+    var prevCount = 0;
+    while (parentNode) {
+      if (cvox.DomUtil.isDescendantOfNode(prevNode, parentNode)) {
+        break;
+      }
+      parentNode = parentNode.parentNode;
+      prevCount++;
+    }
+    parentNode = node;
+    var nextCount = 0;
+    while (parentNode) {
+      if (cvox.DomUtil.isDescendantOfNode(nextNode, parentNode)) {
+        break;
+      }
+      parentNode = parentNode.parentNode;
+      nextCount++;
+    }
+    guessedLabelNode = nextCount < prevCount ? nextNode : prevNode;
+  } else {
+    guessedLabelNode = prevNode || nextNode;
+  }
+  if (guessedLabelNode) {
+    return cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(guessedLabelNode) + ' ' +
+        cvox.DomUtil.getName(guessedLabelNode));
+  }
+
   return '';
 };
 
@@ -377,6 +472,13 @@ cvox.DomUtil.getTitle = function(node) {
  * @return {string} The value of the node.
  */
 cvox.DomUtil.getValue = function(node) {
+  var activeDescendant = cvox.AriaUtil.getActiveDescendant(node);
+  if (activeDescendant) {
+    return cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(activeDescendant) + ' ' +
+        cvox.DomUtil.getName(activeDescendant));
+  }
+
   if (node.constructor == HTMLSelectElement) {
     if (node.selectedIndex >= 0 &&
         node.selectedIndex < node.options.length) {
@@ -412,65 +514,12 @@ cvox.DomUtil.getValue = function(node) {
 
 
 /**
- * Given a node, return its complete text as a string.  This is recursive;
- * it will extract the text from all child nodes and concatenate it,
- * removing extraneous whitespace.
- *
- * This is similar to accessing the textContent property of a node, but
- * that doesn't handle nodes that override the text with a title attribute,
- * or nodes that can have both a title and a value.
- *
- * This function concatenates the value and title of a node (value first,
- * if both are present) and recursively concatenates the text of children
- * of any node that doesn't have either a value or title.
-
- * @param {Node} node The node to extract the text from.
- * @param {boolean=} excludeControls If true, excludes any controls.
- * @return {string} The text of the node.
- */
-cvox.DomUtil.getText = function(node, excludeControls) {
-  var title = cvox.DomUtil.getTitle(node);
-  var value = cvox.DomUtil.getValue(node);
-  if (title.length == 0) {
-    title = cvox.DomUtil.getLabel(node, false);
-  }
-
-  var text = '';
-  if (title && value) {
-    text = value + ' ' + title;
-  } else if (title) {
-    text = title;
-  } else if (value) {
-    text = value;
-  }
-
-  if (!cvox.DomUtil.isControl(node)) {
-    for (var i = 0; i < node.childNodes.length; i++) {
-      var child = node.childNodes[i];
-      if (excludeControls && cvox.DomUtil.isControl(child)) {
-        continue;
-      }
-      var childStyle = window.getComputedStyle(child, null);
-      if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
-          !cvox.AriaUtil.isHidden(node)) {
-        text += ' ' + cvox.DomUtil.getText(child);
-      }
-    }
-  }
-  // Remove all whitespace from the beginning and end, and collapse all
-  // inner strings of whitespace to a single space.
-  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-  return text;
-};
-
-
-/**
  * Given an image node, return its title as a string. The preferred title
  * is always the alt text, and if that's not available, then the title
  * attribute. If neither of those are available, it attempts to construct
  * a title from the filename, and if all else fails returns the word Image.
  * @param {Node} node The image node.
- * @return {string} The title of the image.
+ * @return {string} The title of the image, with whitespace collapsed.
  */
 cvox.DomUtil.getImageTitle = function(node) {
   var text;
@@ -494,7 +543,7 @@ cvox.DomUtil.getImageTitle = function(node) {
       text = 'Image';
     }
   }
-  return text;
+  return cvox.DomUtil.collapseWhitespace(text);
 };
 
 
@@ -568,8 +617,11 @@ cvox.DomUtil.hasContent = function(node) {
     return true;
   }
 
-  // We always want to try to jump into an iframe.
-  if (node.tagName == 'IFRAME') {
+  // We want to try to jump into an iframe iff it has a src attribute.
+  // For right now, we will avoid iframes without src since ChromeVox
+  // is not being injected in those cases and will cause the user to get stuck.
+  // TODO (clchen, dmazzoni): Manually inject ChromeVox for iframes without src.
+  if ((node.tagName == 'IFRAME') && (node.src)) {
     return true;
   }
 
@@ -596,8 +648,14 @@ cvox.DomUtil.hasContent = function(node) {
     }
   }
 
-  var text = cvox.DomUtil.getText(node);
-  if (text === '') {
+  if (node.tagName == 'A' && node.getAttribute('href') != '') {
+    return true;
+  }
+
+  var text = cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node);
+  text = cvox.DomUtil.collapseWhitespace(text);
+  var state = cvox.DomUtil.getState(node, true);
+  if (text === '' && state === '') {
     // Text only contains whitespace
     return false;
   }
@@ -672,23 +730,6 @@ cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
 
 
 /**
- * Returns a string of basic information about the target node.
- * This information is only about the node itself and does not take into
- * account any of the node's ancestors.
- *
- * @param {Object} targetNode The node to get information about.
- * @return {string} A string of basic information about the current node.
- */
-cvox.DomUtil.getBasicNodeInformation = function(targetNode) {
-  var info = cvox.DomUtil.getBasicNodeRole(targetNode);
-  if (info.length > 0) {
-    info = info + ' ' + cvox.DomUtil.getBasicNodeState(targetNode);
-  }
-  return info;
-};
-
-
-/**
  * Returns a string to be presented to the user that identifies what the
  * targetNode's role is.
  * ARIA roles are given priority; if there is no ARIA role set, the role
@@ -697,7 +738,7 @@ cvox.DomUtil.getBasicNodeInformation = function(targetNode) {
  * @param {Object} targetNode The node to get the role name for.
  * @return {string} The role name for the targetNode.
  */
-cvox.DomUtil.getBasicNodeRole = function(targetNode) {
+cvox.DomUtil.getRole = function(targetNode) {
   var info;
   info = cvox.AriaUtil.getRoleName(targetNode);
   if (!info) {
@@ -715,18 +756,40 @@ cvox.DomUtil.getBasicNodeRole = function(targetNode) {
 
 
 /**
+ * Count the number of items in a list node.
+ *
+ * @param {Node} targetNode The list node.
+ * @return {number} The number of items in the list.
+ */
+cvox.DomUtil.getListLength = function(targetNode) {
+  var count = 0;
+  for (var node = targetNode.firstChild;
+       node;
+       node = node.nextSibling) {
+    if (node.tagName == 'LI' ||
+        (node.getAttribute && node.getAttribute('role') == 'listitem')) {
+      count++;
+    }
+  }
+  return count;
+};
+
+
+/**
  * Returns a string that gives information about the state of the targetNode.
  *
- * @param {Object} targetNode The node to get the state information for.
+ * @param {Node} targetNode The node to get the state information for.
+ * @param {boolean} primary Whether this is the primary node we're
+ *     interested in, where we might want extra information - as
+ *     opposed to an ancestor, where we might be more brief.
  * @return {string} The status information about the node.
  */
-cvox.DomUtil.getBasicNodeState = function(targetNode) {
+cvox.DomUtil.getState = function(targetNode, primary) {
   var info;
-  info = cvox.AriaUtil.getState(targetNode);
+  var role = targetNode.getAttribute ? targetNode.getAttribute('role') : '';
+  info = cvox.AriaUtil.getState(targetNode, primary);
   if (!info) {
     info = '';
-  } else {
-    info = info + ' ';
   }
 
   if (targetNode.tagName == 'INPUT') {
@@ -737,9 +800,16 @@ cvox.DomUtil.getBasicNodeState = function(targetNode) {
         info = info + ' not checked';
       }
     }
+    if (cvox.DomUtil.isDisabled(targetNode)) {
+      info += ' disabled ';
+    }
   } else if (targetNode.tagName == 'SELECT') {
     info = info + ' ' + (targetNode.selectedIndex + 1) + ' of ' +
         targetNode.options.length;
+  } else if (targetNode.tagName == 'UL' ||
+             targetNode.tagName == 'OL' ||
+             role == 'list') {
+    info = info + ' with ' + cvox.DomUtil.getListLength(targetNode) + ' items';
   }
 
   return info;
@@ -747,22 +817,54 @@ cvox.DomUtil.getBasicNodeState = function(targetNode) {
 
 
 /**
- * Returns a string of detailed information given an array of
- * ancestor nodes.
+ * Returns a description of a navigation from an array of changed
+ * ancestor nodes. The ancestors are in order from the highest in the
+ * tree to the lowest, i.e. ending with the current leaf node.
  *
- * @param {Object} ancestorsArray An array of ancestor nodes.
- * @return {string} A string of detailed information given the
- * array of ancestor nodes.
+ * @param {Array.<Node>} ancestorsArray An array of ancestor nodes.
+ * @param {boolean=} recursive Whether or not the element's subtree should
+ *     be used; true by default.
+ * @return {cvox.NavDescription} The description of the navigation action.
  */
-cvox.DomUtil.getInformationFromAncestors = function(ancestorsArray) {
-  var info = '';
-  for (var i = 0, node; node = ancestorsArray[i]; i++) {
-    var nodeInfo = cvox.DomUtil.getBasicNodeInformation(node);
-    if (nodeInfo.length > 0) {
-      info = info + ' ' + nodeInfo;
+cvox.DomUtil.getDescriptionFromAncestors = function(
+    ancestorsArray, recursive) {
+  if (typeof(recursive) === 'undefined') {
+    recursive = true;
+  }
+  var len = ancestorsArray.length;
+  var context = '';
+  var text = '';
+  var userValue = '';
+  var annotation = '';
+
+  if (len > 0) {
+    text = cvox.DomUtil.getName(ancestorsArray[len - 1], recursive);
+    userValue = cvox.DomUtil.getValue(ancestorsArray[len - 1]);
+  }
+  for (var i = len - 1; i >= 0; i--) {
+    var node = ancestorsArray[i];
+    var role = cvox.DomUtil.getRole(node);
+    if (i < len - 1) {
+      var name = cvox.DomUtil.getName(node, false);
+      if (name) {
+        role = name + ' ' + role;
+      }
+    }
+    if (role.length > 0) {
+      if (annotation.length > 0) {
+        context = role + ' ' + cvox.DomUtil.getState(node, false) +
+                  ' ' + context;
+      } else {
+        annotation = role + ' ' + cvox.DomUtil.getState(node, true);
+      }
     }
   }
-  return info;
+
+  return new cvox.NavDescription(
+      cvox.DomUtil.collapseWhitespace(context),
+      cvox.DomUtil.collapseWhitespace(text),
+      cvox.DomUtil.collapseWhitespace(userValue),
+      cvox.DomUtil.collapseWhitespace(annotation));
 };
 
 
@@ -871,8 +973,6 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   var evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('mousedown', true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
-  //Use a try block here so that if the AJAX fails and it is a link,
-  //it can still fall through and retry by setting the document.location.
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
@@ -880,8 +980,6 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('mouseup', true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
-  //Use a try block here so that if the AJAX fails and it is a link,
-  //it can still fall through and retry by setting the document.location.
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
@@ -889,25 +987,9 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('click', true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
-  //Use a try block here so that if the AJAX fails and it is a link,
-  //it can still fall through and retry by setting the document.location.
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
-  //Clicking on a link does not cause traversal because of script
-  //privilege limitations. The traversal has to be done by setting
-  //document.location.
-  var href = targetNode.hasAttribute ? targetNode.getAttribute('href') : '';
-  if ((targetNode.tagName == 'A') &&
-      href &&
-      (href != '#')) {
-    if (shiftKey) {
-      window.open(targetNode.href);
-    } else {
-      document.location = targetNode.href;
-    }
-  }
-
 };
 
 
@@ -949,7 +1031,8 @@ cvox.DomUtil.isInputTypeText = function(node) {
  * @return {boolean} True if the node is a control.
  */
 cvox.DomUtil.isControl = function(node) {
-  if (cvox.AriaUtil.isControlWidget(node)) {
+  if (cvox.AriaUtil.isControlWidget(node) &&
+      cvox.DomUtil.isFocusable(node)) {
     return true;
   }
   if (node.tagName) {
@@ -966,6 +1049,25 @@ cvox.DomUtil.isControl = function(node) {
     return true;
   }
   return false;
+};
+
+
+/**
+ * Given a node that might be inside of a composite control like a listbox,
+ * return the surrounding control.
+ * @param {Node} node The node from which to start looking.
+ * @return {Node} The surrounding composite control node, or null if none.
+ */
+cvox.DomUtil.getSurroundingControl = function(node) {
+  var surroundingControl = null;
+  if (!cvox.DomUtil.isControl(node) && node.hasAttribute('role')) {
+    surroundingControl = node.parentElement;
+    while (surroundingControl &&
+        !cvox.AriaUtil.isCompositeControl(surroundingControl)) {
+      surroundingControl = surroundingControl.parentElement;
+    }
+  }
+  return surroundingControl;
 };
 
 
@@ -1015,26 +1117,95 @@ cvox.DomUtil.previousLeafNode = function(node) {
 };
 
 /**
- * Get a string representing a control's value and state.
+ * Get a control's complete description in the same format as if you
+ *     navigated to the node.
  * @param {Element} control A control.
- * @param {boolean} includeTitleAndLabel If true, includes the title and
- *     label or the control, if any. Otherwise, only includes the value
- *     and state, i.e. the part that can change.
- * @return {string} A string representing a control's value and state.
+ * @param {Array.<Node>} opt_changedAncestors The changed ancestors that will be
+ * used to determine what needs to be spoken. If this is not provided, the
+ * ancestors used to determine what needs to be spoken will just be the control
+ * itself and its surrounding control if it has one.
+ * @return {cvox.NavDescription} The description of the control.
  */
-cvox.DomUtil.getControlValueAndStateString = function(
-    control, includeTitleAndLabel) {
-  var controlValue = cvox.DomUtil.getValue(control);
-  var controlState = cvox.DomUtil.getBasicNodeState(control);
-  if (!includeTitleAndLabel) {
-    return controlValue + ' ' + controlState;
+cvox.DomUtil.getControlDescription = function(control, opt_changedAncestors) {
+  var ancestors = [control];
+  if (opt_changedAncestors && (opt_changedAncestors.length > 0)) {
+    ancestors = opt_changedAncestors;
+  } else {
+    var surroundingControl = cvox.DomUtil.getSurroundingControl(control);
+    if (surroundingControl) {
+      ancestors = [surroundingControl, control];
+    }
   }
 
-  var controlTitle = cvox.DomUtil.getTitle(control);
-  var controlLabel = cvox.DomUtil.getLabel(control, false);
-  if ((controlTitle.length < 1) && (controlLabel.length < 1)) {
-    controlLabel = cvox.DomUtil.getLabel(control, true);
+  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors);
+
+  // Use heuristics if the control doesn't otherwise have a name.
+  if (surroundingControl) {
+    var name = cvox.DomUtil.getName(surroundingControl);
+    if (name.length == 0) {
+      name = cvox.DomUtil.getControlLabelHeuristics(surroundingControl);
+      if (name.length > 0) {
+        description.context = name + ' ' + description.context;
+      }
+    }
+  } else {
+    var name = cvox.DomUtil.getName(control);
+    if (name.length == 0) {
+      name = cvox.DomUtil.getControlLabelHeuristics(control);
+      if (name.length > 0) {
+        description.text = cvox.DomUtil.collapseWhitespace(name);
+      }
+    }
+    var value = cvox.DomUtil.getValue(control);
+    if (value.length > 0) {
+      description.userValue = cvox.DomUtil.collapseWhitespace(value);
+    }
   }
-  return controlLabel + ' ' + controlTitle + ' ' + controlValue + ' ' +
-      controlState;
+
+  return description;
 };
+
+
+/**
+ * Get a string representing a control's value and state, i.e. the part
+ *     that changes while interacting with the control
+ * @param {Element} control A control.
+ * @return {string} The value and state string.
+ */
+cvox.DomUtil.getControlValueAndStateString = function(control) {
+  var parentControl = cvox.DomUtil.getSurroundingControl(control);
+  if (parentControl) {
+    return cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(control) + ' ' +
+        cvox.DomUtil.getName(control) + ' ' +
+        cvox.DomUtil.getState(control, true));
+  } else {
+    return cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(control) + ' ' +
+        cvox.DomUtil.getState(control, true));
+  }
+};
+
+/**
+ * Get a string containing the currently selected link's URL.
+ * @param {Node} node The link from which URL needs to be extracted.
+ * @return {string} The value of the URL.
+ */
+cvox.DomUtil.getLinkURL = function(node) {
+  if (node.tagName == 'A') {
+    if (node.getAttribute('href')) {
+      if (node.getAttribute('href').indexOf('#') == 0) {
+        return 'Internal link';
+      } else {
+        return node.getAttribute('href');
+      }
+    } else {
+      return '';
+    }
+  } else if (cvox.AriaUtil.getRoleName(node) == 'Link') {
+    return 'Unknown link';
+  }
+
+  return '';
+};
+

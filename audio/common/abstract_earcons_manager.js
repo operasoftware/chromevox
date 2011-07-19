@@ -18,9 +18,9 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AbstractEarconsManager');
+cvoxgoog.provide('cvox.AbstractEarconsManager');
 
-goog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.AbstractEarcons');
 
 /**
  * @constructor
@@ -30,7 +30,7 @@ cvox.AbstractEarconsManager = function() {
   //Inherit AbstractEarcons
   cvox.AbstractEarcons.call(this);
 };
-goog.inherits(cvox.AbstractEarconsManager, cvox.AbstractEarcons);
+cvoxgoog.inherits(cvox.AbstractEarconsManager, cvox.AbstractEarcons);
 
 /**
  * Switch to the next earcon set and optionally announce its name.

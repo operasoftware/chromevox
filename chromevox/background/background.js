@@ -18,17 +18,19 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.ChromeVoxBackground');
+cvoxgoog.provide('cvox.ChromeVoxBackground');
 
-goog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.BuildConfig');
 
-goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxAccessibilityApiHandler');
-goog.require('cvox.ChromeVoxChromeNativeTtsEngine');
-goog.require('cvox.ChromeVoxEarcons');
-goog.require('cvox.ExtensionBridge');
-goog.require('cvox.LocalEarconsManager');
-goog.require('cvox.LocalTtsManager');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVoxAccessibilityApiHandler');
+cvoxgoog.require('cvox.ChromeVoxChromeNativeTtsEngine');
+cvoxgoog.require('cvox.ChromeVoxEarcons');
+cvoxgoog.require('cvox.ChromeVoxEditableTextBase');
+cvoxgoog.require('cvox.ChromeVoxPrefs');
+cvoxgoog.require('cvox.ExtensionBridge');
+cvoxgoog.require('cvox.LocalEarconsManager');
+cvoxgoog.require('cvox.LocalTtsManager');
 
 
 
@@ -43,179 +45,11 @@ cvox.ChromeVoxBackground = function() {
 
 
 /**
- * The default value of all preferences stored in localStorage.
- * @const
- * @type {Object}
- */
-cvox.ChromeVoxBackground.DEFAULT_PREFS = {
-  'lensVisible': 0,
-  'lensAnchored': 1
-};
-
-
-/**
  * Initialize the background page: set up TTS and bridge listeners.
  */
 cvox.ChromeVoxBackground.prototype.init = function() {
-  this.loadPrefs();
-
-  var stkyKey = cvox.ChromeVox.stickyKeyStr;
-  var stkyKeyCode = cvox.ChromeVox.stickyKeyCode;
-  var mod1 = cvox.ChromeVox.modKeyStr;
-
-  // TODO (clchen): Implement the options page - but make sure the default
-  // is set on the background page, because the options page doesn't actually
-  // load unless the user opens it.
-  var keyMap = {};
-  // Stop TTS
-  keyMap['Ctrl+'] = ['stopSpeech', 'Stop speaking']; // Ctrl
-  keyMap['Cvox+'] = ['stopSpeech', 'Stop speaking']; // Ctrl
-
-  // Double tap Modifier#1
-  keyMap[(stkyKey + '>' + stkyKey + '+')] =
-      ['toggleStickyMode', 'Enable/Disable sticky mode'];
-
-  // TAB/Shift+TAB
-  keyMap['#9'] = ['handleTab', 'Jump to next focusable item']; // Tab
-  keyMap['Shift+#9'] = ['handleTab', 'Jump to previous focusable item'];
-
-  // Basic navigation
-  keyMap[(mod1 + '+#38')] = ['backward', 'Navigate backward'];
-  keyMap[(mod1 + '+#40')] = ['forward', 'Navigate forward'];
-  keyMap[(mod1 + '+#37')] =
-      ['previousGranularity', 'Decrease navigation granularity'];
-  keyMap[(mod1 + '+#39')] =
-      ['nextGranularity', 'Increase navigation granularity'];
-  keyMap['#13'] = ['actOnCurrentItem', 'Take action on current item']; // ENTER
-  keyMap[(mod1 + '+#32')] =
-      ['forceClickOnCurrentItem', 'Click on current item']; // SPACE
-
-  // General commands
-  keyMap[(mod1 + '+#190')] = ['showPowerKey', 'Show ChromeVox help']; // '.'
-  keyMap[(mod1)] = ['hidePowerKey', 'Hide ChromeVox help']; // modifier
-  keyMap[(mod1 + '+H')] = ['help', 'Open ChromeVox help documentation'];
-  keyMap[(mod1 + '+#191')] =
-      ['toggleSearchWidget', 'Toggle search widget'];    // '/'
-  keyMap[(mod1 + '+O>B')] = ['showBookmarkManager', 'Open bookmark manager'];
-  keyMap[(mod1 + '+O>W')] = ['showOptionsPage', 'Open options page'];
-  keyMap[(mod1 + '+O>K')] = ['showKbExplorerPage', 'Open keyboard explorer'];
-  keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
-  keyMap[(mod1 + '+#189')] =
-      ['decreaseTtsRate', 'Decrease rate of speech']; // '-'
-  keyMap[(mod1 + '+#187')] =
-      ['increaseTtsRate', 'Increase rate of speech']; // '='
-  keyMap[(mod1 + '+#186')] = ['decreaseTtsPitch', 'Decrease pitch']; // ';'
-  keyMap[(mod1 + '+#222')] = ['increaseTtsPitch', 'Increase pitch']; // '''
-  keyMap[(mod1 + '+#219')] =
-      ['decreaseTtsVolume', 'Decrease speech volume']; // '['
-  keyMap[(mod1 + '+#221')] =
-      ['increaseTtsVolume', 'Increase speech volume']; // ']'
-
-  // Lens
-  keyMap[(mod1 + '+L>E')] = ['showLens', 'Show lens']; //'L' > 'E'
-  keyMap[(mod1 + '+L>#8')] = ['hideLens', 'Hide lens']; // 'L' > 'Backspace'
-  keyMap[(mod1 + '+L>L')] = ['toggleLens', 'Toggle lens']; // 'L' > 'L'
-  keyMap[(mod1 + '+L>A')] = ['anchorLens', 'Anchor lens at top']; //'L' > 'A'
-  keyMap[(mod1 + '+L>F')] = ['floatLens', 'Float lens near text']; // 'L' > 'F'
-
-  // Mode commands
-  keyMap[(mod1 + '+T>E')] = ['enterTable', 'Enter table']; //'T' > 'E'
-  keyMap[(mod1 + '+T>#8')] = ['exitTable', 'Exit table']; // ']' > 'Backspace'
-
-  keyMap[(mod1 + '+T>I')] =
-      ['previousRow', 'Previous table row']; // 'T' > 'I'
-  keyMap[(mod1 + '+T>M')] = ['nextRow', 'Next table row']; // 'T' > 'M'
-  keyMap[(mod1 + '+T>J')] =
-      ['previousCol', 'Previous table column']; // 'T' > 'J'
-  keyMap[(mod1 + '+T>K')] =
-      ['nextCol', 'Next table column']; // 'T' > 'K'
-
-  keyMap[(mod1 + '+T>#38')] =
-      ['previousRow', 'Previous table row']; // 'T' > Up
-  keyMap[(mod1 + '+T>#40')] = ['nextRow', 'Next table row']; // 'T' > Down
-  keyMap[(mod1 + '+T>#37')] =
-      ['previousCol', 'Previous table column']; // 'T' > Left
-  keyMap[(mod1 + '+T>#39')] =
-      ['nextCol', 'Next table column']; // 'T' > Right
-
-  keyMap[(mod1 + '+T>W')] =
-      ['previousRow', 'Previous table row']; // 'T' > 'W'
-  keyMap[(mod1 + '+T>S')] = ['nextRow', 'Next table row']; // 'T' > 'S'
-  keyMap[(mod1 + '+T>A')] =
-      ['previousCol', 'Previous table column']; // 'T' > 'A'
-  keyMap[(mod1 + '+T>D')] =
-      ['nextCol', 'Next table column']; // 'T' > 'D'
-
-  keyMap[(mod1 + '+T>H')] =
-      ['announceHeaders', 'Announce the headers of the current cell']; // T > H
-  keyMap[(mod1 + '+T>L')] =
-      ['speakTableLocation', 'Announce the current table location']; // T > L
-
-  keyMap[(mod1 + '+T>R')] =
-      ['guessRowHeader', 'Make a guess at the row header of the current cell'];
-  // T > R
-  keyMap[(mod1 + '+T>C')] = ['guessColHeader',
-    'Make a guess at the column header of the current cell']; // T > L
-
-  keyMap[(mod1 + '+T>#219')] =
-      ['skipToBeginning', 'Go to beginning of table']; // 'T' > '['
-  keyMap[(mod1 + '+T>#221')] =
-      ['skipToEnd', 'Go to end of table']; // 'T' > ']'
-
-  keyMap[(mod1 + '+T>#186')] =
-      ['skipToRowBeginning', 'Go to beginning of the current row']; // 'T' > ';'
-  keyMap[(mod1 + '+T>#222')] =
-      ['skipToRowEnd', 'Go to end of the current row']; // 'T' > '''
-
-  keyMap[(mod1 + '+T>#188')] =
-      ['skipToColBeginning', 'Go to beginning of the current column'];
-  keyMap[(mod1 + '+T>#190')] =
-      ['skipToColEnd', 'Go to end of the current column']; // 'T' > '.'
-
-  // Jump commands
-  keyMap[(mod1 + '+N>1')] = ['nextHeading1', 'Next level 1 heading'];
-  keyMap[(mod1 + '+P>1')] = ['previousHeading1', 'Previous level 1 heading'];
-  keyMap[(mod1 + '+N>2')] = ['nextHeading2', 'Next level 2 heading'];
-  keyMap[(mod1 + '+P>2')] = ['previousHeading2', 'Previous level 2 heading'];
-  keyMap[(mod1 + '+N>3')] = ['nextHeading3', 'Next level 3 heading'];
-  keyMap[(mod1 + '+P>3')] = ['previousHeading3', 'Previous level 3 heading'];
-  keyMap[(mod1 + '+N>4')] = ['nextHeading4', 'Next level 4 heading'];
-  keyMap[(mod1 + '+P>4')] = ['previousHeading4', 'Previous level 4 heading'];
-  keyMap[(mod1 + '+N>5')] = ['nextHeading5', 'Next level 5 heading'];
-  keyMap[(mod1 + '+P>5')] = ['previousHeading5', 'Previous level 5 heading'];
-  keyMap[(mod1 + '+N>6')] = ['nextHeading6', 'Next level 6 heading'];
-  keyMap[(mod1 + '+P>6')] = ['previousHeading6', 'Previous level 6 heading'];
-  keyMap[(mod1 + '+N>C')] = ['nextComboBox', 'Next combo box'];
-  keyMap[(mod1 + '+P>C')] = ['previousComboBox', 'Previous combo box'];
-  keyMap[(mod1 + '+N>E')] = ['nextEditText', 'Next editable text area'];
-  keyMap[(mod1 + '+P>E')] = ['previousEditText', 'Previous editable text area'];
-  keyMap[(mod1 + '+N>F')] = ['nextFormField', 'Next form field'];
-  keyMap[(mod1 + '+P>F')] = ['previousFormField', 'Previous form field'];
-  keyMap[(mod1 + '+N>G')] = ['nextGraphic', 'Next graphic'];
-  keyMap[(mod1 + '+P>G')] = ['previousGraphic', 'Previous graphic'];
-  keyMap[(mod1 + '+N>H')] = ['nextHeading', 'Next heading'];
-  keyMap[(mod1 + '+P>H')] = ['previousHeading', 'Previous heading'];
-  keyMap[(mod1 + '+N>I')] = ['nextListItem', 'Next list item'];
-  keyMap[(mod1 + '+P>I')] = ['previousListItem', 'Previous list item'];
-  keyMap[(mod1 + '+N>L')] = ['nextLink', 'Next link'];
-  keyMap[(mod1 + '+P>L')] = ['previousLink', 'Previous link'];
-  keyMap[(mod1 + '+N>O')] = ['nextList', 'Next list'];
-  keyMap[(mod1 + '+P>O')] = ['previousList', 'Previous list'];
-  keyMap[(mod1 + '+N>Q')] = ['nextBlockquote', 'Next block quote'];
-  keyMap[(mod1 + '+P>Q')] = ['previousBlockquote', 'Previous block quote'];
-  keyMap[(mod1 + '+N>R')] = ['nextRadio', 'Next radio button'];
-  keyMap[(mod1 + '+P>R')] = ['previousRadio', 'Previous radio button'];
-  keyMap[(mod1 + '+N>S')] = ['nextSlider', 'Next slider'];
-  keyMap[(mod1 + '+P>S')] = ['previousSlider', 'Previous slider'];
-  keyMap[(mod1 + '+N>T')] = ['nextTable', 'Next table'];
-  keyMap[(mod1 + '+P>T')] = ['previousTable', 'Previous table'];
-  keyMap[(mod1 + '+N>U')] = ['nextButton', 'Next button'];
-  keyMap[(mod1 + '+P>U')] = ['previousButton', 'Previous button'];
-  keyMap[(mod1 + '+N>X')] = ['nextCheckbox', 'Next checkbox'];
-  keyMap[(mod1 + '+P>X')] = ['previousCheckbox', 'Previous checkbox'];
-  keyMap[(mod1 + '+B>B')] = ['benchmark', 'Debug benchmark'];
-
-  localStorage['keyBindings'] = JSON.stringify(keyMap);
+  this.prefs = new cvox.ChromeVoxPrefs();
+  this.readPrefs();
 
   this.ttsManager = this.createTtsManager();
   this.earconsManager = this.createEarconsManager(this.ttsManager);
@@ -223,31 +57,6 @@ cvox.ChromeVoxBackground.prototype.init = function() {
 
   cvox.ChromeVoxAccessibilityApiHandler.init(this.ttsManager,
       this.earconsManager);
-};
-
-
-/**
- * For each default pref, add it to localStorage if there wasn't
- * already a value there.
- */
-cvox.ChromeVoxBackground.prototype.loadPrefs = function() {
-  for (var key in cvox.ChromeVoxBackground.DEFAULT_PREFS) {
-    if (localStorage[key] === undefined) {
-      localStorage[key] = cvox.ChromeVoxBackground.DEFAULT_PREFS[key];
-    }
-  }
-};
-
-
-/**
- * @return {Object} A map of all prefs from localStorage.
- */
-cvox.ChromeVoxBackground.prototype.getPrefs = function() {
-  var prefs = {};
-  for (var key in cvox.ChromeVoxBackground.DEFAULT_PREFS) {
-    prefs[key] = localStorage[key];
-  }
-  return prefs;
 };
 
 
@@ -270,52 +79,13 @@ cvox.ChromeVoxBackground.prototype.createEarconsManager = function(ttsManager) {
 
 
 /**
- * Send all of the settings to the current active tab.
- */
-cvox.ChromeVoxBackground.prototype.sendSettingsToActiveTab = function() {
-  cvox.ExtensionBridge.send({
-      'keyBindings': JSON.parse(localStorage['keyBindings']),
-      'prefs': this.getPrefs()});
-};
-
-
-/**
- * Send all of the settings to all tabs.
- */
-cvox.ChromeVoxBackground.prototype.sendSettingsToAllTabs = function() {
-  var context = this;
-  chrome.windows.getAll({populate: true}, function(windows) {
-    for (var i = 0; i < windows.length; i++) {
-      var tabs = windows[i].tabs;
-      for (var j = 0; j < tabs.length; j++) {
-        var tab = tabs[j];
-        chrome.tabs.sendRequest(tab.id, {
-            'keyBindings': JSON.parse(localStorage['keyBindings']),
-            'prefs': context.getPrefs()});
-      }
-    }
-  });
-};
-
-
-/**
- * Send all of the settings over the specified port.
- * @param {Port} port The port representing the connection to a content script.
- */
-cvox.ChromeVoxBackground.prototype.sendSettingsToPort = function(port) {
-  port.postMessage({
-      'keyBindings': JSON.parse(localStorage['keyBindings']),
-      'prefs': this.getPrefs()});
-};
-
-
-/**
  * Called when a TTS message is received from a page content script.
  * @param {Object} msg The TTS message.
+ * @param {Function} callBack The function to be called when speech completes.
  */
-cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
+cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg, callBack) {
   if (msg.action == 'speak') {
-    this.ttsManager.speak(msg.text, msg.queueMode, msg.properties);
+    this.ttsManager.speak(msg.text, msg.queueMode, msg.properties, callBack);
   } else if (msg.action == 'stop') {
     this.ttsManager.stop();
   } else if (msg.action == 'nextEngine') {
@@ -362,40 +132,62 @@ cvox.ChromeVoxBackground.prototype.onEarconMessage = function(msg) {
 cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
   var context = this;
   cvox.ExtensionBridge.addMessageListener(function(msg, port) {
-    if (msg['target'] == 'BookmarkManager') {
+    var target = msg['target'];
+    var action = msg['action'];
+
+    switch (target) {
+    case 'BookmarkManager':
       var createDataObj = new Object();
       createDataObj.url = 'chromevox/background/bookmark_manager.html';
       chrome.windows.create(createDataObj);
-    } else if (msg['target'] == 'KbExplorer') {
+      break;
+    case 'KbExplorer':
       var explorerPage = new Object();
       explorerPage.url = 'chromevox/background/kbexplorer.html';
       chrome.tabs.create(explorerPage);
-    } else if (msg['target'] == 'HelpDocs') {
+      break;
+    case 'HelpDocs':
       var helpPage = new Object();
       helpPage.url = 'http://google-axs-chrome.googlecode.com/svn/trunk/' +
           'chromevox_tutorial/index.html';
       chrome.tabs.create(helpPage);
-    } else if (msg['target'] == 'Options') {
-      if (msg['action'] == 'getSettings') {
-        context.sendSettingsToActiveTab();
-      } else if (msg['action'] == 'open') {
+      break;
+    case 'Options':
+      if (action == 'open') {
         var optionsPage = new Object();
         optionsPage.url = 'chromevox/background/options.html';
         chrome.tabs.create(optionsPage);
-      } else if (msg['action'] == 'setPref') {
-        localStorage[msg['pref']] = msg['value'];
-        context.sendSettingsToAllTabs();
       }
-    } else if (msg['target'] == 'TTS') {
-      context.onTtsMessage(msg);
-    } else if (msg['target'] == 'EARCON') {
+      break;
+    case 'Prefs':
+      if (action == 'getPrefs') {
+        context.prefs.sendPrefsToPort(port);
+      } else if (action == 'setPref') {
+        context.prefs.setPref(msg['pref'], msg['value']);
+        context.readPrefs();
+      }
+      break;
+    case 'TTS':
+      context.onTtsMessage(msg, function() {
+        port.postMessage({
+          'message': 'TTS_COMPLETED',
+          'id': msg['callbackId']});
+      });
+      break;
+    case 'EARCON':
       context.onEarconMessage(msg);
-    } else if (msg['target'] == 'KeyBindings') {
-      if (msg['action'] == 'getBindings') {
-        context.sendSettingsToPort(port);
-      }
+      break;
     }
   });
+};
+
+/**
+ * Read and apply preferences that affect the background context.
+ */
+cvox.ChromeVoxBackground.prototype.readPrefs = function() {
+  var prefs = this.prefs.getPrefs();
+  cvox.ChromeVoxEditableTextBase.cursorIsBlock =
+      (prefs['cursorIsBlock'] == 'true');
 };
 
 var background = new cvox.ChromeVoxBackground();

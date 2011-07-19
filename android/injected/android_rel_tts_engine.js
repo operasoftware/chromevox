@@ -18,10 +18,10 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AndroidRelTtsEngine');
+cvoxgoog.provide('cvox.AndroidRelTtsEngine');
 
-goog.require('cvox.AbstractTts');
-goog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.AbstractTts');
+cvoxgoog.require('cvox.BuildConfig');
 
 if (BUILD_TYPE == BUILD_TYPE_ANDROID ||
     BUILD_TYPE == BUILD_TYPE_ANDROID_DEV) {
@@ -38,7 +38,7 @@ if (BUILD_TYPE == BUILD_TYPE_ANDROID ||
     this.ttsProperties.pitch = .5;
     this.ttsProperties.volume = 1;
   };
-  goog.inherits(cvox.AndroidRelTtsEngine, cvox.AbstractTts);
+  cvoxgoog.inherits(cvox.AndroidRelTtsEngine, cvox.AbstractTts);
 
   /**
    * @return {string} The human-readable name of the speech engine.

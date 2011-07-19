@@ -19,10 +19,10 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.RemoteEarconsManager');
+cvoxgoog.provide('cvox.RemoteEarconsManager');
 
-goog.require('cvox.AbstractEarconsManager');
-goog.require('cvox.ExtensionBridge');
+cvoxgoog.require('cvox.AbstractEarconsManager');
+cvoxgoog.require('cvox.ExtensionBridge');
 
 if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   /**
@@ -32,7 +32,7 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.RemoteEarconsManager = function() {
     cvox.AbstractEarconsManager.call(this);
   };
-  goog.inherits(cvox.RemoteEarconsManager, cvox.AbstractEarconsManager);
+  cvoxgoog.inherits(cvox.RemoteEarconsManager, cvox.AbstractEarconsManager);
 
   /**
    * @return {string} The human-readable name of this instance.

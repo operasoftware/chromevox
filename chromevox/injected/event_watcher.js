@@ -18,14 +18,15 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxEventWatcher');
+cvoxgoog.provide('cvox.ChromeVoxEventWatcher');
 
-goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxEditableTextBase');
-goog.require('cvox.ChromeVoxKbHandler');
-goog.require('cvox.ChromeVoxUserCommands');
-goog.require('cvox.DomUtil');
-goog.require('cvox.LiveRegions');
+cvoxgoog.require('cvox.AriaUtil');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVoxEditableTextBase');
+cvoxgoog.require('cvox.ChromeVoxKbHandler');
+cvoxgoog.require('cvox.ChromeVoxUserCommands');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.LiveRegions');
 
 /**
  * @constructor
@@ -41,7 +42,17 @@ cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
 /**
  * @type {Object}
  */
-cvox.ChromeVoxEventWatcher.lastMouseOverNode = null;
+cvox.ChromeVoxEventWatcher.announcedMouseOverNode = null;
+
+/**
+ * @type {Object}
+ */
+cvox.ChromeVoxEventWatcher.pendingMouseOverNode = null;
+
+/**
+ * @type {number?}
+ */
+cvox.ChromeVoxEventWatcher.mouseOverTimeoutId = null;
 
 /**
  * @type {string?}
@@ -92,6 +103,19 @@ cvox.ChromeVoxEventWatcher.listeners_ = [];
 cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS = 10;
 
 /**
+ * Whether or not mouse hover events should trigger focusing.
+ * @type {boolean}
+ */
+cvox.ChromeVoxEventWatcher.focusFollowsMouse = false;
+
+/**
+ * The delay before a mouseover triggers focusing or announcing anything.
+ * @const
+ * @type {number}
+ */
+cvox.ChromeVoxEventWatcher.MOUSEOVER_DELAY_MS = 500;
+
+/**
  * The delay between subsequent calls to the timer function to check
  * focused text controls.
  * @const
@@ -121,6 +145,8 @@ cvox.ChromeVoxEventWatcher.addEventListeners = function() {
       cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(
       'mouseover', cvox.ChromeVoxEventWatcher.mouseOverEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(
+      'mouseout', cvox.ChromeVoxEventWatcher.mouseOutEventWatcher, true);
 };
 
 /**
@@ -174,42 +200,51 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
     return true;
   }
 
-  cvox.ChromeVoxEventWatcher.lastFocusedNode = evt.target;
   if (cvox.ChromeVoxEventWatcher.handleTextChanged(false)) {
+    cvox.ChromeVoxEventWatcher.lastFocusedNode = evt.target;
     return true;
   }
+
   if (evt.target) {
     var target = /** @type {Element} */(evt.target);
+    var parentControl = cvox.DomUtil.getSurroundingControl(target);
+    if (parentControl &&
+        parentControl == cvox.ChromeVoxEventWatcher.lastFocusedNode) {
+      cvox.ChromeVoxEventWatcher.handleControlChanged(target);
+      return true;
+    }
 
-    var textToSpeak = '';
-    if (cvox.DomUtil.isControl(target)) {
+    if (parentControl) {
+      cvox.ChromeVoxEventWatcher.lastFocusedNode = parentControl;
+    } else {
+      cvox.ChromeVoxEventWatcher.lastFocusedNode = target;
+    }
+
+    var isControl = cvox.DomUtil.isControl(target) || !!parentControl;
+
+    if (isControl) {
       cvox.ChromeVoxEventWatcher.lastFocusedNodeValue =
-          cvox.DomUtil.getControlValueAndStateString(target, false);
+          cvox.DomUtil.getControlValueAndStateString(target);
     }
 
     if (cvox.ChromeVoxUserCommands.isInUserCommand()) {
       return true;
     }
 
-    if (cvox.DomUtil.isControl(target)) {
-      textToSpeak = cvox.DomUtil.getControlValueAndStateString(target, true);
-    } else {
-      textToSpeak = cvox.DomUtil.getText(target);
-    }
+    cvox.ChromeVox.navigationManager.syncToNode(target);
+    var description = cvox.DomUtil.getControlDescription(target);
+    var queueMode = 0;
 
     var dialogInfo = cvox.ChromeVoxEventWatcher.handleDialogFocus(target);
     if (dialogInfo) {
-      textToSpeak = dialogInfo + ' ' + textToSpeak;
+      cvox.ChromeVox.tts.speak(
+          dialogInfo, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      queueMode = 1;
     }
 
-    cvox.ChromeVox.tts.speak(textToSpeak, 0, null);
-    cvox.ChromeVox.tts.speak(
-        cvox.DomUtil.getBasicNodeRole(target),
-        1,
-        cvox.AbstractTts.PERSONALITY_ANNOTATION);
-
-    cvox.ChromeVox.navigationManager.syncToNode(target);
+    description.speak(queueMode);
   } else {
+    cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
   }
   return true;
@@ -224,16 +259,63 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
-  if (evt.target.tagName && (evt.target.tagName == 'BODY')) {
-    cvox.ChromeVoxEventWatcher.lastMouseOverNode = null;
+  if (!cvox.ChromeVoxEventWatcher.focusFollowsMouse) {
     return true;
   }
-  if (!cvox.DomUtil.isDescendantOfNode(
-      cvox.ChromeVoxEventWatcher.lastMouseOverNode, evt.target)) {
-    cvox.DomUtil.setFocus(evt.target);
-    cvox.ChromeVoxEventWatcher.focusEventWatcher(evt);
+
+  if (cvox.DomUtil.isDescendantOfNode(
+      cvox.ChromeVoxEventWatcher.announcedMouseOverNode, evt.target)) {
+    return true;
   }
-  cvox.ChromeVoxEventWatcher.lastMouseOverNode = evt.target;
+
+  if (evt.target == cvox.ChromeVoxEventWatcher.pendingMouseOverNode) {
+    return true;
+  }
+
+  cvox.ChromeVoxEventWatcher.pendingMouseOverNode = evt.target;
+  if (cvox.ChromeVoxEventWatcher.mouseOverTimeoutId) {
+    window.clearTimeout(cvox.ChromeVoxEventWatcher.mouseOverTimeoutId);
+    cvox.ChromeVoxEventWatcher.mouseOverTimeoutId = null;
+  }
+
+  if (evt.target.tagName && (evt.target.tagName == 'BODY')) {
+    cvox.ChromeVoxEventWatcher.pendingMouseOverNode = null;
+    cvox.ChromeVoxEventWatcher.announcedMouseOverNode = null;
+    return true;
+  }
+
+  // Only focus and announce if the mouse stays over the same target
+  // for longer than the given delay.
+  cvox.ChromeVoxEventWatcher.mouseOverTimeoutId = window.setTimeout(
+      function() {
+        cvox.ChromeVoxEventWatcher.mouseOverTimeoutId = null;
+        if (evt.target != cvox.ChromeVoxEventWatcher.pendingMouseOverNode) {
+          return;
+        }
+
+        cvox.DomUtil.setFocus(evt.target);
+        cvox.ChromeVoxEventWatcher.focusEventWatcher(evt);
+        cvox.ChromeVoxEventWatcher.announcedMouseOverNode = evt.target;
+      }, cvox.ChromeVoxEventWatcher.MOUSEOVER_DELAY_MS);
+
+  return true;
+};
+
+/**
+ * Handles mouseout events.
+ *
+ * @param {Event} evt The mouseout event to process.
+ * @return {boolean} True if the default action should be performed.
+ */
+cvox.ChromeVoxEventWatcher.mouseOutEventWatcher = function(evt) {
+  if (evt.target == cvox.ChromeVoxEventWatcher.pendingMouseOverNode) {
+    cvox.ChromeVoxEventWatcher.pendingMouseOverNode = null;
+    if (cvox.ChromeVoxEventWatcher.mouseOverTimeoutId) {
+      window.clearTimeout(cvox.ChromeVoxEventWatcher.mouseOverTimeoutId);
+      cvox.ChromeVoxEventWatcher.mouseOverTimeoutId = null;
+    }
+  }
+
   return true;
 };
 
@@ -244,8 +326,13 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
-  cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
-  cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+  window.setTimeout(function() {
+    if (!document.activeElement) {
+      cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
+      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+    }
+  }, 0);
+
   return true;
 };
 
@@ -378,6 +465,11 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher = function(evt) {
 
 /**
  * Speaks updates to editable text controls as needed.
+ *
+ * TODO (clchen): Group text changes with focus events better so that if
+ * text is changed immediately when focus happens, ChromeVox can say something
+ * more intelligent to the user and filter out the repetition.
+ *
  * @param {boolean} isKeypress Was this change triggered by a keypress?
  * @return {boolean} True if an editable text control has focus.
  */
@@ -403,7 +495,6 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
     if (currentFocus == null) {
       return false;
     }
-
     if (currentFocus.constructor == HTMLInputElement &&
         cvox.DomUtil.isInputTypeText(currentFocus)) {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
@@ -425,7 +516,16 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
         'input', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
       cvox.ChromeVoxEventWatcher.currentTextControl.addEventListener(
         'click', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
-      cvox.ChromeVoxEventWatcher.currentTextHandler.describe();
+
+      var message = '';
+      message = cvox.ChromeVoxEventWatcher.currentTextHandler.getValue();
+      if (cvox.ChromeVoxEventWatcher.currentTextHandler.node) {
+        var controlDescription = cvox.DomUtil.getControlDescription(
+            cvox.ChromeVoxEventWatcher.currentTextHandler.node);
+        message = controlDescription.text + ' ' + message;
+      }
+      cvox.ChromeVox.tts.speak(message, 1, null);
+
       window.setTimeout(cvox.ChromeVoxEventWatcher.textTimer,
                         cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS);
       if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
@@ -454,7 +554,7 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
         handler.restoreState(
             cvox.ChromeVoxEventWatcher.previousTextHandlerState);
       }
-      handler.update();
+      handler.update(isKeypress);
     }, 0);
     return true;
   } else {
@@ -484,9 +584,12 @@ cvox.ChromeVoxEventWatcher.textTimer = function() {
  * @param {Element} control The target control.
  */
 cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
-  var newValue = cvox.DomUtil.getControlValueAndStateString(control, false);
+  var newValue = cvox.DomUtil.getControlValueAndStateString(control);
+  var parentControl = cvox.DomUtil.getSurroundingControl(control);
 
-  if (control != cvox.ChromeVoxEventWatcher.lastFocusedNode) {
+  if (control != cvox.ChromeVoxEventWatcher.lastFocusedNode &&
+      (parentControl == null ||
+       parentControl != cvox.ChromeVoxEventWatcher.lastFocusedNode)) {
     cvox.ChromeVoxEventWatcher.lastFocusedNode = control;
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = newValue;
     return;
@@ -540,11 +643,17 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
 cvox.ChromeVoxEventWatcher.handleControlAction = function(evt) {
   var control = evt.target;
 
-  if (control.tagName == 'SELECT' &&
+  if (control.tagName == 'SELECT' && (control.size <= 1) &&
       (evt.keyCode == 13 || evt.keyCode == 32)) { // Enter or Space
+    // TODO (dmazzoni, clchen): Remove this workaround once accessibility
+    // APIs make browser based popups accessible.
+    //
+    // Do nothing, but eat this keystroke when the SELECT control
+    // has a dropdown style since if we don't, it will generate
+    // a browser popup menu which is not accessible.
+    // List style SELECT controls are fine and don't need this workaround.
     evt.preventDefault();
     evt.stopPropagation();
-    // Do nothing, but eat this keystroke
     return true;
   }
 
@@ -579,7 +688,6 @@ cvox.ChromeVoxEventWatcher.handleControlAction = function(evt) {
 
     control.value = value;
   }
-
   return false;
 };
 
@@ -626,11 +734,24 @@ cvox.ChromeVoxEventWatcher.handleDialogFocus = function(target) {
     if (dialog.getAttribute('role') == 'alertdialog') {
       // If it's an alert dialog, also queue up the text of the dialog.
       window.setTimeout(function() {
-        cvox.ChromeVox.tts.speak(cvox.DomUtil.getText(dialog), 1, null);
+        for (var i = 0; i < dialog.childNodes.length; i++) {
+          var child = dialog.childNodes[i];
+          var childStyle = window.getComputedStyle(child, null);
+          if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+              !cvox.AriaUtil.isHidden(child)) {
+            var text = cvox.DomUtil.collapseWhitespace(
+                cvox.DomUtil.getValue(child) + ' ' +
+                cvox.DomUtil.getName(child));
+            if (text.length > 0) {
+              cvox.ChromeVox.tts.speak(text, 1, null);
+            }
+          }
+        }
       }, 0);
     }
-    return 'Entering dialog ' +
-          cvox.DomUtil.getLabel(dialog, false) + ' ' +
-          cvox.DomUtil.getTitle(dialog) + '.';
+    var dialogText = cvox.DomUtil.collapseWhitespace(
+                cvox.DomUtil.getValue(dialog) + ' ' +
+                cvox.DomUtil.getName(dialog, false));
+    return 'Entering dialog ' + dialogText + '.';
   }
 };

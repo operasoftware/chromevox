@@ -18,7 +18,7 @@
  * @author chaitanyag@google.com (Chaitanya Gharpure)
  */
 
-goog.require('cvox.KeyUtil');
+cvoxgoog.require('cvox.KeyUtil');
 
 var kbExplorer = {};
 

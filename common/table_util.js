@@ -17,9 +17,9 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-goog.provide('cvox.TableUtil');
+cvoxgoog.provide('cvox.TableUtil');
 
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.XpathUtil');
 
 
 /**
@@ -49,7 +49,9 @@ cvox.TableUtil.checkIfHeader = function(cell) {
    * we take the position that <TD> elements can act as headers.
    */
   return ((cell.tagName == 'TH') ||
-      (cell.hasAttribute('scope')));
+      cell.hasAttribute('scope') || (cell.hasAttribute('role') &&
+          ((cell.getAttribute('role') == 'rowheader') ||
+              (cell.getAttribute('role') == 'columnheader'))));
 };
 
 
@@ -129,20 +131,23 @@ cvox.TableUtil.pushIfNotContained = function(givenArray, givenElement) {
  * @return {Array} An array of all the child rows of the active table.
  */
 cvox.TableUtil.getChildRows = function(table) {
-  return cvox.XpathUtil.evalXPath('child::tbody/tr | child::thead/tr',
-                                  table);
+  return cvox.XpathUtil.evalXPath('child::tbody/tr | child::thead/tr | ' +
+      'child::*[attribute::role="row"]', table);
 };
 
 
 /**
- * Returns a JavaScript array of all the child cell <TD> or <TH> nodes of
- * the given row.
+ * Returns a JavaScript array of all the child cell <TD> or <TH> or
+ * role='gridcell' nodes of the given row.
  *
  * @param {Node} rowNode The specified row node.
  * @return {Array} An array of all the child cells of the given row node.
  */
 cvox.TableUtil.getChildCells = function(rowNode) {
-  return cvox.XpathUtil.evalXPath('child::td | child::th', rowNode);
+  return cvox.XpathUtil.evalXPath('child::td | child::th | ' +
+      'child::*[attribute::role="gridcell"] |' +
+      'child::*[attribute::role="rowheader"] |' +
+      'child::*[attribute::role="columnheader"]', rowNode);
 };
 
 

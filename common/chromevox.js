@@ -5,7 +5,7 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.ChromeVox');
+cvoxgoog.provide('cvox.ChromeVox');
 
 /**
  * @constructor
@@ -70,4 +70,3 @@ cvox.ChromeVox.modKeyStr = cvox.ChromeVox.isChromeOS ?
  * @type {Object.<string, number>}
  */
 cvox.ChromeVox.sequenceSwitchKeyCodes = {};
-

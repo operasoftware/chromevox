@@ -18,9 +18,9 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AbstractTts');
+cvoxgoog.provide('cvox.AbstractTts');
 
-goog.require('cvox.AbstractLogger');
+cvoxgoog.require('cvox.AbstractLogger');
 
 
 
@@ -35,8 +35,19 @@ cvox.AbstractTts = function() {
   this.ttsProperties = new Object();
   this.lens_ = null;
   this.lensContent_ = document.createElement('div');
+
+  if (cvox.AbstractTts.pronunciationDictionaryRegexp == undefined) {
+    // Create an expression that matches all words in the pronunciation
+    // dictionary on word boundaries, ignoring case.
+    var words = [];
+    for (var word in cvox.AbstractTts.PRONUNCIATION_DICTIONARY) {
+      words.push(word);
+    }
+    var expr = '\\b(' + words.join('|') + ')\\b';
+    cvox.AbstractTts.pronunciationDictionaryRegexp = new RegExp(expr, 'ig');
+  }
 };
-goog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
+cvoxgoog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
 
 
 /**
@@ -62,12 +73,19 @@ cvox.AbstractTts.prototype.logEnabled = function() {
  * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
+ * @param {Function=} callBack The function to be called after speech ends.
  */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode,
-    properties) {
+    properties, callBack) {
   if (this.logEnabled()) {
-    this.log('[' + this.getName() + '] speak(' + textString + ', ' + queueMode +
-        (properties ? ', ' + properties.toString() : '') + ')');
+    if (callBack != undefined) {
+      this.log('[' + this.getName() + '] speak(' + textString + ', ' +
+          queueMode + (properties ? ', ' + properties.toString() : '') + ', ' +
+         'has callback)');
+    } else {
+      this.log('[' + this.getName() + '] speak(' + textString + ', ' +
+          queueMode + (properties ? ', ' + properties.toString() : '') + ')');
+    }
   }
   if (this.lens_) {
     if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
@@ -268,6 +286,105 @@ cvox.AbstractTts.prototype.increasePropertyValue = function(current_value) {
 };
 
 
+/**
+ * Static method to preprocess text to be spoken properly by a speech
+ * engine.
+ *
+ * 1. Replace any single character with a description of that character.
+ *
+ * 2. Convert all-caps words to lowercase if they don't look like an
+ *    acronym / abbreviation.
+ *
+ * @param {string} text A text string to be spoken.
+ * @return {string} The text formatted in a way that will sound better by
+ *     most speech engines.
+ */
+cvox.AbstractTts.preprocess = function(text) {
+  if (text.length == 1) {
+    switch (text) {
+    case ' ': return 'space';
+    case '`': return 'backtick';
+    case '~': return 'tilde';
+    case '!': return 'bang';
+    case '@': return 'at';
+    case '#': return 'pound';
+    case '$': return 'dollar';
+    case '%': return 'percent';
+    case '^': return 'caret';
+    case '&': return 'ampersand';
+    case '*': return 'asterisk';
+    case '(': return 'open paren';
+    case ')': return 'close paren';
+    case '-': return 'hyphen';
+    case '_': return 'underscore';
+    case '=': return 'equals';
+    case '+': return 'plus';
+    case '[': return 'left bracket';
+    case ']': return 'right bracket';
+    case '{': return 'left brace';
+    case '}': return 'right brace';
+    case '|': return 'pipe';
+    case ';': return 'semicolon';
+    case ':': return 'colon';
+    case ',': return 'comma';
+    case '.': return 'period';
+    case '<': return 'less than';
+    case '>': return 'greater than';
+    case '/': return 'slash';
+    case '?': return 'question mark';
+    case '\t': return 'tab';
+    case '\r': return 'return';
+    case '\n': return 'return';
+    case '\\': return 'backslash';
+    default: return text.toUpperCase() + '.';
+    }
+  }
+
+  // Substitute all words in the pronunciation dictionary. This is pretty
+  // efficient because we use a single regexp that matches all words
+  // simultaneously, and it calls a function with each match, which we can
+  // use to look up the replacement in our dictionary.
+  text = text.replace(
+      cvox.AbstractTts.pronunciationDictionaryRegexp,
+      function(word) {
+        return cvox.AbstractTts.PRONUNCIATION_DICTIONARY[word.toLowerCase()];
+      });
+
+  // Special case for google+, where the punctuation must be pronounced.
+  text = text.replace('google+', 'google-plus');
+
+  // Convert all-caps words to lowercase if they don't look like acronyms,
+  // otherwise add a space before all-caps words so that all-caps words in
+  // the middle of camelCase will be separated.
+  var allCapsWords = text.match(/([A-Z]+)/g);
+  if (allCapsWords) {
+    for (var word, i = 0; word = allCapsWords[i]; i++) {
+      var replacement;
+      // If a word contains vowels and is more than 3 letters long,
+      // it is probably a real word and not just an abbreviation.
+      // Convert it to lower case and speak it normally.
+      if ((word.length > 3) && word.match(/([AEIOUY])/g)) {
+        replacement = word.toLowerCase();
+      } else {
+        // This regex will space out any camelCased/all CAPS words
+        // so they sound better when spoken by TTS engines.
+        replacement = word.replace(/([A-Z])/g, ' $1');
+      }
+      text = text.replace(word, replacement);
+    }
+  }
+
+  //  Remove all whitespace from the beginning and end, and collapse all
+  // inner strings of whitespace to a single space.
+  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+
+  if (text.length > 0)
+    return text;
+  else
+    return 'blank';
+};
+
+
 /** TTS rate property. @type {string} */
 cvox.AbstractTts.RATE = 'rate';
 /** TTS pitch property. @type {string} */
@@ -366,9 +483,9 @@ cvox.AbstractTts.QUEUE_MODE_QUEUE = 1;
 
 
 /**
-* String constants.
-* @type {Object}
-*/
+ * String constants.
+ * @type {Object.<string, string>}
+ */
 cvox.AbstractTts.str = {
   'increaseRate': 'increasing rate',
   'increasePitch': 'increasing pitch',
@@ -378,3 +495,32 @@ cvox.AbstractTts.str = {
   'decreaseVolume': 'decreasing volume'
 };
 
+
+/**
+ * Pronunciation dictionary. Each key must be lowercase, its replacement
+ * should be spelled out the way most TTS engines will pronounce it
+ * correctly. This particular dictionary only handles letters and numbers,
+ * no symbols.
+ * @type {Object.<string, string>}
+ */
+cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
+  'bcc': 'B C C',
+  'cc': 'C C',
+  'chromevox': 'chrome-vox',
+  'cr48': 'C R 48',
+  'ctrl': 'control',
+  'gmail': 'gee-mail',
+  'gtalk': 'gee-talk',
+  'http': 'H T T P',
+  'igoogle': 'eye-google',
+  'username': 'user-name',
+  'www': 'W W W',
+  'youtube': 'you-tube'
+};
+
+
+/**
+ * Pronunciation dictionary.
+ * @type {RegExp};
+ */
+cvox.AbstractTts.pronunciationDictionaryRegexp;

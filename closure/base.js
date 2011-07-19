@@ -32,36 +32,36 @@ var COMPILED = false;
 
 
 /**
- * Base namespace for the Closure library.  Checks to see goog is
+ * Base namespace for the Closure library.  Checks to see cvoxgoog is
  * already defined in the current scope before assigning to prevent
  * clobbering if base.js is loaded more than once.
  *
  * @const
  */
-var goog = goog || {}; // Identifies this file as the Closure base.
+var cvoxgoog = cvoxgoog || {}; // Identifies this file as the Closure base.
 
 
 /**
  * Reference to the global context.  In most cases this will be 'window'.
  */
-goog.global = this;
+cvoxgoog.global = this;
 
 
 /**
  * @define {boolean} DEBUG is provided as a convenience so that debugging code
  * that should not be included in a production js_binary can be easily stripped
- * by specifying --define goog.DEBUG=false to the JSCompiler. For example, most
- * toString() methods should be declared inside an "if (goog.DEBUG)" conditional
+ * by specifying --define cvoxgoog.DEBUG=false to the JSCompiler. For example, most
+ * toString() methods should be declared inside an "if (cvoxgoog.DEBUG)" conditional
  * because they are generally used for debugging purposes and it is difficult
  * for the JSCompiler to statically determine whether they are used.
  */
-goog.DEBUG = true;
+cvoxgoog.DEBUG = true;
 
 
 /**
  * @define {string} LOCALE defines the locale being used for compilation. It is
  * used to select locale specific data to be compiled in js binary. BUILD rule
- * can specify this value by "--define goog.LOCALE=<locale_name>" as JSCompiler
+ * can specify this value by "--define cvoxgoog.LOCALE=<locale_name>" as JSCompiler
  * option.
  *
  * Take into account that the locale code format is important. You should use
@@ -77,59 +77,59 @@ goog.DEBUG = true;
  * this rule: the Hebrew language. For legacy reasons the old code (iw) should
  * be used instead of the new code (he), see http://wiki/Main/IIISynonyms.
  */
-goog.LOCALE = 'en';  // default to en
+cvoxgoog.LOCALE = 'en';  // default to en
 
 
 /**
  * Indicates whether or not we can call 'eval' directly to eval code in the
- * global scope. Set to a Boolean by the first call to goog.globalEval (which
- * empirically tests whether eval works for globals). @see goog.globalEval
+ * global scope. Set to a Boolean by the first call to cvoxgoog.globalEval (which
+ * empirically tests whether eval works for globals). @see cvoxgoog.globalEval
  * @type {?boolean}
  * @private
  */
-goog.evalWorksForGlobals_ = null;
+cvoxgoog.evalWorksForGlobals_ = null;
 
 
 /**
- * Creates object stubs for a namespace. When present in a file, goog.provide
+ * Creates object stubs for a namespace. When present in a file, cvoxgoog.provide
  * also indicates that the file defines the indicated object. Calls to
- * goog.provide are resolved by the compiler if --closure_pass is set.
+ * cvoxgoog.provide are resolved by the compiler if --closure_pass is set.
  * @param {string} name name of the object that this file defines.
  */
-goog.provide = function(name) {
+cvoxgoog.provide = function(name) {
   if (!COMPILED) {
     // Ensure that the same namespace isn't provided twice. This is intended
-    // to teach new developers that 'goog.provide' is effectively a variable
-    // declaration. And when JSCompiler transforms goog.provide into a real
+    // to teach new developers that 'cvoxgoog.provide' is effectively a variable
+    // declaration. And when JSCompiler transforms cvoxgoog.provide into a real
     // variable declaration, the compiled JS should work the same as the raw
-    // JS--even when the raw JS uses goog.provide incorrectly.
-    if (goog.isProvided_(name)) {
+    // JS--even when the raw JS uses cvoxgoog.provide incorrectly.
+    if (cvoxgoog.isProvided_(name)) {
       throw Error('Namespace "' + name + '" already declared.');
     }
-    delete goog.implicitNamespaces_[name];
+    delete cvoxgoog.implicitNamespaces_[name];
 
     var namespace = name;
     while ((namespace = namespace.substring(0, namespace.lastIndexOf('.')))) {
-      if (goog.getObjectByName(namespace)) {
+      if (cvoxgoog.getObjectByName(namespace)) {
         break;
       }
-      goog.implicitNamespaces_[namespace] = true;
+      cvoxgoog.implicitNamespaces_[namespace] = true;
     }
   }
 
-  goog.exportPath_(name);
+  cvoxgoog.exportPath_(name);
 };
 
 
 /**
- * Check if the given name has been goog.provided. This will return false for
+ * Check if the given name has been cvoxgoog.provided. This will return false for
  * names that are available only as implicit namespaces.
  * @param {string} name name of the object to look for.
  * @return {boolean} Whether the name has been provided.
  * @private
  */
-goog.isProvided_ = function(name) {
-  return !goog.implicitNamespaces_[name] && !!goog.getObjectByName(name);
+cvoxgoog.isProvided_ = function(name) {
+  return !cvoxgoog.implicitNamespaces_[name] && !!cvoxgoog.getObjectByName(name);
 };
 
 
@@ -139,8 +139,8 @@ goog.isProvided_ = function(name) {
  * @param {string=} opt_message Optional message to add to the error that's
  *     raised when used in production code.
  */
-goog.setTestOnly = function(opt_message) {
-  if (COMPILED && !goog.DEBUG) {
+cvoxgoog.setTestOnly = function(opt_message) {
+  if (COMPILED && !cvoxgoog.DEBUG) {
     opt_message = opt_message || '';
     throw Error('Importing test-only code into non-debug environment' +
                 opt_message ? ': ' + opt_message : '.');
@@ -150,14 +150,14 @@ goog.setTestOnly = function(opt_message) {
 
 if (!COMPILED) {
   /**
-   * Namespaces implicitly defined by goog.provide. For example,
-   * goog.provide('goog.events.Event') implicitly declares
-   * that 'goog' and 'goog.events' must be namespaces.
+   * Namespaces implicitly defined by cvoxgoog.provide. For example,
+   * cvoxgoog.provide('cvoxgoog.events.Event') implicitly declares
+   * that 'goog' and 'cvoxgoog.events' must be namespaces.
    *
    * @type {Object}
    * @private
    */
-  goog.implicitNamespaces_ = {};
+  cvoxgoog.implicitNamespaces_ = {};
 }
 
 
@@ -166,16 +166,16 @@ if (!COMPILED) {
  * ensuring that names that already exist are not overwritten. For
  * example:
  * "a.b.c" -> a = {};a.b={};a.b.c={};
- * Used by goog.provide and goog.exportSymbol.
+ * Used by cvoxgoog.provide and cvoxgoog.exportSymbol.
  * @param {string} name name of the object that this file defines.
  * @param {*=} opt_object the object to expose at the end of the path.
  * @param {Object=} opt_objectToExportTo The object to add the path to; default
- *     is |goog.global|.
+ *     is |cvoxgoog.global|.
  * @private
  */
-goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
+cvoxgoog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
   var parts = name.split('.');
-  var cur = opt_objectToExportTo || goog.global;
+  var cur = opt_objectToExportTo || cvoxgoog.global;
 
   // Internet Explorer exhibits strange behavior when throwing errors from
   // methods externed in this manner.  See the testExportSymbolExceptions in
@@ -191,7 +191,7 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
 
   // Parentheses added to eliminate strict JS warning in Firefox.
   for (var part; parts.length && (part = parts.shift());) {
-    if (!parts.length && goog.isDef(opt_object)) {
+    if (!parts.length && cvoxgoog.isDef(opt_object)) {
       // last part and we have an object; use it
       cur[part] = opt_object;
     } else if (cur[part]) {
@@ -210,14 +210,14 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
  *
  * @param {string} name The fully qualified name.
  * @param {Object=} opt_obj The object within which to look; default is
- *     |goog.global|.
+ *     |cvoxgoog.global|.
  * @return {Object} The object or, if not found, null.
  */
-goog.getObjectByName = function(name, opt_obj) {
+cvoxgoog.getObjectByName = function(name, opt_obj) {
   var parts = name.split('.');
-  var cur = opt_obj || goog.global;
+  var cur = opt_obj || cvoxgoog.global;
   for (var part; part = parts.shift(); ) {
-    if (goog.isDefAndNotNull(cur[part])) {
+    if (cvoxgoog.isDefAndNotNull(cur[part])) {
       cur = cur[part];
     } else {
       return null;
@@ -228,15 +228,15 @@ goog.getObjectByName = function(name, opt_obj) {
 
 
 /**
- * Globalizes a whole namespace, such as goog or goog.lang.
+ * Globalizes a whole namespace, such as cvoxgoog or cvoxgoog.lang.
  *
  * @param {Object} obj The namespace to globalize.
  * @param {Object=} opt_global The object to add the properties to.
  * @deprecated Properties may be explicitly exported to the global scope, but
  *     this should no longer be done in bulk.
  */
-goog.globalize = function(obj, opt_global) {
-  var global = opt_global || goog.global;
+cvoxgoog.globalize = function(obj, opt_global) {
+  var global = opt_global || cvoxgoog.global;
   for (var x in obj) {
     global[x] = obj[x];
   }
@@ -251,11 +251,11 @@ goog.globalize = function(obj, opt_global) {
  * @param {Array} requires An array of strings with the names of the objects
  *                         this file requires.
  */
-goog.addDependency = function(relPath, provides, requires) {
+cvoxgoog.addDependency = function(relPath, provides, requires) {
   if (!COMPILED) {
     var provide, require;
     var path = relPath.replace(/\\/g, '/');
-    var deps = goog.dependencies_;
+    var deps = cvoxgoog.dependencies_;
     for (var i = 0; provide = provides[i]; i++) {
       deps.nameToPath[provide] = path;
       if (!(path in deps.pathToNames)) {
@@ -275,49 +275,49 @@ goog.addDependency = function(relPath, provides, requires) {
 
 // MOE:begin_strip
 /**
- * Whether goog.require should throw an exception if it fails.
+ * Whether cvoxgoog.require should throw an exception if it fails.
  * @type {boolean}
  */
-goog.useStrictRequires = false;
+cvoxgoog.useStrictRequires = false;
 
 
 // MOE:end_strip
 /**
  * Implements a system for the dynamic resolution of dependencies
  * that works in parallel with the BUILD system. Note that all calls
- * to goog.require will be stripped by the JSCompiler when the
+ * to cvoxgoog.require will be stripped by the JSCompiler when the
  * --closure_pass option is used.
- * @param {string} rule Rule to include, in the form goog.package.part.
+ * @param {string} rule Rule to include, in the form cvoxgoog.package.part.
  */
-goog.require = function(rule) {
+cvoxgoog.require = function(rule) {
 
   // if the object already exists we do not need do do anything
   // TODO(arv): If we start to support require based on file name this has
   //            to change
-  // TODO(arv): If we allow goog.foo.* this has to change
+  // TODO(arv): If we allow cvoxgoog.foo.* this has to change
   // TODO(arv): If we implement dynamic load after page load we should probably
   //            not remove this code for the compiled output
   if (!COMPILED) {
-    if (goog.getObjectByName(rule)) {
+    if (cvoxgoog.getObjectByName(rule)) {
       return;
     }
-    var path = goog.getPathFromDeps_(rule);
+    var path = cvoxgoog.getPathFromDeps_(rule);
     if (path) {
-      goog.included_[path] = true;
-      goog.writeScripts_();
+      cvoxgoog.included_[path] = true;
+      cvoxgoog.writeScripts_();
     } else {
-      var errorMessage = 'goog.require could not find: ' + rule;
-      if (goog.global.console) {
-        goog.global.console['error'](errorMessage);
+      var errorMessage = 'cvoxgoog.require could not find: ' + rule;
+      if (cvoxgoog.global.console) {
+        cvoxgoog.global.console['error'](errorMessage);
       }
 
       // MOE:begin_strip
 
       // NOTE(nicksantos): We could always throw an error, but this would break
       // legacy users that depended on this failing silently. Instead, the
-      // compiler should warn us when there are invalid goog.require calls.
+      // compiler should warn us when there are invalid cvoxgoog.require calls.
       // For now, we simply give clients a way to turn strict mode on.
-      if (goog.useStrictRequires) {
+      if (cvoxgoog.useStrictRequires) {
         // MOE:end_strip
         throw Error(errorMessage);
         // MOE:begin_strip
@@ -332,14 +332,14 @@ goog.require = function(rule) {
  * Path for included scripts
  * @type {string}
  */
-goog.basePath = '';
+cvoxgoog.basePath = '';
 
 
 /**
  * A hook for overriding the base path.
  * @type {string|undefined}
  */
-goog.global.CLOSURE_BASE_PATH;
+cvoxgoog.global.CLOSURE_BASE_PATH;
 
 
 /**
@@ -347,7 +347,7 @@ goog.global.CLOSURE_BASE_PATH;
  * the deps are written.
  * @type {boolean|undefined}
  */
-goog.global.CLOSURE_NO_DEPS;
+cvoxgoog.global.CLOSURE_NO_DEPS;
 
 
 /**
@@ -359,14 +359,14 @@ goog.global.CLOSURE_NO_DEPS;
  * The function is passed the script source, which is a relative URI. It should
  * return true if the script was imported, false otherwise.
  */
-goog.global.CLOSURE_IMPORT_SCRIPT;
+cvoxgoog.global.CLOSURE_IMPORT_SCRIPT;
 
 
 /**
  * Null function used for default values of callbacks, etc.
  * @return {void} Nothing.
  */
-goog.nullFunction = function() {};
+cvoxgoog.nullFunction = function() {};
 
 
 /**
@@ -374,9 +374,9 @@ goog.nullFunction = function() {};
  *
  * @param {...*} var_args The arguments of the function.
  * @return {*} The first argument.
- * @deprecated Use goog.functions.identity instead.
+ * @deprecated Use cvoxgoog.functions.identity instead.
  */
-goog.identityFunction = function(var_args) {
+cvoxgoog.identityFunction = function(var_args) {
   return arguments[0];
 };
 
@@ -384,7 +384,7 @@ goog.identityFunction = function(var_args) {
 /**
  * When defining a class Foo with an abstract method bar(), you can do:
  *
- * Foo.prototype.bar = goog.abstractMethod
+ * Foo.prototype.bar = cvoxgoog.abstractMethod
  *
  * Now if a subclass of Foo fails to override bar(), an error
  * will be thrown when bar() is invoked.
@@ -397,7 +397,7 @@ goog.identityFunction = function(var_args) {
  * @throws {Error} when invoked to indicate the method should be
  *   overridden.
  */
-goog.abstractMethod = function() {
+cvoxgoog.abstractMethod = function() {
   throw Error('unimplemented abstract method');
 };
 
@@ -408,7 +408,7 @@ goog.abstractMethod = function() {
  * @param {!Function} ctor The constructor for the class to add the static
  *     method to.
  */
-goog.addSingletonGetter = function(ctor) {
+cvoxgoog.addSingletonGetter = function(ctor) {
   ctor.getInstance = function() {
     return ctor.instance_ || (ctor.instance_ = new ctor());
   };
@@ -422,7 +422,7 @@ if (!COMPILED) {
    * @type {Object}
    * @private
    */
-  goog.included_ = {};
+  cvoxgoog.included_ = {};
 
 
   /**
@@ -431,7 +431,7 @@ if (!COMPILED) {
    * @private
    * @type {Object}
    */
-  goog.dependencies_ = {
+  cvoxgoog.dependencies_ = {
     pathToNames: {}, // 1 to many
     nameToPath: {}, // 1 to 1
     requires: {}, // 1 to many
@@ -447,8 +447,8 @@ if (!COMPILED) {
    * @return {boolean} True if it looks like HTML document.
    * @private
    */
-  goog.inHtmlDocument_ = function() {
-    var doc = goog.global.document;
+  cvoxgoog.inHtmlDocument_ = function() {
+    var doc = cvoxgoog.global.document;
     return typeof doc != 'undefined' &&
            'write' in doc;  // XULDocument misses write.
   };
@@ -458,14 +458,14 @@ if (!COMPILED) {
    * Tries to detect the base path of the base.js script that bootstraps Closure
    * @private
    */
-  goog.findBasePath_ = function() {
-    if (goog.global.CLOSURE_BASE_PATH) {
-      goog.basePath = goog.global.CLOSURE_BASE_PATH;
+  cvoxgoog.findBasePath_ = function() {
+    if (cvoxgoog.global.CLOSURE_BASE_PATH) {
+      cvoxgoog.basePath = cvoxgoog.global.CLOSURE_BASE_PATH;
       return;
-    } else if (!goog.inHtmlDocument_()) {
+    } else if (!cvoxgoog.inHtmlDocument_()) {
       return;
     }
-    var doc = goog.global.document;
+    var doc = cvoxgoog.global.document;
     var scripts = doc.getElementsByTagName('script');
     // Search backwards since the current script is in almost all cases the one
     // that has base.js.
@@ -474,7 +474,7 @@ if (!COMPILED) {
       var qmark = src.lastIndexOf('?');
       var l = qmark == -1 ? src.length : qmark;
       if (src.substr(l - 7, 7) == 'base.js') {
-        goog.basePath = src.substr(0, l - 7);
+        cvoxgoog.basePath = src.substr(0, l - 7);
         return;
       }
     }
@@ -487,11 +487,11 @@ if (!COMPILED) {
    * @param {string} src Script source.
    * @private
    */
-  goog.importScript_ = function(src) {
-    var importScript = goog.global.CLOSURE_IMPORT_SCRIPT ||
-        goog.writeScriptTag_;
-    if (!goog.dependencies_.written[src] && importScript(src)) {
-      goog.dependencies_.written[src] = true;
+  cvoxgoog.importScript_ = function(src) {
+    var importScript = cvoxgoog.global.CLOSURE_IMPORT_SCRIPT ||
+        cvoxgoog.writeScriptTag_;
+    if (!cvoxgoog.dependencies_.written[src] && importScript(src)) {
+      cvoxgoog.dependencies_.written[src] = true;
     }
   };
 
@@ -504,9 +504,9 @@ if (!COMPILED) {
    * @return {boolean} True if the script was imported, false otherwise.
    * @private
    */
-  goog.writeScriptTag_ = function(src) {
-    if (goog.inHtmlDocument_()) {
-      var doc = goog.global.document;
+  cvoxgoog.writeScriptTag_ = function(src) {
+    if (cvoxgoog.inHtmlDocument_()) {
+      var doc = cvoxgoog.global.document;
       doc.write(
           '<script type="text/javascript" src="' + src + '"></' + 'script>');
       return true;
@@ -521,11 +521,11 @@ if (!COMPILED) {
    * and calls importScript_ in the correct order.
    * @private
    */
-  goog.writeScripts_ = function() {
+  cvoxgoog.writeScripts_ = function() {
     // the scripts we need to write this time
     var scripts = [];
     var seenScript = {};
-    var deps = goog.dependencies_;
+    var deps = cvoxgoog.dependencies_;
 
     function visitNode(path) {
       if (path in deps.written) {
@@ -548,7 +548,7 @@ if (!COMPILED) {
         for (var requireName in deps.requires[path]) {
           // If the required name is defined, we assume that it was already
           // bootstrapped by other means.
-          if (!goog.isProvided_(requireName)) {
+          if (!cvoxgoog.isProvided_(requireName)) {
             if (requireName in deps.nameToPath) {
               visitNode(deps.nameToPath[requireName]);
             } else {
@@ -564,7 +564,7 @@ if (!COMPILED) {
       }
     }
 
-    for (var path in goog.included_) {
+    for (var path in cvoxgoog.included_) {
       if (!deps.written[path]) {
         visitNode(path);
       }
@@ -572,7 +572,7 @@ if (!COMPILED) {
 
     for (var i = 0; i < scripts.length; i++) {
       if (scripts[i]) {
-        goog.importScript_(goog.basePath + scripts[i]);
+        cvoxgoog.importScript_(cvoxgoog.basePath + scripts[i]);
       } else {
         throw Error('Undefined script input');
       }
@@ -583,23 +583,23 @@ if (!COMPILED) {
   /**
    * Looks at the dependency rules and tries to determine the script file that
    * fulfills a particular rule.
-   * @param {string} rule In the form goog.namespace.Class or project.script.
+   * @param {string} rule In the form cvoxgoog.namespace.Class or project.script.
    * @return {?string} Url corresponding to the rule, or null.
    * @private
    */
-  goog.getPathFromDeps_ = function(rule) {
-    if (rule in goog.dependencies_.nameToPath) {
-      return goog.dependencies_.nameToPath[rule];
+  cvoxgoog.getPathFromDeps_ = function(rule) {
+    if (rule in cvoxgoog.dependencies_.nameToPath) {
+      return cvoxgoog.dependencies_.nameToPath[rule];
     } else {
       return null;
     }
   };
 
-  goog.findBasePath_();
+  cvoxgoog.findBasePath_();
 
   // Allow projects to manage the deps files themselves.
-  if (!goog.global.CLOSURE_NO_DEPS) {
-    goog.importScript_(goog.basePath + 'deps.js');
+  if (!cvoxgoog.global.CLOSURE_NO_DEPS) {
+    cvoxgoog.importScript_(cvoxgoog.basePath + 'deps.js');
   }
 }
 
@@ -616,7 +616,7 @@ if (!COMPILED) {
  * @param {*} value The value to get the type of.
  * @return {string} The name of the type.
  */
-goog.typeOf = function(value) {
+cvoxgoog.typeOf = function(value) {
   var s = typeof value;
   if (s == 'object') {
     if (value) {
@@ -647,7 +647,7 @@ goog.typeOf = function(value) {
       // different frames have different Array objects. In IE6, if the iframe
       // where the array was created is destroyed, the array loses its
       // prototype. Then dereferencing val.splice here throws an exception, so
-      // we can't use goog.isFunction. Calling typeof directly returns 'unknown'
+      // we can't use cvoxgoog.isFunction. Calling typeof directly returns 'unknown'
       // so that will work. In this case, this function will return false and
       // most array functions will still work because the array is still
       // array-like (supports length and []) even though it has lost its
@@ -721,7 +721,7 @@ goog.typeOf = function(value) {
  * @return {boolean} True if the property is enumarable.
  * @private
  */
-goog.propertyIsEnumerableCustom_ = function(object, propName) {
+cvoxgoog.propertyIsEnumerableCustom_ = function(object, propName) {
   // KJS in Safari 2 is not ECMAScript compatible and lacks crucial methods
   // such as propertyIsEnumerable.  We therefore use a workaround.
   // Does anyone know a more efficient work around?
@@ -746,13 +746,13 @@ goog.propertyIsEnumerableCustom_ = function(object, propName) {
  * @return {boolean} True if the property is enumarable.
  * @private
  */
-goog.propertyIsEnumerable_ = function(object, propName) {
+cvoxgoog.propertyIsEnumerable_ = function(object, propName) {
   // In IE if object is from another window, cannot use propertyIsEnumerable
   // from this window's Object. Will raise a 'JScript object expected' error.
   if (object instanceof Object) {
     return Object.prototype.propertyIsEnumerable.call(object, propName);
   } else {
-    return goog.propertyIsEnumerableCustom_(object, propName);
+    return cvoxgoog.propertyIsEnumerableCustom_(object, propName);
   }
 };
 
@@ -765,7 +765,7 @@ goog.propertyIsEnumerable_ = function(object, propName) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is defined.
  */
-goog.isDef = function(val) {
+cvoxgoog.isDef = function(val) {
   return val !== undefined;
 };
 
@@ -775,7 +775,7 @@ goog.isDef = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is null.
  */
-goog.isNull = function(val) {
+cvoxgoog.isNull = function(val) {
   return val === null;
 };
 
@@ -785,7 +785,7 @@ goog.isNull = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is defined and not null.
  */
-goog.isDefAndNotNull = function(val) {
+cvoxgoog.isDefAndNotNull = function(val) {
   // Note that undefined == null.
   return val != null;
 };
@@ -796,8 +796,8 @@ goog.isDefAndNotNull = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
-goog.isArray = function(val) {
-  return goog.typeOf(val) == 'array';
+cvoxgoog.isArray = function(val) {
+  return cvoxgoog.typeOf(val) == 'array';
 };
 
 
@@ -808,8 +808,8 @@ goog.isArray = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is an array.
  */
-goog.isArrayLike = function(val) {
-  var type = goog.typeOf(val);
+cvoxgoog.isArrayLike = function(val) {
+  var type = cvoxgoog.typeOf(val);
   return type == 'array' || type == 'object' && typeof val.length == 'number';
 };
 
@@ -820,8 +820,8 @@ goog.isArrayLike = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is a like a Date.
  */
-goog.isDateLike = function(val) {
-  return goog.isObject(val) && typeof val.getFullYear == 'function';
+cvoxgoog.isDateLike = function(val) {
+  return cvoxgoog.isObject(val) && typeof val.getFullYear == 'function';
 };
 
 
@@ -830,7 +830,7 @@ goog.isDateLike = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is a string.
  */
-goog.isString = function(val) {
+cvoxgoog.isString = function(val) {
   return typeof val == 'string';
 };
 
@@ -840,7 +840,7 @@ goog.isString = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is boolean.
  */
-goog.isBoolean = function(val) {
+cvoxgoog.isBoolean = function(val) {
   return typeof val == 'boolean';
 };
 
@@ -850,7 +850,7 @@ goog.isBoolean = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is a number.
  */
-goog.isNumber = function(val) {
+cvoxgoog.isNumber = function(val) {
   return typeof val == 'number';
 };
 
@@ -860,8 +860,8 @@ goog.isNumber = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is a function.
  */
-goog.isFunction = function(val) {
-  return goog.typeOf(val) == 'function';
+cvoxgoog.isFunction = function(val) {
+  return cvoxgoog.typeOf(val) == 'function';
 };
 
 
@@ -871,8 +871,8 @@ goog.isFunction = function(val) {
  * @param {*} val Variable to test.
  * @return {boolean} Whether variable is an object.
  */
-goog.isObject = function(val) {
-  var type = goog.typeOf(val);
+cvoxgoog.isObject = function(val) {
+  var type = cvoxgoog.typeOf(val);
   return type == 'object' || type == 'array' || type == 'function';
 };
 
@@ -888,34 +888,34 @@ goog.isObject = function(val) {
  * @param {Object} obj The object to get the unique ID for.
  * @return {number} The unique ID for the object.
  */
-goog.getUid = function(obj) {
+cvoxgoog.getUid = function(obj) {
   // TODO(arv): Make the type stricter, do not accept null.
 
   // In Opera window.hasOwnProperty exists but always returns false so we avoid
   // using it. As a consequence the unique ID generated for BaseClass.prototype
   // and SubClass.prototype will be the same.
-  return obj[goog.UID_PROPERTY_] ||
-      (obj[goog.UID_PROPERTY_] = ++goog.uidCounter_);
+  return obj[cvoxgoog.UID_PROPERTY_] ||
+      (obj[cvoxgoog.UID_PROPERTY_] = ++cvoxgoog.uidCounter_);
 };
 
 
 /**
  * Removes the unique ID from an object. This is useful if the object was
- * previously mutated using {@code goog.getUid} in which case the mutation is
+ * previously mutated using {@code cvoxgoog.getUid} in which case the mutation is
  * undone.
  * @param {Object} obj The object to remove the unique ID field from.
  */
-goog.removeUid = function(obj) {
+cvoxgoog.removeUid = function(obj) {
   // TODO(arv): Make the type stricter, do not accept null.
 
   // DOM nodes in IE are not instance of Object and throws exception
   // for delete. Instead we try to use removeAttribute
   if ('removeAttribute' in obj) {
-    obj.removeAttribute(goog.UID_PROPERTY_);
+    obj.removeAttribute(cvoxgoog.UID_PROPERTY_);
   }
   /** @preserveTry */
   try {
-    delete obj[goog.UID_PROPERTY_];
+    delete obj[cvoxgoog.UID_PROPERTY_];
   } catch (ex) {
   }
 };
@@ -927,7 +927,7 @@ goog.removeUid = function(obj) {
  * @type {string}
  * @private
  */
-goog.UID_PROPERTY_ = 'closure_uid_' +
+cvoxgoog.UID_PROPERTY_ = 'closure_uid_' +
     Math.floor(Math.random() * 2147483648).toString(36);
 
 
@@ -936,7 +936,7 @@ goog.UID_PROPERTY_ = 'closure_uid_' +
  * @type {number}
  * @private
  */
-goog.uidCounter_ = 0;
+cvoxgoog.uidCounter_ = 0;
 
 
 /**
@@ -944,17 +944,17 @@ goog.uidCounter_ = 0;
  * given object.
  * @param {Object} obj The object to get the hash code for.
  * @return {number} The hash code for the object.
- * @deprecated Use goog.getUid instead.
+ * @deprecated Use cvoxgoog.getUid instead.
  */
-goog.getHashCode = goog.getUid;
+cvoxgoog.getHashCode = cvoxgoog.getUid;
 
 
 /**
  * Removes the hash code field from an object.
  * @param {Object} obj The object to remove the field from.
- * @deprecated Use goog.removeUid instead.
+ * @deprecated Use cvoxgoog.removeUid instead.
  */
-goog.removeHashCode = goog.removeUid;
+cvoxgoog.removeHashCode = cvoxgoog.removeUid;
 
 
 /**
@@ -962,25 +962,25 @@ goog.removeHashCode = goog.removeUid;
  * arrays will be cloned recursively.
  *
  * WARNINGS:
- * <code>goog.cloneObject</code> does not detect reference loops. Objects that
+ * <code>cvoxgoog.cloneObject</code> does not detect reference loops. Objects that
  * refer to themselves will cause infinite recursion.
  *
- * <code>goog.cloneObject</code> is unaware of unique identifiers, and copies
+ * <code>cvoxgoog.cloneObject</code> is unaware of unique identifiers, and copies
  * UIDs created by <code>getUid</code> into cloned results.
  *
  * @param {*} obj The value to clone.
  * @return {*} A clone of the input value.
- * @deprecated goog.cloneObject is unsafe. Prefer the goog.object methods.
+ * @deprecated cvoxgoog.cloneObject is unsafe. Prefer the cvoxgoog.object methods.
  */
-goog.cloneObject = function(obj) {
-  var type = goog.typeOf(obj);
+cvoxgoog.cloneObject = function(obj) {
+  var type = cvoxgoog.typeOf(obj);
   if (type == 'object' || type == 'array') {
     if (obj.clone) {
       return obj.clone();
     }
     var clone = type == 'array' ? [] : {};
     for (var key in obj) {
-      clone[key] = goog.cloneObject(obj[key]);
+      clone[key] = cvoxgoog.cloneObject(obj[key]);
     }
     return clone;
   }
@@ -992,10 +992,10 @@ goog.cloneObject = function(obj) {
 /**
  * Forward declaration for the clone method. This is necessary until the
  * compiler can better support duck-typing constructs as used in
- * goog.cloneObject.
+ * cvoxgoog.cloneObject.
  *
  * TODO(brenneman): Remove once the JSCompiler can infer that the check for
- * proto.clone is safe in goog.cloneObject.
+ * proto.clone is safe in cvoxgoog.cloneObject.
  *
  * @type {Function}
  */
@@ -1003,7 +1003,7 @@ Object.prototype.clone;
 
 
 /**
- * A native implementation of goog.bind.
+ * A native implementation of cvoxgoog.bind.
  * @param {Function} fn A function to partially apply.
  * @param {Object|undefined} selfObj Specifies the object which |this| should
  *     point to when the function is run. If the value is null or undefined, it
@@ -1017,13 +1017,13 @@ Object.prototype.clone;
  *     is deprecated because some people have declared a pure-JS version.
  *     Only the pure-JS version is truly deprecated.
  */
-goog.bindNative_ = function(fn, selfObj, var_args) {
+cvoxgoog.bindNative_ = function(fn, selfObj, var_args) {
   return /** @type {!Function} */ (fn.call.apply(fn.bind, arguments));
 };
 
 
 /**
- * A pure-JS implementation of goog.bind.
+ * A pure-JS implementation of cvoxgoog.bind.
  * @param {Function} fn A function to partially apply.
  * @param {Object|undefined} selfObj Specifies the object which |this| should
  *     point to when the function is run. If the value is null or undefined, it
@@ -1034,8 +1034,8 @@ goog.bindNative_ = function(fn, selfObj, var_args) {
  *     invoked as a method of.
  * @private
  */
-goog.bindJs_ = function(fn, selfObj, var_args) {
-  var context = selfObj || goog.global;
+cvoxgoog.bindJs_ = function(fn, selfObj, var_args) {
+  var context = selfObj || cvoxgoog.global;
 
   if (arguments.length > 2) {
     var boundArgs = Array.prototype.slice.call(arguments, 2);
@@ -1078,22 +1078,22 @@ goog.bindJs_ = function(fn, selfObj, var_args) {
  *     invoked as a method of.
  * @suppress {deprecated} See above.
  */
-goog.bind = function(fn, selfObj, var_args) {
+cvoxgoog.bind = function(fn, selfObj, var_args) {
   // TODO(nicksantos): narrow the type signature.
   if (Function.prototype.bind &&
       // NOTE(nicksantos): Somebody pulled base.js into the default
       // Chrome extension environment. This means that for Chrome extensions,
       // they get the implementation of Function.prototype.bind that
-      // calls goog.bind instead of the native one. Even worse, we don't want
-      // to introduce a circular dependency between goog.bind and
+      // calls cvoxgoog.bind instead of the native one. Even worse, we don't want
+      // to introduce a circular dependency between cvoxgoog.bind and
       // Function.prototype.bind, so we have to hack this to make sure it
       // works correctly.
       Function.prototype.bind.toString().indexOf('native code') != -1) {
-    goog.bind = goog.bindNative_;
+    cvoxgoog.bind = cvoxgoog.bindNative_;
   } else {
-    goog.bind = goog.bindJs_;
+    cvoxgoog.bind = cvoxgoog.bindJs_;
   }
-  return goog.bind.apply(null, arguments);
+  return cvoxgoog.bind.apply(null, arguments);
 };
 
 
@@ -1111,7 +1111,7 @@ goog.bind = function(fn, selfObj, var_args) {
  * @return {!Function} A partially-applied form of the function bind() was
  *     invoked as a method of.
  */
-goog.partial = function(fn, var_args) {
+cvoxgoog.partial = function(fn, var_args) {
   var args = Array.prototype.slice.call(arguments, 1);
   return function() {
     // Prepend the bound arguments to the current arguments.
@@ -1125,11 +1125,11 @@ goog.partial = function(fn, var_args) {
 /**
  * Copies all the members of a source object to a target object. This method
  * does not work on all browsers for all objects that contain keys such as
- * toString or hasOwnProperty. Use goog.object.extend for this purpose.
+ * toString or hasOwnProperty. Use cvoxgoog.object.extend for this purpose.
  * @param {Object} target Target.
  * @param {Object} source Source.
  */
-goog.mixin = function(target, source) {
+cvoxgoog.mixin = function(target, source) {
   for (var x in source) {
     target[x] = source[x];
   }
@@ -1146,7 +1146,7 @@ goog.mixin = function(target, source) {
  * @return {number} An integer value representing the number of milliseconds
  *     between midnight, January 1, 1970 and the current time.
  */
-goog.now = Date.now || (function() {
+cvoxgoog.now = Date.now || (function() {
   // Unary plus operator converts its operand to a number which in the case of
   // a date is done by calling getTime().
   return +new Date();
@@ -1155,30 +1155,30 @@ goog.now = Date.now || (function() {
 
 /**
  * Evals javascript in the global scope.  In IE this uses execScript, other
- * browsers use goog.global.eval. If goog.global.eval does not evaluate in the
+ * browsers use cvoxgoog.global.eval. If cvoxgoog.global.eval does not evaluate in the
  * global scope (for example, in Safari), appends a script tag instead.
  * Throws an exception if neither execScript or eval is defined.
  * @param {string} script JavaScript string.
  */
-goog.globalEval = function(script) {
-  if (goog.global.execScript) {
-    goog.global.execScript(script, 'JavaScript');
-  } else if (goog.global.eval) {
+cvoxgoog.globalEval = function(script) {
+  if (cvoxgoog.global.execScript) {
+    cvoxgoog.global.execScript(script, 'JavaScript');
+  } else if (cvoxgoog.global.eval) {
     // Test to see if eval works
-    if (goog.evalWorksForGlobals_ == null) {
-      goog.global.eval('var _et_ = 1;');
-      if (typeof goog.global['_et_'] != 'undefined') {
-        delete goog.global['_et_'];
-        goog.evalWorksForGlobals_ = true;
+    if (cvoxgoog.evalWorksForGlobals_ == null) {
+      cvoxgoog.global.eval('var _et_ = 1;');
+      if (typeof cvoxgoog.global['_et_'] != 'undefined') {
+        delete cvoxgoog.global['_et_'];
+        cvoxgoog.evalWorksForGlobals_ = true;
       } else {
-        goog.evalWorksForGlobals_ = false;
+        cvoxgoog.evalWorksForGlobals_ = false;
       }
     }
 
-    if (goog.evalWorksForGlobals_) {
-      goog.global.eval(script);
+    if (cvoxgoog.evalWorksForGlobals_) {
+      cvoxgoog.global.eval(script);
     } else {
-      var doc = goog.global.document;
+      var doc = cvoxgoog.global.document;
       var scriptElt = doc.createElement('script');
       scriptElt.type = 'text/javascript';
       scriptElt.defer = false;
@@ -1189,19 +1189,19 @@ goog.globalEval = function(script) {
       doc.body.removeChild(scriptElt);
     }
   } else {
-    throw Error('goog.globalEval not available');
+    throw Error('cvoxgoog.globalEval not available');
   }
 };
 
 
 /**
  * Optional map of CSS class names to obfuscated names used with
- * goog.getCssName().
+ * cvoxgoog.getCssName().
  * @type {Object|undefined}
  * @private
- * @see goog.setCssNameMapping
+ * @see cvoxgoog.setCssNameMapping
  */
-goog.cssNameMapping_;
+cvoxgoog.cssNameMapping_;
 
 
 /**
@@ -1209,15 +1209,15 @@ goog.cssNameMapping_;
  * 'BY_WHOLE' or 'BY_PART' if defined.
  * @type {string|undefined}
  * @private
- * @see goog.setCssNameMapping
+ * @see cvoxgoog.setCssNameMapping
  */
-goog.cssNameMappingStyle_;
+cvoxgoog.cssNameMappingStyle_;
 
 
 /**
  * Handles strings that are intended to be used as CSS class names.
  *
- * This function works in tandem with @see goog.setCssNameMapping.
+ * This function works in tandem with @see cvoxgoog.setCssNameMapping.
  *
  * Without any mapping set, the arguments are simple joined with a
  * hyphen and passed through unaltered.
@@ -1230,25 +1230,25 @@ goog.cssNameMappingStyle_;
  * compiler will output a warning.
  *
  * When the mapping is passed to the compiler, it will replace calls
- * to goog.getCssName with the strings from the mapping, e.g.
- *     var x = goog.getCssName('foo');
- *     var y = goog.getCssName(this.baseClass, 'active');
+ * to cvoxgoog.getCssName with the strings from the mapping, e.g.
+ *     var x = cvoxgoog.getCssName('foo');
+ *     var y = cvoxgoog.getCssName(this.baseClass, 'active');
  *  becomes:
  *     var x= 'foo';
  *     var y = this.baseClass + '-active';
  *
  * If one argument is passed it will be processed, if two are passed
  * only the modifier will be processed, as it is assumed the first
- * argument was generated as a result of calling goog.getCssName.
+ * argument was generated as a result of calling cvoxgoog.getCssName.
  *
  * @param {string} className The class name.
  * @param {string=} opt_modifier A modifier to be appended to the class name.
  * @return {string} The class name or the concatenation of the class name and
  *     the modifier.
  */
-goog.getCssName = function(className, opt_modifier) {
+cvoxgoog.getCssName = function(className, opt_modifier) {
   var getMapping = function(cssName) {
-    return goog.cssNameMapping_[cssName] || cssName;
+    return cvoxgoog.cssNameMapping_[cssName] || cssName;
   };
 
   var renameByParts = function(cssName) {
@@ -1262,8 +1262,8 @@ goog.getCssName = function(className, opt_modifier) {
   };
 
   var rename;
-  if (goog.cssNameMapping_) {
-    rename = goog.cssNameMappingStyle_ == 'BY_WHOLE' ?
+  if (cvoxgoog.cssNameMapping_) {
+    rename = cvoxgoog.cssNameMappingStyle_ == 'BY_WHOLE' ?
         getMapping : renameByParts;
   } else {
     rename = function(a) {
@@ -1280,41 +1280,41 @@ goog.getCssName = function(className, opt_modifier) {
 
 
 /**
- * Sets the map to check when returning a value from goog.getCssName(). Example:
+ * Sets the map to check when returning a value from cvoxgoog.getCssName(). Example:
  * <pre>
- * goog.setCssNameMapping({
+ * cvoxgoog.setCssNameMapping({
  *   "goog": "a",
  *   "disabled": "b",
  * });
  *
- * var x = goog.getCssName('goog');
+ * var x = cvoxgoog.getCssName('goog');
  * // The following evaluates to: "a a-b".
- * goog.getCssName('goog') + ' ' + goog.getCssName(x, 'disabled')
+ * cvoxgoog.getCssName('goog') + ' ' + cvoxgoog.getCssName(x, 'disabled')
  * </pre>
  * When declared as a map of string literals to string literals, the JSCompiler
- * will replace all calls to goog.getCssName() using the supplied map if the
+ * will replace all calls to cvoxgoog.getCssName() using the supplied map if the
  * --closure_pass flag is set.
  *
  * @param {!Object} mapping A map of strings to strings where keys are possible
- *     arguments to goog.getCssName() and values are the corresponding values
+ *     arguments to cvoxgoog.getCssName() and values are the corresponding values
  *     that should be returned.
  * @param {string=} style The style of css name mapping. There are two valid
  *     options: 'BY_PART', and 'BY_WHOLE'.
- * @see goog.getCssName for a description.
+ * @see cvoxgoog.getCssName for a description.
  */
-goog.setCssNameMapping = function(mapping, style) {
-  goog.cssNameMapping_ = mapping;
-  goog.cssNameMappingStyle_ = style;
+cvoxgoog.setCssNameMapping = function(mapping, style) {
+  cvoxgoog.cssNameMapping_ = mapping;
+  cvoxgoog.cssNameMappingStyle_ = style;
 };
 
 
 /**
- * Abstract implementation of goog.getMsg for use with localized messages.
+ * Abstract implementation of cvoxgoog.getMsg for use with localized messages.
  * @param {string} str Translatable string, places holders in the form {$foo}.
  * @param {Object=} opt_values Map of place holder name to value.
  * @return {string} message with placeholders filled.
  */
-goog.getMsg = function(str, opt_values) {
+cvoxgoog.getMsg = function(str, opt_values) {
   var values = opt_values || {};
   for (var key in values) {
     var value = ('' + values[key]).replace(/\$/g, '$$$$');
@@ -1328,40 +1328,40 @@ goog.getMsg = function(str, opt_values) {
  * Exposes an unobfuscated global namespace path for the given object.
  * Note that fields of the exported object *will* be obfuscated,
  * unless they are exported in turn via this function or
- * goog.exportProperty
+ * cvoxgoog.exportProperty
  *
  * <p>Also handy for making public items that are defined in anonymous
  * closures.
  *
- * ex. goog.exportSymbol('Foo', Foo);
+ * ex. cvoxgoog.exportSymbol('Foo', Foo);
  *
- * ex. goog.exportSymbol('public.path.Foo.staticFunction',
+ * ex. cvoxgoog.exportSymbol('public.path.Foo.staticFunction',
  *                       Foo.staticFunction);
  *     public.path.Foo.staticFunction();
  *
- * ex. goog.exportSymbol('public.path.Foo.prototype.myMethod',
+ * ex. cvoxgoog.exportSymbol('public.path.Foo.prototype.myMethod',
  *                       Foo.prototype.myMethod);
  *     new public.path.Foo().myMethod();
  *
  * @param {string} publicPath Unobfuscated name to export.
  * @param {*} object Object the name should point to.
  * @param {Object=} opt_objectToExportTo The object to add the path to; default
- *     is |goog.global|.
+ *     is |cvoxgoog.global|.
  */
-goog.exportSymbol = function(publicPath, object, opt_objectToExportTo) {
-  goog.exportPath_(publicPath, object, opt_objectToExportTo);
+cvoxgoog.exportSymbol = function(publicPath, object, opt_objectToExportTo) {
+  cvoxgoog.exportPath_(publicPath, object, opt_objectToExportTo);
 };
 
 
 /**
  * Exports a property unobfuscated into the object's namespace.
- * ex. goog.exportProperty(Foo, 'staticFunction', Foo.staticFunction);
- * ex. goog.exportProperty(Foo.prototype, 'myMethod', Foo.prototype.myMethod);
+ * ex. cvoxgoog.exportProperty(Foo, 'staticFunction', Foo.staticFunction);
+ * ex. cvoxgoog.exportProperty(Foo.prototype, 'myMethod', Foo.prototype.myMethod);
  * @param {Object} object Object whose static property is being exported.
  * @param {string} publicName Unobfuscated name to export.
  * @param {*} symbol Object the name should point to.
  */
-goog.exportProperty = function(object, publicName, symbol) {
+cvoxgoog.exportProperty = function(object, publicName, symbol) {
   object[publicName] = symbol;
 };
 
@@ -1378,7 +1378,7 @@ goog.exportProperty = function(object, publicName, symbol) {
  *   ParentClass.call(this, a, b);
  * }
  *
- * goog.inherits(ChildClass, ParentClass);
+ * cvoxgoog.inherits(ChildClass, ParentClass);
  *
  * var child = new ChildClass('a', 'b', 'see');
  * child.foo(); // works
@@ -1397,7 +1397,7 @@ goog.exportProperty = function(object, publicName, symbol) {
  * @param {Function} childCtor Child class.
  * @param {Function} parentCtor Parent class.
  */
-goog.inherits = function(childCtor, parentCtor) {
+cvoxgoog.inherits = function(childCtor, parentCtor) {
   /** @constructor */
   function tempCtor() {};
   tempCtor.prototype = parentCtor.prototype;
@@ -1418,7 +1418,7 @@ goog.inherits = function(childCtor, parentCtor) {
  * you do not, you will get a runtime error. This calls the superclass'
  * method with arguments 2-N.
  *
- * This function only works if you use goog.inherits to express
+ * This function only works if you use cvoxgoog.inherits to express
  * inheritance relationships between your classes.
  *
  * This function is a compiler primitive. At compile-time, the
@@ -1432,7 +1432,7 @@ goog.inherits = function(childCtor, parentCtor) {
  * @param {...*} var_args The rest of the arguments.
  * @return {*} The return value of the superclass method.
  */
-goog.base = function(me, opt_methodName, var_args) {
+cvoxgoog.base = function(me, opt_methodName, var_args) {
   var caller = arguments.callee.caller;
   if (caller.superClass_) {
     // This is a constructor. Call the superclass constructor.
@@ -1459,7 +1459,7 @@ goog.base = function(me, opt_methodName, var_args) {
     return me.constructor.prototype[opt_methodName].apply(me, args);
   } else {
     throw Error(
-        'goog.base called from a method of one name ' +
+        'cvoxgoog.base called from a method of one name ' +
         'to a method of a different name');
   }
 };
@@ -1471,11 +1471,11 @@ goog.base = function(me, opt_methodName, var_args) {
  * aliases applied.  In uncompiled code the function is simply run since the
  * aliases as written are valid JavaScript.
  * @param {function()} fn Function to call.  This function can contain aliases
- *     to namespaces (e.g. "var dom = goog.dom") or classes
- *    (e.g. "var Timer = goog.Timer").
+ *     to namespaces (e.g. "var dom = cvoxgoog.dom") or classes
+ *    (e.g. "var Timer = cvoxgoog.Timer").
  */
-goog.scope = function(fn) {
-  fn.call(goog.global);
+cvoxgoog.scope = function(fn) {
+  fn.call(cvoxgoog.global);
 };
 
 
@@ -1491,13 +1491,13 @@ goog.scope = function(fn) {
 
 /**
  * @define {boolean} Whether to extend Function.prototype.
- *     Use --define='goog.MODIFY_FUNCTION_PROTOTYPES=false' to change.
+ *     Use --define='cvoxgoog.MODIFY_FUNCTION_PROTOTYPES=false' to change.
  */
-goog.MODIFY_FUNCTION_PROTOTYPES = true;
+cvoxgoog.MODIFY_FUNCTION_PROTOTYPES = true;
 
-if (goog.MODIFY_FUNCTION_PROTOTYPES) {
+if (cvoxgoog.MODIFY_FUNCTION_PROTOTYPES) {
   /**
-   * An alias to the {@link goog.bind()} global function.
+   * An alias to the {@link cvoxgoog.bind()} global function.
    *
    * Usage:
    * var g = f.bind(obj, arg1, arg2);
@@ -1510,7 +1510,7 @@ if (goog.MODIFY_FUNCTION_PROTOTYPES) {
    *     applied to fn.
    * @return {!Function} A partially-applied form of the Function on which
    *     bind() was invoked as a method.
-   * @deprecated Use the static function goog.bind instead.
+   * @deprecated Use the static function cvoxgoog.bind instead.
    * @suppress {duplicate}
    */
   Function.prototype.bind =
@@ -1518,15 +1518,15 @@ if (goog.MODIFY_FUNCTION_PROTOTYPES) {
     if (arguments.length > 1) {
       var args = Array.prototype.slice.call(arguments, 1);
       args.unshift(this, selfObj);
-      return goog.bind.apply(null, args);
+      return cvoxgoog.bind.apply(null, args);
     } else {
-      return goog.bind(this, selfObj);
+      return cvoxgoog.bind(this, selfObj);
     }
   };
 
 
   /**
-   * An alias to the {@link goog.partial()} static function.
+   * An alias to the {@link cvoxgoog.partial()} static function.
    *
    * Usage:
    * var g = f.partial(arg1, arg2);
@@ -1536,23 +1536,23 @@ if (goog.MODIFY_FUNCTION_PROTOTYPES) {
    *     applied to fn.
    * @return {!Function} A partially-applied form of the function partial() was
    *     invoked as a method of.
-   * @deprecated Use the static function goog.partial instead.
+   * @deprecated Use the static function cvoxgoog.partial instead.
    */
   Function.prototype.partial = function(var_args) {
     var args = Array.prototype.slice.call(arguments);
     args.unshift(this, null);
-    return goog.bind.apply(null, args);
+    return cvoxgoog.bind.apply(null, args);
   };
 
 
   /**
    * Inherit the prototype methods from one constructor into another.
    * @param {Function} parentCtor Parent class.
-   * @see goog.inherits
-   * @deprecated Use the static function goog.inherits instead.
+   * @see cvoxgoog.inherits
+   * @deprecated Use the static function cvoxgoog.inherits instead.
    */
   Function.prototype.inherits = function(parentCtor) {
-    goog.inherits(this, parentCtor);
+    cvoxgoog.inherits(this, parentCtor);
   };
 
 
@@ -1588,11 +1588,11 @@ if (goog.MODIFY_FUNCTION_PROTOTYPES) {
    * </pre>
    *
    * @param {Object} source from which to copy properties.
-   * @see goog.mixin
-   * @deprecated Use the static function goog.object.extend instead.
+   * @see cvoxgoog.mixin
+   * @deprecated Use the static function cvoxgoog.object.extend instead.
    */
   Function.prototype.mixin = function(source) {
-    goog.mixin(this.prototype, source);
+    cvoxgoog.mixin(this.prototype, source);
   };
 }
 

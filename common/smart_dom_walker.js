@@ -19,12 +19,13 @@
  */
 
 
-goog.provide('cvox.SmartDomWalker');
+cvoxgoog.provide('cvox.SmartDomWalker');
 
-goog.require('cvox.DomUtil');
-goog.require('cvox.LinearDomWalker');
-goog.require('cvox.TraverseTable');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.AriaUtil');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.LinearDomWalker');
+cvoxgoog.require('cvox.TraverseTable');
+cvoxgoog.require('cvox.XpathUtil');
 
 
 
@@ -40,7 +41,7 @@ cvox.SmartDomWalker = function() {
   this.announceTable = false;
   this.tableMode = false;
 };
-goog.inherits(cvox.SmartDomWalker, cvox.LinearDomWalker);
+cvoxgoog.inherits(cvox.SmartDomWalker, cvox.LinearDomWalker);
 
 
 /**
@@ -448,7 +449,9 @@ cvox.SmartDomWalker.prototype.getRowHeaderText = function() {
   if (this.tableMode) {
     var rowHeaders = this.currentTableNavigator.getCellRowHeaders();
     for (var i = 0; i < rowHeaders.length; i++) {
-      rowHeaderText += cvox.DomUtil.getText(rowHeaders[i]);
+      rowHeaderText += cvox.DomUtil.collapseWhitespace(
+          cvox.DomUtil.getValue(rowHeaders[i]) + ' ' +
+          cvox.DomUtil.getName(rowHeaders[i]));
     }
   }
   return rowHeaderText;
@@ -468,7 +471,9 @@ cvox.SmartDomWalker.prototype.getRowHeaderGuess = function() {
     var currentCursor = this.currentTableNavigator.currentCellCursor;
     var firstCellInRow =
         this.currentTableNavigator.getCellAt([currentCursor[0], 0]);
-    rowHeaderText += cvox.DomUtil.getText(firstCellInRow);
+    rowHeaderText += cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(firstCellInRow) + ' ' +
+        cvox.DomUtil.getName(firstCellInRow));
   }
   return rowHeaderText;
 };
@@ -485,7 +490,9 @@ cvox.SmartDomWalker.prototype.getColHeaderText = function() {
   if (this.tableMode) {
     var colHeaders = this.currentTableNavigator.getCellColHeaders();
     for (var i = 0; i < colHeaders.length; i++) {
-      colHeaderText += cvox.DomUtil.getText(colHeaders[i]);
+      colHeaderText += cvox.DomUtil.collapseWhitespace(
+          cvox.DomUtil.getValue(colHeaders[i]) + ' ' +
+          cvox.DomUtil.getName(colHeaders[i]));
     }
   }
   return colHeaderText;
@@ -505,7 +512,9 @@ cvox.SmartDomWalker.prototype.getColHeaderGuess = function() {
     var currentCursor = this.currentTableNavigator.currentCellCursor;
     var firstCellInCol =
         this.currentTableNavigator.getCellAt([0, currentCursor[1]]);
-    colHeaderText += cvox.DomUtil.getText(firstCellInCol);
+    colHeaderText += cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(firstCellInCol) + ' ' +
+        cvox.DomUtil.getName(firstCellInCol));
   }
   return colHeaderText;
 };
@@ -564,34 +573,29 @@ cvox.SmartDomWalker.prototype.getColCount = function() {
 
 
 /**
- * Returns the current content.
- * @return {string} The current content.
+ * Returns true if this annotation should be grouped as a collection,
+ * meaning that instead of repeating the annotation for each item, we
+ * just announce <annotation> collection with <n> items at the front.
+ *
+ * Currently enabled for links, but could be extended to support other
+ * roles that make sense.
+ *
+ * @param {string} annotation The annotation text.
+ * @return {boolean} If this annotation should be a collection.
  */
-cvox.SmartDomWalker.prototype.getCurrentContent = function() {
-  return cvox.DomUtil.getText(this.currentNode);
+cvox.SmartDomWalker.prototype.isAnnotationCollection = function(annotation) {
+  return (annotation == 'Link');
 };
 
 
 /**
- * Returns a description of the current content. This is secondary
- * information about the current content which may be omitted if
- * the user has a lower verbosity setting.
- * @return {Array.<string>} An array of length 2 containing the current text
- * content in the first cell and the description annotations in the second
- * cell in the form [<content>, <description>].
+ * Returns a description of the navigation to the current element.
+ * @return {Array.<cvox.NavDescription>} The description of the navigation.
  */
 cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
-
   // Use a linear DOM walker in non-smart mode to traverse all of the
-  // nodes inside the current smart node and append all of their
-  // descriptions.
-  var description = '';
-
-  if (this.announceTable) {
-    description += (' ' + this.currentTableNavigator.rowCount + ' rows, ' +
-        this.currentTableNavigator.colCount + ' columns');
-    this.announceTable = false;
-  }
+  // nodes inside the current smart node and return their annotations.
+  var results = [];
 
   var walker = new cvox.LinearDomWalker();
   walker.currentNode = this.currentNode;
@@ -599,40 +603,72 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
   walker.previous();
   walker.next();
 
-  var step = 0;
-  var contentStr = '';
-  var previousDescriptions = {};
+  function incrementKey(map, key) {
+    var value = map[key];
+    value = value ? value + 1 : 1;
+    map[key] = value;
+  }
+
+  var annotations = [];
   while (cvox.DomUtil.isDescendantOfNode(
       walker.currentNode, this.currentNode)) {
-    contentStr += ' ' + cvox.DomUtil.getText(walker.currentNode);
-    var descp = cvox.DomUtil.getInformationFromAncestors(
-        walker.getUniqueAncestors());
-    if (!previousDescriptions[descp] && descp != '') {
-      previousDescriptions[descp] = 1;
-    } else if (descp != '') {
-      previousDescriptions[descp]++;
+    var ancestors;
+    if (results.length == 0) {
+      ancestors = cvox.DomUtil.getUniqueAncestors(
+          this.previousNode, walker.currentNode);
+    } else {
+      ancestors = walker.getUniqueAncestors();
+    }
+    var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors);
+    results.push(description);
+    if (annotations.indexOf(description.annotation) == -1) {
+      annotations.push(description.annotation);
     }
     walker.next();
   }
 
-  if (this.tableMode) {
-    if (contentStr == '') {
-      contentStr = ' empty cell';
+  // If all of the items have the same annotation, describe it as a
+  // <annotation> collection with <n> items. Currently only enabled
+  // for links, but support should be added for any other type that
+  // makes sense.
+  if (results.length >= 3 &&
+      annotations.length == 1 &&
+      annotations[0].length > 0 &&
+      this.isAnnotationCollection(annotations[0])) {
+    var commonAnnotation = results[0].annotation;
+    var firstContext = results[0].context;
+    results[0].context = '';
+    for (var i = 0; i < results.length; i++) {
+      results[i].annotation = '';
     }
+
+    results.splice(0, 0, new cvox.NavDescription(
+        firstContext,
+        '',
+        '',
+        commonAnnotation + ' collection with ' + results.length + ' items'));
+  }
+
+  if (this.announceTable) {
+    results.splice(0, 0, new cvox.NavDescription(
+        this.currentTableNavigator.rowCount + ' rows, ' +
+        this.currentTableNavigator.colCount + ' columns',
+        '',
+        '',
+        ''));
+    this.announceTable = false;
+  }
+
+  if (this.tableMode) {
+    results.push(new cvox.NavDescription(
+        '', '', '', 'empty cell'));
 
     // Deal with spanned cells
-    if (this.currentTableNavigator.isSpanned()) {
-      contentStr = 'spanned ' + contentStr;
-    }
+    results.push(new cvox.NavDescription(
+        '', '', '', 'spanned'));
   }
 
-  // Use only unique descriptions. If a description is produced >1, treat it as
-  // a collection.
-  for (var descp in previousDescriptions) {
-    description += descp + ' ' +
-        (previousDescriptions[descp] > 1 ? 'collection ' : '');
-  }
-  return [contentStr, description];
+  return results;
 };
 
 
@@ -652,7 +688,9 @@ cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
     // walker.
     return false;
   }
-  var content = cvox.DomUtil.getText(targetNode);
+  var content = cvox.DomUtil.collapseWhitespace(
+      cvox.DomUtil.getValue(targetNode) + ' ' +
+      cvox.DomUtil.getName(targetNode));
   if (content.length > cvox.SmartDomWalker.SMARTNAV_MAX_CHARCOUNT) {
     return false;
   }
@@ -666,6 +704,10 @@ cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
     if (cvox.DomUtil.hasContent(node)) {
       return false;
     }
+  }
+  if (cvox.AriaUtil.isCompositeControl(targetNode) &&
+      !cvox.DomUtil.isFocusable(targetNode)) {
+    return false;
   }
   return true;
 };

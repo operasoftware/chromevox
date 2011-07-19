@@ -1,6 +1,6 @@
-goog.provide('cvox.ChromeVoxBookmarksManager');
+cvoxgoog.provide('cvox.ChromeVoxBookmarksManager');
 
-goog.require('cvox.ChromeVoxEarcons');
+cvoxgoog.require('cvox.ChromeVoxEarcons');
 
 /**
  * @constructor

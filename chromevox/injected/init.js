@@ -18,31 +18,31 @@
  * @author clchen@google.com (Charles Chen)
  */
 
-goog.provide('cvox.ChromeVoxInit');
+cvoxgoog.provide('cvox.ChromeVoxInit');
 
-goog.require('chromevis.ChromeVisLens');
-goog.require('cvox.AndroidDevTtsEngine');
-goog.require('cvox.AndroidEarcons');
-goog.require('cvox.AndroidRelTtsEngine');
-goog.require('cvox.BuildConfig');
-goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxEventWatcher');
-goog.require('cvox.ChromeVoxKbHandler');
-goog.require('cvox.ChromeVoxNavigationManager');
-goog.require('cvox.ChromeVoxSearch');
-goog.require('cvox.ExtensionBridge');
-goog.require('cvox.LiveRegions');
-goog.require('cvox.LocalEarconsManager');
-goog.require('cvox.LocalTtsManager');
-goog.require('cvox.RemoteEarconsManager');
-goog.require('cvox.RemoteTtsManager');
-goog.require('cvox.TraverseContent');
+cvoxgoog.require('chromevis.ChromeVisLens');
+cvoxgoog.require('cvox.AndroidDevTtsEngine');
+cvoxgoog.require('cvox.AndroidEarcons');
+cvoxgoog.require('cvox.AndroidRelTtsEngine');
+cvoxgoog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVoxEventWatcher');
+cvoxgoog.require('cvox.ChromeVoxKbHandler');
+cvoxgoog.require('cvox.ChromeVoxNavigationManager');
+cvoxgoog.require('cvox.ChromeVoxSearch');
+cvoxgoog.require('cvox.ExtensionBridge');
+cvoxgoog.require('cvox.LiveRegions');
+cvoxgoog.require('cvox.LocalEarconsManager');
+cvoxgoog.require('cvox.LocalTtsManager');
+cvoxgoog.require('cvox.RemoteEarconsManager');
+cvoxgoog.require('cvox.RemoteTtsManager');
+cvoxgoog.require('cvox.TraverseContent');
 
 /**
  * Initializes cvox.ChromeVox.
  */
 cvox.ChromeVox.init = function() {
-  if (!goog.isDefAndNotNull(BUILD_TYPE)) {
+  if (!cvoxgoog.isDefAndNotNull(BUILD_TYPE)) {
     return;
   }
 
@@ -69,7 +69,7 @@ cvox.ChromeVox.init = function() {
   // Load the enhancement script loader
   var enhancementLoaderScript = document.createElement('script');
   enhancementLoaderScript.type = 'text/javascript';
-  enhancementLoaderScript.src = 'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js';
+  enhancementLoaderScript.src = 'https://www.corp.google.com/~clchen/no_crawl/chromevox/scripts/loader.js';
   document.head.appendChild(enhancementLoaderScript);
 
   // Perform build type specific initialization
@@ -88,15 +88,20 @@ cvox.ChromeVox.init = function() {
   // the active element if it is a user control.
   if (window.parent == window) {
     var message = document.title;
+    cvox.ChromeVox.tts.speak(message, 0, null);
+
     var activeElem = document.activeElement;
     if (cvox.DomUtil.isControl(activeElem)) {
       cvox.ChromeVox.navigationManager.syncToNode(activeElem);
       cvox.ChromeVox.navigationManager.setFocus();
-      message = message + '. ' +
-          cvox.DomUtil.getControlValueAndStateString(activeElem, true);
+      var description = cvox.DomUtil.getControlDescription(activeElem);
+      description.speak(1);
     }
-    cvox.ChromeVox.tts.speak(message, 0, null);
   }
+
+  var event = document.createEvent('UIEvents');
+  event.initEvent('chromeVoxLoaded', true, false);
+  document.dispatchEvent(event);
 };
 
 /**
@@ -104,12 +109,14 @@ cvox.ChromeVox.init = function() {
  */
 cvox.ChromeVox.createTtsManager = function() {
   if (BUILD_TYPE == BUILD_TYPE_CHROME) {
-      return new cvox.RemoteTtsManager();
+    var ttsManager = new cvox.RemoteTtsManager();
+    ttsManager.addBridgeListener();
+    return ttsManager;
   } else if (BUILD_TYPE == BUILD_TYPE_ANDROID ||
       BUILD_TYPE == BUILD_TYPE_ANDROID_DEV) {
-      return new cvox.LocalTtsManager([cvox.AndroidRelTtsEngine], null);
+    return new cvox.LocalTtsManager([cvox.AndroidRelTtsEngine], null);
   } else {
-      throw 'Unknown build type: ' + BUILD_TYPE;
+    throw 'Unknown build type: ' + BUILD_TYPE;
   }
 };
 
@@ -135,20 +142,9 @@ cvox.ChromeVox.performBuildTypeSpecificInitialization = function() {
   if (BUILD_TYPE == BUILD_TYPE_CHROME) {
     // request settings
     cvox.ExtensionBridge.send({
-      'target': 'Options',
-      'action': 'getSettings'
+      'target': 'Prefs',
+      'action': 'getPrefs'
     });
-    if (window.location.toString().indexOf('chrome-extension://') == 0 &&
-        window.location.toString().indexOf('bdcfgfeioooifpgmbfjpopbcbgdmehnb') == -1) {
-      // If we are connecting from an extension page of another extension,
-      // explicitly request for key bindings since sendRequest from the
-      // background will not work as we are not in a tab. e.g. browser action
-      // popup pages.
-      cvox.ExtensionBridge.send({
-        'target': 'KeyBindings',
-        'action': 'getBindings'
-      });
-    }
   } else if (BUILD_TYPE == BUILD_TYPE_ANDROID ||
       BUILD_TYPE == BUILD_TYPE_ANDROID_DEV) {
     /* do nothing */
@@ -168,18 +164,22 @@ cvox.ChromeVox.loadPrefs = function() {
       }
       if (message['prefs']) {
         var prefs = message['prefs'];
-        if (prefs['lensVisible'] == '1' &&
+        cvox.ChromeVoxEditableTextBase.cursorIsBlock =
+            (prefs['cursorIsBlock'] == 'true');
+        cvox.ChromeVoxEventWatcher.focusFollowsMouse =
+            (prefs['focusFollowsMouse'] == 'true');
+        if (prefs['lensVisible'] == 'true' &&
             cvox.ChromeVox.lens &&
             !cvox.ChromeVox.lens.isLensDisplayed()) {
           cvox.ChromeVox.lens.showLens(true);
         }
-        if (prefs['lensVisible'] == '0' &&
+        if (prefs['lensVisible'] == 'false' &&
             cvox.ChromeVox.lens &&
             cvox.ChromeVox.lens.isLensDisplayed()) {
           cvox.ChromeVox.lens.showLens(false);
         }
         if (cvox.ChromeVox.lens) {
-          cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == '1');
+          cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == 'true');
         }
       }
     });

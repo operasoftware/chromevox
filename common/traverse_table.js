@@ -17,11 +17,11 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-goog.provide('cvox.TraverseTable');
+cvoxgoog.provide('cvox.TraverseTable');
 
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.TableUtil');
-goog.require('cvox.TraverseUtil');
+cvoxgoog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.TableUtil');
+cvoxgoog.require('cvox.TraverseUtil');
 
 
 
@@ -293,7 +293,7 @@ cvox.TraverseTable.prototype.attachCursorToNearestCell_ = function() {
 
 /**
  * Builds or rebuilds the shadow table by iterating through all of the cells
- * ( <TD> or <TH> nodes) of the active table.
+ * ( <TD> or <TH> or role='gridcell' nodes) of the active table.
  * @private
  */
 cvox.TraverseTable.prototype.buildShadowTable_ = function() {
@@ -511,6 +511,12 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
       }
     } else if (currentCell.hasAttribute('scope')) {
       specifiedScope = currentCell.getAttribute('scope');
+    } else if (currentCell.hasAttribute('role') &&
+        (currentCell.getAttribute('role') == 'rowheader')) {
+      specifiedScope = 'row';
+    } else if (currentCell.hasAttribute('role') &&
+        (currentCell.getAttribute('role') == 'columnheader')) {
+     specifiedScope = 'col';
     }
 
     if ((specifiedScope == 'row') || (assumedScope == 'row')) {
@@ -530,7 +536,8 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
           if (rightCtr < this.shadowTable_[currentShadowNode.i].length - 1) {
             var checkDataCell =
                 this.shadowTable_[currentShadowNode.i][rightCtr + 1];
-            if (checkDataCell.activeCell.tagName == 'TD') {
+            if ((checkDataCell.activeCell.tagName == 'TD') ||
+                (checkDataCell.activeCell.getAttribute('role') == 'gridcell')) {
               break;
             }
           }
@@ -561,7 +568,8 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
           if (downCtr < this.shadowTable_.length - 1) {
             var checkDataCell =
                 this.shadowTable_[downCtr + 1][currentShadowNode.j];
-            if (checkDataCell.activeCell.tagName == 'TD') {
+            if ((checkDataCell.activeCell.tagName == 'TD') ||
+                (checkDataCell.activeCell.getAttribute('role') == 'gridcell')) {
               break;
             }
           }
@@ -643,6 +651,9 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
     if (currentCell.hasAttribute('headers')) {
       this.findAttrbHeaders_(currentShadowNode);
     }
+    if (currentCell.hasAttribute('aria-describedby')) {
+      this.findAttrbDescribedBy_(currentShadowNode);
+    }
   }
 };
 
@@ -708,8 +719,70 @@ cvox.TraverseTable.prototype.findAttrbHeaders_ = function(currentShadowNode) {
 
 
 /**
+ * Finds header cells from the 'aria-describedby' attribute of a given shadow
+ * node's active cell and classifies them in two ways:
+ * -- Identifies them for the entire table by adding them to
+ * this.tableRowHeaders and this.tableColHeaders.
+ * -- Identifies them for the shadow table node by adding them to the node's
+ * rowHeaderCells or colHeaderCells arrays.
+ *
+ * Please note that header cells found through the 'aria-describedby' attribute
+ * must have the role='rowheader' or role='columnheader' attributes in order to
+ * be considered header cells.
+ *
+ * @param {ShadowTableNode} currentShadowNode A shadow node with an active cell
+ * that has an 'aria-describedby' attribute.
+ *
+ * @private
+ */
+cvox.TraverseTable.prototype.findAttrbDescribedBy_ =
+    function(currentShadowNode) {
+  var activeTableCell = currentShadowNode.activeCell;
+
+  var idList = activeTableCell.getAttribute('aria-describedby').split(' ');
+  for (var idToken = 0; idToken < idList.length; idToken++) {
+    // Find cell(s) with this ID, add to header list
+    var idCellArray = cvox.TableUtil.getCellWithID(this.activeTable_,
+                                                   idList[idToken]);
+
+    for (var idCtr = 0; idCtr < idCellArray.length; idCtr++) {
+      if (idCellArray[idCtr].id == activeTableCell.id) {
+        // Skip if the ID is the same as the current cell's ID
+        break;
+      }
+      // Check if this list of candidate headers contains a
+      // shadowNode with an active cell with this ID already
+      var possibleHeaderNode =
+          this.idToShadowNode_[idCellArray[idCtr].id];
+      if (! cvox.TableUtil.checkIfHeader(possibleHeaderNode.activeCell)) {
+        // This listed header cell will not be handled later.
+        // Determine whether this is a row or col header for
+        // the active table cell
+
+        if (possibleHeaderNode.activeCell.hasAttribute('role') &&
+            (possibleHeaderNode.activeCell.getAttribute('role') ==
+                'rowheader')) {
+          cvox.TableUtil.pushIfNotContained(currentShadowNode.rowHeaderCells,
+                                            possibleHeaderNode.activeCell);
+          cvox.TableUtil.pushIfNotContained(this.tableRowHeaders,
+                                            possibleHeaderNode.activeCell);
+        } else if (possibleHeaderNode.activeCell.hasAttribute('role') &&
+            (possibleHeaderNode.activeCell.getAttribute('role') ==
+                'columnheader')) {
+          cvox.TableUtil.pushIfNotContained(currentShadowNode.colHeaderCells,
+                                            possibleHeaderNode.activeCell);
+          cvox.TableUtil.pushIfNotContained(this.tableColHeaders,
+                                            possibleHeaderNode.activeCell);
+        }
+      }
+    }
+  }
+};
+
+
+/**
  * Gets the current cell.
- * @return {?Node} The cell <TD> or <TH> node.
+ * @return {?Node} The cell <TD> or <TH> or role='gridcell' node.
  */
 cvox.TraverseTable.prototype.getCell = function() {
   var shadowEntry =
@@ -722,8 +795,8 @@ cvox.TraverseTable.prototype.getCell = function() {
 /**
  * Gets the cell at the specified location.
  * @param {Array.<number>} index The index <i, j> of the required cell.
- * @return {?Node} The cell <TD> or <TH> node at the specified location. Null
- * if that cell does not exist.
+ * @return {?Node} The cell <TD> or <TH> or role='gridcell' node at the
+ * specified location. Null if that cell does not exist.
  */
 cvox.TraverseTable.prototype.getCellAt = function(index) {
   if (((index[0] < this.rowCount) && (index[0] >= 0)) &&
@@ -779,7 +852,7 @@ cvox.TraverseTable.prototype.isSpanned = function() {
  * Gets the active column, represented as an array of <TH> or <TD> nodes that
  * make up a column. In this context, "active" means that this is the column
  * that contains the cell the user is currently looking at.
- * @return {Array} An array of <TH> or <TD> nodes.
+ * @return {Array} An array of <TH> or <TD> or role='gridcell' nodes.
  */
 cvox.TraverseTable.prototype.getCol = function() {
   var colArray = [];

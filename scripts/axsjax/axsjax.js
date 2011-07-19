@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('cvox.AxsJAX');
+cvoxgoog.provide('cvox.AxsJAX');
 
-goog.require('cvox.ChromeVox');
-goog.require('cvox.DomUtil');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.XpathUtil');
 
 /**
  * @fileoverview AxsJAX - JavaScript library for enhancing the accessibility

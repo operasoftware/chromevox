@@ -18,9 +18,9 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AbstractTtsManager');
+cvoxgoog.provide('cvox.AbstractTtsManager');
 
-goog.require('cvox.AbstractTts');
+cvoxgoog.require('cvox.AbstractTts');
 
 /**
  * This is the base class responsible for spoken feedback.
@@ -32,7 +32,7 @@ cvox.AbstractTtsManager = function() {
   //Inherit AbstractTts
   cvox.AbstractTts.call(this);
 };
-goog.inherits(cvox.AbstractTtsManager, cvox.AbstractTts);
+cvoxgoog.inherits(cvox.AbstractTtsManager, cvox.AbstractTts);
 
 /**
  * Switch to the next TTS engine and optionally announce its name.

@@ -19,10 +19,10 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxChromeNativeTtsEngine');
+cvoxgoog.provide('cvox.ChromeVoxChromeNativeTtsEngine');
 
-goog.require('cvox.AbstractTts');
-goog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.AbstractTts');
+cvoxgoog.require('cvox.ChromeVox');
 
 /**
  * @constructor
@@ -42,14 +42,29 @@ cvox.ChromeVoxChromeNativeTtsEngine = function() {
     this.ttsProperties.volume = 1;
   }
   this.ttsProperties.pitch = .5;
+
+  // Events are now handled by the onevent option. There are two spellings
+  // depending on the exact Chrome version you're on.
+  try {
+    chrome.experimental.tts.speak(
+        '', {'onevent': function(e) {}}, function() {});
+    this.use_onevent = true;
+  } catch (e) {
+  }
+  try {
+    chrome.experimental.tts.speak(
+        '', {'onEvent': function(e) {}}, function() {});
+    this.use_onEvent = true;
+  } catch (e) {
+  }
 };
-goog.inherits(cvox.ChromeVoxChromeNativeTtsEngine, cvox.AbstractTts);
+cvoxgoog.inherits(cvox.ChromeVoxChromeNativeTtsEngine, cvox.AbstractTts);
 
 /**
  * @return {string} The human-readable name of the speech engine.
  */
 cvox.ChromeVoxChromeNativeTtsEngine.prototype.getName = function() {
-  return 'Chrome OS Native Speech';
+  return 'Chrome Native Speech';
 };
 
 /**
@@ -58,27 +73,65 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.getName = function() {
  * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
+ * @param {Function=} completionCallback Called if speech completes.
  */
 cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
-    textString, queueMode, properties) {
+    textString, queueMode, properties, completionCallback) {
   cvox.ChromeVoxChromeNativeTtsEngine.superClass_.speak.call(this, textString,
-      queueMode, properties);
+      queueMode, properties, completionCallback);
   if (queueMode === cvox.AbstractTts.QUEUE_MODE_FLUSH) {
     this.stop();
   }
   var mergedProperties = this.mergeProperties(properties);
   mergedProperties.enqueue = (queueMode === cvox.AbstractTts.QUEUE_MODE_QUEUE);
-  // chrome.experimental.tts.speak is a call directly into Chrome, so
-  // chrome.experimental.tts.speak(textString, null); is NOT the same as
-  // chrome.experimental.tts.speak(textString);
-  //
-  // TODO (chaitanyag): Make the underlying code handle var args so that
-  // properties can be optional and match JS expected behavior of these two
-  // being the same.
-  if (mergedProperties) {
-    chrome.experimental.tts.speak(textString, mergedProperties);
+
+  // This function will be called when speech is complete.
+  function onCompleted() {
+    if (completionCallback != undefined) {
+      completionCallback();
+    }
+  }
+
+  // TODO(dmazzoni): remove this logic once Chrome 14 is the stable version.
+  if (chrome.tts || chrome.experimental.tts.getVoices) {
+    // Stable or transitional TTS API.
+
+    // Events are now handled by the onevent option. There are two spellings
+    // depending on the exact Chrome version you're on.
+    function onEventHandler(event) {
+      if (event.type == 'end') {
+        onCompleted();
+      }
+    }
+    if (this.use_onEvent) {
+      mergedProperties.onEvent = onCompleted;
+    } else if (this.use_onevent) {
+      mergedProperties.onevent = onCompleted;
+    }
+
+    // Map rate from 0.0-1.0 with 0.5 being normal,
+    // to 0.1-10.0 with 1 being normal:
+    if (mergedProperties.rate) {
+      mergedProperties.rate *= 1;
+    }
+    // Map pitch from 0.0-1.0 to 0.0-2.0:
+    if (mergedProperties.pitch) {
+      mergedProperties.pitch *= 2;
+    }
+    // Map locale to lang
+    mergedProperties.lang = mergedProperties.locale;
+    if (chrome.tts) {
+      chrome.tts.speak(textString, mergedProperties);
+    } else {
+      chrome.experimental.tts.speak(textString, mergedProperties);
+    }
   } else {
-    chrome.experimental.tts.speak(textString);
+    // Old TTS API.
+    chrome.experimental.tts.speak(textString, mergedProperties, function() {
+      if (!chrome.extension.lastError) {
+        onCompleted();
+      }
+    });
   }
 };
 
@@ -88,7 +141,10 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
  */
 cvox.ChromeVoxChromeNativeTtsEngine.prototype.isSpeaking = function() {
   cvox.ChromeVoxChromeNativeTtsEngine.superClass_.isSpeaking.call(this);
-  return chrome.experimental.tts.isSpeaking();
+  // TODO(dmazzoni): Replace this with something that actually works!
+  // This is not using the API correctly; the API is asynchronous, and
+  // can't be used like this.
+  return false;
 };
 
 /**
@@ -96,6 +152,10 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.isSpeaking = function() {
  */
 cvox.ChromeVoxChromeNativeTtsEngine.prototype.stop = function() {
   cvox.ChromeVoxChromeNativeTtsEngine.superClass_.stop.call(this);
-  chrome.experimental.tts.stop();
+  if (chrome.tts) {
+    chrome.tts.stop();
+  } else {
+    chrome.experimental.tts.stop();
+  }
 };
 

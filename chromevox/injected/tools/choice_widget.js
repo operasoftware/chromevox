@@ -20,11 +20,11 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxChoiceWidget');
+cvoxgoog.provide('cvox.ChromeVoxChoiceWidget');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.AbstractTts');
-goog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.AbstractTts');
+cvoxgoog.require('cvox.ChromeVox');
 
 /**
  * @constructor

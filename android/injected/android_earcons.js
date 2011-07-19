@@ -20,10 +20,10 @@
  * TODO(svetoslavganov): Implement. For now this is a place holder.
  */
 
-goog.provide('cvox.AndroidEarcons');
+cvoxgoog.provide('cvox.AndroidEarcons');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.BuildConfig');
 
 if (BUILD_TYPE == BUILD_TYPE_ANDROID || BUILD_TYPE == BUILD_TYPE_ANDROID_DEV) {
   /**

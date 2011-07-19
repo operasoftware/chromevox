@@ -21,10 +21,10 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.LocalTtsManager');
+cvoxgoog.provide('cvox.LocalTtsManager');
 
-goog.require('cvox.AbstractTts');
-goog.require('cvox.AbstractTtsManager');
+cvoxgoog.require('cvox.AbstractTts');
+cvoxgoog.require('cvox.AbstractTtsManager');
 
 
 
@@ -48,7 +48,7 @@ cvox.LocalTtsManager = function(ttsEngines, ttsProperties) {
   this.nextTtsEngine(false);
   this.initializeTtsPropertiesToDefault(ttsProperties);
 };
-goog.inherits(cvox.LocalTtsManager, cvox.AbstractTtsManager);
+cvoxgoog.inherits(cvox.LocalTtsManager, cvox.AbstractTtsManager);
 
 
 /**
@@ -64,15 +64,17 @@ cvox.LocalTtsManager.prototype.getName = function() {
  * @param {string} textString The string of text to be spoken.
  * @param {number} queueMode The queue mode: 0 for flush, 1 for adding to queue.
  * @param {Object} properties Speech properties to use for this utterance.
+ * @param {Function=} callBack The function to be called after speech ends.
  */
 cvox.LocalTtsManager.prototype.speak = function(textString, queueMode,
-    properties) {
+    properties, callBack) {
+  textString = cvox.AbstractTts.preprocess(textString);
   cvox.LocalTtsManager.superClass_.speak.call(this, textString, queueMode,
-      properties);
+      properties, callBack);
   if (!this.currentTtsEngine) {
     return;
   }
-  this.currentTtsEngine.speak(textString, queueMode, properties);
+  this.currentTtsEngine.speak(textString, queueMode, properties, callBack);
 };
 
 

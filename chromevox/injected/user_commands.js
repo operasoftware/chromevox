@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('cvox.ChromeVoxUserCommands');
+cvoxgoog.provide('cvox.ChromeVoxUserCommands');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxNavigationManager');
-goog.require('cvox.ChromeVoxSearch');
-goog.require('cvox.DomUtil');
-goog.require('cvox.ExtensionBridge');
-goog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVoxNavigationManager');
+cvoxgoog.require('cvox.ChromeVoxSearch');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.ExtensionBridge');
+cvoxgoog.require('cvox.SelectionUtil');
 
 /**
  * @fileoverview High level commands that the user can invoke using hotkeys.
@@ -205,6 +205,7 @@ cvox.ChromeVoxUserCommands.hidePowerKey = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['showPowerKey'] = function() {
+  cvox.ChromeVox.tts.stop();
   cvox.ChromeVoxUserCommands.savedCurrentNode =
       cvox.ChromeVox.navigationManager.getCurrentNode();
   cvox.ChromeVoxUserCommands.powerkey.updateCompletionField(
@@ -220,6 +221,7 @@ cvox.ChromeVoxUserCommands.commands['showPowerKey'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['hidePowerKey'] = function() {
+  cvox.ChromeVox.tts.stop();
   cvox.ChromeVoxUserCommands.hidePowerKey();
   return false;
 };
@@ -374,13 +376,7 @@ cvox.ChromeVoxUserCommands.commands['nop'] = function() {
 cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   var descriptionArray =
       cvox.ChromeVox.navigationManager.getCurrentDescription();
-  var contentStr = descriptionArray[0];
-  var descriptionStr = descriptionArray[1];
-  // Remove all whitespace from the beginning and end, and collapse all
-  // inner strings of whitespace to a single space.
-  contentStr = contentStr.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-  descriptionStr = descriptionStr.replace(/\s+/g,
-                                          ' ').replace(/^\s+|\s+$/g, '');
+
   setTimeout(function() {
     cvox.ChromeVox.navigationManager.setFocus();
   }, 0);
@@ -388,15 +384,16 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   cvox.ChromeVox.navigationManager.syncToSelection();
 
   var queueMode = 0;
+
   if (messagePrefixStr) {
     cvox.ChromeVox.tts.speak(
         messagePrefixStr, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     queueMode = 1;
   }
-  cvox.ChromeVox.tts.speak(contentStr, queueMode, null);
-  if (descriptionStr != '') {
-    cvox.ChromeVox.tts.speak(
-        descriptionStr, 1, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
+  for (var i = 0; i < descriptionArray.length; i++) {
+    descriptionArray[i].speak(queueMode);
+    queueMode = 1;
   }
   cvox.ChromeVoxUserCommands.playEarcons();
 };
@@ -454,13 +451,14 @@ cvox.ChromeVoxUserCommands.playEarcons = function() {
           break;
         case 'INPUT':
           switch (node.type) {
+            case 'button':
             case 'submit':
             case 'reset':
               earcons.push(cvox.AbstractEarcons.BUTTON);
               break;
             case 'checkbox':
             case 'radio':
-              if (node.value) {
+              if (node.checked) {
                 earcons.push(cvox.AbstractEarcons.CHECK_ON);
               } else {
                 earcons.push(cvox.AbstractEarcons.CHECK_OFF);
@@ -498,7 +496,11 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
-  cvox.ChromeVoxUserCommands.finishNavCommand('');
+  // Do a previous and then forward here to ensure that
+  // speaking is consistent with what would have happened if
+  // the user just navigated there.
+  cvox.ChromeVox.navigationManager.previous(true);
+  cvox.ChromeVoxUserCommands.commands['forward']();
 };
 
 
@@ -517,7 +519,11 @@ cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
-  cvox.ChromeVoxUserCommands.finishNavCommand('');
+  // Do a previous and then forward here to ensure that
+  // speaking is consistent with what would have happened if
+  // the user just navigated there.
+  cvox.ChromeVox.navigationManager.previous(true);
+  cvox.ChromeVoxUserCommands.commands['forward']();
 };
 
 
@@ -569,6 +575,7 @@ cvox.ChromeVoxUserCommands.isInUserCommand = function() {
  * @return {boolean} Always return true since we rely on the default action.
  */
 cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
+  cvox.ChromeVox.tts.stop();
   // Clean up after any previous runs
   var previousDummySpan = document.getElementById('ChromeVoxTabDummySpan');
   if (previousDummySpan) {
@@ -740,6 +747,7 @@ cvox.ChromeVoxUserCommands.commands['increaseTtsVolume'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['help'] = function() {
+  cvox.ChromeVox.tts.stop();
   cvox.ExtensionBridge.send({
     'target': 'HelpDocs',
     'action': 'open'});
@@ -768,6 +776,7 @@ cvox.ChromeVoxUserCommands.commands['showBookmarkManager'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['showOptionsPage'] = function() {
+  cvox.ChromeVox.tts.stop();
   cvox.ExtensionBridge.send({
     'target': 'Options',
     'action': 'open'});
@@ -782,6 +791,7 @@ cvox.ChromeVoxUserCommands.commands['showOptionsPage'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['showKbExplorerPage'] = function() {
+  cvox.ChromeVox.tts.stop();
   cvox.ExtensionBridge.send({
     'target': 'KbExplorer',
     'action': 'open'});
@@ -800,6 +810,53 @@ cvox.ChromeVoxUserCommands.commands['debug'] = function() {
   return false;
 };
 
+
+/**
+ * Reads out the URL behind the link.
+ */
+cvox.ChromeVoxUserCommands.commands['readLinkURL'] = function() {
+  var url;
+  var activeElement = document.activeElement;
+  var currentSelectionAnchor = window.getSelection().anchorNode;
+
+  if (activeElement.tagName == 'A') {
+    url = cvox.DomUtil.getLinkURL(activeElement);
+  } else if (currentSelectionAnchor) {
+    url = cvox.DomUtil.getLinkURL(currentSelectionAnchor.parentNode);
+  } else {
+    url = '';
+  }
+
+  if (url != '') {
+    cvox.Api.speak(url, 0, null);
+  } else {
+    cvox.Api.speak('No URL found', 0, null);
+  }
+};
+
+
+/**
+ * Reads out the current page title.
+ */
+cvox.ChromeVoxUserCommands.commands['readCurrentTitle'] = function() {
+  cvox.Api.speak(document.title, 0, null);
+};
+
+
+/**
+ * Reads out the current page URL.
+ */
+cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
+  cvox.Api.speak(document.URL, 0, null);
+};
+
+
+/**
+ * Starts reading the page contents from current location.
+ */
+cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
+  cvox.ChromeVox.navigationManager.startReadingFromNode();
+};
 
 //
 // Mode commands - change modes
@@ -1660,6 +1717,59 @@ cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
   return false;
 };
 
+/**
+ * Next jump point (heading or ARIA landmark).
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['nextJump'] = function() {
+  cvox.ChromeVoxUserCommands.findNextAndSpeak_(
+      cvox.ChromeVoxUserCommands.jumpPredicate_,
+      'No next jump point.');
+  return false;
+};
+
+
+/**
+ * Previous jump point (heading or ARIA landmark).
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
+  cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
+      cvox.ChromeVoxUserCommands.jumpPredicate_,
+      'No previous jump point.');
+  return false;
+};
+
+/**
+ * Next ARIA landmark.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['nextLandmark'] = function() {
+  cvox.ChromeVoxUserCommands.findNextAndSpeak_(
+      cvox.ChromeVoxUserCommands.landmarkPredicate_,
+      'No next ARIA landmark.');
+  return false;
+};
+
+
+/**
+ * Previous ARIA landmark.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
+  cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
+      cvox.ChromeVoxUserCommands.landmarkPredicate_,
+      'No previous ARIA landmark.');
+  return false;
+};
 
 /**
  * Attempts to do something reasonable given the current item that the user is
@@ -1704,10 +1814,10 @@ cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
   if (cvox.ChromeVox.lens) {
     cvox.ChromeVox.lens.showLens(true);
     cvox.ExtensionBridge.send({
-      'target': 'Options',
+      'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensVisible',
-      'value': '1'
+      'value': true
     });
   }
   return false;
@@ -1723,10 +1833,10 @@ cvox.ChromeVoxUserCommands.commands['hideLens'] = function() {
   if (cvox.ChromeVox.lens) {
     cvox.ChromeVox.lens.showLens(false);
     cvox.ExtensionBridge.send({
-      'target': 'Options',
+      'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensVisible',
-      'value': '0'
+      'value': false
     });
   }
   return false;
@@ -1763,10 +1873,10 @@ cvox.ChromeVoxUserCommands.commands['floatLens'] = function() {
   } catch (err) {
   }
   cvox.ExtensionBridge.send({
-      'target': 'Options',
+      'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensAnchored',
-      'value': '0'
+      'value': false
     });
 
   return false;
@@ -1786,10 +1896,10 @@ cvox.ChromeVoxUserCommands.commands['anchorLens'] = function() {
   } catch (err) {
   }
   cvox.ExtensionBridge.send({
-      'target': 'Options',
+      'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensAnchored',
-      'value': '1'
+      'value': true
     });
 
   return false;
@@ -1883,6 +1993,7 @@ cvox.ChromeVoxUserCommands.buttonPredicate_ = function(nodes) {
     if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'button') ||
         nodes[i].tagName == 'BUTTON' ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'submit') ||
+        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'button') ||
         (nodes[i].tagName == 'INPUT' && nodes[i].type == 'reset')) {
       return nodes[i];
     }
@@ -1936,8 +2047,8 @@ cvox.ChromeVoxUserCommands.editTextPredicate_ = function(nodes) {
  */
 cvox.ChromeVoxUserCommands.headingPredicate_ = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-      if ((nodes[i].getAttribute &&
-           nodes[i].getAttribute('role') == 'heading')) {
+    if (nodes[i].getAttribute &&
+        nodes[i].getAttribute('role') == 'heading') {
       return nodes[i];
     }
     switch (nodes[i].tagName) {
@@ -2137,3 +2248,208 @@ cvox.ChromeVoxUserCommands.formFieldPredicate_ = function(nodes) {
   return null;
 };
 
+/**
+ * Jump point - an ARIA landmark or heading.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a jump point.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.jumpPredicate_ = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (cvox.AriaUtil.isLandmark(nodes[i])) {
+      return nodes[i];
+    }
+    if (nodes[i].getAttribute &&
+        nodes[i].getAttribute('role') == 'heading') {
+      return nodes[i];
+    }
+    switch (nodes[i].tagName) {
+      case 'H1':
+      case 'H2':
+      case 'H3':
+      case 'H4':
+      case 'H5':
+      case 'H6':
+        return nodes[i];
+    }
+  }
+  return null;
+};
+
+/**
+ * ARIA landmark.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is an ARIA landmark.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.landmarkPredicate_ = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (cvox.AriaUtil.isLandmark(nodes[i])) {
+      return nodes[i];
+    }
+  }
+  return null;
+};
+
+/**
+ * Creates a simple function that will navigate to the given targetNode when
+ * invoked.
+ * Note that we are using this function because functions created inside a loop
+ * have to be created by another function and not within the loop directly.
+ *
+ * See: http://joust.kano.net/weblog/archive/2005/08/08/
+ * a-huge-gotcha-with-javascript-closures/
+ * @param {Node} targetNode The target node to navigate to.
+ * @return {function()} A function that will navigate to the given targetNode.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_ = function(
+    targetNode) {
+  return function() {
+        cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+        cvox.ChromeVox.navigationManager.previous(true);
+        cvox.ChromeVoxUserCommands.commands['forward']();
+      };
+};
+
+/**
+ * Uses PowerKey to show a list of elements that can be navigated to.
+ *
+ * @param {string} errorStr A string to speak if there is nothing in the list.
+ * @param {Array} elementsArray The array of elements to populate the navigation
+ * list.
+ * @param {Array} opt_descriptionsArray Optional array of descriptions for the
+ * elements; if this is null, the text of the elements will be used.
+ */
+cvox.ChromeVoxUserCommands.showNavigationList = function(errorStr,
+      elementsArray, opt_descriptionsArray) {
+  if (elementsArray.length < 1) {
+    cvox.ChromeVox.tts.speak(errorStr, 0,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    return;
+  }
+  cvox.ChromeVox.tts.stop();
+  var functions = new Array();
+  var descriptions = new Array();
+  for (var i = 0, node; node = elementsArray[i]; i++) {
+    if (cvox.DomUtil.hasContent(node)) {
+      if (opt_descriptionsArray == null) {
+        descriptions.push(cvox.DomUtil.collapseWhitespace(
+            cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node)));
+      }
+      functions.push(
+          cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_(node));
+    }
+  }
+  if (opt_descriptionsArray) {
+    descriptions = opt_descriptionsArray;
+  }
+  var choiceWidget = new cvox.ChromeVoxChoiceWidget();
+  choiceWidget.show(descriptions, functions, descriptions.toString());
+};
+
+/**
+ * Show headings list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showHeadingsList'] = function() {
+  var xpath = '//*[@role="heading"] | //h1 | //h2 | //h3 | //h4 | //h5 | //h6';
+  cvox.ChromeVoxUserCommands.showNavigationList('No headings.',
+      cvox.XpathUtil.evalXPath(xpath, document.body), null);
+};
+
+/**
+ * Show links list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showLinksList'] = function() {
+  var xpath = '//a';
+  cvox.ChromeVoxUserCommands.showNavigationList('No links.',
+      cvox.XpathUtil.evalXPath(xpath, document.body), null);
+};
+
+/**
+ * Show forms list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showFormsList'] = function() {
+  var xpath = '//form';
+  cvox.ChromeVoxUserCommands.showNavigationList('No forms.',
+      cvox.XpathUtil.evalXPath(xpath, document.body), null);
+};
+
+/**
+ * Show tables list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showTablesList'] = function() {
+  var xpath = '//table';
+  var tableNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
+  var descriptions = new Array();
+  var tableCount = 1;
+  for (var i = 0, node; node = tableNodes[i]; i++) {
+    var description = '';
+    if (node.getAttribute('title')) {
+      description = description + node.getAttribute('title') + ' ';
+    }
+    if (node.getAttribute('summary')) {
+      description = description + node.getAttribute('summary') + ' ';
+    }
+    if (node.getAttribute('caption')) {
+      description = description + node.getAttribute('caption') + ' ';
+    }
+    if (description.length < 1) {
+      description = 'Table ' + tableCount;
+      tableCount++;
+    }
+    descriptions.push(description);
+  }
+  cvox.ChromeVoxUserCommands.showNavigationList('No tables.',
+      cvox.XpathUtil.evalXPath(xpath, document.body), null);
+};
+
+/**
+ * Show landmarks list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showLandmarksList'] = function() {
+  var xpath = '//*[@role="application"] | //*[@role="banner"] | ' +
+      '//*[@role="complementary"] | //*[@role="contentinfo"] | ' +
+      '//*[@role="form"] | //*[@role="main"] | //*[@role="navigation"] | ' +
+      '//*[@role="search"]';
+  var landmarkNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
+  var descriptions = new Array();
+  for (var i = 0, node; node = landmarkNodes[i]; i++) {
+    var description = cvox.AriaUtil.getRoleName(node);
+    if (node.getAttribute('title')) {
+      description = node.getAttribute('title') + ' ' + description;
+    }
+    descriptions.push(description);
+  }
+  cvox.ChromeVoxUserCommands.showNavigationList('No ARIA landmarks.',
+      landmarkNodes, descriptions);
+};
+
+/**
+ * Show jump points list with PowerKey.
+ */
+cvox.ChromeVoxUserCommands.commands['showJumpsList'] = function() {
+  var xpath = '//*[@role="application"] | //*[@role="banner"] | ' +
+      '//*[@role="complementary"] | //*[@role="contentinfo"] | ' +
+      '//*[@role="form"] | //*[@role="main"] | //*[@role="navigation"] | ' +
+      '//*[@role="search"] | //*[@role="heading"] | //h1 | //h2 | //h3 | ' +
+      '//h4 | //h5 | //h6';
+  var jumpNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
+  var descriptions = new Array();
+  for (var i = 0, node; node = jumpNodes[i]; i++) {
+    var description = '';
+    if (cvox.AriaUtil.isLandmark(node)) {
+      description = cvox.AriaUtil.getRoleName(node);
+      var text = cvox.DomUtil.getName(node);
+      if (text) {
+        description = text + ' ' + description;
+      }
+    } else {
+      description = cvox.DomUtil.collapseWhitespace(
+          cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node));
+    }
+    descriptions.push(description);
+  }
+  cvox.ChromeVoxUserCommands.showNavigationList('No jumps.', jumpNodes,
+      descriptions);
+};

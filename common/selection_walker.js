@@ -19,10 +19,10 @@
  */
 
 
-goog.provide('cvox.SelectionWalker');
+cvoxgoog.provide('cvox.SelectionWalker');
 
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.TraverseContent');
+cvoxgoog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.TraverseContent');
 
 /**
  * @constructor
@@ -122,12 +122,13 @@ cvox.SelectionWalker.prototype.setCurrentNode = function(currentNode) {
 };
 
 /**
- * Returns the current content of the selection.
- * @return {string} The content of the selection.
+ * Returns a description of the navigation to the current element.
+ * @param {Array.<Node>} ancestorsArray An array of ancestor nodes.
+ * @return {cvox.NavDescription} The description of the navigation.
  */
-cvox.SelectionWalker.prototype.getCurrentContent = function() {
-  // TODO (dmazzoni, clchen): Implement getting content from virtual navigation
-  // here.
-  return cvox.SelectionUtil.getText();
+cvox.SelectionWalker.prototype.getCurrentDescription = function(
+    ancestorsArray) {
+  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestorsArray);
+  description.text = cvox.SelectionUtil.getText();
+  return description;
 };
-

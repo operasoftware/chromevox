@@ -19,7 +19,7 @@
  */
 
 
-goog.provide('cvox.FocusUtil');
+cvoxgoog.provide('cvox.FocusUtil');
 
 
 /**

@@ -19,9 +19,9 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.Api');
+cvoxgoog.provide('cvox.Api');
 
-goog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVox');
 
 /**
  * @constructor
@@ -90,12 +90,28 @@ cvox.Api.playEarcon = function(earcon) {
 
 /**
  * Synchronizes ChromeVox's internal cursor to the targetNode.
- * Note that this will NOT trigger reading; it is only for setting the internal
- * ChromeVox cursor so that when the user resumes reading, they will be starting
- * from a reasonable position.
+ * Note that this will NOT trigger reading unless given the optional argument;
+ * it is for setting the internal ChromeVox cursor so that when the user resumes
+ * reading, they will be starting from a reasonable position.
  *
  * @param {Node} targetNode The node that ChromeVox should be synced to.
+ * @param {boolean=} speakNode If true, speaks out the node.
  */
-cvox.Api.syncToNode = function(targetNode) {
+cvox.Api.syncToNode = function(targetNode, speakNode) {
   cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+
+  if (speakNode == undefined) {
+    speakNode = false;
+  }
+
+  if (speakNode) {
+    var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
+    var length = currentDesc.length;
+    var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
+
+    for (var i = 0; i < length; i++) {
+      currentDesc[i].speak(queueMode);
+      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+    }
+  }
 };

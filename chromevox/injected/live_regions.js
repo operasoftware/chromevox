@@ -19,11 +19,12 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.LiveRegions');
+cvoxgoog.provide('cvox.LiveRegions');
 
-goog.require('cvox.AriaUtil');
-goog.require('cvox.ChromeVox');
-goog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.AriaUtil');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.NavDescription');
 
 /**
  * @constructor
@@ -39,8 +40,8 @@ cvox.LiveRegions.trackedRegions = [];
 
 /**
  * A parallel array to trackedRegions that stores the previous value of
- * each live region, represented as an array of strings.
- * @type {Array.<Array.<String> >}
+ * each live region, represented as an array of NavDescriptions.
+ * @type {Array.<Array.<cvox.NavDescription> >}
  */
 cvox.LiveRegions.previousRegionValue = [];
 
@@ -55,7 +56,7 @@ cvox.LiveRegions.pageLoadTime = null;
  * @type {number}
  * @const
  */
-cvox.LiveRegions.INITIAL_SILENCE_MS = 5000;
+cvox.LiveRegions.INITIAL_SILENCE_MS = 2000;
 
 /**
  * @param {Date=} pageLoadTime The time the page was loaded. Live region
@@ -108,20 +109,30 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
     return;
   }
 
-  // Figure out the text corresponding to additions and removals.
-  var additions = '';
+  // Create maps of values in the live region for fast hash lookup.
+  var previousValueMap = {};
+  for (var i = 0; i < previousValue.length; i++) {
+    previousValueMap[previousValue[i].toString()] = true;
+  }
+  var currentValueMap = {};
+  for (var i = 0; i < currentValue.length; i++) {
+    currentValueMap[currentValue[i].toString()] = true;
+  }
+
+  // Figure out the additions and removals.
+  var additions = [];
   if (cvox.AriaUtil.getAriaRelevant(region, 'additions')) {
     for (var i = 0; i < currentValue.length; i++) {
-      if (previousValue.indexOf(currentValue[i]) == -1) {
-        additions += ' ' + currentValue[i] + '.';
+      if (!previousValueMap[currentValue[i].toString()]) {
+        additions.push(currentValue[i]);
       }
     }
   }
-  var removals = '';
+  var removals = [];
   if (cvox.AriaUtil.getAriaRelevant(region, 'removals')) {
     for (var i = 0; i < previousValue.length; i++) {
-      if (currentValue.indexOf(previousValue[i]) == -1) {
-        removals += ' ' + previousValue[i] + ', removed.';
+      if (!currentValueMap[previousValue[i].toString()]) {
+        removals.push(previousValue[i]);
       }
     }
   }
@@ -129,48 +140,49 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
   // Only speak removals if they're the only change. Otherwise, when one or
   // more removals and additions happen concurrently, treat it as a change
   // and just speak any additions (which includes changed nodes).
-  var message;
+  var messages = [];
   if (additions.length == 0 && removals.length > 0) {
-    message = removals;
+    messages = [new cvox.NavDescription('removed:', '', '', '')].concat(
+        removals);
   } else {
-    message = additions;
+    messages = additions;
   }
 
   // Store the new value of the live region.
   cvox.LiveRegions.previousRegionValue[regionIndex] = currentValue;
 
   // Return if there's nothing to announce.
-  message = message.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-  if (message.length == 0) {
+  if (messages.length == 0) {
     return;
   }
 
   // Announce the changes with the appropriate politeness level.
   var live = cvox.AriaUtil.getAriaLive(region);
-  if (live == 'assertive') {
-    cvox.ChromeVox.tts.speak(message, 0, null);
-  } else if (live == 'polite') {
-    cvox.ChromeVox.tts.speak(message, 1, null);
+  var queueMode = (live == 'assertive' ? 0 : 1);
+  for (var i = 0; i < messages.length; i++) {
+    messages[i].speak(queueMode);
+    queueMode = 1;
   }
 };
 
 /**
  * Recursively build up the value of a live region and return it as
- * an array of strings. Each atomic portion of the region gets a single
- * string, otherwise each leaf node gets its own string. When a region
+ * an array of NavDescriptions. Each atomic portion of the region gets a
+ * single string, otherwise each leaf node gets its own string. When a region
  * changes, the sets of strings before and after are searched to determine
  * which have changed.
  *
  * @param {Node} node The root node.
- * @return {Array.<String>} An array of strings describing atomic nodes or
- *     leaf nodes in the subtree rooted at this node.
+ * @return {Array.<cvox.NavDescription>} An array of NavDescriptions
+ *     describing atomic nodes or leaf nodes in the subtree rooted
+ *     at this node.
  */
 cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   if (cvox.AriaUtil.getAriaAtomic(node) ||
       cvox.DomUtil.isLeafNode(node)) {
-    var text = cvox.DomUtil.getText(node);
-    if (text.length > 0) {
-      return [text];
+    var description = cvox.DomUtil.getDescriptionFromAncestors([node], true);
+    if (!description.isEmpty()) {
+      return [description];
     } else {
       return [];
     }
@@ -178,30 +190,18 @@ cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
 
   var result = [];
 
-  // Start with the text of this node.
-  var title = cvox.DomUtil.getTitle(node);
-  var value = cvox.DomUtil.getValue(node);
-  if (title.length == 0) {
-    title = cvox.DomUtil.getLabel(node, false);
-  }
-  var text = '';
-  if (title && value) {
-    text = value + ' ' + title;
-  } else if (title) {
-    text = title;
-  } else if (value) {
-    text = value;
-  }
-  if (text) {
-    result = [text];
+  // Start with the description of this node.
+  var description = cvox.DomUtil.getDescriptionFromAncestors([node], false);
+  if (!description.isEmpty()) {
+    result.push(description);
   }
 
-  // Recursively add child nodes.
+  // Recursively add descriptions of child nodes.
   for (var i = 0; i < node.childNodes.length; i++) {
     var child = node.childNodes[i];
     var childStyle = window.getComputedStyle(child, null);
     if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
-        !cvox.AriaUtil.isHidden(node)) {
+        !cvox.AriaUtil.isHidden(child)) {
       var recursiveArray = cvox.LiveRegions.buildCurrentLiveRegionValue(child);
       result = result.concat(recursiveArray);
     }

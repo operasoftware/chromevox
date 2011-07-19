@@ -53,31 +53,31 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
   // Only run our version of the import script
   // when trying to inject ChromeVox scripts.
   if (src.indexOf('chrome-extension://') == 0) {
-    if (!goog.inHtmlDocument_() ||
-        goog.dependencies_.written[src]) {
+    if (!cvoxgoog.inHtmlDocument_() ||
+        cvoxgoog.dependencies_.written[src]) {
       return false;
     }
-    goog.dependencies_.written[src] = true;
+    cvoxgoog.dependencies_.written[src] = true;
     function loadNextScript() {
-      if (goog.global.queue_.length == 0)
+      if (cvoxgoog.global.queue_.length == 0)
         return;
-      var doc = goog.global.document;
+      var doc = cvoxgoog.global.document;
       var scriptElt = document.createElement('script');
       scriptElt.type = 'text/javascript';
-      scriptElt.src = goog.global.queue_[0];
+      scriptElt.src = cvoxgoog.global.queue_[0] + '?' + new Date().getTime();
       doc.getElementsByTagName('head')[0].appendChild(scriptElt);
       scriptElt.onload = function() {
-        goog.global.queue_ = goog.global.queue_.slice(1);
+        cvoxgoog.global.queue_ = cvoxgoog.global.queue_.slice(1);
         loadNextScript();
       };
     }
-    goog.global.queue_.push(src);
-    if (goog.global.queue_.length == 1) {
+    cvoxgoog.global.queue_.push(src);
+    if (cvoxgoog.global.queue_.length == 1) {
       loadNextScript();
     }
     return true;
   } else {
-    return goog.writeScriptTag_(src);
+    return cvoxgoog.writeScriptTag_(src);
   }
 };
 

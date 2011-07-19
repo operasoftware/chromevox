@@ -19,12 +19,12 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.ChromeVoxAccessibilityApiHandler');
+cvoxgoog.provide('cvox.ChromeVoxAccessibilityApiHandler');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.AbstractEarconsManager');
-goog.require('cvox.AbstractTtsManager');
-goog.require('cvox.ChromeVoxEditableTextBase');
+cvoxgoog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.AbstractEarconsManager');
+cvoxgoog.require('cvox.AbstractTtsManager');
+cvoxgoog.require('cvox.ChromeVoxEditableTextBase');
 
 /**
  * Class that adds listeners and handles events from the accessibility API.
@@ -47,9 +47,15 @@ cvox.ChromeVoxAccessibilityApiHandler.earconsManager = null;
 /**
  * The object that can describe changes and cursor movement in a generic
  *     editable text field.
- * @type Object
+ * @type {Object}
  */
 cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler = null;
+
+/**
+ * The queue mode for the next focus event.
+ * @type {number}
+ */
+cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 0;
 
 /**
  * Initialize the accessibility API Handler.
@@ -109,16 +115,31 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
     });
   });
 
+  chrome.windows.onFocusChanged.addListener(function(windowId) {
+    chrome.windows.get(windowId, function(window) {
+      chrome.tabs.getSelected(windowId, function(tab) {
+        var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
+        var window_text = window.incognito ? 'incognito window, ' : 'window, ';
+        var title = tab.title ? tab.title : tab.url;
+        tts.speak(window_text + title + ', tab.', 0, {});
+        var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
+      });
+    });
+  });
+
   chrome.experimental.accessibility.onWindowOpened.addListener(function(win) {
     var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-    tts.speak(win.name + ', window opened.', 0, {});
+    tts.speak(win.name, 0, {});
+    // Queue the next utterance because a window opening is always followed
+    // by a focus event.
+    cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 1;
     var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
 
   chrome.experimental.accessibility.onWindowClosed.addListener(function(win) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-    tts.speak(win.name + ', window closed.', 0, {});
+    // Don't speak, just play the earcon.
     var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
@@ -131,8 +152,7 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.experimental.accessibility.onMenuClosed.addListener(function(menu) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-    tts.speak(menu.name + ', menu closed.', 0, {});
+    // Don't speak, just play the earcon.
     var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
@@ -158,7 +178,10 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
 
       var description = cvox.ChromeVoxAccessibilityApiHandler.describe(ctl,
           false);
-      tts.speak(description.utterance, 0, {});
+      tts.speak(description.utterance,
+                cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode,
+                {});
+      cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 0;
       if (description.earcon) {
           var earcons =
               cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
@@ -180,10 +203,13 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
   chrome.experimental.accessibility.onTextChanged.addListener(function(ctl) {
     if (cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler) {
       cvox.ChromeVoxAccessibilityApiHandler.trimWhitespace(ctl);
-      cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler.changed(
+      var textChangeEvent = new cvox.TextChangeEvent(
           ctl.details.value,
           ctl.details.selectionStart,
-          ctl.details.selectionEnd);
+          ctl.details.selectionEnd,
+          true);  // triggered by user
+      cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler.changed(
+          textChangeEvent);
     }
   });
 };

@@ -13,9 +13,9 @@
 // limitations under the License.
 
 /**
- * @fileoverview Loads the main background script.
+ * @fileoverview Loads the options page script.
  *
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.require('cvox.ChromeVoxBackground');
+cvoxgoog.require('cvox.OptionsPage');

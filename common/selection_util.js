@@ -19,10 +19,10 @@
  */
 
 
-goog.provide('cvox.SelectionUtil');
+cvoxgoog.provide('cvox.SelectionUtil');
 
-goog.require('cvox.DomUtil');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.XpathUtil');
 
 /**
  * Utilities for improving selection.
@@ -520,7 +520,7 @@ cvox.SelectionUtil.getText = function() {
     span.appendChild(docFrag);
     var leafNodes = cvox.XpathUtil.getLeafNodes(span);
     for (var i = 0, node; node = leafNodes[i]; i++) {
-      text = text + ' ' + cvox.DomUtil.getText(node);
+      text = text + ' ' + cvox.DomUtil.getName(node);
     }
   } else {
     text = text + sel;

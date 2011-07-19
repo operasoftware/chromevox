@@ -2,19 +2,84 @@
 <head>
 <title>ChromeVox Options</title>
 <style type="text/css">
-h1, ul, li {
+* {
   font-family:arial;
 }
+fieldset {
+  margin: 0.2em 0 0.8em 0;
+}
+label {
+  display: block;
+}
+input[aria-invalid="true"] {
+  color: #d00;
+  background-color: ff9;
+}
 </style>
+
+<script type="text/javascript" src="../../closure/closure_preinit.js"></script>
+<script type="text/javascript" src="../../closure/base.js"></script>
+<script type="text/javascript" src="deps.js"></script>
+<script type="text/javascript" src="options_loader.js"></script>
+
+<script type="text/javascript" src="../../chromeVoxChromeOptionsScript">
+</script>
+
 </head>
 <html>
-<body>
+<body onload="load()">
+
 <h1>ChromeVox Options</h1>
-<ul>
-  <li><a href="#">Settings</a>
-  <li><a href="kbshortcuts.html">Keyboard shortcuts</a>
-  <li><a href="kbexplorer.html">Keyboard Explorer</a>
-  <li><a href="#">Bookmark manager</a>
-</ul>
+
+<p>Use the options below to customize ChromeVox. Changes take effect
+immediately.</p>
+
+<fieldset>
+  <legend>Magnifier</legend>
+  <label>
+    <input type="checkbox" class="pref" name="lensVisible">
+    Show Magnifier
+  </label>
+  <div style="margin-left: 1em;">
+    <label>
+      <input type="radio" class="pref" name="lensAnchored" value="true">
+      At top of page
+    </label>
+    <label>
+      <input type="radio" class="pref" name="lensAnchored" value="false">
+      Next to focused element
+    </label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Mouse</legend>
+  <label>
+    <input type="checkbox" class="pref" name="focusFollowsMouse">
+    Focus follows mouse.
+  </label>
+</fieldset>
+
+<fieldset>
+  <legend>When editing text</legend>
+  <label>
+    <input type="radio" class="pref" name="cursorIsBlock" value="false">
+    The cursor is between characters (like on Mac OS X)
+  </label>
+  <label>
+    <input type="radio" class="pref" name="cursorIsBlock" value="true">
+    The cursor is on a character (like on Windows)
+  </label>
+</fieldset>
+
+
+<h2>Key assignments</h2>
+
+<button id="resetToDefaultKeys">Reset to default keys</button>
+
+<div id="keysContainer">
+
+</div>
+
 </body>
 </html>

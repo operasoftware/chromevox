@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('cvox.AxsNav');
+cvoxgoog.provide('cvox.AxsNav');
 
-goog.require('cvox.CustomWalker');
+cvoxgoog.require('cvox.CustomWalker');
 
 /**
  * @fileoverview AxsNav - JavaScript library for enhancing the navigation

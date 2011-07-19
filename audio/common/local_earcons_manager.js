@@ -19,9 +19,9 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.LocalEarconsManager');
+cvoxgoog.provide('cvox.LocalEarconsManager');
 
-goog.require('cvox.AbstractEarconsManager');
+cvoxgoog.require('cvox.AbstractEarconsManager');
 
 /**
  * @constructor
@@ -39,7 +39,7 @@ cvox.LocalEarconsManager = function(earcons, ttsManager) {
   this.currentEarconsIndex = -1;
   this.nextEarcons(false);
 };
-goog.inherits(cvox.LocalEarconsManager, cvox.AbstractEarconsManager);
+cvoxgoog.inherits(cvox.LocalEarconsManager, cvox.AbstractEarconsManager);
 
 /**
  * @return {string} The human-readable name of this instance.

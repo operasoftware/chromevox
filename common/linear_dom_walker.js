@@ -18,10 +18,10 @@
  */
 
 
-goog.provide('cvox.LinearDomWalker');
+cvoxgoog.provide('cvox.LinearDomWalker');
 
-goog.require('cvox.DomUtil');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.XpathUtil');
 
 
 

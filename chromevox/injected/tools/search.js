@@ -18,12 +18,12 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxSearch');
+cvoxgoog.provide('cvox.ChromeVoxSearch');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.ChromeVox');
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.XpathUtil');
+cvoxgoog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.XpathUtil');
 
 /**
  * @type {Object}
@@ -170,7 +170,7 @@ cvox.ChromeVoxSearch.toggleCaseSensitivity = function() {
 /**
  * Performs the search and highlights and speaks the first result.
  *
- * @param {String} searchStr The text to search for.
+ * @param {string} searchStr The text to search for.
  * @param {boolean} caseSensitive Whether or not the search is case sensitive.
  */
 cvox.ChromeVoxSearch.doSearch = function(searchStr, caseSensitive) {

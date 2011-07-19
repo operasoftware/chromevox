@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('cvox.ChromeVoxKbHandler');
+cvoxgoog.provide('cvox.ChromeVoxKbHandler');
 
-goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxJSON');
-goog.require('cvox.ChromeVoxSearch');
-goog.require('cvox.ChromeVoxUserCommands');
-goog.require('cvox.KeyUtil');
+cvoxgoog.require('cvox.ChromeVox');
+cvoxgoog.require('cvox.ChromeVoxJSON');
+cvoxgoog.require('cvox.ChromeVoxSearch');
+cvoxgoog.require('cvox.ChromeVoxUserCommands');
+cvoxgoog.require('cvox.KeyUtil');
 
 /**
  * @fileoverview Handles user keyboard input events.

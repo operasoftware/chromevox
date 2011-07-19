@@ -19,12 +19,11 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.RemoteTtsManager');
+cvoxgoog.provide('cvox.RemoteTtsManager');
 
-goog.require('cvox.AbstractTtsManager');
+cvoxgoog.require('cvox.AbstractTtsManager');
 
 if (BUILD_TYPE == BUILD_TYPE_CHROME) {
-
   /**
    * @constructor
    * @extends {cvox.AbstractTtsManager}
@@ -32,7 +31,19 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.RemoteTtsManager = function() {
     cvox.AbstractTtsManager.call(this);
   };
-  goog.inherits(cvox.RemoteTtsManager, cvox.AbstractTtsManager);
+  cvoxgoog.inherits(cvox.RemoteTtsManager, cvox.AbstractTtsManager);
+
+  /**
+   * Current call id, used for matching callback functions.
+   * @type {number}
+   */
+  cvox.RemoteTtsManager.callId = 0;
+
+  /**
+   * Maps call ids to callback functions.
+   * @type {Object.<number, Function>}
+   */
+  cvox.RemoteTtsManager.functionMap = new Object();
 
   /**
    * @return {string} The human-readable name of this instance.
@@ -47,38 +58,28 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
    *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
    * @param {Object=} properties Speech properties to use for this utterance.
+   * @param {Function=} callBack The function to be called after speech ends.
    */
   cvox.RemoteTtsManager.prototype.speak = function(textString, queueMode,
-      properties) {
+      properties, callBack) {
+    textString = cvox.AbstractTts.preprocess(textString);
     cvox.RemoteTtsManager.superClass_.speak.call(this, textString, queueMode,
-        properties);
+        properties, callBack);
 
-    // Do some preprocessing to make text sound better.
-    var allCapsWords = textString.match(/([A-Z]+)/g);
-    // This is null if there are no such matches.
-    if (allCapsWords) {
-      for (var word, i = 0; word = allCapsWords[i]; i++) {
-        var replacement;
-        // If a word contains vowels and is more than 3 letters long,
-        // it is probably a real word and not just an abbreviation.
-        // Convert it to lower case and speak it normally.
-        if ((word.length > 3) && word.match(/([AEIOUY])/g)) {
-          replacement = word.toLowerCase();
-        } else {
-          // This regex will space out any camelCased/all CAPS words
-          // so they sound better when spoken by TTS engines.
-          replacement = word.replace(/([A-Z])/g, ' $1');
-        }
-        textString = textString.replace(word, replacement);
-      }
-    }
-
-    cvox.ExtensionBridge.send(
-        {'target': 'TTS',
+    var message = {'target': 'TTS',
           'action': 'speak',
           'text': textString,
           'queueMode': queueMode,
-          'properties': properties});
+          'properties': properties,
+          'callbackId': cvox.RemoteTtsManager.callId++};
+
+    if (callBack != undefined) {
+      cvox.RemoteTtsManager.functionMap[cvox.RemoteTtsManager.callId] =
+          callBack;
+      message['callbackId'] = cvox.RemoteTtsManager.callId++;
+    }
+
+    cvox.ExtensionBridge.send(message);
   };
 
   /**
@@ -143,6 +144,23 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
         {'target': 'TTS',
           'action': 'increase' + property_name,
           'modifier': announce});
+  };
+
+  /**
+   * Listens for TTS_COMPLETED message and executes the callback function.
+   */
+  cvox.RemoteTtsManager.prototype.addBridgeListener = function() {
+    cvox.ExtensionBridge.addMessageListener(function(msg, port) {
+      var message = msg['message'];
+      if (message == 'TTS_COMPLETED') {
+        var id = msg['id'];
+        var func = cvox.RemoteTtsManager.functionMap[id];
+        if (func != undefined) {
+          func();
+          delete cvox.RemoteTtsManager.functionMap[id];
+        }
+      }
+    });
   };
 } else {
   cvox.RemoteTtsManager = function() {};

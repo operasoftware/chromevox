@@ -24,11 +24,11 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-goog.provide('cvox.TraverseContent');
+cvoxgoog.provide('cvox.TraverseContent');
 
-goog.require('cvox.DomUtil');
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.TraverseUtil');
+cvoxgoog.require('cvox.DomUtil');
+cvoxgoog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.TraverseUtil');
 
 /**
  * Moves a selection around a document or within a provided DOM object.

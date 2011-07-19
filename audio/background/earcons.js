@@ -19,9 +19,9 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.ChromeVoxEarcons');
+cvoxgoog.provide('cvox.ChromeVoxEarcons');
 
-goog.require('cvox.AbstractEarcons');
+cvoxgoog.require('cvox.AbstractEarcons');
 
 /**
  * @constructor
@@ -33,7 +33,7 @@ cvox.ChromeVoxEarcons = function() {
 
   this.audioMap = new Object();
 };
-goog.inherits(cvox.ChromeVoxEarcons, cvox.AbstractEarcons);
+cvoxgoog.inherits(cvox.ChromeVoxEarcons, cvox.AbstractEarcons);
 
 /**
  * @return {string} The human-readable name of the earcon set.

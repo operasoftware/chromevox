@@ -25,9 +25,9 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.Interframe');
+cvoxgoog.provide('cvox.Interframe');
 
-goog.require('cvox.ChromeVoxJSON');
+cvoxgoog.require('cvox.ChromeVoxJSON');
 
 /**
  * @constructor

@@ -7,21 +7,20 @@
     "bookmarks",
     "tabs",
     "experimental",
-    "http://*/",
-    "https://*/"
+    "<all_urls>"
   ],
   "content_scripts": [
     {
       "matches": [ "<all_urls>" ],
       "all_frames": true,
       "js": [
-        "build/build_defs.js",
-        "build/build_config_chrome.js",
         "closure/closure_preinit.js",
         "closure/base.js",
+        "build/build_defs.js",
+        "build/build_config_chrome.js",
         "chromevox/injected/deps.js",
         "chromevox/injected/main.js",
-	      "common/extension_bridge.js"
+        "common/extension_bridge.js"
       ]
     }
   ],

@@ -23,7 +23,15 @@
  * @author svetoslavganov@google.com
  */
 
-goog.provide('cvox.BuildDefs');
+// Make it possible to use this file in a non-Closure context.
+if (!window['goog']) {
+  window['goog'] = {};
+  window['goog'].provide = function() {};
+  window['goog'].require = function() {};
+}
+if (!window['cvox']) { window['cvox'] = {}; }
+
+cvoxgoog.provide('cvox.BuildDefs');
 
 /**
  * Undefined build type.

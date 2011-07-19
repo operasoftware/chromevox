@@ -18,7 +18,7 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AbstractLogger');
+cvoxgoog.provide('cvox.AbstractLogger');
 
 /**
  * Creates a new instance.

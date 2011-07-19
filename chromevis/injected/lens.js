@@ -18,11 +18,11 @@
  */
 
 
-goog.provide('chromevis.ChromeVisLens');
+cvoxgoog.provide('chromevis.ChromeVisLens');
 
-goog.require('cvox.BuildConfig');
-goog.require('cvox.ExtensionBridge');
-goog.require('cvox.SelectionUtil');
+cvoxgoog.require('cvox.BuildConfig');
+cvoxgoog.require('cvox.ExtensionBridge');
+cvoxgoog.require('cvox.SelectionUtil');
 
 /**
  * Constructor for CSS lens. Initializes the lens settings.

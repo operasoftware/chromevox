@@ -20,9 +20,9 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-goog.provide('cvox.AbstractEarcons');
+cvoxgoog.provide('cvox.AbstractEarcons');
 
-goog.require('cvox.AbstractLogger');
+cvoxgoog.require('cvox.AbstractLogger');
 
 /**
  * @constructor
@@ -32,7 +32,7 @@ cvox.AbstractEarcons = function() {
   //Inherit AbstractLogger
   cvox.AbstractLogger.call(this);
 };
-goog.inherits(cvox.AbstractEarcons, cvox.AbstractLogger);
+cvoxgoog.inherits(cvox.AbstractEarcons, cvox.AbstractLogger);
 
 /**
  * Plays the specified earcon sound.
