@@ -195,9 +195,7 @@ cvox.ChromeVoxSearch.doSearch = function(searchStr, caseSensitive) {
       cvox.ChromeVoxSearch.matchNodes.push(node);
     }
   }
-
   var firstNode = cvox.ChromeVoxSearch.matchNodes[0];
-
   if (firstNode) {
     cvox.ChromeVoxSearch.matchNodesIndex = 0;
     var startIndex = 0;
@@ -215,7 +213,14 @@ cvox.ChromeVoxSearch.doSearch = function(searchStr, caseSensitive) {
     sel.removeAllRanges();
     sel.addRange(range);
     cvox.SelectionUtil.scrollToSelection(sel);
-    cvox.ChromeVox.tts.speak(window.getSelection() + '', 0, null);
+    var selectionText = window.getSelection() + '';
+    var anchorNode = window.getSelection().anchorNode;
+    cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
+    cvox.ChromeVox.tts.speak(selectionText, 0, null);
+    // Try to set focus if possible (ie, if the user lands on a link).
+    window.setTimeout(function() {
+         cvox.DomUtil.setFocus(anchorNode);
+       }, 0);
   } else {
     // TODO (clchen): Replace this with an error sound once we have one defined.
     cvox.ChromeVox.tts.stop();
@@ -264,7 +269,14 @@ cvox.ChromeVoxSearch.next = function() {
       sel.removeAllRanges();
       sel.addRange(range);
       cvox.SelectionUtil.scrollToSelection(sel);
-      cvox.ChromeVox.tts.speak(window.getSelection() + '', 0, null);
+      var selectionText = window.getSelection() + '';
+      var anchorNode = window.getSelection().anchorNode;
+      cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
+      cvox.ChromeVox.tts.speak(selectionText, 0, null);
+      // Try to set focus if possible (ie, if the user lands on a link).
+      window.setTimeout(function() {
+          cvox.DomUtil.setFocus(anchorNode);
+        }, 0);
     } else {
       cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
       cvox.ChromeVoxSearch.matchNodesIndex = -1;
@@ -300,7 +312,14 @@ cvox.ChromeVoxSearch.prev = function() {
       sel.removeAllRanges();
       sel.addRange(range);
       cvox.SelectionUtil.scrollToSelection(sel);
-      cvox.ChromeVox.tts.speak(window.getSelection() + '', 0, null);
+      var selectionText = window.getSelection() + '';
+      var anchorNode = window.getSelection().anchorNode;
+      cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
+      cvox.ChromeVox.tts.speak(selectionText, 0, null);
+      // Try to set focus if possible (ie, if the user lands on a link).
+      window.setTimeout(function() {
+          cvox.DomUtil.setFocus(anchorNode);
+        }, 0);
     } else {
       cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
       cvox.ChromeVoxSearch.matchNodesIndex =

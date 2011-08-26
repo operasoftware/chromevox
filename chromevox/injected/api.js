@@ -30,6 +30,20 @@ cvox.Api = function() {
 };
 
 /**
+ * Returns true if ChromeVox is currently running. If the API is available
+ * in the JavaScript namespace but this method returns false, it means that
+ * the user has (temporarily) disabled ChromeVox.
+ *
+ * You can listen for the 'chromeVoxLoaded' event to be notified when
+ * ChromeVox is loaded.
+ *
+ * @return {boolean} True if ChromeVox is currently active.
+ */
+cvox.Api.isChromeVoxActive = function() {
+  return cvox.ChromeVox.isActive;
+};
+
+/**
  * Speaks the given string using the specified queueMode and properties.
  *
  * @param {string} textString The string of text to be spoken.
@@ -37,14 +51,18 @@ cvox.Api = function() {
  * @param {Object=} properties Speech properties to use for this utterance.
  */
 cvox.Api.speak = function(textString, queueMode, properties) {
-  cvox.ChromeVox.tts.speak(textString, queueMode, properties);
+  if (cvox.ChromeVox.isActive) {
+    cvox.ChromeVox.tts.speak(textString, queueMode, properties);
+  }
 };
 
 /**
  * Stops speech.
  */
 cvox.Api.stop = function() {
-  cvox.ChromeVox.tts.stop();
+  if (cvox.ChromeVox.isActive) {
+    cvox.ChromeVox.tts.stop();
+  }
 };
 
 /**
@@ -85,7 +103,9 @@ cvox.Api.stop = function() {
  * This list may expand over time.
  */
 cvox.Api.playEarcon = function(earcon) {
-  cvox.ChromeVox.earcons.playEarconByName(earcon);
+  if (cvox.ChromeVox.isActive) {
+    cvox.ChromeVox.earcons.playEarconByName(earcon);
+  }
 };
 
 /**
@@ -98,20 +118,27 @@ cvox.Api.playEarcon = function(earcon) {
  * @param {boolean=} speakNode If true, speaks out the node.
  */
 cvox.Api.syncToNode = function(targetNode, speakNode) {
+  if (!cvox.ChromeVox.isActive) {
+    return;
+  }
+
   cvox.ChromeVox.navigationManager.syncToNode(targetNode);
 
   if (speakNode == undefined) {
     speakNode = false;
   }
 
+  // TODO (clchen): Add a new function to navigationManager so that a full
+  // sync can be done without relying on previous/next.
+  var currentNavStrat = cvox.ChromeVox.navigationManager.currentNavStrategy;
+  cvox.ChromeVox.navigationManager.currentNavStrategy =
+      cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
   if (speakNode) {
     var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
-    var length = currentDesc.length;
-    var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
-
-    for (var i = 0; i < length; i++) {
-      currentDesc[i].speak(queueMode);
-      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-    }
+    cvox.ChromeVox.navigationManager.speakDescriptionArray(
+        currentDesc, cvox.AbstractTts.QUEUE_MODE_FLUSH, null);
   }
+  cvox.ChromeVox.navigationManager.previous(false);
+  cvox.ChromeVox.navigationManager.next(false);
+  cvox.ChromeVox.navigationManager.currentNavStrategy = currentNavStrat;
 };

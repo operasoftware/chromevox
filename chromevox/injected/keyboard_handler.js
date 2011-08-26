@@ -121,7 +121,8 @@ cvox.ChromeVoxKbHandler.mustPassEnterKey = function() {
     return true;
   }
   return (document.activeElement.tagName == 'INPUT') ||
-       (document.activeElement.tagName == 'A') ||
+       (document.activeElement.tagName == 'A' &&
+           !cvox.DomUtil.isInternalLink(document.activeElement)) ||
        (document.activeElement.tagName == 'SELECT') ||
        (document.activeElement.tagName == 'BUTTON') ||
        (document.activeElement.tagName == 'TEXTAREA');
@@ -139,10 +140,6 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     // If the user is focused on something that explicitly takes the
     // enter key, that has precedence. Always let the key through.
     if (cvox.ChromeVoxKbHandler.mustPassEnterKey()) {
-      // Try to sync to the hashtag in case the user clicked on a page nav link.
-      window.setTimeout(function() {
-            cvox.ChromeVox.navigationManager.syncToHashTagAnchor();
-          }, 0);
       return true;
     }
     // The only time ChromeVox should consider handling the enter

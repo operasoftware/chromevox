@@ -46,6 +46,17 @@ cvox.AbstractTts = function() {
     var expr = '\\b(' + words.join('|') + ')\\b';
     cvox.AbstractTts.pronunciationDictionaryRegexp = new RegExp(expr, 'ig');
   }
+
+  if (cvox.AbstractTts.substitutionDictionaryRegexp == undefined) {
+    // Create an expression that matches all words in the substitution
+    // dictionary.
+    var symbols = [];
+    for (var symbol in cvox.AbstractTts.SUBSTITUTION_DICTIONARY) {
+      symbols.push(symbol);
+    }
+    var expr = '(' + symbols.join('|') + ')';
+    cvox.AbstractTts.substitutionDictionaryRegexp = new RegExp(expr, 'ig');
+  }
 };
 cvoxgoog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
 
@@ -73,27 +84,25 @@ cvox.AbstractTts.prototype.logEnabled = function() {
  * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
- * @param {Function=} callBack The function to be called after speech ends.
  */
-cvox.AbstractTts.prototype.speak = function(textString, queueMode,
-    properties, callBack) {
+cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
   if (this.logEnabled()) {
-    if (callBack != undefined) {
-      this.log('[' + this.getName() + '] speak(' + textString + ', ' +
-          queueMode + (properties ? ', ' + properties.toString() : '') + ', ' +
-         'has callback)');
-    } else {
-      this.log('[' + this.getName() + '] speak(' + textString + ', ' +
-          queueMode + (properties ? ', ' + properties.toString() : '') + ')');
-    }
+    this.log('[' + this.getName() + '] speak(' + textString + ', ' +
+        queueMode + (properties ? ', ' + properties.toString() : '') + ')');
   }
   if (this.lens_) {
     if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
-      this.lensContent_ = document.createElement('div');
+      var line = document.createElement('hr');
+      this.lensContent_.appendChild(line);
+    }
+    // Remove elements if exceed maxHistory. Multiply by 2 to accont for <hr>.
+    while (this.lensContent_.childNodes.length > this.lens_.maxHistory * 2) {
+      var temp = this.lensContent_.childNodes[0];
+      this.lensContent_.removeChild(temp);
     }
     var lensElem = document.createElement('span');
     lensElem.innerText = textString;
-    lensElem.style.marginLeft = '1em !important';
+    lensElem.style.marginLeft = '0.5em !important';
     if (properties && properties[cvox.AbstractTts.COLOR]) {
       lensElem.style.color = properties[cvox.AbstractTts.COLOR] + ' !important';
     }
@@ -300,12 +309,22 @@ cvox.AbstractTts.prototype.increasePropertyValue = function(current_value) {
  *     most speech engines.
  */
 cvox.AbstractTts.preprocess = function(text) {
+  // Substitute all symbols in the substitution dictionary. This is pretty
+  // efficient because we use a single regexp that matches all symbols
+  // simultaneously.
+  text = text.replace(
+      cvox.AbstractTts.substitutionDictionaryRegexp,
+      function(symbol) {
+        return ' ' + cvox.AbstractTts.SUBSTITUTION_DICTIONARY[symbol] + ' ';
+      });
+
+  // Handle single characters that we want to make sure we pronounce.
   if (text.length == 1) {
     switch (text) {
     case ' ': return 'space';
     case '`': return 'backtick';
     case '~': return 'tilde';
-    case '!': return 'bang';
+    case '!': return 'exclamation point';
     case '@': return 'at';
     case '#': return 'pound';
     case '$': return 'dollar';
@@ -332,9 +351,11 @@ cvox.AbstractTts.preprocess = function(text) {
     case '>': return 'greater than';
     case '/': return 'slash';
     case '?': return 'question mark';
+    case '"': return 'quote';
+    case '\'': return 'single quote';
     case '\t': return 'tab';
     case '\r': return 'return';
-    case '\n': return 'return';
+    case '\n': return 'new line';
     case '\\': return 'backslash';
     default: return text.toUpperCase() + '.';
     }
@@ -351,7 +372,7 @@ cvox.AbstractTts.preprocess = function(text) {
       });
 
   // Special case for google+, where the punctuation must be pronounced.
-  text = text.replace('google+', 'google-plus');
+  text = text.replace(/google\+/ig, 'google-plus');
 
   // Convert all-caps words to lowercase if they don't look like acronyms,
   // otherwise add a space before all-caps words so that all-caps words in
@@ -520,7 +541,64 @@ cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
 
 
 /**
- * Pronunciation dictionary.
+ * Substitution dictionary. These symbols or patterns are ALWAYS substituted
+ * whenever they occur, so this should be reserved only for unicode characters
+ * and characters that never have any different meaning in context.
+ *
+ * For example, do not include '$' here because $2 should be read as
+ * "two dollars".
+ * @type {Object.<string, string>}
+ */
+cvox.AbstractTts.SUBSTITUTION_DICTIONARY = {
+  '://': 'colon slash slash',
+  '\u2190': 'left arrow',
+  '\u2191': 'up arrow',
+  '\u2192': 'right arrow',
+  '\u2193': 'down arrow',
+  '\u21d0': 'left double arrow',
+  '\u21d1': 'up double arrow',
+  '\u21d2': 'right double  arrow',
+  '\u21d3': 'down double arrow',
+  '\u21e6': 'left arrow',
+  '\u21e7': 'up arrow',
+  '\u21e8': 'right arrow',
+  '\u21e9': 'down arrow',
+  '\u2303': 'control',
+  '\u2318': 'command',
+  '\u2325': 'option',
+  '\u25b2': 'up triangle',
+  '\u25b3': 'up triangle',
+  '\u25b4': 'up triangle',
+  '\u25b5': 'up triangle',
+  '\u25b6': 'right triangle',
+  '\u25b7': 'right triangle',
+  '\u25b8': 'right triangle',
+  '\u25b9': 'right triangle',
+  '\u25ba': 'right pointer',
+  '\u25bb': 'right pointer',
+  '\u25bc': 'down triangle',
+  '\u25bd': 'down triangle',
+  '\u25be': 'down triangle',
+  '\u25bf': 'down triangle',
+  '\u25c0': 'left triangle',
+  '\u25c1': 'left triangle',
+  '\u25c2': 'left triangle',
+  '\u25c3': 'left triangle',
+  '\u25c4': 'left pointer',
+  '\u25c5': 'left pointer',
+  '\uf8ff': 'apple'
+};
+
+
+/**
+ * Pronunciation dictionary regexp.
  * @type {RegExp};
  */
 cvox.AbstractTts.pronunciationDictionaryRegexp;
+
+
+/**
+ * Substitution dictionary regexp.
+ * @type {RegExp};
+ */
+cvox.AbstractTts.substitutionDictionaryRegexp;

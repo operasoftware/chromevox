@@ -22,6 +22,9 @@
 cvoxgoog.provide('cvox.AriaUtil');
 
 
+cvoxgoog.require('cvox.AbstractEarcons');
+
+
 /**
  * Create the namespace
  * @constructor
@@ -142,10 +145,8 @@ cvox.AriaUtil.ATTRIBUTE_VALUE_TO_STATUS = [
 cvox.AriaUtil.isHidden = function(targetNode) {
   while (targetNode) {
     if (targetNode.getAttribute) {
-      if (targetNode.getAttribute('role') == 'presentation') {
-        return true;
-      }
-      if (targetNode.getAttribute('aria-hidden') == 'true') {
+      if ((targetNode.getAttribute('aria-hidden') == 'true') &&
+          (targetNode.getAttribute('chromevoxignoreariahidden') != 'true')) {
         return true;
       }
     }
@@ -222,7 +223,7 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
 /**
  * Returns a string that gives information about the state of the targetNode.
  *
- * @param {Object} targetNode The node to get the state information for.
+ * @param {Node} targetNode The node to get the state information for.
  * @param {boolean} primary Whether this is the primary node we're
  *     interested in, where we might want extra information - as
  *     opposed to an ancestor, where we might be more brief.
@@ -305,42 +306,46 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
       while (parentControl &&
              !cvox.AriaUtil.isCompositeControl(parentControl)) {
         parentControl = parentControl.parentElement;
+        if (parentControl.getAttribute('role') == 'treeitem') {
+          break;
+        }
       }
     }
   }
 
   if (parentControl &&
-      cvox.AriaUtil.isCompositeControl(parentControl) &&
+      (cvox.AriaUtil.isCompositeControl(parentControl) ||
+          parentControl.getAttribute('role') == 'treeitem') &&
       currentDescendant) {
     var parentRole = parentControl.getAttribute('role');
-    var descendantSelector;
+    var descendantRoleList;
     switch (parentRole) {
       case 'combobox':
-        descendantSelector = '*[role~="option"]';
-        break;
       case 'grid':
       case 'listbox':
-        descendantSelector = '*[role~="option"]';
+        descendantRoleList = ['option'];
         break;
       case 'menu':
-        descendantSelector = '*[role~="menuitem"] ' +
-                             '*[role~="menuitemcheck"] ' +
-                             '*[role~="menuitemradio"]';
+        descendantRoleList = ['menuitem',
+                             'menuitemcheck',
+                             'menuitemradio'];
         break;
       case 'radiogroup':
-        descendantSelector = '*[role~="radio"]';
+        descendantRoleList = ['radio'];
         break;
       case 'tablist':
-        descendantSelector = '*[role~="tab"]';
+        descendantRoleList = ['tab'];
         break;
       case 'tree':
       case 'treegrid':
-        descendantSelector = '*[role~="treeitem"]';
+      case 'treeitem':
+        descendantRoleList = ['treeitem'];
         break;
     }
 
-    if (descendantSelector) {
-      var descendants = parentControl.querySelectorAll(descendantSelector);
+    if (descendantRoleList) {
+      var descendants = cvox.AriaUtil.getNextLevel(parentControl,
+          descendantRoleList);
       var currentIndex = null;
       for (var j = 0; j < descendants.length; j++) {
         if (descendants[j] == currentDescendant) {
@@ -357,13 +362,12 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
 };
 
 /**
- * If the node is an object with an active descendant, returns the
- * descendant node.
- *
- * @param {Object} targetNode The node to get descendant information for.
- * @return {Node} The descendant node.
+ * Returns the id of a node's active descendant
+ * @param {Node} targetNode The node.
+ * @return {?string} The id of the active descendant.
+ * @private
  */
-cvox.AriaUtil.getActiveDescendant = function(targetNode) {
+cvox.AriaUtil.getActiveDescendantId_ = function(targetNode) {
   if (!targetNode.getAttribute) {
     return null;
   }
@@ -372,8 +376,91 @@ cvox.AriaUtil.getActiveDescendant = function(targetNode) {
   if (!activeId) {
     return null;
   }
-  var activeNode = document.getElementById(activeId);
-  return activeNode;
+  return activeId;
+};
+
+/**
+ * Returns the list of elements that are one aria-level below.
+ *
+ * @param {Node} parentControl The node whose descendants should be analyzed.
+ * @param {Array.<string>} role The role(s) of descendant we are looking for.
+ * @return {Array.<Node>} The array of matching nodes.
+ */
+cvox.AriaUtil.getNextLevel = function(parentControl, role) {
+  var result = [];
+  var children = parentControl.childNodes;
+  var length = children.length;
+  for (var i = 0; i < children.length; i++) {
+    var nextLevel = cvox.AriaUtil.getNextLevelItems(children[i], role);
+    if (nextLevel.length > 0) {
+      result = result.concat(nextLevel);
+    }
+  }
+  return result;
+};
+
+/**
+ * Recursively finds the first node(s) that match the role.
+ *
+ * @param {Element} current The node to start looking at.
+ * @param {Array.<string>} role The role(s) to match.
+ * @return {Array.<Element>} The array of matching nodes.
+ */
+cvox.AriaUtil.getNextLevelItems = function(current, role) {
+  if (current.nodeType != 1) { // If reached a node that is not an element.
+    return [];
+  }
+  if (role.indexOf(current.getAttribute('role')) != -1) {
+    return [current];
+  } else {
+    var children = current.childNodes;
+    var length = children.length;
+    if (length == 0) {
+      return [];
+    } else {
+      var resultArray = [];
+      for (var i = 0; i < length; i++) {
+        var result = cvox.AriaUtil.getNextLevelItems(children[i], role);
+        if (result.length > 0) {
+          resultArray = resultArray.concat(result);
+        }
+      }
+      return resultArray;
+    }
+  }
+};
+
+/**
+ * If the node is an object with an active descendant, returns the
+ * descendant node.
+ *
+ * This function will fully resolve an active descendant chain. If a circular
+ * chain is detected, it will return null.
+ *
+ * @param {Node} targetNode The node to get descendant information for.
+ * @return {Node} The descendant node or null if no node exists.
+ */
+cvox.AriaUtil.getActiveDescendant = function(targetNode) {
+  var seenIds = {};
+  var node = targetNode;
+
+  while (node) {
+    var activeId = cvox.AriaUtil.getActiveDescendantId_(node);
+    if (!activeId) {
+      break;
+    }
+    if (activeId in seenIds) {
+      // A circlar activeDescendant is an error, so return null.
+      return null;
+    }
+    seenIds[activeId] = true;
+    node = document.getElementById(activeId);
+  }
+
+  if (node == targetNode) {
+    return null;
+  }
+  return node;
 };
 
 /**
@@ -588,3 +675,41 @@ cvox.AriaUtil.isLandmark = function(node) {
     return false;
 };
 
+
+/**
+ * Returns the id of an earcon to play along with the description for a node.
+ *
+ * @param {Node} node The node to get the earcon for.
+ * @return {number?} The earcon id, or null if none applies.
+ */
+cvox.AriaUtil.getEarcon = function(node) {
+  if (!node || !node.getAttribute) {
+    return null;
+  }
+  var role = node.getAttribute('role');
+  switch (role) {
+    case 'button':
+      return cvox.AbstractEarcons.BUTTON;
+    case 'checkbox':
+    case 'radio':
+    case 'menuitemcheckbox':
+    case 'menuitemradio':
+      var checked = node.getAttribute('aria-checked');
+      if (checked == 'true') {
+        return cvox.AbstractEarcons.CHECK_ON;
+      } else {
+        return cvox.AbstractEarcons.CHECK_OFF;
+      }
+    case 'combobox':
+    case 'listbox':
+      return cvox.AbstractEarcons.LISTBOX;
+    case 'textbox':
+      return cvox.AbstractEarcons.EDITABLE_TEXT;
+    case 'listitem':
+      return cvox.AbstractEarcons.BULLET;
+    case 'link':
+      return cvox.AbstractEarcons.LINK;
+  }
+
+  return null;
+};

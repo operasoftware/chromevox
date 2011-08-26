@@ -46,16 +46,27 @@ cvox.ChromeVox.init = function() {
     return;
   }
 
+  // On Windows, cause any existing system screen readers to not try to speak
+  // the web content in the browser.
+  if (navigator.platform.indexOf('Win') == 0) {
+    document.body.setAttribute('aria-hidden', true);
+    var originalRole = document.body.getAttribute('role');
+    document.body.setAttribute('role', 'application');
+    document.body.setAttribute('chromevoxignoreariahidden', true);
+  }
+
   // Setup globals
   cvox.ChromeVox.isActive = true;
-  cvox.ChromeVox.lens = new chromevis.ChromeVisLens();
-  // TODO:(rshearer) Added this multiplier for I/O presentation.
-  cvox.ChromeVox.lens.multiplier = 2.25;
   cvox.ChromeVox.traverseContent = new cvox.TraverseContent();
   cvox.ChromeVox.navigationManager =
       new cvox.ChromeVoxNavigationManager();
   cvox.ChromeVox.tts = cvox.ChromeVox.createTtsManager();
-  cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
+  if (window.top == window) {
+    cvox.ChromeVox.lens = new chromevis.ChromeVisLens();
+    // TODO:(rshearer) Added this multiplier for I/O presentation.
+    cvox.ChromeVox.lens.multiplier = 2.25;
+    cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
+  }
   cvox.ChromeVox.earcons = cvox.ChromeVox.createEarconsManager(
       cvox.ChromeVox.tts);
 
@@ -66,11 +77,14 @@ cvox.ChromeVox.init = function() {
   cvox.LiveRegions.init(new Date());
   cvox.ChromeVoxEventWatcher.addEventListeners();
 
-  // Load the enhancement script loader
-  var enhancementLoaderScript = document.createElement('script');
-  enhancementLoaderScript.type = 'text/javascript';
-  enhancementLoaderScript.src = 'https://www.corp.google.com/~clchen/no_crawl/chromevox/scripts/loader.js';
-  document.head.appendChild(enhancementLoaderScript);
+  // Load the enhancement script loader if it's not already loaded.
+  if (!document.querySelector('script[chromevoxScriptLoader]')) {
+    var enhancementLoaderScript = document.createElement('script');
+    enhancementLoaderScript.type = 'text/javascript';
+    enhancementLoaderScript.src = 'https://www.corp.google.com/~clchen/no_crawl/chromevox/scripts/loader.js';
+    enhancementLoaderScript.setAttribute('chromevoxScriptLoader', '1');
+    document.head.appendChild(enhancementLoaderScript);
+  }
 
   // Perform build type specific initialization
   cvox.ChromeVox.performBuildTypeSpecificInitialization();
@@ -78,7 +92,7 @@ cvox.ChromeVox.init = function() {
   // Read the settings
   cvox.ChromeVox.loadPrefs();
 
-  // Provide a way for modules that can't dependon cvox.ChromeVoxUserCommands
+  // Provide a way for modules that can't depend on cvox.ChromeVoxUserCommands
   // to execute commands.
   cvox.ChromeVox.executeUserCommand = function(commandName) {
     cvox.ChromeVoxUserCommands.commands[commandName]();
@@ -99,9 +113,37 @@ cvox.ChromeVox.init = function() {
     }
   }
 
+  cvox.ChromeVox.processEmbeddedPdfs();
+
+  if (COMPILED && BUILD_TYPE == BUILD_TYPE_CHROME) {
+    cvox.ExtensionBridge.addDisconnectListener(function() {
+      cvox.ChromeVox.isActive = false;
+      cvox.ChromeVoxEventWatcher.removeEventListeners();
+      // Clean up after ourselves on Windows to re-enable native screen readers.
+      if (navigator.platform.indexOf('Win') == 0) {
+        document.body.removeAttribute('aria-hidden');
+        if (originalRole) {
+          document.body.setAttribute('role', originalRole);
+        } else {
+          document.body.removeAttribute('role');
+        }
+        document.body.removeAttribute('chromevoxignoreariahidden');
+      }
+    });
+  }
+
   var event = document.createEvent('UIEvents');
   event.initEvent('chromeVoxLoaded', true, false);
   document.dispatchEvent(event);
+};
+
+/**
+ * Reinitialize ChromeVox, if the extension is disabled and then enabled
+ * again, but our injected page script has remained.
+ */
+cvox.ChromeVox.reinit = function() {
+  cvox.ExtensionBridge.init();
+  cvox.ChromeVox.init();
 };
 
 /**
@@ -278,6 +320,96 @@ cvox.ChromeVox.getStringifiedAndroidKeyBindings = function() {
     'Ctrl+Alt+X' : ['nextComboBox', 'Next combo box'],
     'Ctrl+Alt+Shift+X' : ['previousComboBox', 'Previous combo box']
   }, null, null);
+};
+
+/**
+ * Process PDFs created with Chrome's built-in PDF plug-in, which has an
+ * accessibility hook.
+ */
+cvox.ChromeVox.processEmbeddedPdfs = function() {
+  var es = document.querySelectorAll('embed[type="application/pdf"]');
+  for (var i = 0; i < es.length; i++) {
+    var e = es[i];
+    if (typeof e.accessibility === 'function') {
+      var infoJSON = e.accessibility();
+      var info = JSON.parse(infoJSON);
+
+      if (!info.copyable)
+        continue;
+      if (!info.loaded) {
+        setTimeout(cvox.ChromeVox.processEmbeddedPdfs, 100);
+        continue;
+      }
+
+      var div = document.createElement('DIV');
+
+      // Document Styles
+      div.style.position = 'relative';
+      div.style.background = '#CCC';
+      div.style.paddingTop = '1pt';
+      div.style.paddingBottom = '1pt';
+      div.style.width = '100%';
+      div.style.minHeight = '100%';
+
+      var displayPage = function(i) {
+        var json = e.accessibility(i);
+        var page = JSON.parse(json);
+        var pageDiv = document.createElement('DIV');
+        var pageAnchor = document.createElement('A');
+
+        // Page Achor Setup
+        pageAnchor.name = 'page' + i;
+
+        // Page Styles
+        pageDiv.style.position = 'relative';
+        pageDiv.style.background = 'white';
+        pageDiv.style.margin = 'auto';
+        pageDiv.style.marginTop = '20pt';
+        pageDiv.style.marginBottom = '20pt';
+        pageDiv.style.height = page.height + 'pt';
+        pageDiv.style.width = page.width + 'pt';
+        pageDiv.style.boxShadow = '0pt 0pt 10pt #333';
+
+        // Text Nodes
+        var texts = page.textBox;
+        for (var j = 0; j < texts.length; j++) {
+          var text = texts[j];
+          var textSpan = document.createElement('Span');
+
+          // Text Styles
+          textSpan.style.position = 'absolute';
+          textSpan.style.left = text.left + 'pt';
+          textSpan.style.top = text.top + 'pt';
+          textSpan.style.fontSize = text.fontSize + 'pt';
+
+          // Text Content
+          for (var k = 0; k < text.textNodes.length; k++) {
+            var node = text.textNodes[k];
+            if (node.type == 'text') {
+              textSpan.appendChild(document.createTextNode(node.text));
+            } else if (node.type == 'url') {
+              var a = document.createElement('A');
+              a.href = node.url;
+              a.appendChild(document.createTextNode(node.text));
+              textSpan.appendChild(a);
+            }
+          }
+
+          pageDiv.appendChild(textSpan);
+        }
+        div.appendChild(pageAnchor);
+        div.appendChild(pageDiv);
+
+        if (i < info.numberOfPages - 1) {
+          setTimeout(function() { displayPage(i + 1); }, 0);
+        } else {
+          e.parentNode.replaceChild(div, e);
+        }
+      };
+
+      setTimeout(function() { displayPage(0); }, 0);
+    }
+  }
 };
 
 window.setTimeout(cvox.ChromeVox.init, 0);

@@ -152,7 +152,7 @@ if (!COMPILED) {
   /**
    * Namespaces implicitly defined by cvoxgoog.provide. For example,
    * cvoxgoog.provide('cvoxgoog.events.Event') implicitly declares
-   * that 'goog' and 'cvoxgoog.events' must be namespaces.
+   * that 'cvoxgoog' and 'cvoxgoog.events' must be namespaces.
    *
    * @type {Object}
    * @private
@@ -1287,9 +1287,9 @@ cvoxgoog.getCssName = function(className, opt_modifier) {
  *   "disabled": "b",
  * });
  *
- * var x = cvoxgoog.getCssName('goog');
+ * var x = cvoxgoog.getCssName('cvoxgoog');
  * // The following evaluates to: "a a-b".
- * cvoxgoog.getCssName('goog') + ' ' + cvoxgoog.getCssName(x, 'disabled')
+ * cvoxgoog.getCssName('cvoxgoog') + ' ' + cvoxgoog.getCssName(x, 'disabled')
  * </pre>
  * When declared as a map of string literals to string literals, the JSCompiler
  * will replace all calls to cvoxgoog.getCssName() using the supplied map if the

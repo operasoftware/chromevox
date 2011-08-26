@@ -240,7 +240,7 @@ cvox.AbstractEarcons.OBJECT_CLOSE = 18;
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_DELETE = 18;
+cvox.AbstractEarcons.OBJECT_DELETE = 19;
 
 /**
  * @type {number}

@@ -116,6 +116,9 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.windows.onFocusChanged.addListener(function(windowId) {
+    if (windowId == chrome.windows.WINDOW_ID_NONE) {
+      return;
+    }
     chrome.windows.get(windowId, function(window) {
       chrome.tabs.getSelected(windowId, function(tab) {
         var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;

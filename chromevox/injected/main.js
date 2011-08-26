@@ -31,11 +31,23 @@ function initialize() {
       var scriptElt = document.createElement('script');
       scriptElt.type = 'text/javascript';
       scriptElt.src = chrome.extension.getURL(scriptRelPath);
+      scriptElt.setAttribute('chromevox', '1');
       document.getElementsByTagName('head')[0].appendChild(scriptElt);
     };
     if (BUILD_TYPE == BUILD_TYPE_CHROME) {
-      if (window.location.toString().indexOf('chrome-extension://') == -1 ||
-          window.location.toString().indexOf('background.html') == -1) {
+      var loc = window.location.href;
+      if (loc.indexOf('talkgadget') != -1) {
+        // Temporary fix to avoid problem with Google Talk plug-in
+        window.setTimeout(function() {
+          loadCompiledScript('/chromeVoxChromePageScript.js');
+        }, 10000);
+        return;
+      }
+      if (document.querySelector('script[chromevox]')) {
+        // If ChromeVox page scripts are already installed, just re-enable it.
+        window.location.href = 'javascript:cvox.ChromeVox.reinit();';
+      } else if (loc.indexOf('chrome-extension://') == -1 ||
+                 loc.indexOf('background.html') == -1) {
         loadCompiledScript('/chromeVoxChromePageScript.js');
       }
     } else if (BUILD_TYPE == BUILD_TYPE_ANDROID_DEV) {

@@ -20,6 +20,7 @@
 
 cvoxgoog.provide('cvox.ChromeVoxEventWatcher');
 
+cvoxgoog.require('cvox.Api');
 cvoxgoog.require('cvox.AriaUtil');
 cvoxgoog.require('cvox.ChromeVox');
 cvoxgoog.require('cvox.ChromeVoxEditableTextBase');
@@ -194,17 +195,12 @@ cvox.ChromeVoxEventWatcher.getLastFocusedNode = function() {
 cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
   if (evt.target &&
       evt.target.hasAttribute &&
-      evt.target.getAttribute('aria-hidden') == 'true') {
+      evt.target.getAttribute('aria-hidden') == 'true' &&
+      evt.target.getAttribute('chromevoxignoreariahidden') != 'true') {
     cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
     cvox.ChromeVoxEventWatcher.handleTextChanged(false);
     return true;
   }
-
-  if (cvox.ChromeVoxEventWatcher.handleTextChanged(false)) {
-    cvox.ChromeVoxEventWatcher.lastFocusedNode = evt.target;
-    return true;
-  }
-
   if (evt.target) {
     var target = /** @type {Element} */(evt.target);
     var parentControl = cvox.DomUtil.getSurroundingControl(target);
@@ -220,29 +216,23 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
       cvox.ChromeVoxEventWatcher.lastFocusedNode = target;
     }
 
-    var isControl = cvox.DomUtil.isControl(target) || !!parentControl;
-
-    if (isControl) {
-      cvox.ChromeVoxEventWatcher.lastFocusedNodeValue =
-          cvox.DomUtil.getControlValueAndStateString(target);
-    }
-
     if (cvox.ChromeVoxUserCommands.isInUserCommand()) {
       return true;
     }
 
-    cvox.ChromeVox.navigationManager.syncToNode(target);
-    var description = cvox.DomUtil.getControlDescription(target);
-    var queueMode = 0;
+    // Navigate to this control so that it will be the same for focus as for
+    // regular navigation.
+    cvox.Api.syncToNode(target, true);
+
+    // Clear the selection so that shift tabbing will work.
+    var sel = window.getSelection();
+    sel.removeAllRanges();
 
     var dialogInfo = cvox.ChromeVoxEventWatcher.handleDialogFocus(target);
     if (dialogInfo) {
       cvox.ChromeVox.tts.speak(
-          dialogInfo, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-      queueMode = 1;
+          dialogInfo, 1, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     }
-
-    description.speak(queueMode);
   } else {
     cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
     cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
@@ -259,7 +249,8 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
-  if (!cvox.ChromeVoxEventWatcher.focusFollowsMouse) {
+  if (!cvox.ChromeVoxEventWatcher.focusFollowsMouse &&
+    (BUILD_TYPE == BUILD_TYPE_CHROME)) {
     return true;
   }
 
@@ -477,7 +468,8 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
   var currentFocus = document.activeElement;
   if (currentFocus &&
       currentFocus.hasAttribute &&
-      currentFocus.getAttribute('aria-hidden') == 'true') {
+      currentFocus.getAttribute('aria-hidden') == 'true' &&
+      currentFocus.getAttribute('chromevoxignoreariahidden') != 'true') {
     currentFocus = null;
   }
 
@@ -557,7 +549,6 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
       handler.update(isKeypress);
     }, 0);
     return true;
-  } else {
   }
   return false;
 };
@@ -755,3 +746,4 @@ cvox.ChromeVoxEventWatcher.handleDialogFocus = function(target) {
     return 'Entering dialog ' + dialogText + '.';
   }
 };
+

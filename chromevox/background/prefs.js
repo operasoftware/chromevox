@@ -25,6 +25,7 @@ cvoxgoog.require('cvox.ChromeVox');
 cvoxgoog.require('cvox.ExtensionBridge');
 
 
+
 /**
  * This object has default values of preferences and contains the common
  * code for working with preferences shared by the Options and Background
@@ -34,6 +35,7 @@ cvoxgoog.require('cvox.ExtensionBridge');
 cvox.ChromeVoxPrefs = function() {
   this.init();
 };
+
 
 /**
  * The default value of all preferences except the key map.
@@ -47,17 +49,20 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'cursorIsBlock': false
 };
 
+
 /**
  * The current mapping from keys to an array of [command, description].
  * @type {Object.<Array.<String>>}
  */
 cvox.ChromeVoxPrefs.prototype.keyMap;
 
+
 /**
  * A reverse mapping from command to key binding.
  * @type {Object.<String,String>}
  */
 cvox.ChromeVoxPrefs.prototype.nameToKeyMap;
+
 
 /**
  * Merge the default values of all known prefs with what's found in
@@ -165,7 +170,8 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+O>B')] = ['showBookmarkManager', 'Open bookmark manager'];
   keyMap[(mod1 + '+O>W')] = ['showOptionsPage', 'Open options page'];
   keyMap[(mod1 + '+O>K')] = ['showKbExplorerPage', 'Open keyboard explorer'];
-  keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
+  // TODO Assign a different shortcut when nextTtsEngine works.
+  //keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
   keyMap[(mod1 + '+#189')] =
       ['decreaseTtsRate', 'Decrease rate of speech']; // '-'
   keyMap[(mod1 + '+#187')] =
@@ -195,16 +201,7 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
       ['showLandmarksList', 'Show landmarks list']; //'L' > ';'
 
   // Mode commands
-  keyMap[(mod1 + '+T>E')] = ['enterTable', 'Enter table']; //'T' > 'E'
-  keyMap[(mod1 + '+T>#8')] = ['exitTable', 'Exit table']; // ']' > 'Backspace'
-
-  keyMap[(mod1 + '+T>I')] =
-      ['previousRow', 'Previous table row']; // 'T' > 'I'
-  keyMap[(mod1 + '+T>M')] = ['nextRow', 'Next table row']; // 'T' > 'M'
-  keyMap[(mod1 + '+T>J')] =
-      ['previousCol', 'Previous table column']; // 'T' > 'J'
-  keyMap[(mod1 + '+T>K')] =
-      ['nextCol', 'Next table column']; // 'T' > 'K'
+  keyMap[(mod1 + '+T>E')] = ['toggleTable', 'Toggle table mode']; //'T' > 'E'
 
   keyMap[(mod1 + '+T>#38')] =
       ['previousRow', 'Previous table row']; // 'T' > Up
@@ -213,14 +210,6 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
       ['previousCol', 'Previous table column']; // 'T' > Left
   keyMap[(mod1 + '+T>#39')] =
       ['nextCol', 'Next table column']; // 'T' > Right
-
-  keyMap[(mod1 + '+T>W')] =
-      ['previousRow', 'Previous table row']; // 'T' > 'W'
-  keyMap[(mod1 + '+T>S')] = ['nextRow', 'Next table row']; // 'T' > 'S'
-  keyMap[(mod1 + '+T>A')] =
-      ['previousCol', 'Previous table column']; // 'T' > 'A'
-  keyMap[(mod1 + '+T>D')] =
-      ['nextCol', 'Next table column']; // 'T' > 'D'
 
   keyMap[(mod1 + '+T>H')] =
       ['announceHeaders', 'Announce the headers of the current cell']; // T > H
@@ -261,6 +250,8 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+P>5')] = ['previousHeading5', 'Previous level 5 heading'];
   keyMap[(mod1 + '+N>6')] = ['nextHeading6', 'Next level 6 heading'];
   keyMap[(mod1 + '+P>6')] = ['previousHeading6', 'Previous level 6 heading'];
+  keyMap[(mod1 + '+N>A')] = ['nextAnchor', 'Next anchor'];
+  keyMap[(mod1 + '+P>A')] = ['previousAnchor', 'Previous anchor'];
   keyMap[(mod1 + '+N>C')] = ['nextComboBox', 'Next combo box'];
   keyMap[(mod1 + '+P>C')] = ['previousComboBox', 'Previous combo box'];
   keyMap[(mod1 + '+N>E')] = ['nextEditText', 'Next editable text area'];
@@ -299,6 +290,7 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   return keyMap;
 };
 
+
 /**
  * Save the key map to localStorage, and update our reverse mapping.
  */
@@ -310,6 +302,7 @@ cvox.ChromeVoxPrefs.prototype.saveKeyMap = function() {
   }
   localStorage['keyBindings'] = JSON.stringify(this.keyMap);
 };
+
 
 /**
  * Get the prefs (not including keys).
@@ -375,8 +368,8 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToAllTabs =
  */
 cvox.ChromeVoxPrefs.prototype.sendPrefsToPort = function(port) {
   port.postMessage({
-      'keyBindings': this.keyMap,
-      'prefs': this.getPrefs()});
+    'keyBindings': this.keyMap,
+    'prefs': this.getPrefs()});
 };
 
 

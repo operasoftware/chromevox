@@ -125,6 +125,10 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
           this.currentNode = selectionNode;
           this.selectionWalker.setCurrentNode(this.currentNode);
           this.selectionWalker.next();
+          // Make sure we don't skip over controls when moving selection.
+          if (cvox.DomUtil.isControl(selectionNode)) {
+            selectionNode.focus();
+          }
           return true;
         }
         return false;
@@ -205,6 +209,10 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
           this.selectAllTextInNode_(this.currentNode);
           cvox.SelectionUtil.collapseToEnd(this.currentNode);
           this.selectionWalker.previous();
+          // Make sure we don't skip over controls when moving selection.
+          if (cvox.DomUtil.isControl(selectionNode)) {
+            selectionNode.focus();
+          }
           return true;
         }
         return false;
@@ -775,47 +783,58 @@ cvox.ChromeVoxNavigationManager.prototype.syncToNode = function(targetNode) {
 
 
 /**
- * Starts reading the page from the current node.
+ * Speak all of the NavDescriptions in the given array (as returned by
+ * getCurrentDescription), including playing earcons.
  *
- * @param {number=} queueMode Indicates whether queue mode or flush mode should
- * be used.
+ * @param {Array.<cvox.NavDescription>} descriptionArray The array of
+ *     NavDescriptions to speak.
+ * @param {number} initialQueueMode The initial queue mode.
+ * @param {Function} completionFunction Function to call when finished speaking.
  */
-cvox.ChromeVoxNavigationManager.prototype.startReadingFromNode =
-    function(queueMode) {
-  // TODO (gkonyukh) This function duplicates what api.syncToNode does in terms
-  // of reading the current element description.
-  var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
-  var length = currentDesc.length;
-
-  if (queueMode == undefined) {
-    queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
-  }
-
-  for (var i = 0; i < length; i++) {
-    if (i == length - 1) {
-      currentDesc[i].speak(queueMode,
-          cvox.ChromeVox.navigationManager.moveOn);
-    } else {
-      currentDesc[i].speak(queueMode);
+cvox.ChromeVoxNavigationManager.prototype.speakDescriptionArray = function(
+    descriptionArray, initialQueueMode, completionFunction) {
+  function speakOneDescription(i, queueMode) {
+    var description = descriptionArray[i];
+    function startCallback() {
+      for (var j = 0; j < description.earcons.length; j++) {
+        cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
+      }
     }
+    function endCallback() {
+      if (i == descriptionArray.length && completionFunction) {
+        completionFunction();
+      }
+    }
+    description.speak(queueMode, startCallback, endCallback);
+  };
+
+  var queueMode = initialQueueMode;
+  for (var i = 0; i < descriptionArray.length; i++) {
+    speakOneDescription(i, queueMode);
     queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   }
 
-  if (currentDesc.length == 0) {
-    cvox.ChromeVox.navigationManager.moveOn();
+  if (descriptionArray.length == 0) {
+    completionFunction();
   }
 };
 
 
 /**
- * Moves current cursor position forward and calls the function to start
- * reading the current node. Stops when the end of the page is reached.
+ * Starts reading the page from the current node.
+ *
+ * @param {number} queueMode Indicates whether queue mode or flush mode should
+ * be used.
  */
-cvox.ChromeVoxNavigationManager.prototype.moveOn = function() {
-  if (cvox.ChromeVox.navigationManager.next()) {
-    cvox.ChromeVox.navigationManager.startReadingFromNode(
-        cvox.AbstractTts.QUEUE_MODE_QUEUE);
-  }
+cvox.ChromeVoxNavigationManager.prototype.startReadingFromCurrentNode =
+    function(queueMode) {
+  var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
+  var self = this;
+  this.speakDescriptionArray(currentDesc, queueMode, function() {
+    if (self.next()) {
+      self.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_QUEUE);
+    }
+  });
 };
 
 
@@ -1052,29 +1071,6 @@ cvox.ChromeVoxNavigationManager.prototype.switchToStrategy =
         this.selectionWalker.moreGranular(opt_forwards);
         currentGranularity = this.selectionWalker.currentGranularity;
       }
-    }
-  }
-};
-
-
-/**
- * Attempts to sync the navigation with the hashtag in the URL location.
- * This is a no-op if there is no hashtag in the URL or if the hashtag
- * is being used for AJAX data storage and not anchoring.
- */
-cvox.ChromeVoxNavigationManager.prototype.syncToHashTagAnchor = function() {
-  var hash = document.location.hash;
-  if (hash) {
-    var hashContentId = hash.substring(1);
-    var anchorNode = document.getElementById(hashContentId);
-    if (anchorNode) {
-      // Clear this now so that if the same anchor link is clicked,
-      // it will still work. Clearing this is safe since if we have reached
-      // this point, the hash tag is definitely being used for anchoring and
-      // not AJAX data storage.
-      document.location.hash = '';
-      this.syncToNode(anchorNode);
-      anchorNode.scrollIntoView(true);
     }
   }
 };

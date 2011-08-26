@@ -24,10 +24,10 @@
  */
 
 // Make it possible to use this file in a non-Closure context.
-if (!window['goog']) {
-  window['goog'] = {};
-  window['goog'].provide = function() {};
-  window['goog'].require = function() {};
+if (!window['cvoxgoog']) {
+  window['cvoxgoog'] = {};
+  window['cvoxgoog'].provide = function() {};
+  window['cvoxgoog'].require = function() {};
 }
 if (!window['cvox']) { window['cvox'] = {}; }
 

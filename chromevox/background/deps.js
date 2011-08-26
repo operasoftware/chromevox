@@ -19,11 +19,11 @@ cvoxgoog.addDependency('../chromevox/background/bookmark_manager_ui.js', ['cvox.
 cvoxgoog.addDependency('../chromevox/background/options.js', ['cvox.OptionsPage'], ['cvox.ChromeVox', 'cvox.ChromeVoxPrefs', 'cvox.ExtensionBridge']);
 cvoxgoog.addDependency('../chromevox/background/prefs.js', ['cvox.ChromeVoxPrefs'], ['cvox.ChromeVox', 'cvox.ExtensionBridge']);
 cvoxgoog.addDependency('../common/abstract_logger.js', ['cvox.AbstractLogger'], []);
-cvoxgoog.addDependency('../common/aria_util.js', ['cvox.AriaUtil'], []);
+cvoxgoog.addDependency('../common/aria_util.js', ['cvox.AriaUtil'], ['cvox.AbstractEarcons']);
 cvoxgoog.addDependency('../common/chromevox.js', ['cvox.ChromeVox'], []);
 cvoxgoog.addDependency('../common/chromevox_json.js', ['cvox.ChromeVoxJSON'], []);
 cvoxgoog.addDependency('../common/custom_walker.js', ['cvox.CustomWalker'], []);
-cvoxgoog.addDependency('../common/dom_util.js', ['cvox.DomUtil'], ['cvox.AriaUtil', 'cvox.NavDescription', 'cvox.XpathUtil']);
+cvoxgoog.addDependency('../common/dom_util.js', ['cvox.DomUtil'], ['cvox.AbstractEarcons', 'cvox.AriaUtil', 'cvox.NavDescription', 'cvox.XpathUtil']);
 cvoxgoog.addDependency('../common/editable_text.js', ['cvox.ChromeVoxEditableContentEditable', 'cvox.ChromeVoxEditableHTMLInput', 'cvox.ChromeVoxEditableTextArea', 'cvox.ChromeVoxEditableTextBase', 'cvox.TextChangeEvent'], ['cvox.AbstractTts', 'cvox.DomUtil']);
 cvoxgoog.addDependency('../common/extension_bridge.js', ['cvox.ExtensionBridge'], ['cvox.BuildConfig', 'cvox.ChromeVoxJSON']);
 cvoxgoog.addDependency('../common/focus_util.js', ['cvox.FocusUtil'], []);

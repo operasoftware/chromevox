@@ -34,13 +34,16 @@ cvoxgoog.require('cvox.ChromeVox');
  *     titles, labels, etc.
  * @param {string} userValue The text that the user has entered.
  * @param {string} annotation The role and state of the object.
+ * @param {Array.<number>} earcons A list of the earcon ids to play along
+ *     with the spoken description of this object.
  * @constructor
  */
-cvox.NavDescription = function(context, text, userValue, annotation) {
+cvox.NavDescription = function(context, text, userValue, annotation, earcons) {
   this.context = context ? context : '';
   this.text = text ? text : '';
   this.userValue = userValue ? userValue : '';
   this.annotation = annotation ? annotation : '';
+  this.earcons = earcons ? earcons : [];
 };
 
 
@@ -70,32 +73,48 @@ cvox.NavDescription.prototype.toString = function() {
  * Speak this nav description with the given queue mode.
  * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
  *     for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {function()=} callBack The callback function.
+ * @param {function()=} startCallback Function called when this starts speaking.
+ * @param {function()=} endCallback Function called when this ends speaking.
  */
-cvox.NavDescription.prototype.speak = function(queueMode, callBack) {
+cvox.NavDescription.prototype.speak = function(
+    queueMode, startCallback, endCallback) {
+  /**
+   * Return a deep copy of PERSONALITY_ANNOTATION for modifying.
+   * @return {Object} The newly created properties object.
+   */
+  function makeAnnotationProps() {
+    var properties = {};
+    var src = cvox.AbstractTts.PERSONALITY_ANNOTATION;
+    for (var key in src) {
+      properties[key] = src[key];
+    }
+    return properties;
+  }
+
   var speakArgs = new Array();
   if (this.context) {
-    speakArgs.push([this.context, queueMode,
-      cvox.AbstractTts.PERSONALITY_ANNOTATION]);
+    speakArgs.push([this.context, queueMode, makeAnnotationProps()]);
     queueMode = 1;
   }
   if (this.text) {
-    speakArgs.push([this.text, queueMode, null]);
+    speakArgs.push([this.text, queueMode, {}]);
     queueMode = 1;
   }
   if (this.userValue) {
-    cvox.ChromeVox.tts.speak(this.userValue, queueMode, null);
+    speakArgs.push([this.userValue, queueMode, {}]);
     queueMode = 1;
   }
   if (this.annotation) {
-    speakArgs.push([this.annotation, queueMode,
-      cvox.AbstractTts.PERSONALITY_ANNOTATION]);
+    speakArgs.push([this.annotation, queueMode, makeAnnotationProps()]);
   }
 
   var length = speakArgs.length;
   for (var i = 0; i < length; i++) {
-    if (i == length - 1) {
-      speakArgs[i].push(callBack);
+    if (i == 0 && startCallback) {
+      speakArgs[i][2]['startCallback'] = startCallback;
+    }
+    if (i == length - 1 && endCallback) {
+      speakArgs[i][2]['endCallback'] = endCallback;
     }
     cvox.ChromeVox.tts.speak.apply(cvox.ChromeVox.tts, speakArgs[i]);
   }

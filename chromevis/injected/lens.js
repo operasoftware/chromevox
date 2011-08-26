@@ -84,10 +84,21 @@ chromevis.ChromeVisLens = function() {
   this.bgColor = '#000000';
 
   /**
-   * Whether the lens is currently anchored to the top of the page
+   * Whether the lens is currently anchored
    * @type {boolean}
    */
   this.isAnchored = true;
+
+  /**
+   * Whether the lens is currently at the bottom of the page
+   * @type {boolean}
+   */
+  this.isAtBottom = false;
+
+  /**
+   * The maximum number of utterances to display.
+   */
+  this.maxHistory = 20;
 
   /**
    * The current ChromeVis lens object
@@ -149,6 +160,68 @@ chromevis.ChromeVisLens.ANCHOR_ATTRB = 'data-isAnchored';
  */
 chromevis.ChromeVisLens.ACTIVE_DOC = window.document;
 
+/**
+ * The down arrow image url
+ * @type {string}
+ * @const
+ */
+chromevis.ChromeVisLens.DOWN_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KG' +
+    'goAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/o' +
+    'L2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxETCtVNA2AAAADfSURBVEjH7' +
+    'dYhbsMwFAbgzwNFRSO9wu4xEtIbjPQUJYW95NDAwEBASVHBPPIiRWuWJqvVSpWf9EAc25/0l' +
+    'F9Kyjm7Rz25U1X48WE557PGCosC1y+wGjT+gOEN+yvQfdxhLgwNPrCdAW7jTDM61QswPKPFA' +
+    'ZsRcBN72jjjWhiW+ELGJ9a9d+tYy7FnOek7mgh3eBtAxnt099wOoSXgbuzHHtb18fd4/wuPx' +
+    'ekFpx56irWbxOkV39HNreO0i65xqnEqAs+NU1F4apxG4TQEpZSm4LteXi/CZ0b9va1whUvVD' +
+    '/4KNUmuLLOGAAAAAElFTkSuQmCC)';
+
+/**
+ * The up arrow image url
+ * @type {string}
+ * @const
+ */
+chromevis.ChromeVisLens.UP_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KGgo' +
+    'AAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2' +
+    'nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxETL55J1ycAAADYSURBVEjH7ZY' +
+    '9CoNAEEbfhmBlZeMVco80Nt4gjaewsfSSqVKkSGGRxsoik2YE8S+r7CKE/WAQZ2f3ofJAIyI' +
+    'ckRMHJYAD2FvOc01jjM3eSq/1r8FZZUVkUha5Ah+tzAY8YewAX4AOEK1Oe17BCdAOoH21uuY' +
+    'FHAPNAHbX6u8bnXEKjoGXAp5APljLtSc6E7sCJ/o0b6BY+QyFzjTj174HnAEPoFzQqZrpl7o' +
+    'n2wu+rThqo1OtZ2wCp0DkQKcISINOQaetOi3Fq042ca7TlizqZMJ/dQD/HfgLITIyT/EcAMM' +
+    'AAAAASUVORK5CYII=)';
+
+/**
+ * The plus image url
+ * @type {string}
+ * @const
+ */
+chromevis.ChromeVisLens.PLUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAAA' +
+    'NSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwA' +
+    'AAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEULqYPcXYAAABdSURBVEjHY/z//z/' +
+    'DQAAmhgECoxYPf4tZcEkwMjIS0lsOpTvxKcKVaxhxShC2GKaRkRyLRxPXqMUjy2IXaJbBhZG' +
+    'zFS7sMuh8PFqAjFo8avHQt5hxtF09avGwsxgA9Zcmqe0ELNkAAAAASUVORK5CYII=)';
+
+/**
+ * The minus image url
+ * @type {string}
+ * @const
+ */
+chromevis.ChromeVisLens.MINUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
+    'ANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkw' +
+    'AAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEVDGp0AdMAAAA9SURBVEjH7dWxCQ' +
+    'AwDANBK2T/lT8bBFzZxasWHKoUoCZyaijCwsLCwvvh2ykn+V4ZkPWL4x8LCwsLC6+DHwVvCj' +
+    'ekahO+AAAAAElFTkSuQmCC)';
+
+/**
+ * The cross image url
+ * @type {string}
+ * @const
+ */
+chromevis.ChromeVisLens.CROSS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
+    'ANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkw' +
+    'AAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEVKrh5hC4AAADDSURBVEjH7ZbRDc' +
+    'MgDETvugErsAKzdIWswApdgVm6QlfIClnB/TGSG6UqoKB81CdZCCF4PoMlKCK4QjdcJAc72M' +
+    'F/AiaZSQrJjWQkiV18rDeRReRnqJ4AREerCGDTtXvzmR3gYADZgGtCjy4zHWCoI9EEoiYgAF' +
+    '6a2DQw1FmF1Qqk7usbAAcAqwL3ZW8Gn9FOcWhXp+OgJa5O1yPXM0pdX3DReTL3vMwCly99vJ' +
+    'iXns4Gl6O2McoW3nIm/bPnYAc7eFRvJmkZLrREq8AAAAAASUVORK5CYII=)';
 
 /**
  * Initializes the ChromeVis lens with settings pulled from background page.
@@ -159,6 +232,13 @@ chromevis.ChromeVisLens.prototype.initializeLens_ = function() {
 
   this.lens.style.display = 'none';
   chromevis.ChromeVisLens.ACTIVE_DOC.body.appendChild(this.lens);
+
+  chromevis.ChromeVisLens.ACTIVE_DOC.addEventListener('scroll',
+      function() {
+        if (cvox.ChromeVox.lens) {
+          cvox.ChromeVox.lens.updateAnchorLens();
+        }
+      }, true);
 
   this.setupMessageListener_();
 
@@ -181,17 +261,17 @@ chromevis.ChromeVisLens.prototype.setupMessageListener_ = function() {
   var self = this;
   cvox.ExtensionBridge.addMessageListener(function(message, port) {
   switch (message.data) {
-    case 'data-isAnchored':
+    case chromevis.ChromeVisLens.ANCHOR_ATTRB:
       self.setAnchoredLens(message.value);
       self.isAnchored ? self.updateAnchorLens() : self.updateBubbleLens();
       break;
-    case 'data-isCentered':
+    case chromevis.ChromeVisLens.CENTER_ATTRB:
       self.isCentered = message.value;
       if (!self.isAnchored) {
         self.updateBubbleLens();
       }
       break;
-    case 'data-textMag':
+    case chromevis.ChromeVisLens.MULT_ATTRB:
       var multData = message.value;
       if (multData != null) {
         self.multiplier = parseFloat(multData);
@@ -200,14 +280,14 @@ chromevis.ChromeVisLens.prototype.setupMessageListener_ = function() {
         self.isAnchored ? self.updateAnchorLens() : self.updateBubbleLens();
       }
       break;
-    case 'data-textColor':
+    case chromevis.ChromeVisLens.TXT_COLOR_ATTRB:
       var textColorData = message.value;
       if (textColorData != null) {
         self.textColor = textColorData;
         self.setTextColor();
       }
       break;
-    case 'data-bgColor':
+    case chromevis.ChromeVisLens.BG_COLOR_ATTRB:
       var bgColorData = message.value;
       if (bgColorData != null) {
         self.bgColor = bgColorData;
@@ -263,7 +343,10 @@ chromevis.ChromeVisLens.prototype.initializeLensCSS_ = function() {
 
   this.lens.style.minHeight = 5 + 'px';
 
-  this.lens.style.webkitBorderRadius = '7px';
+  // 55 px is for the buttons
+  this.lens.style.maxHeight = Math.round(window.innerHeight / 4) + 55 + 'px';
+
+  this.lens.style.boxShadow = '1px 1px 2px #808080';
 
   // Class setting - this special class name means ChromeVis will
   // not try to select text content inside the lens.
@@ -289,23 +372,34 @@ chromevis.ChromeVisLens.prototype.setAnchoredLens = function(anchored) {
  * in response to scrolling or a window resize.
  */
 chromevis.ChromeVisLens.prototype.updateAnchorLens = function() {
-  this.lens.style.top = window.scrollY + 'px';
+  if (this.isAtBottom) {
+    this.lens.style.top = '';
+    this.lens.style.bottom = (5 - window.scrollY) + 'px';
+  } else {
+    this.lens.style.bottom = '';
+    this.lens.style.top = window.scrollY + 'px';
+  }
   this.lens.style.minWidth = (window.innerWidth - 50) + 'px';
   this.lens.style.maxWidth = (window.innerWidth - 50) + 'px';
 
   this.lens.style.left = 10 + 'px';
   this.lens.style.right = 100 + 'px';
 
-  // Push rest of document down underneath anchor lens.
-  // Does not work  with documents that have absolutely positioned
-  // elements - because absolutely positioned element margins
-  // never collapse with global  margins.
-
   var bod = document.body;
-  // need to add 10 to the computed style to take into account the margin
   var str_ht = window.getComputedStyle(this.lens, null).height;
+  // need to add 20 to the computed style to take into account the margin
   var ht = parseInt(str_ht.substr(0, str_ht.length - 2), 10) + 20;
-  bod.style.marginTop = ht + 'px';
+  if (!this.isAtBottom) {
+    // Push rest of document down underneath anchor lens.
+    // Does not work  with documents that have absolutely positioned
+    // elements - because absolutely positioned element margins
+    // never collapse with global  margins.
+    bod.style.marginTop = ht + 'px';
+    bod.style.marginBottom = '0px';
+  } else {
+    bod.style.marginBottom = ht + 'px';
+    bod.style.marginTop = '0px';
+  }
 };
 
 
@@ -353,7 +447,13 @@ chromevis.ChromeVisLens.prototype.updateBubbleLens = function() {
     var shiftLeft = this.lens.firstChild.scrollWidth - maxw;
 
     this.lens.style.maxWidth = this.lens.firstChild.scrollWidth + 'px';
-    this.lens.style.left = (left - shiftLeft) + 'px';
+    // A temporary fix to avoid setting left to a negative number.
+    // TODO (rshearer): Find a better solution.
+    if (shiftLeft < left) {
+      this.lens.style.left = (left - shiftLeft) + 'px';
+    } else {
+      this.lens.style.left = '30px';
+    }
   } else {
     if (this.isCentered) {
       // Center the lens in the parent element
@@ -424,13 +524,113 @@ chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
   contentElem.style.color = this.textColor;
   contentElem.style.textDecoration = 'none';
   contentElem.style.textAlign = 'left';
-  contentElem.style.lineHeight = 1.2;
+  contentElem.style.lineHeight = 1.25;
+  contentElem.style.maxHeight = Math.round(window.innerHeight / 4) + 'px';
+  contentElem.style.overflowY = 'scroll';
 
   this.lens.appendChild(contentElem);
+
+  contentElem.scrollTop = contentElem.scrollHeight;
+
+  var line = document.createElement('hr');
+  this.lens.appendChild(line);
+
+  // Button to set position of the lens.
+  var button1 = document.createElement('button');
+  button1.onclick = function() {
+    cvox.ChromeVox.lens.changeLocation();
+    (this.style.backgroundImage == chromevis.ChromeVisLens.DOWN_ARROW_IMG) ?
+        this.style.backgroundImage = chromevis.ChromeVisLens.UP_ARROW_IMG :
+        this.style.backgroundImage = chromevis.ChromeVisLens.DOWN_ARROW_IMG;
+    this.style.backgroundColor = '#888';
+   };
+  if (this.isAtBottom) {
+    button1.style.backgroundImage = chromevis.ChromeVisLens.UP_ARROW_IMG;
+  } else {
+    button1.style.backgroundImage = chromevis.ChromeVisLens.DOWN_ARROW_IMG;
+  }
+  cvox.ChromeVox.lens.setButtonStyle(button1);
+  this.lens.appendChild(button1);
+
+  // Button to increase font size.
+  var button2 = document.createElement('button');
+  button2.onclick = function() {
+    cvox.ChromeVox.lens.increaseFontSize();
+   };
+  button2.style.backgroundImage = chromevis.ChromeVisLens.PLUS_IMG;
+  cvox.ChromeVox.lens.setButtonStyle(button2);
+  this.lens.appendChild(button2);
+
+  // Button to increase font size.
+  var button3 = document.createElement('button');
+  button3.onclick = function() {
+    cvox.ChromeVox.lens.decreaseFontSize();
+   };
+  button3.style.backgroundImage = chromevis.ChromeVisLens.MINUS_IMG;
+  cvox.ChromeVox.lens.setButtonStyle(button3);
+  this.lens.appendChild(button3);
+
+  // Button to temporarily hide the lens (until next message appears).
+  var button4 = document.createElement('button');
+  button4.onclick = function() {
+    this.parentNode.style.display = 'none';
+    document.body.style.marginTop = '0px';
+    document.body.style.marginBottom = '0px';
+   };
+  button4.style.backgroundImage = chromevis.ChromeVisLens.CROSS_IMG;
+  cvox.ChromeVox.lens.setButtonStyle(button4);
+  this.lens.appendChild(button4);
 
   this.magnifyText_();
   this.padText_();
   this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
+};
+
+/**
+ * Set the style of the given button.
+ *
+ * @param {Element} button The button to be styled.
+ */
+chromevis.ChromeVisLens.prototype.setButtonStyle = function(button) {
+  button.onmouseover = function() {this.style.backgroundColor = '#ccc';};
+  button.onmouseout = function() {this.style.backgroundColor = '#888';};
+  button.style.backgroundColor = '#888';
+  button.style.backgroundPosition = 'center';
+  button.style.border = '0px';
+  button.style.width = '30px';
+  button.style.height = '30px';
+  button.style.cursor = 'pointer';
+  button.style.marginRight = '5px';
+};
+
+/**
+ * Decrease font size inside the lens.
+ */
+chromevis.ChromeVisLens.prototype.decreaseFontSize = function() {
+  if (this.multiplier > 1) {
+    this.multiplier = this.multiplier / 1.1;
+  }
+  this.magnifyText_();
+  this.updateAnchorLens();
+};
+
+/**
+ * Increase font size inside the lens.
+ */
+chromevis.ChromeVisLens.prototype.increaseFontSize = function() {
+  if (this.multiplier < 5) {
+    this.multiplier = this.multiplier * 1.1;
+  }
+  this.magnifyText_();
+  this.updateAnchorLens();
+};
+
+/**
+ * If the lens is at the top, move it to bottom, and vice versa.
+ */
+chromevis.ChromeVisLens.prototype.changeLocation = function() {
+  cvox.ChromeVox.lens.isAtBottom = !cvox.ChromeVox.lens.isAtBottom;
+  cvox.ChromeVox.lens.updateAnchorLens();
 };
 
 /**

@@ -58,25 +58,28 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
    *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
    * @param {Object=} properties Speech properties to use for this utterance.
-   * @param {Function=} callBack The function to be called after speech ends.
    */
   cvox.RemoteTtsManager.prototype.speak = function(textString, queueMode,
-      properties, callBack) {
+      properties) {
     textString = cvox.AbstractTts.preprocess(textString);
     cvox.RemoteTtsManager.superClass_.speak.call(this, textString, queueMode,
-        properties, callBack);
+        properties);
 
     var message = {'target': 'TTS',
-          'action': 'speak',
-          'text': textString,
-          'queueMode': queueMode,
-          'properties': properties,
-          'callbackId': cvox.RemoteTtsManager.callId++};
+                   'action': 'speak',
+                   'text': textString,
+                   'queueMode': queueMode,
+                   'properties': properties};
 
-    if (callBack != undefined) {
+    if (properties && properties['startCallback'] != undefined) {
       cvox.RemoteTtsManager.functionMap[cvox.RemoteTtsManager.callId] =
-          callBack;
-      message['callbackId'] = cvox.RemoteTtsManager.callId++;
+          properties['startCallback'];
+      message['startCallbackId'] = cvox.RemoteTtsManager.callId++;
+    }
+    if (properties && properties['endCallback'] != undefined) {
+      cvox.RemoteTtsManager.functionMap[cvox.RemoteTtsManager.callId] =
+          properties['endCallback'];
+      message['endCallbackId'] = cvox.RemoteTtsManager.callId++;
     }
 
     cvox.ExtensionBridge.send(message);
@@ -152,7 +155,7 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.RemoteTtsManager.prototype.addBridgeListener = function() {
     cvox.ExtensionBridge.addMessageListener(function(msg, port) {
       var message = msg['message'];
-      if (message == 'TTS_COMPLETED') {
+      if (message == 'TTS_CALLBACK') {
         var id = msg['id'];
         var func = cvox.RemoteTtsManager.functionMap[id];
         if (func != undefined) {

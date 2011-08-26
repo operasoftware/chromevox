@@ -15,7 +15,7 @@ cvoxgoog.addDependency('../build/build_config_chrome.js', ['cvox.BuildConfig'], 
 cvoxgoog.addDependency('../build/build_defs.js', ['cvox.BuildDefs'], []);
 cvoxgoog.addDependency('../chromevis/injected/lens.js', ['chromevis.ChromeVisLens'], ['cvox.BuildConfig', 'cvox.ExtensionBridge', 'cvox.SelectionUtil']);
 cvoxgoog.addDependency('../chromevox/injected/api.js', ['cvox.Api'], ['cvox.ChromeVox']);
-cvoxgoog.addDependency('../chromevox/injected/event_watcher.js', ['cvox.ChromeVoxEventWatcher'], ['cvox.AriaUtil', 'cvox.ChromeVox', 'cvox.ChromeVoxEditableTextBase', 'cvox.ChromeVoxKbHandler', 'cvox.ChromeVoxUserCommands', 'cvox.DomUtil', 'cvox.LiveRegions']);
+cvoxgoog.addDependency('../chromevox/injected/event_watcher.js', ['cvox.ChromeVoxEventWatcher'], ['cvox.Api', 'cvox.AriaUtil', 'cvox.ChromeVox', 'cvox.ChromeVoxEditableTextBase', 'cvox.ChromeVoxKbHandler', 'cvox.ChromeVoxUserCommands', 'cvox.DomUtil', 'cvox.LiveRegions']);
 cvoxgoog.addDependency('../chromevox/injected/init.js', ['cvox.ChromeVoxInit'], ['chromevis.ChromeVisLens', 'cvox.AndroidDevTtsEngine', 'cvox.AndroidEarcons', 'cvox.AndroidRelTtsEngine', 'cvox.BuildConfig', 'cvox.ChromeVox', 'cvox.ChromeVoxEventWatcher', 'cvox.ChromeVoxKbHandler', 'cvox.ChromeVoxNavigationManager', 'cvox.ChromeVoxSearch', 'cvox.ExtensionBridge', 'cvox.LiveRegions', 'cvox.LocalEarconsManager', 'cvox.LocalTtsManager', 'cvox.RemoteEarconsManager', 'cvox.RemoteTtsManager', 'cvox.TraverseContent']);
 cvoxgoog.addDependency('../chromevox/injected/keyboard_handler.js', ['cvox.ChromeVoxKbHandler'], ['cvox.ChromeVox', 'cvox.ChromeVoxJSON', 'cvox.ChromeVoxSearch', 'cvox.ChromeVoxUserCommands', 'cvox.KeyUtil']);
 cvoxgoog.addDependency('../chromevox/injected/live_regions.js', ['cvox.LiveRegions'], ['cvox.AriaUtil', 'cvox.ChromeVox', 'cvox.DomUtil', 'cvox.NavDescription']);
@@ -24,11 +24,11 @@ cvoxgoog.addDependency('../chromevox/injected/tools/choice_widget.js', ['cvox.Ch
 cvoxgoog.addDependency('../chromevox/injected/tools/search.js', ['cvox.ChromeVoxSearch'], ['cvox.AbstractEarcons', 'cvox.ChromeVox', 'cvox.SelectionUtil', 'cvox.XpathUtil']);
 cvoxgoog.addDependency('../chromevox/injected/user_commands.js', ['cvox.ChromeVoxUserCommands'], ['cvox.AbstractEarcons', 'cvox.ChromeVox', 'cvox.ChromeVoxNavigationManager', 'cvox.ChromeVoxSearch', 'cvox.DomUtil', 'cvox.ExtensionBridge', 'cvox.SelectionUtil']);
 cvoxgoog.addDependency('../common/abstract_logger.js', ['cvox.AbstractLogger'], []);
-cvoxgoog.addDependency('../common/aria_util.js', ['cvox.AriaUtil'], []);
+cvoxgoog.addDependency('../common/aria_util.js', ['cvox.AriaUtil'], ['cvox.AbstractEarcons']);
 cvoxgoog.addDependency('../common/chromevox.js', ['cvox.ChromeVox'], []);
 cvoxgoog.addDependency('../common/chromevox_json.js', ['cvox.ChromeVoxJSON'], []);
 cvoxgoog.addDependency('../common/custom_walker.js', ['cvox.CustomWalker'], []);
-cvoxgoog.addDependency('../common/dom_util.js', ['cvox.DomUtil'], ['cvox.AriaUtil', 'cvox.NavDescription', 'cvox.XpathUtil']);
+cvoxgoog.addDependency('../common/dom_util.js', ['cvox.DomUtil'], ['cvox.AbstractEarcons', 'cvox.AriaUtil', 'cvox.NavDescription', 'cvox.XpathUtil']);
 cvoxgoog.addDependency('../common/editable_text.js', ['cvox.ChromeVoxEditableContentEditable', 'cvox.ChromeVoxEditableHTMLInput', 'cvox.ChromeVoxEditableTextArea', 'cvox.ChromeVoxEditableTextBase', 'cvox.TextChangeEvent'], ['cvox.AbstractTts', 'cvox.DomUtil']);
 cvoxgoog.addDependency('../common/extension_bridge.js', ['cvox.ExtensionBridge'], ['cvox.BuildConfig', 'cvox.ChromeVoxJSON']);
 cvoxgoog.addDependency('../common/focus_util.js', ['cvox.FocusUtil'], []);
@@ -44,5 +44,3 @@ cvoxgoog.addDependency('../common/traverse_content.js', ['cvox.TraverseContent']
 cvoxgoog.addDependency('../common/traverse_table.js', ['cvox.TraverseTable'], ['cvox.SelectionUtil', 'cvox.TableUtil', 'cvox.TraverseUtil']);
 cvoxgoog.addDependency('../common/traverse_util.js', ['cvox.TraverseUtil'], []);
 cvoxgoog.addDependency('../common/xpath_util.js', ['cvox.XpathUtil'], []);
-cvoxgoog.addDependency('../scripts/axsjax/axsjax.js', ['cvox.AxsJAX'], ['cvox.ChromeVox', 'cvox.DomUtil', 'cvox.XpathUtil']);
-cvoxgoog.addDependency('../scripts/axsjax/axsnav.js', ['cvox.AxsNav'], ['cvox.CustomWalker']);

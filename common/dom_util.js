@@ -21,6 +21,7 @@
 
 cvoxgoog.provide('cvox.DomUtil');
 
+cvoxgoog.require('cvox.AbstractEarcons');
 cvoxgoog.require('cvox.AriaUtil');
 cvoxgoog.require('cvox.NavDescription');
 cvoxgoog.require('cvox.XpathUtil');
@@ -114,7 +115,6 @@ cvox.DomUtil.isInvisibleStyle = function(style) {
  *
  * @param {Node} node The node to be examined.
  * @return {boolean} Whether or not the node is disabled.
- *
  */
 cvox.DomUtil.isDisabled = function(node) {
   // TODO (gkonyukh) When http://b/issue?id=5021204 is fixed in Chrome, do the
@@ -302,6 +302,15 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
     label = cvox.DomUtil.getImageTitle(node);
   } else if (node.hasAttribute && node.hasAttribute('title')) {
     label = node.getAttribute('title');
+  } else if (node.tagName == 'FIELDSET') {
+    // Other labels will trump fieldset legend with this implementation.
+    // Depending on how this works out on the web, we may later switch this
+    // to appending the fieldset legend to any existing label.
+    var legends = node.getElementsByTagName('LEGEND');
+    label = '';
+    for (var legend, i = 0; legend = legends[i]; i++) {
+      label += ' ' + cvox.DomUtil.getName(legend, true, includeControls);
+    }
   }
 
   if (label.length == 0 && node && node.id) {
@@ -342,7 +351,6 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
   }
 
   label = cvox.DomUtil.collapseWhitespace(label);
-
   if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
     var placeholder = cvox.DomUtil.collapseWhitespace(
         node.getAttribute('placeholder'));
@@ -390,7 +398,6 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
       return name;
     }
   }
-
   return '';
 };
 
@@ -403,6 +410,18 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
  * @return {string} The name of the control, using heuristics.
  */
 cvox.DomUtil.getControlLabelHeuristics = function(node) {
+  // If the node explicitly has aria-label or title set to '',
+  // treat it the same way as alt='' and do not guess - just assume
+  // the web developer knew what they were doing and wanted
+  // no title/label for that control.
+  if (node.hasAttribute &&
+      ((node.hasAttribute('aria-label') &&
+      (node.getAttribute('aria-label') == '')) ||
+      (node.hasAttribute('aria-title') &&
+      (node.getAttribute('aria-title') == '')))) {
+    return '';
+  }
+
   // TODO (clchen, rshearer): Implement heuristics for getting the label
   // information from the table headers once the code for getting table
   // headers quickly is implemented.
@@ -618,10 +637,12 @@ cvox.DomUtil.hasContent = function(node) {
   }
 
   // We want to try to jump into an iframe iff it has a src attribute.
-  // For right now, we will avoid iframes without src since ChromeVox
-  // is not being injected in those cases and will cause the user to get stuck.
+  // For right now, we will avoid iframes without any content in their src since
+  // ChromeVox is not being injected in those cases and will cause the user to
+  // get stuck.
   // TODO (clchen, dmazzoni): Manually inject ChromeVox for iframes without src.
-  if ((node.tagName == 'IFRAME') && (node.src)) {
+  if ((node.tagName == 'IFRAME') && (node.src) &&
+      (node.src.indexOf('javascript:') != 0)) {
     return true;
   }
 
@@ -648,7 +669,27 @@ cvox.DomUtil.hasContent = function(node) {
     }
   }
 
-  if (node.tagName == 'A' && node.getAttribute('href') != '') {
+  // Skip any non-control content inside of a legend if the legend is correctly
+  // nested within a fieldset. The legend text will get spoken when the fieldset
+  // is reached.
+  var enclosingLegend = node.parentElement;
+  while (enclosingLegend && enclosingLegend.tagName != 'LEGEND') {
+    enclosingLegend = enclosingLegend.parentElement;
+  }
+  if (enclosingLegend) {
+    var embeddedControl = enclosingLegend.querySelector(
+        'button,input,select,textarea');
+    var legendAncestor = enclosingLegend.parentElement;
+    while (legendAncestor && legendAncestor.tagName != 'FIELDSET') {
+      legendAncestor = legendAncestor.parentElement;
+    }
+    if (legendAncestor && !embeddedControl) {
+      return false;
+    }
+  }
+
+  if (node.tagName == 'A' && node.getAttribute('href') &&
+      node.getAttribute('href') != '') {
     return true;
   }
 
@@ -661,6 +702,25 @@ cvox.DomUtil.hasContent = function(node) {
   }
 
   return true;
+};
+
+
+/**
+ * Returns true if any of the targetNode's ancestors is an anchor.
+ *
+ * @param {Object} targetNode
+ * @return {boolean} true if some ancestor is an anchor, false otherwise.
+ */
+cvox.DomUtil.ancestorIsAnchor = function(targetNode) {
+  var ancestors= cvox.DomUtil.getAncestors(targetNode);
+  var length = ancestors.length;
+  for (var i = 2; i < length; i++) {
+    if (ancestors[i].tagName == 'A' &&
+        ancestors[i].getAttribute && ancestors[i].getAttribute('name')) {
+      return true;
+    }
+  }
+  return false;
 };
 
 
@@ -735,7 +795,7 @@ cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
  * ARIA roles are given priority; if there is no ARIA role set, the role
  * will be determined by the HTML tag for the node.
  *
- * @param {Object} targetNode The node to get the role name for.
+ * @param {Node} targetNode The node to get the role name for.
  * @return {string} The role name for the targetNode.
  */
 cvox.DomUtil.getRole = function(targetNode) {
@@ -744,6 +804,12 @@ cvox.DomUtil.getRole = function(targetNode) {
   if (!info) {
     if (targetNode.tagName == 'INPUT') {
       info = cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE[targetNode.type];
+    } else if (targetNode.tagName == 'A' &&
+        cvox.DomUtil.isInternalLink(targetNode)) {
+      info = 'Internal link';
+    } else if (targetNode.tagName == 'A' &&
+        targetNode.getAttribute('name')) {
+      info = ''; // Don't want to add any role to anchors.
     } else {
       info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE[targetNode.tagName];
     }
@@ -785,6 +851,10 @@ cvox.DomUtil.getListLength = function(targetNode) {
  * @return {string} The status information about the node.
  */
 cvox.DomUtil.getState = function(targetNode, primary) {
+  var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
+  if (activeDescendant) {
+    return cvox.DomUtil.getState(activeDescendant, primary);
+  }
   var info;
   var role = targetNode.getAttribute ? targetNode.getAttribute('role') : '';
   info = cvox.AriaUtil.getState(targetNode, primary);
@@ -817,6 +887,58 @@ cvox.DomUtil.getState = function(targetNode, primary) {
 
 
 /**
+ * Returns the id of an earcon to play along with the description for a node.
+ *
+ * @param {Node} node The node to get the earcon for.
+ * @return {number?} The earcon id, or null if none applies.
+ */
+cvox.DomUtil.getEarcon = function(node) {
+  var earcon = cvox.AriaUtil.getEarcon(node);
+  if (earcon != null) {
+    return earcon;
+  }
+
+  switch (node.tagName) {
+    case 'BUTTON':
+      return cvox.AbstractEarcons.BUTTON;
+    case 'A':
+      if (node.hasAttribute('href')) {
+        return cvox.AbstractEarcons.LINK;
+      }
+      break;
+    case 'LI':
+      return cvox.AbstractEarcons.LIST_ITEM;
+    case 'SELECT':
+      return cvox.AbstractEarcons.LISTBOX;
+    case 'TEXTAREA':
+      return cvox.AbstractEarcons.EDITABLE_TEXT;
+    case 'INPUT':
+      switch (node.type) {
+        case 'button':
+        case 'submit':
+        case 'reset':
+          return cvox.AbstractEarcons.BUTTON;
+        case 'checkbox':
+        case 'radio':
+          if (node.checked) {
+            return cvox.AbstractEarcons.CHECK_ON;
+          } else {
+            return cvox.AbstractEarcons.CHECK_OFF;
+          }
+        default:
+          if (cvox.DomUtil.isInputTypeText(node)) {
+            // 'text', 'password', etc.
+            return cvox.AbstractEarcons.EDITABLE_TEXT;
+          }
+      }
+  }
+
+  return null;
+};
+
+
+
+/**
  * Returns a description of a navigation from an array of changed
  * ancestor nodes. The ancestors are in order from the highest in the
  * tree to the lowest, i.e. ending with the current leaf node.
@@ -836,6 +958,7 @@ cvox.DomUtil.getDescriptionFromAncestors = function(
   var text = '';
   var userValue = '';
   var annotation = '';
+  var earcons = [];
 
   if (len > 0) {
     text = cvox.DomUtil.getName(ancestorsArray[len - 1], recursive);
@@ -858,13 +981,17 @@ cvox.DomUtil.getDescriptionFromAncestors = function(
         annotation = role + ' ' + cvox.DomUtil.getState(node, true);
       }
     }
+    var earcon = cvox.DomUtil.getEarcon(node);
+    if (earcon != null && earcons.indexOf(earcon) == -1) {
+      earcons.push(earcon);
+    }
   }
-
   return new cvox.NavDescription(
       cvox.DomUtil.collapseWhitespace(context),
       cvox.DomUtil.collapseWhitespace(text),
       cvox.DomUtil.collapseWhitespace(userValue),
-      cvox.DomUtil.collapseWhitespace(annotation));
+      cvox.DomUtil.collapseWhitespace(annotation),
+      earcons);
 };
 
 
@@ -969,6 +1096,14 @@ cvox.DomUtil.isAttachedToDocument = function(targetNode) {
  * @param {boolean} shiftKey Specifies if shift is held down.
  */
 cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
+  if (targetNode.tagName != 'A') {
+    if (targetNode.nodeType == 1) { // Element nodes only.
+      var aNodes = targetNode.getElementsByTagName('A');
+      if (aNodes.length > 0) {
+        targetNode = aNodes[0];
+      }
+    }
+  }
   //Send a mousedown
   var evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('mousedown', true, true, document.defaultView,
@@ -990,6 +1125,38 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
+
+  if (cvox.DomUtil.isInternalLink(targetNode)) {
+    cvox.DomUtil.skipLinkSync(targetNode);
+  }
+};
+
+
+/**
+ * Syncs to whatever targetNode skip link is pointing to.
+ * @param {Node} targetNode The skip link.
+ */
+cvox.DomUtil.skipLinkSync = function(targetNode) {
+  var targetName = targetNode.getAttribute('href').substring(1);
+  var anchor = cvox.XpathUtil.evalXPath('//a[@name="' + targetName + '"]',
+      document.body)[0];
+  var target;
+
+  if (anchor != undefined) {
+    target = anchor;
+  } else {
+    target = document.getElementById(targetName);
+  }
+
+  if (target) {
+    cvox.Api.syncToNode(target, true);
+    // Insert a dummy node to adjust next Tab focus location.
+    var parent = target.parentNode;
+    var dummyNode = document.createElement('div');
+    dummyNode.setAttribute('tabindex', '-1');
+    parent.insertBefore(dummyNode, target);
+    dummyNode.focus();
+  }
 };
 
 
@@ -1186,6 +1353,23 @@ cvox.DomUtil.getControlValueAndStateString = function(control) {
   }
 };
 
+
+/**
+ * Determine whether the given node is an internal link.
+ * @param {Node} node The node to be examined.
+ * @return {boolean} True if the node is an internal link, false otherwise.
+ */
+cvox.DomUtil.isInternalLink = function(node) {
+  if (node.nodeType == 1) { // Element nodes only.
+    var href = node.getAttribute('href');
+    if (href) {
+      return (node.getAttribute('href').indexOf('#') == 0);
+    }
+  }
+  return false;
+};
+
+
 /**
  * Get a string containing the currently selected link's URL.
  * @param {Node} node The link from which URL needs to be extracted.
@@ -1194,7 +1378,7 @@ cvox.DomUtil.getControlValueAndStateString = function(control) {
 cvox.DomUtil.getLinkURL = function(node) {
   if (node.tagName == 'A') {
     if (node.getAttribute('href')) {
-      if (node.getAttribute('href').indexOf('#') == 0) {
+      if (cvox.DomUtil.isInternalLink(node)) {
         return 'Internal link';
       } else {
         return node.getAttribute('href');
@@ -1208,4 +1392,3 @@ cvox.DomUtil.getLinkURL = function(node) {
 
   return '';
 };
-

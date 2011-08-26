@@ -58,7 +58,8 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    */
   cvox.ExtensionBridge.init = function() {
     var self = cvox.ExtensionBridge;
-    self.listeners = [];
+    self.messageListeners = [];
+    self.disconnectListeners = [];
 
     try {
       if (chrome && chrome.windows &&
@@ -131,6 +132,14 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
   cvox.ExtensionBridge.PORT_SETUP_MSG = 'cvox.ExtensionBridge.PortSetup';
 
   /**
+   * The message between content script and the page that indicates the
+   * connection to the background page has been lost.
+   * @type {string}
+   * @const
+   */
+  cvox.ExtensionBridge.DISCONNECT_MSG = 'cvox.ExtensionBridge.Disconnect';
+
+  /**
    * Send a message. If the context is a page, sends a message to the
    * extension background page. If the context is a background page, sends
    * a message to the current active tab (not all tabs).
@@ -163,7 +172,17 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
    * @param {function(Object, Port)} listener The message listener.
    */
   cvox.ExtensionBridge.addMessageListener = function(listener) {
-    cvox.ExtensionBridge.listeners.push(listener);
+    cvox.ExtensionBridge.messageListeners.push(listener);
+  };
+
+  /**
+   * Provide a function to be called when the connection is
+   * disconnected.
+   *
+   * @param {function()} listener The listener.
+   */
+  cvox.ExtensionBridge.addDisconnectListener = function(listener) {
+    cvox.ExtensionBridge.disconnectListeners.push(listener);
   };
 
   /**
@@ -178,8 +197,8 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
         return;
       }
       port.onMessage.addListener(function(message) {
-        for (var i = 0; i < self.listeners.length; i++) {
-          self.listeners[i](message, port);
+        for (var i = 0; i < self.messageListeners.length; i++) {
+          self.messageListeners[i](message, port);
         }
       });
     };
@@ -197,8 +216,8 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
     var self = cvox.ExtensionBridge;
 
     var onRequestHandler = function(request, sender, sendResponse) {
-      for (var i = 0; i < self.listeners.length; i++) {
-        self.listeners[i](request, self.backgroundPort);
+      for (var i = 0; i < self.messageListeners.length; i++) {
+        self.messageListeners[i](request, self.backgroundPort);
       }
       if (self.port) {
         self.port.postMessage(self.json.stringify(request));
@@ -212,24 +231,34 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
 
     // Listen to events on the main window and wait for a port setup message
     // from the page to continue.
-    window.addEventListener('message', function(event) {
-      if (event.data == self.PORT_SETUP_MSG) {
-        // Now that we have a page connection, connect to background too.
-        // (Don't do this earlier, otherwise initial messages from the
-        // background wouldn't make it all the way through to the page.)
-        cvox.ExtensionBridge.setupBackgroundPort();
+    window.addEventListener('message', self.contentScriptMessageListener, true);
+  };
 
-        self.port = event.ports[0];
-        self.port.onmessage = function(event) {
-          self.backgroundPort.postMessage(self.json.parse(event.data));
-        };
+  /**
+   * This method is called when the content script receives a message from
+   * the page.
+   * @param {Event} event The DOM event with the message data.
+   * @return {boolean} True if default event processing should continue.
+   */
+  cvox.ExtensionBridge.contentScriptMessageListener = function(event) {
+    var self = cvox.ExtensionBridge;
 
-        // Stop propagation if it was our message.
-        event.stopPropagation();
-        return false;
-      }
-      return true;
-    }, true);
+    if (event.data == self.PORT_SETUP_MSG) {
+      // Now that we have a page connection, connect to background too.
+      // (Don't do this earlier, otherwise initial messages from the
+      // background wouldn't make it all the way through to the page.)
+      cvox.ExtensionBridge.setupBackgroundPort();
+
+      self.port = event.ports[0];
+      self.port.onmessage = function(event) {
+        self.backgroundPort.postMessage(self.json.parse(event.data));
+      };
+
+      // Stop propagation if it was our message.
+      event.stopPropagation();
+      return false;
+    }
+    return true;
   };
 
   /**
@@ -240,12 +269,23 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
     self.backgroundPort = chrome.extension.connect({name: self.PORT_NAME});
     self.backgroundPort.onMessage.addListener(
         function(message) {
-          for (var i = 0; i < self.listeners.length; i++) {
-            self.listeners[i](message, self.backgroundPort);
+          for (var i = 0; i < self.messageListeners.length; i++) {
+            self.messageListeners[i](message, self.backgroundPort);
           }
           if (self.port) {
             self.port.postMessage(self.json.stringify(message));
           }
+        });
+    self.backgroundPort.onDisconnect.addListener(
+        function(event) {
+          for (var i = 0; i < self.disconnectListeners.length; i++) {
+            self.disconnectListeners[i]();
+          }
+          if (self.port) {
+            self.port.postMessage(cvox.ExtensionBridge.DISCONNECT_MSG);
+          }
+          window.removeEventListener(
+              'message', self.contentScriptMessageListener, true);
         });
   };
 
@@ -265,8 +305,15 @@ if (BUILD_TYPE == BUILD_TYPE_CHROME) {
         window, [self.PORT_SETUP_MSG, [self.channel.port2], '*']);
 
     self.channel.port1.onmessage = function(event) {
-      for (var i = 0; i < self.listeners.length; i++) {
-        self.listeners[i](self.json.parse(event.data), self.channel.port1);
+      if (event.data == self.DISCONNECT_MSG) {
+        for (var i = 0; i < self.disconnectListeners.length; i++) {
+          self.disconnectListeners[i]();
+        }
+        return;
+      }
+      for (var i = 0; i < self.messageListeners.length; i++) {
+        self.messageListeners[i](self.json.parse(event.data),
+                                 self.channel.port1);
       }
     };
   };

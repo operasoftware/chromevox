@@ -101,6 +101,7 @@ cvox.ChromeVoxEarcons.prototype.getEarconMap = function() {
       'invalid_keypress.ogg';
   this.earconMap[cvox.AbstractEarcons.LINK] = 'link.ogg';
   this.earconMap[cvox.AbstractEarcons.LISTBOX] = 'listbox.ogg';
+  this.earconMap[cvox.AbstractEarcons.LIST_ITEM] = 'bullet.ogg';
   this.earconMap[cvox.AbstractEarcons.NEW_MAIL] = 'new_mail.ogg';
   this.earconMap[cvox.AbstractEarcons.OBJECT_CLOSE] = 'object_close.ogg';
   this.earconMap[cvox.AbstractEarcons.OBJECT_DELETE] = 'object_delete.ogg';

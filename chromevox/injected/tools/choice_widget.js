@@ -49,15 +49,33 @@ cvox.ChromeVoxChoiceWidget = function() {
  */
 cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
     prompt) {
-  this.powerKey.setCompletionList(descriptions);
-  var completionActionMap = new Object();
+  // We must dedup the descriptions so they are accessible.
+  // If there are two elements with the same lowercase form, the
+  // first will keep its name.  The second will be named "<name> 2".
+  var dedupped = [];
+  var dedupKeys = {};
   for (var i = 0, description; description = descriptions[i]; i++) {
+    var key = description.toLowerCase();
+    var seq = 2;
+    while (key in dedupKeys) {
+      description = descriptions[i] + " " + seq;
+      key = description.toLowerCase();
+      seq++;
+    }
+    dedupKeys[key] = true;
+    dedupped.push(description);
+  }
+
+
+  this.powerKey.setCompletionList(dedupped);
+  var completionActionMap = new Object();
+  for (var i = 0, description; description = dedupped[i]; i++) {
     var action = new Object();
     action['main'] = functions[i];
     completionActionMap[description.toLowerCase()] = action;
   }
   this.powerKey.setCompletionActionMap(completionActionMap);
-  this.powerKey.setCompletionPromptStr(descriptions.toString());
+  this.powerKey.setCompletionPromptStr(dedupped.toString());
   this.powerKey.setBrowseCallback(function(text) {
     cvox.ChromeVox.tts.speak(text, cvox.AbstractTts.QUEUE_MODE_FLUSH,
         null);

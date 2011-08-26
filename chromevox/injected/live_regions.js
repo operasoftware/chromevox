@@ -142,7 +142,7 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
   // and just speak any additions (which includes changed nodes).
   var messages = [];
   if (additions.length == 0 && removals.length > 0) {
-    messages = [new cvox.NavDescription('removed:', '', '', '')].concat(
+    messages = [new cvox.NavDescription('removed:', '', '', '', [])].concat(
         removals);
   } else {
     messages = additions;

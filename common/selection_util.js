@@ -201,18 +201,97 @@ cvox.SelectionUtil.isSelectionValid = function(sel) {
              (sel.toString() == '')));
 };
 
+/**
+ * Computes either scrollTop or scrollLeft.
+ * For simplicity, this function used vertical language, but works in both
+ * directions.
+ * @param {number} focusTop The top of focusNode's bounding rect.
+ * @param {number} focusBottom The bottom of focusNode's bounding rect.
+ * @param {number} parentScrollTop The scrollTop value of parent.
+ * @param {number} parentTop The top of the parent's bounding rect.
+ * @param {number} parentBottom The bottom of the parent's bounding rect.
+ * @return {number} A new value for the paren't scrollTop.
+ */
+cvox.SelectionUtil.computeScrollTop = function(
+    focusTop, focusBottom,
+    parentScrollTop, parentTop, parentBottom) {
+  var isTopAboveParent = focusTop < parentTop;
+  var isBottomBelowParent = focusBottom > parentBottom;
+
+  var focusHeight = focusBottom - focusTop;
+  var parentHeight = parentBottom - parentTop;
+
+  // Four cases.
+
+  if (isTopAboveParent && !isBottomBelowParent) {
+    // 1. The top is above. Move the top down to the parent's top.
+    return parentScrollTop + focusTop - parentTop;
+  } else if (!isTopAboveParent && isBottomBelowParent) {
+    // 2. The bottom is below.  Move the bottom up to the parent's bottom.
+    return parentScrollTop + focusBottom - parentBottom;
+  }
+  // Two cases where we do nothing:
+  // 3. The parentNode is focused on and smaller than the focus.
+  // 4. The focus is entired contained in the parentNode.
+  return parentScrollTop;
+};
+
+/**
+ * Scrolls node in its parent node such the given node is visible.
+ * @param {Node} focusNode The node.
+ */
+cvox.SelectionUtil.scrollElementsToView = function(focusNode) {
+  // First, walk up the DOM until we find a node with a bounding rectangle.
+  while (focusNode && !focusNode.getBoundingClientRect) {
+    focusNode = focusNode.parentElement;
+  }
+  if (!focusNode) {
+    return;
+  }
+
+  var focusBoundingRect = focusNode.getBoundingClientRect();
+
+  // Walk up the DOM, adjusting the parentNode each time.
+  var node = focusNode;
+  var parentNode = node.parentElement;
+  while (node != document.body && parentNode) {
+    var parentBoundingRect = parentNode.getBoundingClientRect();
+
+    parentNode.scrollTop = cvox.SelectionUtil.computeScrollTop(
+        focusBoundingRect.top,
+        focusBoundingRect.bottom,
+        parentNode.scrollTop,
+        parentBoundingRect.top,
+        parentBoundingRect.bottom);
+
+    parentNode.scrollLeft = cvox.SelectionUtil.computeScrollTop(
+        focusBoundingRect.left,
+        focusBoundingRect.right,
+        parentNode.scrollLeft,
+        parentBoundingRect.left,
+        parentBoundingRect.right);
+
+    node = parentNode;
+    parentNode = node.parentElement;
+  }
+};
 
 /**
  * Scrolls the selection into view if it is out of view in the current window.
  * Inspired by workaround for already-on-screen elements @
  * http://
- * www.performantdesign.com/2009/08/2/scrollintoview-but-only-if-out-of-view/
+ * www.performantdesign.com/2009/08/26/scrollintoview-but-only-if-out-of-view/
  * @param {Selection} sel The selection to be scrolled into view.
  */
 cvox.SelectionUtil.scrollToSelection = function(sel) {
   if (sel.rangeCount == 0) {
     return;
   }
+
+  // First, scroll all parent elements into view.  Later, move the body
+  // which works slightly differently.
+
+  cvox.SelectionUtil.scrollElementsToView(sel.focusNode);
 
   var pos = cvox.SelectionUtil.findSelPosition(sel);
   var top = pos[0];

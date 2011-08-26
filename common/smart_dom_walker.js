@@ -128,38 +128,37 @@ cvox.SmartDomWalker.SMARTNAV_BREAKOUT_XPATH = './/blockquote |' +
  */
 cvox.SmartDomWalker.prototype.enterTable = function() {
   // Find out if this node is part of a table
-
   if (! this.tableMode) {
     // We are not currently looking in a table. Check ancestors of this node.
-    if (cvox.DomUtil.isDescendantOf(this.currentNode, 'TABLE')) {
-      var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
-
-      for (var i = (ancestors.length - 1); i >= 0; i--) {
-        if (ancestors[i].tagName == 'TABLE') {
-          this.currentTableNavigator = new cvox.TraverseTable(ancestors[i]);
-          this.tables.push(this.currentTableNavigator);
-
-          this.announceTable = true;
-
-          this.tableMode = true;
-          return true;
-        }
-      }
-      // No ancestor TABLE node found.
-      return false;
-    } else {
-      this.tableMode = false;
+    if (! (cvox.DomUtil.isDescendantOf(this.currentNode, 'TABLE'))) {
       return false;
     }
+    var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
+
+    for (var i = (ancestors.length - 1); i >= 0; i--) {
+      if (ancestors[i].tagName == 'TABLE') {
+        this.currentTableNavigator = new cvox.TraverseTable(ancestors[i]);
+        this.tables.push(this.currentTableNavigator);
+
+        this.announceTable = true;
+
+        this.tableMode = true;
+        return true;
+      }
+    }
+    // No ancestor TABLE node found.
+    return false;
   } else {
     // We are currently looking in a table. Change currentTableNavigator
     // to point to nested table.
 
     var currentCell = this.currentTableNavigator.getCell();
-    var tableChildren = cvox.XpathUtil.evalXPath('.//TABLE', currentCell);
-    if (tableChildren.length != 0) {
+    var tableOrGridChildren =
+        cvox.XpathUtil.evalXPath('child::TABLE', currentCell);
+    if (tableOrGridChildren.length != 0) {
       // If it has more than one child that is a table, point to the first one
-      this.currentTableNavigator = new cvox.TraverseTable(tableChildren[0]);
+      this.currentTableNavigator =
+          new cvox.TraverseTable(tableOrGridChildren[0]);
       this.tables.push(this.currentTableNavigator);
 
       this.announceTable = true;
@@ -622,7 +621,14 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors);
     results.push(description);
     if (annotations.indexOf(description.annotation) == -1) {
-      annotations.push(description.annotation);
+      // If we have an Internal link collection, call it Link collection
+      if (description.annotation == 'Internal link') {
+        if (annotations.indexOf('Link') == -1) {
+          annotations.push('Link');
+        }
+      } else {
+        annotations.push(description.annotation);
+      }
     }
     walker.next();
   }
@@ -635,7 +641,7 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
       annotations.length == 1 &&
       annotations[0].length > 0 &&
       this.isAnnotationCollection(annotations[0])) {
-    var commonAnnotation = results[0].annotation;
+    var commonAnnotation = annotations[0];
     var firstContext = results[0].context;
     results[0].context = '';
     for (var i = 0; i < results.length; i++) {
@@ -646,28 +652,33 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
         firstContext,
         '',
         '',
-        commonAnnotation + ' collection with ' + results.length + ' items'));
-  }
-
-  if (this.announceTable) {
-    results.splice(0, 0, new cvox.NavDescription(
-        this.currentTableNavigator.rowCount + ' rows, ' +
-        this.currentTableNavigator.colCount + ' columns',
-        '',
-        '',
-        ''));
-    this.announceTable = false;
+        commonAnnotation + ' collection with ' + results.length + ' items',
+        []));
   }
 
   if (this.tableMode) {
-    results.push(new cvox.NavDescription(
-        '', '', '', 'empty cell'));
+    if (results.length == 0) {
+      results.push(new cvox.NavDescription(
+          '', '', '', 'empty cell', []));
+    }
+
+    if (this.announceTable) {
+      results.splice(0, 0, new cvox.NavDescription(
+          this.currentTableNavigator.rowCount + ' rows, ' +
+          this.currentTableNavigator.colCount + ' columns',
+          '',
+          '',
+          '',
+          []));
+      this.announceTable = false;
+    }
 
     // Deal with spanned cells
-    results.push(new cvox.NavDescription(
-        '', '', '', 'spanned'));
+    if (this.currentTableNavigator.isSpanned()) {
+      results.push(new cvox.NavDescription(
+          '', '', '', 'spanned', []));
+    }
   }
-
   return results;
 };
 

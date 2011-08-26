@@ -391,14 +391,17 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   var len = value.length;
   var newLen = evt.value.length;
   var autocompleteSuffix = '';
-  var savedValue = evt.value;
+  // Make a copy of evtValue and evtEnd to avoid changing anything in
+  // the event itself.
+  var evtValue = evt.value;
+  var evtEnd = evt.end;
 
   // First, see if there's a selection at the end that might have been
   // added by autocomplete. If so, strip it off into a separate variable.
-  if (evt.start < evt.end && evt.end == newLen) {
-    autocompleteSuffix = evt.value.substr(evt.start);
-    evt.value = evt.value.substr(0, evt.start);
-    evt.end = evt.start;
+  if (evt.start < evtEnd && evtEnd == newLen) {
+    autocompleteSuffix = evtValue.substr(evt.start);
+    evtValue = evtValue.substr(0, evt.start);
+    evtEnd = evt.start;
   }
 
   // Now see if the previous selection (if any) was deleted
@@ -407,9 +410,9 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   // a cursor and from a selection.
   var prefixLen = this.start;
   var suffixLen = len - this.end;
-  if (newLen >= prefixLen + suffixLen + (evt.end - evt.start) &&
-      evt.value.substr(0, prefixLen) == value.substr(0, prefixLen) &&
-      evt.value.substr(newLen - suffixLen) == value.substr(this.end)) {
+  if (newLen >= prefixLen + suffixLen + (evtEnd - evt.start) &&
+      evtValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
+      evtValue.substr(newLen - suffixLen) == value.substr(this.end)) {
     this.describeTextChangedHelper(
         evt, prefixLen, suffixLen, autocompleteSuffix);
     return;
@@ -420,11 +423,11 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   // handles backspace, forward-delete, and similar shortcuts that delete
   // a word or line.
   prefixLen = evt.start;
-  suffixLen = newLen - evt.end;
+  suffixLen = newLen - evtEnd;
   if (this.start == this.end &&
-      evt.start == evt.end &&
-      evt.value.substr(0, prefixLen) == value.substr(0, prefixLen) &&
-      evt.value.substr(newLen - suffixLen) ==
+      evt.start == evtEnd &&
+      evtValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
+      evtValue.substr(newLen - suffixLen) ==
       value.substr(len - suffixLen)) {
     this.describeTextChangedHelper(
         evt, prefixLen, suffixLen, autocompleteSuffix);
@@ -435,7 +438,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   // user editing operation, so we'll have to speak feedback based only
   // on the changes to the text, not the cursor position / selection.
   // First, restore the autocomplete text if any.
-  evt.value += autocompleteSuffix;
+  evtValue += autocompleteSuffix;
 
   // If the text is short, just speak the whole thing.
   if (newLen <= this.maxShortPhraseLen) {
@@ -448,7 +451,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   prefixLen = 0;
   while (prefixLen < len &&
          prefixLen < newLen &&
-         value[prefixLen] == evt.value[prefixLen]) {
+         value[prefixLen] == evtValue[prefixLen]) {
     prefixLen++;
   }
   while (prefixLen > 0 && !this.isWordBreakChar(value[prefixLen - 1])) {
@@ -458,7 +461,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   suffixLen = 0;
   while (suffixLen < (len - prefixLen) &&
          suffixLen < (newLen - prefixLen) &&
-         value[len - suffixLen - 1] == evt.value[newLen - suffixLen - 1]) {
+         value[len - suffixLen - 1] == evtValue[newLen - suffixLen - 1]) {
     suffixLen++;
   }
   while (suffixLen > 0 && !this.isWordBreakChar(value[len - suffixLen])) {

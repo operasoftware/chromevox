@@ -32,31 +32,15 @@ cvox.ChromeVoxChromeNativeTtsEngine = function() {
   //Inherit AbstractTts
   cvox.AbstractTts.call(this);
   if (cvox.ChromeVox.isChromeOS) {
-    this.ttsProperties.rate = .3;
     // We want to keep low default volume for ChromeOS because amplifying the
     // sound by the TTS engine results into unintelligible speech on ChromeOS
     // netbook, especially the CR-48.
-    this.ttsProperties.volume = .3;
+    this.ttsProperties.volume = .5;
   } else {
-    this.ttsProperties.rate = .5;
     this.ttsProperties.volume = 1;
   }
   this.ttsProperties.pitch = .5;
-
-  // Events are now handled by the onevent option. There are two spellings
-  // depending on the exact Chrome version you're on.
-  try {
-    chrome.experimental.tts.speak(
-        '', {'onevent': function(e) {}}, function() {});
-    this.use_onevent = true;
-  } catch (e) {
-  }
-  try {
-    chrome.experimental.tts.speak(
-        '', {'onEvent': function(e) {}}, function() {});
-    this.use_onEvent = true;
-  } catch (e) {
-  }
+  this.ttsProperties.rate = .5;
 };
 cvoxgoog.inherits(cvox.ChromeVoxChromeNativeTtsEngine, cvox.AbstractTts);
 
@@ -73,46 +57,34 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.getName = function() {
  * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
- * @param {Function=} completionCallback Called if speech completes.
  */
 cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
-    textString, queueMode, properties, completionCallback) {
+    textString, queueMode, properties) {
   cvox.ChromeVoxChromeNativeTtsEngine.superClass_.speak.call(this, textString,
-      queueMode, properties, completionCallback);
+      queueMode, properties);
   if (queueMode === cvox.AbstractTts.QUEUE_MODE_FLUSH) {
     this.stop();
   }
   var mergedProperties = this.mergeProperties(properties);
   mergedProperties.enqueue = (queueMode === cvox.AbstractTts.QUEUE_MODE_QUEUE);
 
-  // This function will be called when speech is complete.
-  function onCompleted() {
-    if (completionCallback != undefined) {
-      completionCallback();
-    }
-  }
-
   // TODO(dmazzoni): remove this logic once Chrome 14 is the stable version.
   if (chrome.tts || chrome.experimental.tts.getVoices) {
     // Stable or transitional TTS API.
 
-    // Events are now handled by the onevent option. There are two spellings
-    // depending on the exact Chrome version you're on.
-    function onEventHandler(event) {
-      if (event.type == 'end') {
-        onCompleted();
+    mergedProperties.onEvent = function(event) {
+      if (event.type == 'end' && properties && properties['endCallback']) {
+        properties['endCallback']();
       }
-    }
-    if (this.use_onEvent) {
-      mergedProperties.onEvent = onCompleted;
-    } else if (this.use_onevent) {
-      mergedProperties.onevent = onCompleted;
-    }
+      if (event.type == 'start' && properties && properties['startCallback']) {
+        properties['startCallback']();
+      }
+    };
 
     // Map rate from 0.0-1.0 with 0.5 being normal,
     // to 0.1-10.0 with 1 being normal:
     if (mergedProperties.rate) {
-      mergedProperties.rate *= 1;
+      mergedProperties.rate *= 2;
     }
     // Map pitch from 0.0-1.0 to 0.0-2.0:
     if (mergedProperties.pitch) {
@@ -120,6 +92,7 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
     }
     // Map locale to lang
     mergedProperties.lang = mergedProperties.locale;
+
     if (chrome.tts) {
       chrome.tts.speak(textString, mergedProperties);
     } else {
@@ -129,7 +102,9 @@ cvox.ChromeVoxChromeNativeTtsEngine.prototype.speak = function(
     // Old TTS API.
     chrome.experimental.tts.speak(textString, mergedProperties, function() {
       if (!chrome.extension.lastError) {
-        onCompleted();
+        if (properties['endCallback']) {
+          properties['endCallback']();
+        }
       }
     });
   }

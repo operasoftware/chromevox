@@ -78,6 +78,15 @@ cvox.ChromeVoxUserCommands.powerkeyActionCallback = null;
  */
 cvox.ChromeVoxUserCommands.userCommandLevel_ = 0;
 
+/**
+ * A variable to hold the most recent anchor to prevent the code from getting
+ * stuck on empty anchors when walking backwards.
+ *
+ * @type {Object}
+ * @private
+ */
+cvox.ChromeVoxUserCommands.mostRecentAnchor_ = null;
+
 
 // TODO (chaitanyag): Move the PowerKey related code in a separate JS file.
 /**
@@ -391,92 +400,27 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
     queueMode = 1;
   }
 
-  for (var i = 0; i < descriptionArray.length; i++) {
-    descriptionArray[i].speak(queueMode);
-    queueMode = 1;
-  }
-  cvox.ChromeVoxUserCommands.playEarcons();
-};
-
-
-/**
- * Play earcons for the object that was most recently navigated to.
- */
-cvox.ChromeVoxUserCommands.playEarcons = function() {
-  var ancestors = cvox.ChromeVox.navigationManager.getChangedAncestors();
-  var earcons = [];
-  for (var i = 0; i < ancestors.length; i++) {
-    var node = ancestors[i];
-    // Check if this is an ARIA control; if it is, ARIA role takes precedence.
-    if (cvox.AriaUtil.isControlWidget(node)) {
-      var role = node.getAttribute('role');
-      switch (role) {
-        case 'button':
-          earcons.push(cvox.AbstractEarcons.BUTTON);
-          break;
-        case 'checkbox':
-        case 'radio':
-        case 'menuitemcheckbox':
-        case 'menuitemradio':
-          if (!node.getAttribute('aria-checked')) {
-            earcons.push(cvox.AbstractEarcons.CHECK_OFF);
-          } else {
-            earcons.push(cvox.AbstractEarcons.CHECK_ON);
-          }
-          break;
-        case 'combobox':
-          earcons.push(cvox.AbstractEarcons.LISTBOX);
-          break;
-        case 'textbox':
-          earcons.push(cvox.AbstractEarcons.EDITABLE_TEXT);
-          break;
-      }
-    } else {
-      // Not an ARIA control; use the element's tag.
-      switch (node.tagName) {
-        case 'BUTTON':
-          earcons.push(cvox.AbstractEarcons.BUTTON);
-          break;
-        case 'A':
-          earcons.push(cvox.AbstractEarcons.LINK);
-          break;
-        case 'LI':
-          earcons.push(cvox.AbstractEarcons.LIST_ITEM);
-          break;
-        case 'SELECT':
-          earcons.push(cvox.AbstractEarcons.LISTBOX);
-          break;
-        case 'TEXTAREA':
-          earcons.push(cvox.AbstractEarcons.EDITABLE_TEXT);
-          break;
-        case 'INPUT':
-          switch (node.type) {
-            case 'button':
-            case 'submit':
-            case 'reset':
-              earcons.push(cvox.AbstractEarcons.BUTTON);
-              break;
-            case 'checkbox':
-            case 'radio':
-              if (node.checked) {
-                earcons.push(cvox.AbstractEarcons.CHECK_ON);
-              } else {
-                earcons.push(cvox.AbstractEarcons.CHECK_OFF);
-              }
-              break;
-            default:
-              if (cvox.DomUtil.isInputTypeText(node)) {
-                // 'text', 'password', etc.
-                earcons.push(cvox.AbstractEarcons.EDITABLE_TEXT);
-              }
-              break;
-          }
+  function speakDescription(i, queueMode) {
+    var description = descriptionArray[i];
+    if (i == 0) {
+      for (var j = 0; j < description.earcons.length; j++) {
+        cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
       }
     }
-  }
+    function startCallback() {
+      if (i > 0) {
+        for (var j = 0; j < description.earcons.length; j++) {
+          cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
+        }
+      }
+    }
+    function endCallback() {}
+    description.speak(queueMode, startCallback, endCallback);
+  };
 
-  for (var j = 0; j < earcons.length; j++) {
-    cvox.ChromeVox.earcons.playEarcon(earcons[j]);
+  for (var i = 0; i < descriptionArray.length; i++) {
+    speakDescription(i, queueMode);
+    queueMode = 1;
   }
 };
 
@@ -855,7 +799,8 @@ cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
  * Starts reading the page contents from current location.
  */
 cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
-  cvox.ChromeVox.navigationManager.startReadingFromNode();
+  cvox.ChromeVox.navigationManager.startReadingFromCurrentNode(
+      cvox.AbstractTts.QUEUE_MODE_FLUSH);
 };
 
 //
@@ -863,25 +808,21 @@ cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
 
 
 /**
- * Look into a table.
+ * Toggle navigating through tables on and off.
  */
-cvox.ChromeVoxUserCommands.commands['enterTable'] = function() {
-  if (cvox.ChromeVox.navigationManager.enterTable()) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('Inside table ');
+cvox.ChromeVoxUserCommands.commands['toggleTable'] = function() {
+  if (cvox.ChromeVox.navigationManager.inTableMode()) {
+    // Currently in table mode, so leave table mode.
+    cvox.ChromeVox.navigationManager.exitTable();
+    cvox.ChromeVoxUserCommands.finishNavCommand('Leaving table. ');
   } else {
-    cvox.ChromeVox.tts.speak(
-        'No table found.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    if (cvox.ChromeVox.navigationManager.enterTable()) {
+      cvox.ChromeVoxUserCommands.finishNavCommand('Inside table ');
+    } else {
+      cvox.ChromeVox.tts.speak(
+          'No table found.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    }
   }
-};
-
-
-/**
- * End looking at a table.
- */
-cvox.ChromeVoxUserCommands.commands['exitTable'] = function() {
-  cvox.ChromeVox.navigationManager.exitTable();
-
-  cvox.ChromeVoxUserCommands.finishNavCommand('Leaving table. ');
 };
 
 
@@ -1551,6 +1492,84 @@ cvox.ChromeVoxUserCommands.commands['previousNotLink'] = function() {
 
 
 /**
+ * Next anchor.
+ *
+ * @return {boolean} Always return false to prevent default action.
+ */
+cvox.ChromeVoxUserCommands.commands['nextAnchor'] = function() {
+  var temp = cvox.ChromeVox.navigationManager.currentNode;
+  if (!temp) {
+    temp = document.body.firstChild;
+  } else {
+    temp = cvox.DomUtil.nextLeafNode(temp);
+  }
+  while (temp) {
+    if (cvox.DomUtil.ancestorIsAnchor(temp)) {
+      break;
+    }
+    temp = cvox.DomUtil.nextLeafNode(temp);
+  }
+
+  if (temp) {
+    cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
+    cvox.Api.syncToNode(temp, false);
+    cvox.ChromeVox.navigationManager.previous(true);
+    cvox.ChromeVoxUserCommands.commands['forward']();
+  } else {
+    cvox.ChromeVox.tts.speak('No next anchor', 0,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  }
+
+  return false;
+};
+
+
+/**
+ * Previous anchor.
+ *
+ * @return {boolean} Always return false to prevent default action.
+ */
+cvox.ChromeVoxUserCommands.commands['previousAnchor'] = function() {
+  var temp = cvox.ChromeVox.navigationManager.currentNode;
+  if (temp) {
+    temp = cvox.DomUtil.previousLeafNode(temp);
+  }
+
+  while (temp) {
+    if (cvox.DomUtil.ancestorIsAnchor(temp)) {
+      break;
+    }
+    temp = cvox.DomUtil.previousLeafNode(temp);
+  }
+
+  // TODO : This causes skipping over one anchor if other kinds of navigation
+  // are used between invocations of anchor navigation. The alternative is
+  // getting stuck on empty anchors.
+  if (temp == cvox.ChromeVoxUserCommands.mostRecentAnchor_) {
+    temp = cvox.DomUtil.previousLeafNode(temp);
+    while (temp) {
+      if (cvox.DomUtil.ancestorIsAnchor(temp)) {
+        break;
+      }
+      temp = cvox.DomUtil.previousLeafNode(temp);
+    }
+  }
+
+  if (temp) {
+    cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
+    cvox.Api.syncToNode(temp, false);
+    cvox.ChromeVox.navigationManager.previous(true);
+    cvox.ChromeVoxUserCommands.commands['forward']();
+  } else {
+    cvox.ChromeVox.tts.speak('No previous anchor', 0,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  }
+
+  return false;
+};
+
+
+/**
  * Next link.
  *
  * @return {boolean} Always return false since we want to prevent the default
@@ -1717,6 +1736,7 @@ cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
   return false;
 };
 
+
 /**
  * Next jump point (heading or ARIA landmark).
  *
@@ -1744,6 +1764,7 @@ cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
   return false;
 };
 
+
 /**
  * Next ARIA landmark.
  *
@@ -1770,6 +1791,7 @@ cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
       'No previous ARIA landmark.');
   return false;
 };
+
 
 /**
  * Attempts to do something reasonable given the current item that the user is
@@ -1799,7 +1821,7 @@ cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
   cvox.ChromeVox.tts.speak(
-        'Clicked.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      'Clicked.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   cvox.DomUtil.clickElem(cvox.ChromeVox.navigationManager.currentNode, false);
   return false;
 };
@@ -1873,11 +1895,11 @@ cvox.ChromeVoxUserCommands.commands['floatLens'] = function() {
   } catch (err) {
   }
   cvox.ExtensionBridge.send({
-      'target': 'Prefs',
-      'action': 'setPref',
-      'pref': 'lensAnchored',
-      'value': false
-    });
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'lensAnchored',
+    'value': false
+  });
 
   return false;
 };
@@ -1896,11 +1918,11 @@ cvox.ChromeVoxUserCommands.commands['anchorLens'] = function() {
   } catch (err) {
   }
   cvox.ExtensionBridge.send({
-      'target': 'Prefs',
-      'action': 'setPref',
-      'pref': 'lensAnchored',
-      'value': true
-    });
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'lensAnchored',
+    'value': true
+  });
 
   return false;
 };
@@ -2161,6 +2183,22 @@ cvox.ChromeVoxUserCommands.linkPredicate_ = function(nodes) {
 
 
 /**
+ * Anchor.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is an anchor.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.anchorPredicate_ = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].tagName == 'A' && nodes[i].getAttribute('name')) {
+        return nodes[i];
+    }
+  }
+  return null;
+};
+
+
+/**
  * Table.
  * @param {Array.<Node>} nodes An array of nodes to check.
  * @return {?Node} Node in the array that is a table.
@@ -2248,6 +2286,7 @@ cvox.ChromeVoxUserCommands.formFieldPredicate_ = function(nodes) {
   return null;
 };
 
+
 /**
  * Jump point - an ARIA landmark or heading.
  * @param {Array.<Node>} nodes An array of nodes to check.
@@ -2276,6 +2315,7 @@ cvox.ChromeVoxUserCommands.jumpPredicate_ = function(nodes) {
   return null;
 };
 
+
 /**
  * ARIA landmark.
  * @param {Array.<Node>} nodes An array of nodes to check.
@@ -2290,6 +2330,7 @@ cvox.ChromeVoxUserCommands.landmarkPredicate_ = function(nodes) {
   }
   return null;
 };
+
 
 /**
  * Creates a simple function that will navigate to the given targetNode when
@@ -2306,11 +2347,12 @@ cvox.ChromeVoxUserCommands.landmarkPredicate_ = function(nodes) {
 cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_ = function(
     targetNode) {
   return function() {
-        cvox.ChromeVox.navigationManager.syncToNode(targetNode);
-        cvox.ChromeVox.navigationManager.previous(true);
-        cvox.ChromeVoxUserCommands.commands['forward']();
-      };
+    cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+    cvox.ChromeVox.navigationManager.previous(true);
+    cvox.ChromeVoxUserCommands.commands['forward']();
+  };
 };
+
 
 /**
  * Uses PowerKey to show a list of elements that can be navigated to.
@@ -2322,7 +2364,7 @@ cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_ = function(
  * elements; if this is null, the text of the elements will be used.
  */
 cvox.ChromeVoxUserCommands.showNavigationList = function(errorStr,
-      elementsArray, opt_descriptionsArray) {
+    elementsArray, opt_descriptionsArray) {
   if (elementsArray.length < 1) {
     cvox.ChromeVox.tts.speak(errorStr, 0,
         cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -2348,6 +2390,7 @@ cvox.ChromeVoxUserCommands.showNavigationList = function(errorStr,
   choiceWidget.show(descriptions, functions, descriptions.toString());
 };
 
+
 /**
  * Show headings list with PowerKey.
  */
@@ -2356,6 +2399,7 @@ cvox.ChromeVoxUserCommands.commands['showHeadingsList'] = function() {
   cvox.ChromeVoxUserCommands.showNavigationList('No headings.',
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
+
 
 /**
  * Show links list with PowerKey.
@@ -2366,6 +2410,7 @@ cvox.ChromeVoxUserCommands.commands['showLinksList'] = function() {
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
 
+
 /**
  * Show forms list with PowerKey.
  */
@@ -2374,6 +2419,7 @@ cvox.ChromeVoxUserCommands.commands['showFormsList'] = function() {
   cvox.ChromeVoxUserCommands.showNavigationList('No forms.',
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
+
 
 /**
  * Show tables list with PowerKey.
@@ -2404,6 +2450,7 @@ cvox.ChromeVoxUserCommands.commands['showTablesList'] = function() {
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
 
+
 /**
  * Show landmarks list with PowerKey.
  */
@@ -2424,6 +2471,7 @@ cvox.ChromeVoxUserCommands.commands['showLandmarksList'] = function() {
   cvox.ChromeVoxUserCommands.showNavigationList('No ARIA landmarks.',
       landmarkNodes, descriptions);
 };
+
 
 /**
  * Show jump points list with PowerKey.

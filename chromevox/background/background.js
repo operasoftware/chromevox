@@ -57,6 +57,47 @@ cvox.ChromeVoxBackground.prototype.init = function() {
 
   cvox.ChromeVoxAccessibilityApiHandler.init(this.ttsManager,
       this.earconsManager);
+
+  if (COMPILED) {
+    // Inject the content script into all running tabs.
+    var self = this;
+    console.log('Getting all windows');
+    chrome.windows.getAll({'populate': true}, function(windows) {
+      for (var i = 0; i < windows.length; i++) {
+        var tabs = windows[i].tabs;
+        for (var j = 0; j < tabs.length; j++) {
+          var tab = tabs[j];
+          self.injectChromeVoxIntoTab(tab);
+        }
+      }
+    });
+  }
+};
+
+
+/**
+ * Inject ChromeVox into a tab.
+ * @param {Tab} tab The tab where ChromeVox scripts should be injected.
+ */
+cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab = function(tab) {
+  chrome.tabs.executeScript(
+      tab.id,
+      {file: 'build/build_defs.js',
+       allFrames: true},
+      function() {
+        if (chrome.extension.lastError) {
+          console.log('ERROR: Did not inject into ' + tab.url);
+        }
+      });
+  chrome.tabs.executeScript(tab.id,
+                            {file: 'build/build_config_chrome.js',
+                             allFrames: true});
+  chrome.tabs.executeScript(tab.id,
+                            {file: 'chromevox/injected/main.js',
+                             allFrames: true});
+  chrome.tabs.executeScript(tab.id,
+                            {file: 'common/extension_bridge.js',
+                             allFrames: true});
 };
 
 
@@ -81,11 +122,10 @@ cvox.ChromeVoxBackground.prototype.createEarconsManager = function(ttsManager) {
 /**
  * Called when a TTS message is received from a page content script.
  * @param {Object} msg The TTS message.
- * @param {Function} callBack The function to be called when speech completes.
  */
-cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg, callBack) {
+cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
   if (msg.action == 'speak') {
-    this.ttsManager.speak(msg.text, msg.queueMode, msg.properties, callBack);
+    this.ttsManager.speak(msg.text, msg.queueMode, msg.properties);
   } else if (msg.action == 'stop') {
     this.ttsManager.stop();
   } else if (msg.action == 'nextEngine') {
@@ -168,11 +208,19 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       }
       break;
     case 'TTS':
-      context.onTtsMessage(msg, function() {
-        port.postMessage({
-          'message': 'TTS_COMPLETED',
-          'id': msg['callbackId']});
-      });
+      if (msg['startCallbackId']) {
+        msg.properties['startCallback'] = function() {
+          port.postMessage({'message': 'TTS_CALLBACK',
+                            'id': msg['startCallbackId']});
+        };
+      }
+      if (msg['endCallbackId']) {
+        msg.properties['endCallback'] = function() {
+          port.postMessage({'message': 'TTS_CALLBACK',
+                            'id': msg['endCallbackId']});
+        };
+      }
+      context.onTtsMessage(msg);
       break;
     case 'EARCON':
       context.onEarconMessage(msg);
