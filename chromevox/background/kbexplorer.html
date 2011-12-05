@@ -1,13 +1,24 @@
 <html>
 <head>
-<title>ChromeVox Keyboard explorer</title>
+<title class="i18n" msg="kbexplorer_title">Chrome OS Keyboard Explorer</title>
 <style type="text/css">
 h2 {
   font-family:arial;
 }
 </style>
+<script type="text/javascript" src="../../closure/closure_preinit.js"></script>
+<script type="text/javascript" src="../../closure/base.js"></script>
 <script type="text/javascript" src="../../common/chromevox.js"></script>
-<script type="text/javascript" src="../../common/key_util.js"></script>
+<script type="text/javascript" src="deps.js"></script>
 <script type="text/javascript" src="kbexplorer.js"></script>
+
+<script type="text/javascript" src="../../chromeVoxKbExplorerScript.js"></script>
+
 </head>
+<body onload="load()">
+  <h2 class="i18n" msgid="kbexplorer_title">ChromeOS Keyboard Explorer</h2>
+  <p class="i18n" msgid="kbexplorer_instructions">
+    Press any key to learn its name. Ctrl + W will close the keyboard explorer.
+  </p>
+</body>
 </html>

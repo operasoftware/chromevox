@@ -19,10 +19,10 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.provide('cvox.ChromeVoxPrefs');
+goog.provide('cvox.ChromeVoxPrefs');
 
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.ExtensionBridge');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ExtensionBridge');
 
 
 
@@ -33,33 +33,34 @@ cvoxgoog.require('cvox.ExtensionBridge');
  * @constructor
  */
 cvox.ChromeVoxPrefs = function() {
-  this.init();
+  this.init(false);
 };
 
 
 /**
  * The default value of all preferences except the key map.
  * @const
- * @type {Object.<String, Object>}
+ * @type {Object.<string, Object>}
  */
 cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'lensVisible': false,
   'lensAnchored': true,
   'focusFollowsMouse': false,
+  'useBriefMode': false,
   'cursorIsBlock': false
 };
 
 
 /**
  * The current mapping from keys to an array of [command, description].
- * @type {Object.<Array.<String>>}
+ * @type {Object.<Array.<string>>}
  */
 cvox.ChromeVoxPrefs.prototype.keyMap;
 
 
 /**
  * A reverse mapping from command to key binding.
- * @type {Object.<String,String>}
+ * @type {Object.<string,string>}
  */
 cvox.ChromeVoxPrefs.prototype.nameToKeyMap;
 
@@ -67,8 +68,13 @@ cvox.ChromeVoxPrefs.prototype.nameToKeyMap;
 /**
  * Merge the default values of all known prefs with what's found in
  * localStorage.
+ * @param {boolean} pullFromLocalStorage or not to pull prefs from local
+ * storage. True if we want to respect changes the user has already made
+ * to prefs, false if we want to overwrite them. Set false if we've made
+ * changes to keyboard shortcuts and need to make sure they aren't
+ * overridden by the keymap in local storage.
  */
-cvox.ChromeVoxPrefs.prototype.init = function() {
+cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
   // Set the default value of any pref that isn't already in localStorage.
   for (var key in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
     if (localStorage[key] === undefined) {
@@ -79,12 +85,15 @@ cvox.ChromeVoxPrefs.prototype.init = function() {
   //
   // Try to intelligently merge the key maps; any new command that isn't
   // already in the key map should get added, unless there's a key conflict.
-  //
-
-  // Get the current key map from localStorage.
-  try {
-    var currentKeyMap = JSON.parse(localStorage['keyBindings']);
-  } catch (e) {
+  // If we're pulling from local storage, get the current key map from
+  // localStorage.
+  if (pullFromLocalStorage) {
+    try {
+      var currentKeyMap = JSON.parse(localStorage['keyBindings']);
+    } catch (e) {
+      var currentKeyMap = {};
+    }
+  } else {
     var currentKeyMap = {};
   }
 
@@ -112,180 +121,224 @@ cvox.ChromeVoxPrefs.prototype.init = function() {
   }
 
   // Now set the keyMap and write it back to localStorage.
-  this.keyMap = /** @type {Object.<Array.<String>>} */(currentKeyMap);
+  this.keyMap = /** @type {Object.<Array.<string>>} */(currentKeyMap);
   this.saveKeyMap();
 };
 
 
 /**
  * Create and return the default key map.
- * @return {Object.<Array.<String>>} The default key map.
+ * @return {Object.<Array.<string>>} The default key map.
  */
 cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   var stkyKey = cvox.ChromeVox.stickyKeyStr;
   var stkyKeyCode = cvox.ChromeVox.stickyKeyCode;
   var mod1 = cvox.ChromeVox.modKeyStr;
+  /** Alias getMsg as msg. */
+  var msg = cvox.ChromeVox.msgs.getMsg;
 
   var keyMap = {};
 
-  keyMap['Ctrl+'] = ['stopSpeech', 'Stop speaking']; // Ctrl
-  keyMap['Cvox+'] = ['stopSpeech', 'Stop speaking']; // Ctrl
+  keyMap['Ctrl+'] = ['stopSpeech', msg('stop_speech_key')]; // Ctrl
+  keyMap['Cvox+'] = ['stopSpeech', msg('stop_speech_key')]; // Cvox
 
   // Double tap Modifier#1
   keyMap[(stkyKey + '>' + stkyKey + '+')] =
-      ['toggleStickyMode', 'Enable/Disable sticky mode'];
+      ['toggleStickyMode', msg('toggle_sticky_mode')];
 
   // TAB/Shift+TAB
-  keyMap['#9'] = ['handleTab', 'Jump to next focusable item']; // Tab
-  keyMap['Shift+#9'] = ['handleTab', 'Jump to previous focusable item'];
+  keyMap['#9'] = ['handleTab', msg('handle_tab_next')]; // Tab
+  keyMap['Shift+#9'] = ['handleTab', msg('handle_tab_prev')];
 
   // Basic navigation
-  keyMap[(mod1 + '+#38')] = ['backward', 'Navigate backward'];
-  keyMap[(mod1 + '+#40')] = ['forward', 'Navigate forward'];
+  keyMap[(mod1 + '+#38')] = ['backward', msg('backward')];
+  keyMap[(mod1 + '+#40')] = ['forward', msg('forward')];
   keyMap[(mod1 + '+#37')] =
-      ['previousGranularity', 'Decrease navigation granularity'];
+      ['left', msg('left')];
   keyMap[(mod1 + '+#39')] =
-      ['nextGranularity', 'Increase navigation granularity'];
-  keyMap['#13'] = ['actOnCurrentItem', 'Take action on current item']; // ENTER
+      ['right', msg('right')];
+
+  keyMap[(mod1 + '+#189')] =
+      ['previousGranularity', msg('previous_granularity')]; // -
+  keyMap[(mod1 + '+#187')] =
+      ['nextGranularity', msg('next_granularity')]; //+
+
+  keyMap['#13'] = ['actOnCurrentItem', msg('act_on_current_item')]; // ENTER
   keyMap[(mod1 + '+#32')] =
-      ['forceClickOnCurrentItem', 'Click on current item']; // SPACE
+      ['forceClickOnCurrentItem',
+      msg('force_click_on_current_item')]; // SPACE
   // Read the URL
-  keyMap[(mod1 + '+U')] = ['readLinkURL', 'Announce the URL behind a link'];
+  keyMap[(mod1 + '+U')] = ['readLinkURL', msg('read_link_url')];
   // Read current page title
   keyMap[(mod1 + '+C>T')] =
-      ['readCurrentTitle', 'Announce the title of the current page'];
+      ['readCurrentTitle', msg('read_current_title')];
   // Read current page URL
   keyMap[(mod1 + '+C>U')] =
-      ['readCurrentURL', 'Announce the URL of the current page'];
+      ['readCurrentURL', msg('read_current_url')];
   // Start reading from current location
   keyMap[(mod1 + '+R')] =
-      ['readFromHere', 'Start reading from current location'];
+      ['readFromHere', msg('read_from_here')];
+  // Announce the current position
+  keyMap[(mod1 + '+J')] = ['announcePosition', msg('announce_position')];
+  // Announce the current position with full path
+  keyMap[(mod1 + '+K')] = ['fullyDescribe', msg('fully_describe')];
 
   // General commands
-  keyMap[(mod1 + '+#190')] = ['showPowerKey', 'Show ChromeVox help']; // '.'
-  keyMap[(mod1)] = ['hidePowerKey', 'Hide ChromeVox help']; // modifier
-  keyMap[(mod1 + '+H')] = ['help', 'Open ChromeVox help documentation'];
+  keyMap[(mod1 + '+#190')] =
+      ['showPowerKey', msg('show_power_key')]; // '.'
+  keyMap[(mod1)] =
+      ['hidePowerKey', msg('hide_power_key')]; // modifier
+  keyMap[(mod1 + '+H')] = ['help', msg('help')];
   keyMap[(mod1 + '+#191')] =
-      ['toggleSearchWidget', 'Toggle search widget'];    // '/'
-  keyMap[(mod1 + '+O>B')] = ['showBookmarkManager', 'Open bookmark manager'];
-  keyMap[(mod1 + '+O>W')] = ['showOptionsPage', 'Open options page'];
-  keyMap[(mod1 + '+O>K')] = ['showKbExplorerPage', 'Open keyboard explorer'];
+      ['toggleSearchWidget', msg('toggle_search_widget')];    // '/'
+  keyMap[(mod1 + '+O>W')] =
+      ['showOptionsPage', msg('show_options_page')];
+  keyMap[(mod1 + '+O>K')] =
+      ['showKbExplorerPage', msg('show_kb_explorer_page')];
   // TODO Assign a different shortcut when nextTtsEngine works.
   //keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
-  keyMap[(mod1 + '+#189')] =
-      ['decreaseTtsRate', 'Decrease rate of speech']; // '-'
-  keyMap[(mod1 + '+#187')] =
-      ['increaseTtsRate', 'Increase rate of speech']; // '='
-  keyMap[(mod1 + '+#186')] = ['decreaseTtsPitch', 'Decrease pitch']; // ';'
-  keyMap[(mod1 + '+#222')] = ['increaseTtsPitch', 'Increase pitch']; // '''
+
+  keyMap[(mod1 + '+#186')] =
+      ['decreaseTtsPitch', msg('decrease_tts_pitch')]; // ';'
+  keyMap[(mod1 + '+#222')] =
+      ['increaseTtsPitch', msg('increase_tts_pitch')]; // '''
+
   keyMap[(mod1 + '+#219')] =
-      ['decreaseTtsVolume', 'Decrease speech volume']; // '['
+      ['decreaseTtsRate', msg('decrease_tts_rate')]; // '['
   keyMap[(mod1 + '+#221')] =
-      ['increaseTtsVolume', 'Increase speech volume']; // ']'
+      ['increaseTtsRate', msg('increase_tts_rate')]; // ']'
 
   // Lens
-  keyMap[(mod1 + '+M>E')] = ['showLens', 'Show lens']; //'M' > 'E'
-  keyMap[(mod1 + '+M>#8')] = ['hideLens', 'Hide lens']; // 'M' > 'Backspace'
-  keyMap[(mod1 + '+M>M')] = ['toggleLens', 'Toggle lens']; // 'M' > 'M'
-  keyMap[(mod1 + '+M>A')] = ['anchorLens', 'Anchor lens at top']; //'M' > 'A'
-  keyMap[(mod1 + '+M>F')] = ['floatLens', 'Float lens near text']; // 'M' > 'F'
+  keyMap[(mod1 + '+M>E')] =
+      ['showLens', msg('show_lens')]; //'M' > 'E'
+  keyMap[(mod1 + '+M>#8')] =
+      ['hideLens', msg('hide_lens')]; // 'M' > 'Backspace'
+  keyMap[(mod1 + '+M>M')] =
+      ['toggleLens', msg('toggle_lens')]; // 'M' > 'M'
+  keyMap[(mod1 + '+M>A')] =
+      ['anchorLens', msg('anchor_lens')]; //'M' > 'A'
+  keyMap[(mod1 + '+M>F')] =
+      ['floatLens', msg('float_lens')]; // 'M' > 'F'
 
   // List commands
-  keyMap[(mod1 + '+L>F')] = ['showFormsList', 'Show forms list']; //'L' > 'F'
+  keyMap[(mod1 + '+L>F')] =
+      ['showFormsList', msg('show_forms_list')]; //'L' > 'F'
   keyMap[(mod1 + '+L>H')] =
-      ['showHeadingsList', 'Show headings list']; //'L' > 'H'
-  keyMap[(mod1 + '+L>J')] = ['showJumpsList', 'Show jumps list']; //'L' > 'J'
-  keyMap[(mod1 + '+L>L')] = ['showLinksList', 'Show links list']; //'L' > 'L'
-  keyMap[(mod1 + '+L>T')] = ['showTablesList', 'Show tables list']; //'L' > 'T'
+      ['showHeadingsList', msg('show_headings_list')]; //'L' > 'H'
+  keyMap[(mod1 + '+L>J')] =
+      ['showJumpsList', msg('show_jumps_list')]; //'L' > 'J'
+  keyMap[(mod1 + '+L>L')] =
+      ['showLinksList', msg('show_links_list')]; //'L' > 'L'
+  keyMap[(mod1 + '+L>T')] =
+      ['showTablesList', msg('show_tables_list')]; //'L' > 'T'
   keyMap[(mod1 + '+L>#186')] =
-      ['showLandmarksList', 'Show landmarks list']; //'L' > ';'
+      ['showLandmarksList',
+      msg('show_landmarks_list')]; //'L' > ';'
 
   // Mode commands
-  keyMap[(mod1 + '+T>E')] = ['toggleTable', 'Toggle table mode']; //'T' > 'E'
-
-  keyMap[(mod1 + '+T>#38')] =
-      ['previousRow', 'Previous table row']; // 'T' > Up
-  keyMap[(mod1 + '+T>#40')] = ['nextRow', 'Next table row']; // 'T' > Down
-  keyMap[(mod1 + '+T>#37')] =
-      ['previousCol', 'Previous table column']; // 'T' > Left
-  keyMap[(mod1 + '+T>#39')] =
-      ['nextCol', 'Next table column']; // 'T' > Right
+  keyMap[(mod1 + '+T>E')] =
+      ['toggleTable', msg('toggle_table')]; //'T' > 'E'
 
   keyMap[(mod1 + '+T>H')] =
-      ['announceHeaders', 'Announce the headers of the current cell']; // T > H
+      ['announceHeaders', msg('announce_headers')]; // T > H
   keyMap[(mod1 + '+T>L')] =
-      ['speakTableLocation', 'Announce the current table location']; // T > L
+      ['speakTableLocation', msg('speak_table_location')]; // T > L
 
   keyMap[(mod1 + '+T>R')] =
-      ['guessRowHeader', 'Make a guess at the row header of the current cell'];
+      ['guessRowHeader', msg('guess_row_header')];
   // T > R
-  keyMap[(mod1 + '+T>C')] = ['guessColHeader',
-    'Make a guess at the column header of the current cell']; // T > L
+  keyMap[(mod1 + '+T>C')] =
+      ['guessColHeader', msg('guess_col_header')]; // T > L
 
   keyMap[(mod1 + '+T>#219')] =
-      ['skipToBeginning', 'Go to beginning of table']; // 'T' > '['
+      ['skipToBeginning', msg('skip_to_beginning')]; // 'T' > '['
   keyMap[(mod1 + '+T>#221')] =
-      ['skipToEnd', 'Go to end of table']; // 'T' > ']'
+      ['skipToEnd', msg('skip_to_end')]; // 'T' > ']'
 
   keyMap[(mod1 + '+T>#186')] =
-      ['skipToRowBeginning', 'Go to beginning of the current row']; // 'T' > ';'
+      ['skipToRowBeginning', msg('skip_to_row_beginning')]; // 'T' > ';'
   keyMap[(mod1 + '+T>#222')] =
-      ['skipToRowEnd', 'Go to end of the current row']; // 'T' > '''
+      ['skipToRowEnd', msg('skip_to_row_end')]; // 'T' > '''
 
   keyMap[(mod1 + '+T>#188')] =
-      ['skipToColBeginning', 'Go to beginning of the current column'];
+      ['skipToColBeginning', msg('skip_to_col_beginning')];
   keyMap[(mod1 + '+T>#190')] =
-      ['skipToColEnd', 'Go to end of the current column']; // 'T' > '.'
+      ['skipToColEnd', msg('skip_to_col_end')]; // 'T' > '.'
 
   // Jump commands
-  keyMap[(mod1 + '+N>1')] = ['nextHeading1', 'Next level 1 heading'];
-  keyMap[(mod1 + '+P>1')] = ['previousHeading1', 'Previous level 1 heading'];
-  keyMap[(mod1 + '+N>2')] = ['nextHeading2', 'Next level 2 heading'];
-  keyMap[(mod1 + '+P>2')] = ['previousHeading2', 'Previous level 2 heading'];
-  keyMap[(mod1 + '+N>3')] = ['nextHeading3', 'Next level 3 heading'];
-  keyMap[(mod1 + '+P>3')] = ['previousHeading3', 'Previous level 3 heading'];
-  keyMap[(mod1 + '+N>4')] = ['nextHeading4', 'Next level 4 heading'];
-  keyMap[(mod1 + '+P>4')] = ['previousHeading4', 'Previous level 4 heading'];
-  keyMap[(mod1 + '+N>5')] = ['nextHeading5', 'Next level 5 heading'];
-  keyMap[(mod1 + '+P>5')] = ['previousHeading5', 'Previous level 5 heading'];
-  keyMap[(mod1 + '+N>6')] = ['nextHeading6', 'Next level 6 heading'];
-  keyMap[(mod1 + '+P>6')] = ['previousHeading6', 'Previous level 6 heading'];
-  keyMap[(mod1 + '+N>A')] = ['nextAnchor', 'Next anchor'];
-  keyMap[(mod1 + '+P>A')] = ['previousAnchor', 'Previous anchor'];
-  keyMap[(mod1 + '+N>C')] = ['nextComboBox', 'Next combo box'];
-  keyMap[(mod1 + '+P>C')] = ['previousComboBox', 'Previous combo box'];
-  keyMap[(mod1 + '+N>E')] = ['nextEditText', 'Next editable text area'];
-  keyMap[(mod1 + '+P>E')] = ['previousEditText', 'Previous editable text area'];
-  keyMap[(mod1 + '+N>F')] = ['nextFormField', 'Next form field'];
-  keyMap[(mod1 + '+P>F')] = ['previousFormField', 'Previous form field'];
-  keyMap[(mod1 + '+N>G')] = ['nextGraphic', 'Next graphic'];
-  keyMap[(mod1 + '+P>G')] = ['previousGraphic', 'Previous graphic'];
-  keyMap[(mod1 + '+N>H')] = ['nextHeading', 'Next heading'];
-  keyMap[(mod1 + '+P>H')] = ['previousHeading', 'Previous heading'];
-  keyMap[(mod1 + '+N>I')] = ['nextListItem', 'Next list item'];
-  keyMap[(mod1 + '+P>I')] = ['previousListItem', 'Previous list item'];
-  keyMap[(mod1 + '+N>J')] = ['nextJump', 'Next jump'];
-  keyMap[(mod1 + '+P>J')] = ['previousJump', 'Previous jump'];
-  keyMap[(mod1 + '+N>L')] = ['nextLink', 'Next link'];
-  keyMap[(mod1 + '+P>L')] = ['previousLink', 'Previous link'];
-  keyMap[(mod1 + '+N>O')] = ['nextList', 'Next list'];
-  keyMap[(mod1 + '+P>O')] = ['previousList', 'Previous list'];
-  keyMap[(mod1 + '+N>Q')] = ['nextBlockquote', 'Next block quote'];
-  keyMap[(mod1 + '+P>Q')] = ['previousBlockquote', 'Previous block quote'];
-  keyMap[(mod1 + '+N>R')] = ['nextRadio', 'Next radio button'];
-  keyMap[(mod1 + '+P>R')] = ['previousRadio', 'Previous radio button'];
-  keyMap[(mod1 + '+N>S')] = ['nextSlider', 'Next slider'];
-  keyMap[(mod1 + '+P>S')] = ['previousSlider', 'Previous slider'];
-  keyMap[(mod1 + '+N>T')] = ['nextTable', 'Next table'];
-  keyMap[(mod1 + '+P>T')] = ['previousTable', 'Previous table'];
-  keyMap[(mod1 + '+N>B')] = ['nextButton', 'Next button'];
-  keyMap[(mod1 + '+P>B')] = ['previousButton', 'Previous button'];
-  keyMap[(mod1 + '+N>X')] = ['nextCheckbox', 'Next checkbox'];
-  keyMap[(mod1 + '+P>X')] = ['previousCheckbox', 'Previous checkbox'];
-  keyMap[(mod1 + '+N>#186')] = ['nextLandmark', 'Next landmark'];  // ';'
+  keyMap[(mod1 + '+N>1')] = ['nextHeading1', msg('next_heading1')];
+  keyMap[(mod1 + '+P>1')] =
+      ['previousHeading1', msg('previous_heading1')];
+  keyMap[(mod1 + '+N>2')] = ['nextHeading2', msg('next_heading2')];
+  keyMap[(mod1 + '+P>2')] =
+      ['previousHeading2', msg('previous_heading2')];
+  keyMap[(mod1 + '+N>3')] = ['nextHeading3', msg('next_heading3')];
+  keyMap[(mod1 + '+P>3')] =
+      ['previousHeading3', msg('previous_heading3')];
+  keyMap[(mod1 + '+N>4')] = ['nextHeading4', msg('next_heading4')];
+  keyMap[(mod1 + '+P>4')] =
+      ['previousHeading4', msg('previous_heading4')];
+  keyMap[(mod1 + '+N>5')] = ['nextHeading5', msg('next_heading5')];
+  keyMap[(mod1 + '+P>5')] =
+      ['previousHeading5', msg('previous_heading5')];
+  keyMap[(mod1 + '+N>6')] = ['nextHeading6', msg('next_heading6')];
+  keyMap[(mod1 + '+P>6')] =
+      ['previousHeading6', msg('previous_heading6')];
+  keyMap[(mod1 + '+N>A')] = ['nextAnchor', msg('next_anchor')];
+  keyMap[(mod1 + '+P>A')] =
+      ['previousAnchor', msg('previous_anchor')];
+  keyMap[(mod1 + '+N>C')] =
+      ['nextComboBox', msg('next_combo_box')];
+  keyMap[(mod1 + '+P>C')] =
+      ['previousComboBox', msg('previous_combo_box')];
+  keyMap[(mod1 + '+N>E')] =
+      ['nextEditText', msg('next_edit_text')];
+  keyMap[(mod1 + '+P>E')] =
+      ['previousEditText', msg('previous_edit_text')];
+  keyMap[(mod1 + '+N>F')] =
+      ['nextFormField', msg('next_form_field')];
+  keyMap[(mod1 + '+P>F')] =
+      ['previousFormField', msg('previous_form_field')];
+  keyMap[(mod1 + '+N>G')] = ['nextGraphic', msg('next_graphic')];
+  keyMap[(mod1 + '+P>G')] =
+      ['previousGraphic', msg('previous_graphic')];
+  keyMap[(mod1 + '+N>H')] = ['nextHeading', msg('next_heading')];
+  keyMap[(mod1 + '+P>H')] =
+      ['previousHeading', msg('previous_heading')];
+  keyMap[(mod1 + '+N>I')] =
+      ['nextListItem', msg('next_list_item')];
+  keyMap[(mod1 + '+P>I')] =
+      ['previousListItem', msg('previous_list_item')];
+  keyMap[(mod1 + '+N>J')] = ['nextJump', msg('next_jump')];
+  keyMap[(mod1 + '+P>J')] = ['previousJump', msg('previous_jump')];
+  keyMap[(mod1 + '+N>L')] = ['nextLink', msg('next_link')];
+  keyMap[(mod1 + '+P>L')] = ['previousLink', msg('previous_link')];
+  keyMap[(mod1 + '+N>O')] = ['nextList', msg('next_list')];
+  keyMap[(mod1 + '+P>O')] = ['previousList', msg('previous_list')];
+  keyMap[(mod1 + '+N>Q')] =
+      ['nextBlockquote', msg('next_blockquote')];
+  keyMap[(mod1 + '+P>Q')] =
+      ['previousBlockquote', msg('previous_blockquote')];
+  keyMap[(mod1 + '+N>R')] = ['nextRadio', msg('next_radio')];
+  keyMap[(mod1 + '+P>R')] =
+      ['previousRadio', msg('previous_radio')];
+  keyMap[(mod1 + '+N>S')] = ['nextSlider', msg('next_slider')];
+  keyMap[(mod1 + '+P>S')] =
+      ['previousSlider', msg('previous_slider')];
+  keyMap[(mod1 + '+N>T')] = ['nextTable', msg('next_table')];
+  keyMap[(mod1 + '+P>T')] =
+      ['previousTable', msg('previous_table')];
+  keyMap[(mod1 + '+N>B')] = ['nextButton', msg('next_button')];
+  keyMap[(mod1 + '+P>B')] =
+      ['previousButton', msg('previous_button')];
+  keyMap[(mod1 + '+N>X')] = ['nextCheckbox', msg('next_checkbox')];
+  keyMap[(mod1 + '+P>X')] =
+      ['previousCheckbox', msg('previous_checkbox')];
+  keyMap[(mod1 + '+N>#186')] =
+      ['nextLandmark', msg('next_landmark')];  // ';'
   keyMap[(mod1 + '+P>#186')] =
-      ['previousLandmark', 'Previous landmark'];  // ';'
-  keyMap[(mod1 + '+B>B')] = ['benchmark', 'Debug benchmark'];
+      ['previousLandmark', msg('previous_landmark')];  // ';'
+  keyMap[(mod1 + '+B>B')] = ['benchmark', msg('benchmark')];
 
   return keyMap;
 };
@@ -318,8 +371,31 @@ cvox.ChromeVoxPrefs.prototype.getPrefs = function() {
 
 
 /**
+ * Reloads the key map from local storage.
+ */
+cvox.ChromeVoxPrefs.prototype.reloadKeyMap = function() {
+  // Get the current key map from localStorage.
+  try {
+    var currentKeyMap = JSON.parse(localStorage['keyBindings']);
+
+    // Now set the keyMap and write it back to localStorage.
+    this.keyMap = /** @type {Object.<Array.<string>>} */(currentKeyMap);
+
+    // Create the reverse map, from command to key.
+    this.nameToKeyMap = {};
+    for (var key in this.keyMap) {
+      var name = this.keyMap[key][0];
+      this.nameToKeyMap[name] = key;
+    }
+  } catch (e) {
+    console.log('ERROR: Could not reload keymap from localStorage');
+  }
+};
+
+
+/**
  * Get the key map, from key binding to an array of [command, description].
- * @return {Object.<Array.<String>>} The key map.
+ * @return {Object.<Array.<string>>} The key map.
  */
 cvox.ChromeVoxPrefs.prototype.getKeyMap = function() {
   return this.keyMap;
@@ -375,7 +451,7 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToPort = function(port) {
 
 /**
  * Set the value of a pref and update all active tabs if it's changed.
- * @param {String} key The pref key.
+ * @param {string} key The pref key.
  * @param {Object} value The new value of the pref.
  */
 cvox.ChromeVoxPrefs.prototype.setPref = function(key, value) {
@@ -389,8 +465,8 @@ cvox.ChromeVoxPrefs.prototype.setPref = function(key, value) {
 /**
  * Try to change a key binding. This will not succeed if the command is
  * unknown or if the key is already bound to another command.
- * @param {String} name The name of the action.
- * @param {String} newKey The new key to assign it to.
+ * @param {string} name The name of the action.
+ * @param {string} newKey The new key to assign it to.
  * @return {boolean} True if the key was unique.
  */
 cvox.ChromeVoxPrefs.prototype.setKey = function(name, newKey) {

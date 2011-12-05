@@ -18,11 +18,9 @@
  */
 
 
-cvoxgoog.provide('chromevis.ChromeVisLens');
+goog.provide('chromevis.ChromeVisLens');
 
-cvoxgoog.require('cvox.BuildConfig');
-cvoxgoog.require('cvox.ExtensionBridge');
-cvoxgoog.require('cvox.SelectionUtil');
+goog.require('cvox.SelectionUtil');
 
 /**
  * Constructor for CSS lens. Initializes the lens settings.
@@ -240,26 +238,16 @@ chromevis.ChromeVisLens.prototype.initializeLens_ = function() {
         }
       }, true);
 
-  this.setupMessageListener_();
-
   this.updateAnchorLens();
 };
 
 
 /**
- * Listens for an event fired from the extension that indicates the background
- * page is requesting the lens to update. This event was dispatched to a known
- * div in the shared DOM (chromeVisBackground2LensDiv) and the div has
- * attributes known to the lens that contain lens setting information. The
- * lens reads information from the div and then updates appropriately.
+ * Respond to an event fired from the background page requesting the lens
+ * to update.
  * @private
  */
-chromevis.ChromeVisLens.prototype.setupMessageListener_ = function() {
-  if (BUILD_TYPE != BUILD_TYPE_CHROME) {
-    return;
-  }
-  var self = this;
-  cvox.ExtensionBridge.addMessageListener(function(message, port) {
+chromevis.ChromeVisLens.prototype.handleBackgroundMessage = function(message) {
   switch (message.data) {
     case chromevis.ChromeVisLens.ANCHOR_ATTRB:
       self.setAnchoredLens(message.value);
@@ -294,8 +282,7 @@ chromevis.ChromeVisLens.prototype.setupMessageListener_ = function() {
         self.setBgColor();
       }
       break;
-    }
-  });
+  }
 };
 
 

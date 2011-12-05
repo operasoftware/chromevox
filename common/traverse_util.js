@@ -20,6 +20,8 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
+goog.provide('Cursor');
+
 /**
  * A class to represent a cursor location in the document,
  * like the start position or end position of a selection range.
@@ -35,11 +37,11 @@
  * @param {string} text The cached text contents of the node.
  * @constructor
  */
-function Cursor(node, index, text) {
+Cursor = function(node, index, text) {
   this.node = node;
   this.index = index;
   this.text = text;
-}
+};
 
 /**
  * @return {Cursor} A new cursor pointing to the same location.
@@ -58,7 +60,7 @@ Cursor.prototype.copyFrom = function(otherCursor) {
   this.text = otherCursor.text;
 };
 
-cvoxgoog.provide('cvox.TraverseUtil');
+goog.provide('cvox.TraverseUtil');
 
 
 /**
@@ -101,7 +103,9 @@ cvox.TraverseUtil.getNodeText = function(node) {
  * @return {boolean} True if the node should be treated as a leaf node.
  */
 cvox.TraverseUtil.treatAsLeafNode = function(node) {
-  return node.nodeName == 'SELECT' || node.nodeName == 'OBJECT';
+  return node.childNodes.length == 0 ||
+         node.nodeName == 'SELECT' ||
+         node.nodeName == 'OBJECT';
 };
 
 /**
@@ -178,11 +182,9 @@ cvox.TraverseUtil.isSkipped = function(node) {
 cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
   while (true) {
     // Move down until we get to a leaf node.
-    if (cursor.node.constructor != Text)
-      nodesCrossed.push(cursor.node);
     var childNode = null;
     if (!cvox.TraverseUtil.treatAsLeafNode(cursor.node)) {
-      for (var i = 0; i < cursor.node.childNodes.length; i++) {
+      for (var i = cursor.index; i < cursor.node.childNodes.length; i++) {
         var node = cursor.node.childNodes[i];
         if (cvox.TraverseUtil.isSkipped(node)) {
           nodesCrossed.push(node);
@@ -198,8 +200,9 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
       cursor.node = childNode;
       cursor.index = 0;
       cursor.text = cvox.TraverseUtil.getNodeText(cursor.node);
-      if (cursor.node.constructor != Text)
+      if (cursor.node.constructor != Text) {
         nodesCrossed.push(cursor.node);
+      }
       continue;
     }
 
@@ -209,9 +212,6 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
 
     // Move to the next sibling, going up the tree as necessary.
     while (cursor.node != null) {
-      if (cursor.node.constructor != Text)
-        nodesCrossed.push(cursor.node);
-
       // Try to move to the next sibling.
       var siblingNode = null;
       for (var node = cursor.node.nextSibling;
@@ -230,6 +230,11 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
         cursor.node = siblingNode;
         cursor.text = cvox.TraverseUtil.getNodeText(siblingNode);
         cursor.index = 0;
+
+        if (cursor.node.constructor != Text) {
+          nodesCrossed.push(cursor.node);
+	}
+
         break;
       }
 
@@ -259,11 +264,9 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
 cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
   while (true) {
     // Move down until we get to a leaf node.
-    if (cursor.node.constructor != Text)
-      nodesCrossed.push(cursor.node);
     var childNode = null;
     if (!cvox.TraverseUtil.treatAsLeafNode(cursor.node)) {
-      for (var i = cursor.node.childNodes.length - 1; i >= 0; i--) {
+      for (var i = cursor.index - 1; i >= 0; i--) {
         var node = cursor.node.childNodes[i];
         if (cvox.TraverseUtil.isSkipped(node)) {
           nodesCrossed.push(node);
@@ -278,22 +281,23 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
     if (childNode) {
       cursor.node = childNode;
       cursor.text = cvox.TraverseUtil.getNodeText(cursor.node);
-      cursor.index = cursor.text.length;
+      if (cursor.text.length)
+        cursor.index = cursor.text.length;
+      else
+        cursor.index = cursor.node.childNodes.length;
       if (cursor.node.constructor != Text)
         nodesCrossed.push(cursor.node);
       continue;
     }
 
     // Return the previous character from this leaf node.
-    if (cursor.index > 0)
+    if (cursor.text.length > 0 && cursor.index > 0) {
       return cursor.text[--cursor.index];
+    }
 
     // Move to the previous sibling, going up the tree as necessary.
     while (true) {
-      if (cursor.node.constructor != Text)
-        nodesCrossed.push(cursor.node);
-
-      // Try to move to the next sibling.
+      // Try to move to the previous sibling.
       var siblingNode = null;
       for (var node = cursor.node.previousSibling;
            node != null;
@@ -310,7 +314,12 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
       if (siblingNode) {
         cursor.node = siblingNode;
         cursor.text = cvox.TraverseUtil.getNodeText(siblingNode);
-        cursor.index = cursor.text.length;
+        if (cursor.text.length)
+          cursor.index = cursor.text.length;
+        else
+          cursor.index = cursor.node.childNodes.length;
+        if (cursor.node.constructor != Text)
+          nodesCrossed.push(cursor.node);
         break;
       }
 
@@ -517,7 +526,6 @@ cvox.TraverseUtil.getNextWord = function(startCursor, endCursor,
  */
 cvox.TraverseUtil.getPreviousWord = function(startCursor, endCursor,
     nodesCrossed) {
-
   // Find the first non-whitespace or non-skipped character.
   var cursor = startCursor.clone();
   var c = cvox.TraverseUtil.backwardsChar(cursor, nodesCrossed);

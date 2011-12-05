@@ -31,13 +31,6 @@ window.CLOSURE_BASE_PATH = chrome.extension.getURL('/closure/');
 window.CLOSURE_NO_DEPS = true;
 
 /**
- * Tell Closure to use a loading mechanism designed for Chrome content
- * scripts.
- * @type {boolean}
- */
-window.CHROME_CONTENT_SCRIPT = true;
-
-/**
  * Array of urls that should be included next, in order.
  * @type {Array}
  * @private
@@ -53,31 +46,43 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
   // Only run our version of the import script
   // when trying to inject ChromeVox scripts.
   if (src.indexOf('chrome-extension://') == 0) {
-    if (!cvoxgoog.inHtmlDocument_() ||
-        cvoxgoog.dependencies_.written[src]) {
+    if (!goog.inHtmlDocument_() ||
+        goog.dependencies_.written[src]) {
       return false;
     }
-    cvoxgoog.dependencies_.written[src] = true;
+    goog.dependencies_.written[src] = true;
     function loadNextScript() {
-      if (cvoxgoog.global.queue_.length == 0)
+      if (goog.global.queue_.length == 0)
         return;
-      var doc = cvoxgoog.global.document;
-      var scriptElt = document.createElement('script');
-      scriptElt.type = 'text/javascript';
-      scriptElt.src = cvoxgoog.global.queue_[0] + '?' + new Date().getTime();
-      doc.getElementsByTagName('head')[0].appendChild(scriptElt);
-      scriptElt.onload = function() {
-        cvoxgoog.global.queue_ = cvoxgoog.global.queue_.slice(1);
-        loadNextScript();
+
+      // Load the script by fetching its source and running 'eval' on it
+      // directly, with a magic comment that makes Chrome treat it like it
+      // loaded normally. Wait until it's fetched before loading the
+      // next script.
+      var xhr = new XMLHttpRequest();
+      var src = goog.global.queue_[0];
+      var url = src + '?' + new Date().getTime();
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+          var scriptText = xhr.responseText;
+          // Add a magic comment to the bottom of the file so that
+          // Chrome knows the name of the script in the JavaScript debugger.
+          scriptText += '\n//@ sourceURL=' + src + '\n';
+          eval(scriptText);
+          goog.global.queue_ = goog.global.queue_.slice(1);
+          loadNextScript();
+        }
       };
+      xhr.open('GET', url, false);
+      xhr.send(null);
     }
-    cvoxgoog.global.queue_.push(src);
-    if (cvoxgoog.global.queue_.length == 1) {
+    goog.global.queue_.push(src);
+    if (goog.global.queue_.length == 1) {
       loadNextScript();
     }
     return true;
   } else {
-    return cvoxgoog.writeScriptTag_(src);
+    return goog.writeScriptTag_(src);
   }
 };
 

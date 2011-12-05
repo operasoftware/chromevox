@@ -19,9 +19,9 @@
  */
 
 
-cvoxgoog.provide('cvox.KeyUtil');
+goog.provide('cvox.KeyUtil');
 
-cvoxgoog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVox');
 
 
 /**
@@ -33,21 +33,18 @@ cvox.KeyUtil = function() {
 
 /**
  * The time in ms at which the ChromeVox Sticky Mode key was pressed.
- * @const
  * @type {number}
  */
 cvox.KeyUtil.modeKeyPressTime = 0;
 
 /**
  * Indicates if sequencing is currently active for building a keyboard shortcut.
- * @const
  * @type {boolean}
  */
 cvox.KeyUtil.sequencing = false;
 
 /**
  * The sequence buffer that holds the keys pressed when sequencing in ON.
- * @const
  * @type {Array}
  */
 cvox.KeyUtil.sequenceBuffer = [];

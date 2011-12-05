@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cvoxgoog.provide('cvox.NavDescription');
+goog.provide('cvox.NavDescription');
 
-cvoxgoog.require('cvox.AbstractTts');
-cvoxgoog.require('cvox.ChromeVox');
+goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeVox');
 
 /**
  * @fileoverview A simple container object for the description of a
@@ -36,14 +36,17 @@ cvoxgoog.require('cvox.ChromeVox');
  * @param {string} annotation The role and state of the object.
  * @param {Array.<number>} earcons A list of the earcon ids to play along
  *     with the spoken description of this object.
+ * @param {Object=} personality Optional TTS personality to use for the text.
  * @constructor
  */
-cvox.NavDescription = function(context, text, userValue, annotation, earcons) {
+cvox.NavDescription = function(context, text, userValue, annotation, earcons,
+      personality) {
   this.context = context ? context : '';
   this.text = text ? text : '';
   this.userValue = userValue ? userValue : '';
   this.annotation = annotation ? annotation : '';
   this.earcons = earcons ? earcons : [];
+  this.personality = personality;
 };
 
 
@@ -97,7 +100,8 @@ cvox.NavDescription.prototype.speak = function(
     queueMode = 1;
   }
   if (this.text) {
-    speakArgs.push([this.text, queueMode, {}]);
+    speakArgs.push([this.text, queueMode,
+        this.personality ? this.personality : {}]);
     queueMode = 1;
   }
   if (this.userValue) {

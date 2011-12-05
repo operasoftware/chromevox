@@ -23,6 +23,12 @@ var PowerKey = function(context, axsJAX) {
   this.context = context;
 
   /**
+   * The element on the page that is holding the PowerKey widget.
+   * @type {Element?}
+   */
+  this.parent_ = null;
+
+  /**
    * The div element holding the completion text field.
    * @type {Element?}
    */
@@ -355,6 +361,7 @@ PowerKey.prototype.createCompletionField = function(parent,
   cmpNode.appendChild(txtNode);
   parent.appendChild(bgNode);
   parent.appendChild(cmpNode);
+  this.parent_ = parent;
 
   this.cmpFloatElement = cmpNode;
   this.cmpTextElement = txtNode;
@@ -672,6 +679,8 @@ PowerKey.prototype.updateCompletionField = function(status,
     }
   }
   if (status == PowerKey.status.VISIBLE) {
+    this.parent_.appendChild(this.cmpFloatElement);
+    this.parent_.appendChild(this.backgroundDivElement);
     if (this.cmpFloatElement.className == 'pkHiddenStatus' ||
         this.listPos_ < 0) {
       if (managedCmpList) {
@@ -697,6 +706,8 @@ PowerKey.prototype.updateCompletionField = function(status,
     this.cmpFloatElement.className = 'pkHiddenStatus';
     this.cmpTextElement.value = '';
     this.listPos_ = -1;
+    this.parent_.removeChild(this.cmpFloatElement);
+    this.parent_.removeChild(this.backgroundDivElement);
   }
   if (opt_resize) {
     var viewportSz = PowerKey.getViewportSize();

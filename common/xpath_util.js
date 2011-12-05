@@ -5,7 +5,7 @@
  */
 
 
-cvoxgoog.provide('cvox.XpathUtil');
+goog.provide('cvox.XpathUtil');
 
 
 /**

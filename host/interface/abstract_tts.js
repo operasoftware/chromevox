@@ -18,23 +18,14 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-cvoxgoog.provide('cvox.AbstractTts');
-
-cvoxgoog.require('cvox.AbstractLogger');
-
-
+goog.provide('cvox.AbstractTts');
 
 /**
  * Creates a new instance.
  * @constructor
- * @extends {cvox.AbstractLogger}
  */
 cvox.AbstractTts = function() {
-  //Inherit AbstractLogger
-  cvox.AbstractLogger.call(this);
   this.ttsProperties = new Object();
-  this.lens_ = null;
-  this.lensContent_ = document.createElement('div');
 
   if (cvox.AbstractTts.pronunciationDictionaryRegexp == undefined) {
     // Create an expression that matches all words in the pronunciation
@@ -58,7 +49,6 @@ cvox.AbstractTts = function() {
     cvox.AbstractTts.substitutionDictionaryRegexp = new RegExp(expr, 'ig');
   }
 };
-cvoxgoog.inherits(cvox.AbstractTts, cvox.AbstractLogger);
 
 
 /**
@@ -70,11 +60,36 @@ cvox.AbstractTts.prototype.ttsProperties;
 
 
 /**
- * Override the super class method to configure logging.
- * @return {boolean} If logging is enabled.
- */
-cvox.AbstractTts.prototype.logEnabled = function() {
-  return cvox.AbstractTts.DEBUG;
+ * Min value for TTS properties. Note that these might be different
+ * on different host platforms (like Chrome, Android, etc.).
+ * @type {Object.<string, number>}
+ **/
+cvox.AbstractTts.prototype.propertyMin = {
+  'rate': 0.0,
+  'pitch': 0.0,
+  'volume': 0.0
+};
+
+/**
+ * Max value for TTS properties. Note that these might be different
+ * on different host platforms (like Chrome, Android, etc.).
+ * @type {Object.<string, number>}
+ **/
+cvox.AbstractTts.prototype.propertyMax = {
+  'rate': 1.0,
+  'pitch': 1.0,
+  'volume': 1.0
+};
+
+/**
+ * Step value for TTS properties. Note that these might be different
+ * on different host platforms (like Chrome, Android, etc.).
+ * @type {Object.<string, number>}
+ **/
+cvox.AbstractTts.prototype.propertyStep = {
+  'rate': 0.1,
+  'pitch': 0.1,
+  'volume': 0.1
 };
 
 
@@ -86,32 +101,15 @@ cvox.AbstractTts.prototype.logEnabled = function() {
  * @param {Object=} properties Speech properties to use for this utterance.
  */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
-  if (this.logEnabled()) {
-    this.log('[' + this.getName() + '] speak(' + textString + ', ' +
-        queueMode + (properties ? ', ' + properties.toString() : '') + ')');
-  }
-  if (this.lens_) {
+  if (window['console']) {
+    var logStr = 'Speak';
     if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
-      var line = document.createElement('hr');
-      this.lensContent_.appendChild(line);
+      logStr += ' (I)';
+    } else {
+      logStr += ' (Q)';
     }
-    // Remove elements if exceed maxHistory. Multiply by 2 to accont for <hr>.
-    while (this.lensContent_.childNodes.length > this.lens_.maxHistory * 2) {
-      var temp = this.lensContent_.childNodes[0];
-      this.lensContent_.removeChild(temp);
-    }
-    var lensElem = document.createElement('span');
-    lensElem.innerText = textString;
-    lensElem.style.marginLeft = '0.5em !important';
-    if (properties && properties[cvox.AbstractTts.COLOR]) {
-      lensElem.style.color = properties[cvox.AbstractTts.COLOR] + ' !important';
-    }
-    if (properties && properties[cvox.AbstractTts.FONT_WEIGHT]) {
-      lensElem.style.fontWeight =
-          properties[cvox.AbstractTts.FONT_WEIGHT] + ' !important';
-    }
-    this.lensContent_.appendChild(lensElem);
-    this.lens_.setLensContent(this.lensContent_);
+    logStr += ' "' + textString + '"';
+    window['console']['log'](logStr);
   }
 };
 
@@ -121,9 +119,6 @@ cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
  * @return {boolean} True if the TTS is speaking.
  */
 cvox.AbstractTts.prototype.isSpeaking = function() {
-  if (this.logEnabled()) {
-    this.log('[' + this.getName() + '] isSpeaking()');
-  }
   return false;
 };
 
@@ -132,9 +127,7 @@ cvox.AbstractTts.prototype.isSpeaking = function() {
  * Stops speech.
  */
 cvox.AbstractTts.prototype.stop = function() {
-  if (this.logEnabled()) {
-    this.log('[' + this.getName() + '] stop()');
-  }
+  window['console']['log']('Stop');
 };
 
 
@@ -158,59 +151,18 @@ cvox.AbstractTts.prototype.setDefaultTtsProperties = function(ttsProperties) {
 
 /**
  * Increases a TTS speech property.
- * @param {string} property_name The name of the property to increase.
- * @param {boolean} announce Whether to announce that the property is changing.
+ * @param {string} propertyName The name of the property to change.
+ * @param {boolean} increase If true, increases the property value by one
+ *     step size, otherwise decreases.
  */
-cvox.AbstractTts.prototype.increaseProperty =
-    function(property_name, announce) {
-  if (property_name == cvox.AbstractTts.RATE) {
-    this.ttsProperties.rate = this.increasePropertyValue(
-        this.ttsProperties.rate);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.increaseRate, 0, this.ttsProperties);
-    }
-  } else if (property_name == cvox.AbstractTts.PITCH) {
-    this.ttsProperties.pitch = this.increasePropertyValue(
-        this.ttsProperties.pitch);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.increasePitch, 0, this.ttsProperties);
-    }
-  } else if (property_name == cvox.AbstractTts.VOLUME) {
-    this.ttsProperties.volume = this.increasePropertyValue(
-        this.ttsProperties.volume);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.increaseVolume, 0, this.ttsProperties);
-    }
-  }
-};
-
-
-/**
- * Decreases a TTS speech property.
- * @param {string} property_name The name of the property to decrease.
- * @param {boolean} announce Whether to announce that the property is changing.
- */
-cvox.AbstractTts.prototype.decreaseProperty =
-    function(property_name, announce) {
-  if (property_name == cvox.AbstractTts.RATE) {
-    this.ttsProperties.rate = this.decreasePropertyValue(
-        this.ttsProperties.rate);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.decreaseRate, 0, this.ttsProperties);
-    }
-  } else if (property_name == cvox.AbstractTts.PITCH) {
-    this.ttsProperties.pitch = this.decreasePropertyValue(
-        this.ttsProperties.pitch);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.decreasePitch, 0, this.ttsProperties);
-    }
-  } else if (property_name == cvox.AbstractTts.VOLUME) {
-    this.ttsProperties.volume = this.decreasePropertyValue(
-        this.ttsProperties.volume);
-    if (announce) {
-      this.speak(cvox.AbstractTts.str.decreaseVolume, 0, this.ttsProperties);
-    }
-  }
+cvox.AbstractTts.prototype.increaseOrDecreaseProperty =
+    function(propertyName, increase) {
+  var min = this.propertyMin[propertyName];
+  var max = this.propertyMax[propertyName];
+  var step = this.propertyStep[propertyName];
+  var current = this.ttsProperties[propertyName];
+  current = increase ? current + step : current - step;
+  this.ttsProperties[propertyName] = Math.max(Math.min(current, max), min);
 };
 
 
@@ -241,14 +193,17 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
       mergedProperties[tts.RATE] = properties[tts.RATE];
     }
 
+    var context = this;
     function mergeRelativeProperty(abs, rel) {
       if (typeof(properties[rel]) == 'number' &&
           typeof(mergedProperties[abs]) == 'number') {
         mergedProperties[abs] += properties[rel];
-        if (mergedProperties[abs] > 1.0) {
-          mergedProperties[abs] = 1.0;
-        } else if (mergedProperties[abs] < 0.0) {
-          mergedProperties[abs] = 0.0;
+        var min = context.propertyMin[abs];
+        var max = context.propertyMax[abs];
+        if (mergedProperties[abs] > max) {
+          mergedProperties[abs] = max;
+        } else if (mergedProperties[abs] < min) {
+          mergedProperties[abs] = min;
         }
       }
     }
@@ -263,35 +218,12 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 
 
 /**
- * Decrease by 0.1 the value of a TTS property that's normally in the range
- * 0.0 - 1.0, and make sure it doesn't end up smaller than 0.0. Return the
- * new value.
- * @param {number} current_value The current value of the property.
- * @return {number} The new value.
- */
-cvox.AbstractTts.prototype.decreasePropertyValue = function(current_value) {
-  return Math.max(0.0, current_value - 0.1);
-};
-
-
-/**
  * Set a chromevis.ChromeVisLens to display any messages spoken via speak().
+ * This is an abstract method, meant to be implemented by some subclasses
+ * only.
  * @param {Object} lens The chromevis.ChromeVisLens object.
  */
 cvox.AbstractTts.prototype.setLens = function(lens) {
-  this.lens_ = lens;
-};
-
-
-/**
- * Increase by 0.1 the value of a TTS property that's normally in the range
- * 0.0 - 1.0, and make sure it doesn't end up larger than 1.0. Return the
- * new value.
- * @param {number} current_value The current value of the property.
- * @return {number} The new value.
- */
-cvox.AbstractTts.prototype.increasePropertyValue = function(current_value) {
-  return Math.min(1.0, current_value + 0.1);
 };
 
 
@@ -406,6 +338,28 @@ cvox.AbstractTts.preprocess = function(text) {
 };
 
 
+/**
+ * Static method to preprocess text to be spoken properly by a speech
+ * engine.
+ *
+ * Same as above, but also allows the caller to receive information about how
+ * to speak the processed string.
+ *
+ * @param {string} text A text string to be spoken.
+ * @param {Object= } properties Out parameter populated with how to speak the
+ *     string.
+ * @return {string} The text formatted in a way that will sound better by
+ *     most speech engines.
+ */
+cvox.AbstractTts.preprocessWithProperties = function(text, properties) {
+  if (text.length == 1 && text >= 'A' && text <= 'Z') {
+    for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
+      properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
+  }
+  return cvox.AbstractTts.preprocess(text);
+};
+
+
 /** TTS rate property. @type {string} */
 cvox.AbstractTts.RATE = 'rate';
 /** TTS pitch property. @type {string} */
@@ -445,6 +399,15 @@ cvox.AbstractTts.PERSONALITY_ANNOTATION = {
 cvox.AbstractTts.PERSONALITY_ASIDE = {
   'relativePitch': -0.1,
   'color': '#669'
+};
+
+
+/**
+ * TTS personality for capital letters.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_CAPITAL = {
+  'relativePitch': 0.6
 };
 
 
@@ -504,20 +467,6 @@ cvox.AbstractTts.QUEUE_MODE_QUEUE = 1;
 
 
 /**
- * String constants.
- * @type {Object.<string, string>}
- */
-cvox.AbstractTts.str = {
-  'increaseRate': 'increasing rate',
-  'increasePitch': 'increasing pitch',
-  'increaseVolume': 'increasing volume',
-  'decreaseRate': 'decreasing rate',
-  'decreasePitch': 'decreasing pitch',
-  'decreaseVolume': 'decreasing volume'
-};
-
-
-/**
  * Pronunciation dictionary. Each key must be lowercase, its replacement
  * should be spelled out the way most TTS engines will pronounce it
  * correctly. This particular dictionary only handles letters and numbers,
@@ -530,13 +479,13 @@ cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
   'chromevox': 'chrome-vox',
   'cr48': 'C R 48',
   'ctrl': 'control',
-  'gmail': 'gee-mail',
-  'gtalk': 'gee-talk',
+  'gmail': 'gee mail',
+  'gtalk': 'gee talk',
   'http': 'H T T P',
-  'igoogle': 'eye-google',
+  'igoogle': 'eye google',
   'username': 'user-name',
   'www': 'W W W',
-  'youtube': 'you-tube'
+  'youtube': 'you tube'
 };
 
 

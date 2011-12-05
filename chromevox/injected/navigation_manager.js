@@ -20,16 +20,16 @@
  */
 
 
-cvoxgoog.provide('cvox.ChromeVoxNavigationManager');
+goog.provide('cvox.ChromeVoxNavigationManager');
 
-cvoxgoog.require('cvox.ChromeVoxChoiceWidget');
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.Interframe');
-cvoxgoog.require('cvox.LinearDomWalker');
-cvoxgoog.require('cvox.NavDescription');
-cvoxgoog.require('cvox.SelectionUtil');
-cvoxgoog.require('cvox.SelectionWalker');
-cvoxgoog.require('cvox.SmartDomWalker');
+goog.require('cvox.ChromeVoxChoiceWidget');
+goog.require('cvox.DomUtil');
+goog.require('cvox.Interframe');
+goog.require('cvox.LinearDomWalker');
+goog.require('cvox.NavDescription');
+goog.require('cvox.SelectionUtil');
+goog.require('cvox.SelectionWalker');
+goog.require('cvox.SmartDomWalker');
 
 
 
@@ -39,18 +39,24 @@ cvoxgoog.require('cvox.SmartDomWalker');
 cvox.ChromeVoxNavigationManager = function() {
   this.currentNode = null;
   this.nodeInformationArray = new Array();
+
   this.currentNavStrategy = 2;
-  this.lastUsedNavStrategy = 2;
+  this.subNavigating = false;
+
   this.linearDomWalker = new cvox.LinearDomWalker();
   this.smartDomWalker = new cvox.SmartDomWalker();
   this.selectionWalker = new cvox.SelectionWalker();
   this.customWalker = null;
   this.selectionUniqueAncestors = [];
-  this.choiceWidget = new cvox.ChromeVoxChoiceWidget();
+
   this.iframeIdMap = {};
   this.nextIframeId = 1;
   this.currentDialog = null;
   this.addInterframeListener_();
+
+  // Keeps track of whether we are currently navigating inside of a table (even
+  // if we are not in table mode).
+  this.currentTable_ = null;
 };
 
 
@@ -69,17 +75,224 @@ cvox.ChromeVoxNavigationManager.STRATEGY_NAMES =
 
 
 /**
- * Moves forward using the current navigation strategy.
+ * Moves forward. Stops any subnavigation. Depending on whether we are in table
+ * mode, either moves forward using the current navigation strategy or moves to
+ * the next row inside the table.
  * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @param {boolean=} opt_navigateTables If true, will jump into tables. Default
+ * is false.
  * @return {boolean} Whether or not navigation was performed successfully. Note
  * that failure indicates that the end of the document has been reached.
  */
-cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
+cvox.ChromeVoxNavigationManager.prototype.navigateForward =
+    function(navigateIframes, opt_navigateTables) {
+  if (this.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART && this.inTableMode()) {
+    return this.navigateNextRow();
+  } else {
+    if (this.subNavigating) {
+      this.stopSubNavigating();
+    }
+    return this.next(navigateIframes, opt_navigateTables);
+  }
+};
+
+
+/**
+ * Moves backward. Stops any subnavigation. Depending on whether we are in
+ * table mode, either moves backward using the current navigation strategy or
+ * moves to the previous row inside the table.
+ * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @param {boolean=} opt_navigateTables If true, will jump into tables. Default
+ * is false.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the start of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.navigateBackward =
+    function(navigateIframes, opt_navigateTables) {
+  if (this.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART && this.inTableMode()) {
+    return this.navigatePreviousRow();
+  } else {
+    if (this.subNavigating) {
+      this.stopSubNavigating();
+    }
+    return this.previous(navigateIframes, opt_navigateTables);
+  }
+};
+
+
+/**
+ * Starts subnavigating, specifying that we should navigate at a more granular
+ * level than the current navigation strategy.
+ * @param {boolean} forwards True if we're moving forwards, false if backwards.
+ */
+cvox.ChromeVoxNavigationManager.prototype.startSubNavigating =
+    function(forwards) {
+  switch (this.currentNavStrategy) {
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
+      this.currentNavStrategy =
+        cvox.ChromeVoxNavigationManager.STRATEGIES.SMART;
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
+      this.currentNavStrategy =
+        cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
+      this.currentNavStrategy =
+        cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION;
+      this.selectionWalker.currentGranularity = 0; // sentence
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
+      // Sets selection to a more granular level.
+      this.selectionWalker.changeGranularity(true);
+    break;
+  }
+
+  this.subNavigating = true;
+
+  // Syncs the node we're at with a more granular strategy.
+  this.syncDown(forwards);
+};
+
+
+/**
+ * Stops subnavigating, specifying that we should navigate at a less granular
+ * level than the current navigation strategy.
+ */
+cvox.ChromeVoxNavigationManager.prototype.stopSubNavigating = function() {
+  switch (this.currentNavStrategy) {
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
+      this.currentNavStrategy =
+        cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM;
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
+      this.currentNavStrategy =
+        cvox.ChromeVoxNavigationManager.STRATEGIES.SMART;
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
+      // Sets granularity to a less granular level.
+      if (!this.selectionWalker.changeGranularity(false)) {
+        this.currentNavStrategy =
+            cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
+      }
+    break;
+  }
+
+  this.subNavigating = false;
+
+  // Syncs the node we're at with a less granular strategy.
+  this.syncUp();
+};
+
+
+/**
+ * Syncs the current position with the current navigation strategy. Syncs from
+ * a more granular navigation strategy to a less granular navigation strategy.
+ */
+cvox.ChromeVoxNavigationManager.prototype.syncUp = function() {
+  var node;
+  switch (this.currentNavStrategy) {
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
+      // We've been navigating linearly, so need to sync linear with smart.
+      node = this.currentNode;
+      while (!!node && this.linearDomWalker.isLeafNode(node)) {
+        this.currentNode = node;
+        node = node.parentNode;
+      }
+      // Check if we are now inside a table. If so, switch start table nav.
+      if (this.tryEnterTable_(this.currentNode, true)) {
+        break;
+      }
+      this.smartDomWalker.setCurrentNode(this.currentNode);
+      if (this.currentNode !== null) {
+        this.navigateBackward(false);
+      }
+      this.navigateForward(false);
+    break;
+  }
+};
+
+
+/**
+ * Syncs the current position with the current navigation strategy. Syncs from a
+ * less granular navigation strategy to a more granular navigation strategy.
+ * @param {boolean=} opt_forwards True if we're moving forwards, false if
+ * backwards.
+ */
+cvox.ChromeVoxNavigationManager.prototype.syncDown = function(opt_forwards) {
+  switch (this.currentNavStrategy) {
+    default:
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
+      // We've been navigating with smart navigation, so need to sync down
+      // to linear navigation.
+      if (this.smartDomWalker.getCurrentNode() != null) {
+        this.currentNode = this.smartDomWalker.getCurrentNode();
+        this.linearDomWalker.setCurrentNode(this.currentNode);
+      }
+    break;
+    case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
+      // We've been navigating with linear navigation, so need to sync down
+      // to selection navigation.
+      if (this.selectionWalker.currentGranularity == 0) {
+        this.selectionWalker.setCurrentNode(this.currentNode);
+        if (!!this.currentNode) {
+          if (opt_forwards) {
+            this.selectAllTextInNode_(this.currentNode);
+            cvox.SelectionUtil.collapseToEnd(this.currentNode);
+          } else {
+            cvox.SelectionUtil.collapseToStart(this.currentNode);
+          }
+        }
+      } else {
+        // We've been navigating at the selection level, so need to sync down
+        // to a different granularity within selection naivgation.
+        this.selectionWalker.setCurrentNode(this.currentNode);
+        if (!!this.currentNode) {
+          if (opt_forwards) {
+            cvox.SelectionUtil.collapseToEnd(this.currentNode);
+          } else {
+              cvox.SelectionUtil.collapseToStart(this.currentNode);
+          }
+        }
+      }
+    break;
+  }
+};
+
+
+/**
+ * Moves to the next row of the currently navigated table.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the end of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.navigateNextRow = function() {
+  var nextRow = this.nextRow();
+  if (!nextRow && this.smartDomWalker.bumpedTwice) {
+    this.exitTable(true);
+  }
+  return true;
+};
+
+
+/**
+ * Moves forward using the current navigation strategy.
+ * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @param {boolean=} opt_navigateTables If true, will jump into tables. Default
+ * is false.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the end of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.next =
+    function(navigateIframes, opt_navigateTables) {
   switch (this.currentNavStrategy) {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
       var customNode = this.customWalker.next();
       if (navigateIframes && this.tryEnterExitIframe_(customNode, true)) {
+        return true;
+      }
+      if (opt_navigateTables && this.tryEnterTable_(customNode, true)) {
         return true;
       }
       if (customNode) {
@@ -92,6 +305,9 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
       if (navigateIframes && this.tryEnterExitIframe_(smartNode, true)) {
         return true;
       }
+      if (opt_navigateTables && this.tryEnterTable_(smartNode, true)) {
+        return true;
+      }
       if (smartNode) {
         this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
@@ -102,6 +318,9 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
       var node = this.linearDomWalker.next();
       if (navigateIframes && this.tryEnterExitIframe_(node, true)) {
+        return true;
+      }
+      if (opt_navigateTables && this.tryEnterTable_(node, true)) {
         return true;
       }
       if (node) {
@@ -117,6 +336,9 @@ cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
       if (!movedOk) {
         var selectionNode = this.linearDomWalker.next();
         if (navigateIframes && this.tryEnterExitIframe_(selectionNode, true)) {
+          return true;
+        }
+        if (opt_navigateTables && this.tryEnterTable_(selectionNode, true)) {
           return true;
         }
         this.selectionUniqueAncestors =
@@ -151,17 +373,37 @@ cvox.ChromeVoxNavigationManager.prototype.checkCellBoundaries = function() {
 
 
 /**
+ * Moves to the next row of the currently navigated table.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the end of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.navigatePreviousRow = function() {
+  var previousRow = this.previousRow();
+  if (!previousRow && this.smartDomWalker.bumpedTwice) {
+    this.exitTable(false);
+  }
+  return true;
+};
+
+
+/**
  * Moves backward using the current navigation strategy.
  * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @param {boolean=} opt_navigateTables If true, will jump into tables. Default
+ * is false.
  * @return {boolean} Whether or not navigation was performed successfully. Note
  * that failure indicates that the start of the document has been reached.
  */
-cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
+cvox.ChromeVoxNavigationManager.prototype.previous =
+    function(navigateIframes, opt_navigateTables) {
   switch (this.currentNavStrategy) {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
       var customNode = this.customWalker.previous();
       if (navigateIframes && this.tryEnterExitIframe_(customNode, false)) {
+        return true;
+      }
+      if (opt_navigateTables && this.tryEnterTable_(customNode, false)) {
         return true;
       }
       if (customNode) {
@@ -174,6 +416,9 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
       if (navigateIframes && this.tryEnterExitIframe_(smartNode, false)) {
         return true;
       }
+      if (opt_navigateTables && this.tryEnterTable_(smartNode, false)) {
+        return true;
+      }
       if (smartNode) {
         this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
@@ -184,6 +429,9 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
       var node = this.linearDomWalker.previous();
       if (navigateIframes && this.tryEnterExitIframe_(node, false)) {
+        return true;
+      }
+      if (opt_navigateTables && this.tryEnterTable_(node, false)) {
         return true;
       }
       if (node) {
@@ -199,6 +447,9 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
       if (!movedOk) {
         var selectionNode = this.linearDomWalker.previous();
         if (navigateIframes && this.tryEnterExitIframe_(selectionNode, false)) {
+          return true;
+        }
+        if (opt_navigateTables && this.tryEnterTable_(selectionNode, false)) {
           return true;
         }
         this.selectionUniqueAncestors =
@@ -223,9 +474,62 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
 
 
 /**
+ * Depending on whether we are in table mode, either starts subnavigating
+ * forward (moving forward using a more granular strategy) or moves to the
+ * next column inside the table.
+ * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the start of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.navigateRight =
+    function(navigateIframes) {
+  if (this.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART && this.inTableMode()) {
+    this.nextCol();
+    return true;
+  } else {
+    if (!this.subNavigating) {
+      this.startSubNavigating(true);
+    }
+    return this.next(navigateIframes);
+  }
+};
+
+
+/**
+ * Depending on whether we are in table mode, either starts subnavigating
+ * backward (moving backward using a more granular strategy) or moves to the
+ * previous column inside the table.
+ * @param {boolean} navigateIframes If true, will jump in and out of iframes.
+ * @return {boolean} Whether or not navigation was performed successfully. Note
+ * that failure indicates that the start of the document has been reached.
+ */
+cvox.ChromeVoxNavigationManager.prototype.navigateLeft =
+    function(navigateIframes) {
+  if (this.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART && this.inTableMode()) {
+    this.previousCol();
+    return true;
+  } else {
+    if (!this.subNavigating) {
+      this.startSubNavigating(false);
+    }
+    return this.previous(navigateIframes);
+  }
+};
+
+
+/**
  * Moves up a level of granularity.
  */
 cvox.ChromeVoxNavigationManager.prototype.up = function() {
+  if (this.subNavigating) {
+    // If we are currently subnavigating, that means we are currently moving
+    // at a level below the specified navigation level. So we need to move
+    // to a less granular strategy *twice*.
+    this.subNavigating = false;
+    this.up();
+  }
   switch (this.currentNavStrategy) {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
@@ -244,17 +548,7 @@ cvox.ChromeVoxNavigationManager.prototype.up = function() {
       this.lastUsedNavStrategy = this.currentNavStrategy;
       this.currentNavStrategy =
           cvox.ChromeVoxNavigationManager.STRATEGIES.SMART;
-
-      var node = this.currentNode;
-      while (!!node && this.linearDomWalker.isLeafNode(node)) {
-        this.currentNode = node;
-        node = node.parentNode;
-      }
-      this.smartDomWalker.setCurrentNode(this.currentNode);
-      if (this.currentNode !== null) {
-        this.previous(false);
-      }
-      this.next(false);
+      this.syncUp();
       break;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
@@ -274,6 +568,13 @@ cvox.ChromeVoxNavigationManager.prototype.up = function() {
  * Moves down a level of granularity.
  */
 cvox.ChromeVoxNavigationManager.prototype.down = function() {
+  if (this.subNavigating) {
+    // If we are currently subnavigating, that means we are currently moving
+    // at a level below the specified navigation level. So we don't need to
+    // change the level any further - we're already doing the right thing.
+    this.subNavigating = false;
+    return;
+  }
   switch (this.currentNavStrategy) {
     default:
     case cvox.ChromeVoxNavigationManager.STRATEGIES.CUSTOM:
@@ -282,33 +583,34 @@ cvox.ChromeVoxNavigationManager.prototype.down = function() {
           cvox.ChromeVoxNavigationManager.STRATEGIES.SMART;
       if (this.customWalker.getCurrentNode() != null) {
         this.currentNode = this.customWalker.getCurrentNode();
+
+        // Check if we are now inside a table. If so, switch start table nav.
+        if (this.tryEnterTable_(this.currentNode, true)) {
+          break;
+        }
         this.smartDomWalker.setCurrentNode(this.currentNode);
       }
       break;
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
+      // If we are in table mode, exit table mode.
+      if (this.smartDomWalker.tableMode) {
+        this.smartDomWalker.exitTable();
+      }
       this.lastUsedNavStrategy = this.currentNavStrategy;
       this.currentNavStrategy =
           cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
-
-      if (this.smartDomWalker.getCurrentNode() != null) {
-        this.currentNode = this.smartDomWalker.getCurrentNode();
-        this.linearDomWalker.setCurrentNode(this.currentNode);
-      }
+      this.syncDown();
       if (this.currentNode !== null) {
-        this.previous(false);
+        this.navigateBackward(false);
       }
-      this.next(false);
+      this.navigateForward(false);
       break;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
       this.lastUsedNavStrategy = this.currentNavStrategy;
       this.currentNavStrategy =
           cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION;
-      this.selectionWalker.setCurrentNode(this.currentNode);
-      if (!!this.currentNode) {
-        this.selectAllTextInNode_(this.currentNode);
-        cvox.SelectionUtil.collapseToStart(this.currentNode);
-      }
+      this.syncDown(false);
       this.selectionWalker.next();
       break;
 
@@ -320,49 +622,87 @@ cvox.ChromeVoxNavigationManager.prototype.down = function() {
 
 
 /**
- * Switches to smart navigation and attempts to access a table. If
- * a table is found, starts table traversal and moves to the first cell of that
- * table. If a table is not found, returns to the original navigation strategy.
- * @return {boolean} Whether or not a table was found and traversal was started
- * successfully.
+ * If the current node is inside a table, switches to smart navigation
+ * (group mode) and starts table navigation.
+ * @return {boolean} Whether or not the node is inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.enterTable = function() {
-  // If we aren't in smart navigation mode, switch
-  var originalNavStrategy = this.currentNavStrategy;
-  var originalGranularity = this.selectionWalker.currentGranularity;
+cvox.ChromeVoxNavigationManager.prototype.forceEnterTable = function() {
+  return this.tryEnterTable_(this.currentNode, true, true);
+};
 
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
 
-  if (this.smartDomWalker.enterTable()) {
-    // Go to the first cell of the table
-    var smartNode = this.smartDomWalker.goToFirstCell();
-    if (smartNode) {
-      this.selectAllTextInNode_(smartNode);
-      this.currentNode = smartNode;
-    }
-    return true;
-  } else {
-    this.switchToStrategy(originalNavStrategy, originalGranularity);
+/**
+ * Checks to see if a given node is inside of a data table (according to
+ * heuristics defined in dom_util.js). If so, switches to smart
+ * navigation (group mode) and starts table navigation.
+ * @param {Node} node The provided node.
+ * @param {boolean} forwards True if navigation is currently moving forwards.
+ * @param {boolean=} opt_forceTableNav True if we want to force table navigation
+ * whether or not the table is a layout table or if we've jumped out of it
+ * before.
+ * @return {boolean} Whether we are inside a table.
+ * @private
+ */
+cvox.ChromeVoxNavigationManager.prototype.tryEnterTable_ =
+    function(node, forwards, opt_forceTableNav) {
+  // If this node is in a data table, switch to group mode.
+  var tableNode = cvox.DomUtil.getContainingTable(node);
+  if (!tableNode ||
+      (!opt_forceTableNav && cvox.DomUtil.isLayoutTable(tableNode))) {
+    this.currentTable_ = null;
     return false;
   }
+  if ((this.currentNavStrategy !=
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART) &&
+          (this.currentTable_ == tableNode)) {
+    // We've already explicitly jumped out of this table by moving out of
+    // group navigation. We're still not in group navigation, so don't
+    // automatically jump back.
+    return false;
+  }
+  // Switch to group mode and start table navigation.
+  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
+  this.smartDomWalker.setCurrentNode(this.currentNode);
+  this.smartDomWalker.startTableNavigation(tableNode);
+
+  var cell = null;
+  if (forwards) {
+    cell = this.smartDomWalker.goToFirstCell();
+  } else {
+    cell = this.smartDomWalker.goToLastCell();
+  }
+
+  if (cell) {
+    this.selectAllTextInNode_(cell);
+    this.currentNode = cell;
+    this.currentTable_ = tableNode;
+    return true;
+  }
+  return false;
 };
 
 
 /**
  * Stops traversing a table. Moves the cursor to the first element (found by
  * smart navigation) after the end of the table.
+ * @param {boolean} forwards True if we should exit the table by moving to the
+ * end, false if we should exit the table by moving to the beginning.
  */
-cvox.ChromeVoxNavigationManager.prototype.exitTable = function() {
+cvox.ChromeVoxNavigationManager.prototype.exitTable = function(forwards) {
   if (this.smartDomWalker.tableMode) {
-    // Go to the last cell of the table
-    var smartNode = this.smartDomWalker.goToLastCell();
-    if (smartNode) {
-      this.selectAllTextInNode_(smartNode);
-      this.currentNode = smartNode;
-
-      this.next(true);
+    var cell = null;
+    if (forwards) {
+      cell = this.smartDomWalker.goToLastCell();
+    } else {
+      cell = this.smartDomWalker.goToFirstCell();
     }
-    this.smartDomWalker.exitTable();
+    if (cell) {
+      this.selectAllTextInNode_(cell);
+      this.currentNode = cell;
+      this.currentTable_ = null;
+      this.smartDomWalker.exitTable();
+      forwards ? this.next(true) : this.previous(true);
+    }
   }
 };
 
@@ -373,9 +713,14 @@ cvox.ChromeVoxNavigationManager.prototype.exitTable = function() {
  * traversal was successful.
  */
 cvox.ChromeVoxNavigationManager.prototype.previousRow = function() {
-  return this.trySwitchToStrategyAndSelect_(
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
-      this.smartDomWalker.previousRow, this.smartDomWalker);
+  var previousRowNode = this.smartDomWalker.previousRow();
+  if (previousRowNode) {
+    this.selectAllTextInNode_(previousRowNode);
+    this.currentNode = previousRowNode;
+    return true;
+  } else {
+    return false;
+  }
 };
 
 
@@ -385,9 +730,14 @@ cvox.ChromeVoxNavigationManager.prototype.previousRow = function() {
  * traversal was successful.
  */
 cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
-  return this.trySwitchToStrategyAndSelect_(
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
-      this.smartDomWalker.nextRow, this.smartDomWalker);
+  var nextRowNode = this.smartDomWalker.nextRow();
+  if (nextRowNode) {
+    this.selectAllTextInNode_(nextRowNode);
+    this.currentNode = nextRowNode;
+    return true;
+  } else {
+    return false;
+  }
 };
 
 
@@ -397,9 +747,14 @@ cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
  * traversal was successful.
  */
 cvox.ChromeVoxNavigationManager.prototype.previousCol = function() {
-  return this.trySwitchToStrategyAndSelect_(
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
-      this.smartDomWalker.previousCol, this.smartDomWalker);
+  var previousColNode = this.smartDomWalker.previousCol();
+  if (previousColNode) {
+    this.selectAllTextInNode_(previousColNode);
+    this.currentNode = previousColNode;
+    return true;
+  } else {
+    return false;
+  }
 };
 
 
@@ -409,9 +764,14 @@ cvox.ChromeVoxNavigationManager.prototype.previousCol = function() {
  * traversal was successful.
  */
 cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
-  return this.trySwitchToStrategyAndSelect_(
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART,
-      this.smartDomWalker.nextCol, this.smartDomWalker);
+  var nextColNode = this.smartDomWalker.nextCol();
+  if (nextColNode) {
+    this.selectAllTextInNode_(nextColNode);
+    this.currentNode = nextColNode;
+    return true;
+  } else {
+    return false;
+  }
 };
 
 
@@ -421,7 +781,6 @@ cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
  * or '' if the cell has no row headers.
  */
 cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getRowHeaderText();
 };
 
@@ -433,7 +792,6 @@ cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
  * cell.
  */
 cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getRowHeaderGuess();
 };
 
@@ -444,7 +802,6 @@ cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
  * or '' if the cell has no col headers.
  */
 cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getColHeaderText();
 };
 
@@ -456,7 +813,6 @@ cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
  * cell.
  */
 cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getColHeaderGuess();
 };
 
@@ -466,7 +822,6 @@ cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
  * @return {?number} The current row index. Null if we aren't in table mode.
  */
 cvox.ChromeVoxNavigationManager.prototype.getRowIndex = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getRowIndex();
 };
 
@@ -476,7 +831,6 @@ cvox.ChromeVoxNavigationManager.prototype.getRowIndex = function() {
  * @return {?number} The current column index. Null if we aren't in table mode.
  */
 cvox.ChromeVoxNavigationManager.prototype.getColIndex = function() {
-  this.switchToStrategy(cvox.ChromeVoxNavigationManager.STRATEGIES.SMART);
   return this.smartDomWalker.getColIndex();
 };
 
@@ -613,6 +967,12 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
 cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
   this.syncPosition();
   var node = undefined;
+  // Sync the linear DOM walker before running find to make sure it starts
+  // from the right spot.
+  if (this.currentNavStrategy !=
+      cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM) {
+    this.linearDomWalker.syncToNode(this.getCurrentNode());
+  }
   while (true) {
     node = this.linearDomWalker.next();
     if (!node) {
@@ -627,8 +987,8 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
   if (node) {
     this.selectAllTextInNode_(node);
     this.currentNode = node;
-    this.linearDomWalker.setCurrentNode(this.currentNode);
-    this.smartDomWalker.setCurrentNode(this.currentNode);
+    this.linearDomWalker.syncToNode(this.currentNode);
+    this.smartDomWalker.syncToNode(this.currentNode);
     return true;
   }
 
@@ -647,6 +1007,12 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
 cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
   this.syncPosition();
   var node = undefined;
+  // Sync the linear DOM walker before running find to make sure it starts
+  // from the right spot.
+  if (this.currentNavStrategy !=
+      cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM) {
+    this.linearDomWalker.syncToNode(this.getCurrentNode());
+  }
   while (true) {
     node = this.linearDomWalker.previous();
     if (!node) {
@@ -661,8 +1027,8 @@ cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
   if (node) {
     this.selectAllTextInNode_(node);
     this.currentNode = node;
-    this.linearDomWalker.setCurrentNode(this.currentNode);
-    this.smartDomWalker.setCurrentNode(this.currentNode);
+    this.linearDomWalker.syncToNode(this.currentNode);
+    this.smartDomWalker.syncToNode(this.currentNode);
     return true;
   }
 
@@ -683,7 +1049,6 @@ cvox.ChromeVoxNavigationManager.prototype.getStrategy = function() {
 
 /**
  * Returns the current selection granularity.
- *
  * @return {string} The selection granularity that is being used.
  */
 cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
@@ -693,11 +1058,19 @@ cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
 
 /**
  * Returns whether we are currently navigating a table.
- *
  * @return {boolean} If we are currently navigating a table.
  */
 cvox.ChromeVoxNavigationManager.prototype.inTableMode = function() {
   return this.smartDomWalker.tableMode;
+};
+
+
+/**
+ * Returns whether we are currently navigating a grid.
+ * @return {boolean} If we are currently navigating a grid.
+ */
+cvox.ChromeVoxNavigationManager.prototype.insideGrid = function() {
+  return this.smartDomWalker.isGrid;
 };
 
 
@@ -752,8 +1125,8 @@ cvox.ChromeVoxNavigationManager.prototype.syncToSelection = function() {
       }
     }
 
-    this.linearDomWalker.setCurrentNode(this.currentNode);
-    this.smartDomWalker.setCurrentNode(this.currentNode);
+    this.linearDomWalker.syncToNode(this.currentNode);
+    this.smartDomWalker.syncToNode(this.currentNode);
   }
 };
 
@@ -770,8 +1143,8 @@ cvox.ChromeVoxNavigationManager.prototype.syncToNode = function(targetNode) {
     // therefore ignore the sync request.
     return;
   }
-  this.linearDomWalker.setCurrentNode(targetNode);
-  this.smartDomWalker.setCurrentNode(targetNode);
+  this.linearDomWalker.syncToNode(targetNode);
+  this.smartDomWalker.syncToNode(targetNode);
 
   // Don't touch the selection of control nodes as those could have serious
   // side effects (such as making it impossible to type in an input field).
@@ -801,7 +1174,7 @@ cvox.ChromeVoxNavigationManager.prototype.speakDescriptionArray = function(
       }
     }
     function endCallback() {
-      if (i == descriptionArray.length && completionFunction) {
+      if (i == descriptionArray.length - 1 && completionFunction) {
         completionFunction();
       }
     }
@@ -814,7 +1187,7 @@ cvox.ChromeVoxNavigationManager.prototype.speakDescriptionArray = function(
     queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   }
 
-  if (descriptionArray.length == 0) {
+  if ((descriptionArray.length == 0) && completionFunction) {
     completionFunction();
   }
 };
@@ -851,11 +1224,34 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
       return [this.customWalker.getCurrentDescription()];
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SMART:
-      return this.smartDomWalker.getCurrentDescription();
+      var navDescriptions = this.smartDomWalker.getCurrentDescription();
+      if (this.inTableMode()) {
+        if (this.smartDomWalker.bumpedEdge) {
+          // We have reached the edge of the table and need an earcon here
+          var len = navDescriptions.length;
+          navDescriptions.splice(0, 0, new cvox.NavDescription(
+          '',
+          '',
+          '',
+          '',
+          [cvox.AbstractEarcons.WRAP_EDGE]));
+        }
+        if (this.smartDomWalker.announceTable) {
+          // We have entered a table and need an earcon here
+          var len = navDescriptions.length;
+          navDescriptions.splice(0, 0, new cvox.NavDescription(
+          '',
+          '',
+          '',
+          '',
+          [cvox.AbstractEarcons.WRAP]));
+        }
+      }
+      return navDescriptions;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM:
       return [cvox.DomUtil.getDescriptionFromAncestors(
-                  this.getChangedAncestors())];
+                  this.getChangedAncestors(), true, cvox.ChromeVox.verbosity)];
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
       return [this.selectionWalker.getCurrentDescription(
@@ -863,6 +1259,19 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
   }
 };
 
+/**
+ * Returns a complete description of the current position, including
+ * the text content and annotations such as "link", "button", etc.
+ * Unlike getCurrentDescription, this does not shorten the position based on the
+ * previous position.
+ *
+ * @return {Array.<cvox.NavDescription>} The summary of the current position.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getCurrentFullDescription =
+    function() {
+  return [cvox.DomUtil.getDescriptionFromAncestors(
+      this.getAllAncestors(), true, cvox.ChromeVox.verbosity)];
+};
 
 /**
  * Returns an array of ancestor nodes that have been changed between the
@@ -879,6 +1288,19 @@ cvox.ChromeVoxNavigationManager.prototype.getChangedAncestors = function() {
   }
 };
 
+/**
+ * Returns an array of all ancestor nodes for the current current position.
+ *
+ * @return {Array.<Node>} The current content.
+ */
+cvox.ChromeVoxNavigationManager.prototype.getAllAncestors = function() {
+  if (this.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SMART) {
+    return cvox.DomUtil.getAncestors(this.smartDomWalker.getCurrentNode());
+  } else {
+    return cvox.DomUtil.getAncestors(this.linearDomWalker.getCurrentNode());
+  }
+};
 
 /**
  * Sets the browser's focus to the current node.
@@ -886,7 +1308,11 @@ cvox.ChromeVoxNavigationManager.prototype.getChangedAncestors = function() {
 cvox.ChromeVoxNavigationManager.prototype.setFocus = function() {
   if (this.currentNavStrategy ==
       cvox.ChromeVoxNavigationManager.STRATEGIES.SMART) {
-    cvox.DomUtil.setFocus(this.smartDomWalker.getCurrentNode());
+    if (this.inTableMode()) {
+      cvox.DomUtil.setFocus(this.smartDomWalker.getCurrentNode(), true);
+    } else {
+      cvox.DomUtil.setFocus(this.smartDomWalker.getCurrentNode());
+    }
   } else {
     cvox.DomUtil.setFocus(this.linearDomWalker.getCurrentNode());
   }
@@ -940,7 +1366,8 @@ cvox.ChromeVoxNavigationManager.prototype.actOnCurrentItem = function() {
                 .createSimpleClickFunction(link));
           }
         }
-        this.choiceWidget.show(descriptions, functions,
+        var choiceWidget = new cvox.ChromeVoxChoiceWidget();
+        choiceWidget.show(descriptions, functions,
             descriptions.toString());
         return true;
       }
@@ -969,9 +1396,11 @@ cvox.ChromeVoxNavigationManager.prototype.canActOnCurrentItem = function() {
     if (this.currentNode.tagName && (this.currentNode.tagName == 'A')) {
       return true;
     } else {
-      var aNodes = this.currentNode.getElementsByTagName('A');
-      if (aNodes.length > 0) {
-        return true;
+      if (this.currentNode.getElementsByTagName) {
+        var aNodes = this.currentNode.getElementsByTagName('A');
+        if (aNodes.length > 0) {
+          return true;
+        }
       }
     }
   }
@@ -1200,3 +1629,4 @@ cvox.ChromeVoxNavigationManager.prototype.selectAllTextInNode_ =
     cvox.SelectionUtil.selectAllTextInNode(node);
   }
 };
+

@@ -20,28 +20,21 @@
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
-cvoxgoog.provide('cvox.AbstractEarcons');
-
-cvoxgoog.require('cvox.AbstractLogger');
+goog.provide('cvox.AbstractEarcons');
 
 /**
  * @constructor
- * @extends {cvox.AbstractLogger}
  */
 cvox.AbstractEarcons = function() {
-  //Inherit AbstractLogger
-  cvox.AbstractLogger.call(this);
 };
-cvoxgoog.inherits(cvox.AbstractEarcons, cvox.AbstractLogger);
 
 /**
  * Plays the specified earcon sound.
  * @param {number} earcon An earcon index.
  */
 cvox.AbstractEarcons.prototype.playEarcon = function(earcon) {
-  if (this.logEnabled()) {
-    this.log('[' + this.getName() + '] playEarcon(' +
-        this.getEarconName(earcon) + ')');
+  if (window['console']) {
+    window['console']['log']('Earcon ' + this.getEarconName(earcon));
   }
 };
 

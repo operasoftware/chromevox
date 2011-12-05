@@ -17,9 +17,9 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-cvoxgoog.provide('cvox.TableUtil');
+goog.provide('cvox.TableUtil');
 
-cvoxgoog.require('cvox.XpathUtil');
+goog.require('cvox.XpathUtil');
 
 
 /**

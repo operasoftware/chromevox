@@ -17,11 +17,11 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-cvoxgoog.provide('cvox.TraverseTable');
+goog.provide('cvox.TraverseTable');
 
-cvoxgoog.require('cvox.SelectionUtil');
-cvoxgoog.require('cvox.TableUtil');
-cvoxgoog.require('cvox.TraverseUtil');
+goog.require('cvox.SelectionUtil');
+goog.require('cvox.TableUtil');
+goog.require('cvox.TraverseUtil');
 
 
 

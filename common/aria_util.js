@@ -19,10 +19,10 @@
  */
 
 
-cvoxgoog.provide('cvox.AriaUtil');
+goog.provide('cvox.AriaUtil');
 
 
-cvoxgoog.require('cvox.AbstractEarcons');
+goog.require('cvox.AbstractEarcons');
 
 
 /**
@@ -32,15 +32,18 @@ cvoxgoog.require('cvox.AbstractEarcons');
 cvox.AriaUtil = function() {
 };
 
+
 /**
  * @type {string}
  */
 cvox.AriaUtil.MIN = 'Min ';
 
+
 /**
  * @type {string}
  */
 cvox.AriaUtil.MAX = 'Max ';
+
 
 /**
  * @type {Object.<string, string>}
@@ -50,9 +53,11 @@ cvox.AriaUtil.WIDGET_ROLE_TO_NAME = {
   'alertdialog' : 'Alert dialog',
   'button' : 'Button',
   'checkbox' : 'Check box',
+  'columnheader' : 'Column header',
   'combobox' : 'Combo box',
   'dialog' : 'Dialog',
-  'gridcell' : 'Grid cell',
+  'grid' : 'Grid',
+  'gridcell' : 'Cell',
   'link' : 'Link',
   'listbox' : 'List box',
   'log' : 'Log',
@@ -65,6 +70,7 @@ cvox.AriaUtil.WIDGET_ROLE_TO_NAME = {
   'progressbar' : 'Progress bar',
   'radio' : 'Radio button',
   'radiogroup' : 'Radio button group',
+  'rowheader' : 'Row header',
   'scrollbar' : 'Scroll bar',
   'slider' : 'Slider',
   'spinbutton' : 'Spin button',
@@ -77,6 +83,7 @@ cvox.AriaUtil.WIDGET_ROLE_TO_NAME = {
   'tooltip' : 'Tool tip',
   'treeitem' : 'Tree item'
 };
+
 
 /**
  * @type {Object.<string, string>}
@@ -102,11 +109,11 @@ cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME = {
   'navigation' : 'Navigation',
   'note' : 'Note',
   'region' : 'Region',
-  'row' : 'Row',
   'rowheader' : 'Row header',
   'search' : 'Search',
   'separator' : 'Separator'
 };
+
 
 /**
  * @type {Array.<Object>}
@@ -135,6 +142,7 @@ cvox.AriaUtil.ATTRIBUTE_VALUE_TO_STATUS = [
         {'true': 'Selected', 'false': 'Not selected'} }
 ];
 
+
 /**
  * Checks if a node should be treated as a hidden node because of its ARIA
  * markup.
@@ -155,6 +163,7 @@ cvox.AriaUtil.isHidden = function(targetNode) {
   return false;
 };
 
+
 /**
  * Checks if a node should be treated as a leaf node because of its ARIA
  * markup.
@@ -165,7 +174,7 @@ cvox.AriaUtil.isHidden = function(targetNode) {
 cvox.AriaUtil.isLeafNode = function(targetNode) {
   while (targetNode) {
     if (targetNode.getAttribute) {
-      var role = targetNode.getAttribute('role');
+      var role = cvox.AriaUtil.getRoleAttribute(targetNode);
       if (role == 'img' ||
           role == 'progressbar') {
         return true;
@@ -176,22 +185,45 @@ cvox.AriaUtil.isLeafNode = function(targetNode) {
   return false;
 };
 
+
+/**
+ * Determines whether or not a node is or is the descendant of a node
+ * with a particular role.
+ *
+ * @param {Node} node The node to be checked.
+ * @param {string} roleName The role to check for.
+ * @return {boolean} True if the node or one of its ancestor has the specified
+ * role.
+ */
+cvox.AriaUtil.isDescendantOfRole = function(node, roleName) {
+  while (node) {
+    if (roleName && node && (node.getAttribute('role') == roleName)) {
+      return true;
+    }
+    node = node.parentNode;
+  }
+  return false;
+};
+
+
 /**
  * Returns a string to be presented to the user that identifies what the
  * targetNode's role is.
  *
- * @param {Object} targetNode The node to get the role name for.
+ * @param {Node} targetNode The node to get the role name for.
  * @return {string} The role name for the targetNode.
  */
 cvox.AriaUtil.getRoleName = function(targetNode) {
   var roleName;
   if (targetNode && targetNode.getAttribute) {
-    var role = targetNode.getAttribute('role');
-    roleName = cvox.AriaUtil.WIDGET_ROLE_TO_NAME[role];
-    if (!roleName) {
-      roleName = cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME[role];
-      if ((role == 'heading') && (targetNode.hasAttribute('aria-level'))) {
-        roleName = roleName + ' ' + targetNode.getAttribute('aria-level');
+    var role = cvox.AriaUtil.getRoleAttribute(targetNode);
+    if (role) {
+      roleName = cvox.AriaUtil.WIDGET_ROLE_TO_NAME[role];
+      if (!roleName) {
+        roleName = cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME[role];
+        if ((role == 'heading') && (targetNode.hasAttribute('aria-level'))) {
+          roleName = roleName + ' ' + targetNode.getAttribute('aria-level');
+        }
       }
     }
 
@@ -201,13 +233,13 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
       var container = targetNode.parentElement;
       while (container) {
         if (container.getAttribute &&
-            (container.getAttribute('role') == 'menu' ||
-             container.getAttribute('role') == 'menubar')) {
+            (cvox.AriaUtil.getRoleAttribute(container) == 'menu' ||
+             cvox.AriaUtil.getRoleAttribute(container) == 'menubar')) {
           break;
         }
         container = container.parentElement;
       }
-      if (container && container.getAttribute('role') == 'menubar') {
+      if (container && cvox.AriaUtil.getRoleAttribute(container) == 'menubar') {
         roleName = 'Menu';
       } else {
         roleName = 'Menu item';
@@ -219,6 +251,7 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
   }
   return roleName;
 };
+
 
 /**
  * Returns a string that gives information about the state of the targetNode.
@@ -243,8 +276,11 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
       state = state + ' ' + status;
     }
   }
+  if (targetNode.getAttribute('role') == 'grid') {
+    return cvox.AriaUtil.getGridState(targetNode, targetNode);
+  }
 
-  var role = targetNode.getAttribute('role');
+  var role = cvox.AriaUtil.getRoleAttribute(targetNode);
   if (targetNode.getAttribute('aria-haspopup') == 'true') {
     if (role == 'menu') {
       state = state + ' has submenu';
@@ -293,7 +329,7 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
   if (cvox.AriaUtil.isCompositeControl(parentControl) && primary) {
     currentDescendant = cvox.AriaUtil.getActiveDescendant(parentControl);
   } else {
-    var role = targetNode.getAttribute('role');
+    var role = cvox.AriaUtil.getRoleAttribute(targetNode);
     if (role == 'option' ||
         role == 'menuitem' ||
         role == 'menuitemcheckbox' ||
@@ -306,7 +342,7 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
       while (parentControl &&
              !cvox.AriaUtil.isCompositeControl(parentControl)) {
         parentControl = parentControl.parentElement;
-        if (parentControl.getAttribute('role') == 'treeitem') {
+        if (cvox.AriaUtil.getRoleAttribute(parentControl) == 'treeitem') {
           break;
         }
       }
@@ -315,13 +351,12 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
 
   if (parentControl &&
       (cvox.AriaUtil.isCompositeControl(parentControl) ||
-          parentControl.getAttribute('role') == 'treeitem') &&
+          cvox.AriaUtil.getRoleAttribute(parentControl) == 'treeitem') &&
       currentDescendant) {
-    var parentRole = parentControl.getAttribute('role');
+    var parentRole = cvox.AriaUtil.getRoleAttribute(parentControl);
     var descendantRoleList;
     switch (parentRole) {
       case 'combobox':
-      case 'grid':
       case 'listbox':
         descendantRoleList = ['option'];
         break;
@@ -357,9 +392,38 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
       }
     }
   }
-
   return state;
 };
+
+
+/**
+ * Returns a string that gives information about the state of the grid node.
+ *
+ * @param {Node} targetNode The node to get the state information for.
+ * @param {Node} parentControl The parent composite control.
+ * @return {string} The status information about the node.
+ */
+cvox.AriaUtil.getGridState = function(targetNode, parentControl) {
+  var state = '';
+  var activeDescendant = cvox.AriaUtil.getActiveDescendant(parentControl);
+
+  if (activeDescendant) {
+    var descendantSelector = '*[role~="row"]';
+    var rows = parentControl.querySelectorAll(descendantSelector);
+    var currentIndex = null;
+    for (var j = 0; j < rows.length; j++) {
+      var gridcells = rows[j].querySelectorAll('*[role~="gridcell"]');
+      for (var k = 0; k < gridcells.length; k++) {
+        if (gridcells[k] == activeDescendant) {
+          state = 'row ' + (j + 1) + ' column ' + (k + 1);
+          return state;
+        }
+      }
+    }
+  }
+  return state;
+};
+
 
 /**
  * Returns the id of a node's active descendant
@@ -378,6 +442,7 @@ cvox.AriaUtil.getActiveDescendantId_ = function(targetNode) {
   }
   return activeId;
 };
+
 
 /**
  * Returns the list of elements that are one aria-level below.
@@ -399,6 +464,7 @@ cvox.AriaUtil.getNextLevel = function(parentControl, role) {
   return result;
 };
 
+
 /**
  * Recursively finds the first node(s) that match the role.
  *
@@ -410,7 +476,7 @@ cvox.AriaUtil.getNextLevelItems = function(current, role) {
   if (current.nodeType != 1) { // If reached a node that is not an element.
     return [];
   }
-  if (role.indexOf(current.getAttribute('role')) != -1) {
+  if (role.indexOf(cvox.AriaUtil.getRoleAttribute(current)) != -1) {
     return [current];
   } else {
     var children = current.childNodes;
@@ -429,6 +495,7 @@ cvox.AriaUtil.getNextLevelItems = function(current, role) {
     }
   }
 };
+
 
 /**
  * If the node is an object with an active descendant, returns the
@@ -463,15 +530,17 @@ cvox.AriaUtil.getActiveDescendant = function(targetNode) {
   return node;
 };
 
+
 /**
- * Given a node, returns true if it's an ARIA control widget.
+ * Given a node, returns true if it's an ARIA control widget. Control widgets
+ * are treated as leaf nodes.
  *
- * @param {Object} targetNode The node to be checked.
+ * @param {Node} targetNode The node to be checked.
  * @return {boolean} Whether the targetNode is an ARIA control widget.
  */
 cvox.AriaUtil.isControlWidget = function(targetNode) {
   if (targetNode && targetNode.getAttribute) {
-    var role = targetNode.getAttribute('role');
+    var role = cvox.AriaUtil.getRoleAttribute(targetNode);
     switch (role) {
       case 'button':
       case 'checkbox':
@@ -494,15 +563,16 @@ cvox.AriaUtil.isControlWidget = function(targetNode) {
   return false;
 };
 
+
 /**
  * Given a node, returns true if it's an ARIA composite control.
  *
- * @param {Object} targetNode The node to be checked.
+ * @param {Node} targetNode The node to be checked.
  * @return {boolean} Whether the targetNode is an ARIA composite control.
  */
 cvox.AriaUtil.isCompositeControl = function(targetNode) {
   if (targetNode && targetNode.getAttribute) {
-    var role = targetNode.getAttribute('role');
+    var role = cvox.AriaUtil.getRoleAttribute(targetNode);
     switch (role) {
       case 'combobox':
       case 'grid':
@@ -518,6 +588,7 @@ cvox.AriaUtil.isCompositeControl = function(targetNode) {
   }
   return false;
 };
+
 
 /**
  * Given a node, returns its 'aria-live' value if it's a live region, or
@@ -536,7 +607,7 @@ cvox.AriaUtil.getAriaLive = function(node) {
   } else if (value) {
     return value;
   }
-  var role = node.getAttribute('role');
+  var role = cvox.AriaUtil.getRoleAttribute(node);
   switch (role) {
     case 'alert':
       return 'assertive';
@@ -547,6 +618,7 @@ cvox.AriaUtil.getAriaLive = function(node) {
       return null;
   }
 };
+
 
 /**
  * Given a node, returns its 'aria-atomic' value.
@@ -561,12 +633,13 @@ cvox.AriaUtil.getAriaAtomic = function(node) {
   if (value) {
     return (value === 'true');
   }
-  var role = node.getAttribute('role');
+  var role = cvox.AriaUtil.getRoleAttribute(node);
   if (role == 'alert') {
     return true;
   }
   return false;
 };
+
 
 /**
  * Given a node, returns its 'aria-busy' value.
@@ -583,6 +656,7 @@ cvox.AriaUtil.getAriaBusy = function(node) {
   }
   return false;
 };
+
 
 /**
  * Given a node, checks its aria-relevant attribute (with proper inheritance)
@@ -619,6 +693,7 @@ cvox.AriaUtil.getAriaRelevant = function(node, change) {
   }
 };
 
+
 /**
  * Given a node, return all live regions that are either rooted at this
  * node or contain this node.
@@ -650,6 +725,7 @@ cvox.AriaUtil.getLiveRegions = function(node) {
   return result;
 };
 
+
 /**
  * Checks to see whether or not a node is an ARIA landmark.
  *
@@ -660,7 +736,7 @@ cvox.AriaUtil.isLandmark = function(node) {
     if (!node || !node.getAttribute) {
       return false;
     }
-    var role = node.getAttribute('role');
+    var role = cvox.AriaUtil.getRoleAttribute(node);
     switch (role) {
       case 'application':
       case 'banner':
@@ -677,6 +753,26 @@ cvox.AriaUtil.isLandmark = function(node) {
 
 
 /**
+ * Checks to see whether or not a node is an ARIA grid.
+ *
+ * @param {Node} node The node to be checked.
+ * @return {boolean} Whether or not the node is an ARIA grid.
+ */
+cvox.AriaUtil.isGrid = function(node) {
+    if (!node || !node.getAttribute) {
+      return false;
+    }
+    var role = cvox.AriaUtil.getRoleAttribute(node);
+    switch (role) {
+      case 'grid':
+      case 'treegrid':
+        return true;
+    }
+    return false;
+};
+
+
+/**
  * Returns the id of an earcon to play along with the description for a node.
  *
  * @param {Node} node The node to get the earcon for.
@@ -686,7 +782,7 @@ cvox.AriaUtil.getEarcon = function(node) {
   if (!node || !node.getAttribute) {
     return null;
   }
-  var role = node.getAttribute('role');
+  var role = cvox.AriaUtil.getRoleAttribute(node);
   switch (role) {
     case 'button':
       return cvox.AbstractEarcons.BUTTON;
@@ -712,4 +808,24 @@ cvox.AriaUtil.getEarcon = function(node) {
   }
 
   return null;
+};
+
+
+/**
+ * Returns the role of the node.
+ *
+ * This is equivalent to targetNode.getAttribute('role')
+ * except it also takes into account cases where ChromeVox
+ * itself has changed the role (ie, adding role="application"
+ * to BODY elements for better screen reader compatibility.
+ *
+ * @param {Node} targetNode The node to get the role for.
+ * @return {string} role of the targetNode.
+ */
+cvox.AriaUtil.getRoleAttribute = function(targetNode) {
+  var role = targetNode.getAttribute('role');
+  if (targetNode.hasAttribute('chromevoxoriginalrole')) {
+    role = targetNode.getAttribute('chromevoxoriginalrole');
+  }
+  return role;
 };

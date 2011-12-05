@@ -12,20 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cvoxgoog.provide('cvox.ChromeVoxUserCommands');
-
-cvoxgoog.require('cvox.AbstractEarcons');
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.ChromeVoxNavigationManager');
-cvoxgoog.require('cvox.ChromeVoxSearch');
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.ExtensionBridge');
-cvoxgoog.require('cvox.SelectionUtil');
-
 /**
  * @fileoverview High level commands that the user can invoke using hotkeys.
  *
  * @author clchen@google.com (Charles L. Chen)
+ */
+
+goog.provide('cvox.ChromeVoxUserCommands');
+
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.ApiImplementation');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxNavigationManager');
+goog.require('cvox.ChromeVoxSearch');
+goog.require('cvox.DomUtil');
+
+goog.require('cvox.SelectionUtil');
+
+
+
+/**
+ * @namespace
  */
 cvox.ChromeVoxUserCommands = function() { };
 
@@ -34,18 +41,6 @@ cvox.ChromeVoxUserCommands = function() { };
  * @type {Object}
  */
 cvox.ChromeVoxUserCommands.commands = {};
-
-
-/**
- * @type {string}
- */
-cvox.ChromeVoxUserCommands.stickyModeEnabledMessage = 'Sticky mode enabled';
-
-
-/**
- * @type {string}
- */
-cvox.ChromeVoxUserCommands.stickyModeDisabledMessage = 'Sticky mode disabled';
 
 
 /**
@@ -105,10 +100,10 @@ cvox.ChromeVoxUserCommands.initPowerKey = function(keyMap, callback) {
         cvox.ChromeVoxUserCommands.getReadableShortcut(key));
     cmds.push(key);
   }
-  cvox.ChromeVoxUserCommands.powerkey = new PowerKey('main', null);
-  PowerKey.setDefaultCSSStyle();
+  cvox.ChromeVoxUserCommands.powerkey = new window.PowerKey('main', null);
+  window.PowerKey.setDefaultCSSStyle();
   cvox.ChromeVoxUserCommands.powerkey.setCompletionPromptStr(
-      'Search for a keyboard shortcut or use Up/Down arrow keys to browse.');
+      cvox.ChromeVox.msgs.getMsg('powerkey_init_prompt'));
   cvox.ChromeVoxUserCommands.powerkey.createCompletionField(
       document.body,
       50,
@@ -198,7 +193,7 @@ cvox.ChromeVoxUserCommands.hidePowerKey = function() {
     return;
   }
   cvox.ChromeVoxUserCommands.powerkey.updateCompletionField(
-      PowerKey.status.HIDDEN);
+      window.PowerKey.status.HIDDEN);
   if (cvox.ChromeVoxUserCommands.savedCurrentNode) {
     window.setTimeout(function() {
       cvox.DomUtil.setFocus(cvox.ChromeVoxUserCommands.savedCurrentNode);
@@ -218,7 +213,7 @@ cvox.ChromeVoxUserCommands.commands['showPowerKey'] = function() {
   cvox.ChromeVoxUserCommands.savedCurrentNode =
       cvox.ChromeVox.navigationManager.getCurrentNode();
   cvox.ChromeVoxUserCommands.powerkey.updateCompletionField(
-      PowerKey.status.VISIBLE);
+      window.PowerKey.status.VISIBLE);
   return false;
 };
 
@@ -259,8 +254,8 @@ cvox.ChromeVoxUserCommands.commands['toggleStickyMode'] = function() {
   cvox.ChromeVox.isStickyOn = !cvox.ChromeVox.isStickyOn;
   cvox.ChromeVox.tts.speak(
       cvox.ChromeVox.isStickyOn ?
-          cvox.ChromeVoxUserCommands.stickyModeEnabledMessage :
-          cvox.ChromeVoxUserCommands.stickyModeDisabledMessage,
+          cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled') :
+          cvox.ChromeVox.msgs.getMsg('sticky_mode_disabled'),
       0,
       cvox.AbstractTts.PERSONALITY_ANNOTATION);
 
@@ -275,17 +270,23 @@ cvox.ChromeVoxUserCommands.commands['toggleStickyMode'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['forward'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand_();
-  var navSucceeded = cvox.ChromeVox.navigationManager.next(true);
+  cvox.ChromeVoxUserCommands.markInUserCommand();
+  var navSucceeded =
+      cvox.ChromeVox.navigationManager.navigateForward(true, true);
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
+  return !navSucceeded;
+};
 
-  if (cvox.ChromeVox.navigationManager.inTableMode()) {
-    if (! cvox.ChromeVox.navigationManager.checkCellBoundaries()) {
-      navSucceeded = cvox.ChromeVox.navigationManager.previous(true);
-      cvox.ChromeVoxUserCommands.finishNavCommand('End of cell. ');
-      return !navSucceeded;
-    }
-  }
 
+/**
+ * Moves right and speaks the result.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['right'] = function() {
+  cvox.ChromeVoxUserCommands.markInUserCommand();
+  var navSucceeded = cvox.ChromeVox.navigationManager.navigateRight(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 };
@@ -298,17 +299,23 @@ cvox.ChromeVoxUserCommands.commands['forward'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['backward'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand_();
-  var navSucceeded = cvox.ChromeVox.navigationManager.previous(true);
+  cvox.ChromeVoxUserCommands.markInUserCommand();
+  var navSucceeded =
+      cvox.ChromeVox.navigationManager.navigateBackward(true, true);
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
+  return !navSucceeded;
+};
 
-  if (cvox.ChromeVox.navigationManager.inTableMode()) {
-    if (! cvox.ChromeVox.navigationManager.checkCellBoundaries()) {
-      navSucceeded = cvox.ChromeVox.navigationManager.next(true);
-      cvox.ChromeVoxUserCommands.finishNavCommand('End of cell. ');
-      return !navSucceeded;
-    }
-  }
 
+/**
+ * Moves left and speaks the result.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['left'] = function() {
+  cvox.ChromeVoxUserCommands.markInUserCommand();
+  var navSucceeded = cvox.ChromeVox.navigationManager.navigateLeft(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 };
@@ -400,28 +407,8 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
     queueMode = 1;
   }
 
-  function speakDescription(i, queueMode) {
-    var description = descriptionArray[i];
-    if (i == 0) {
-      for (var j = 0; j < description.earcons.length; j++) {
-        cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
-      }
-    }
-    function startCallback() {
-      if (i > 0) {
-        for (var j = 0; j < description.earcons.length; j++) {
-          cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
-        }
-      }
-    }
-    function endCallback() {}
-    description.speak(queueMode, startCallback, endCallback);
-  };
-
-  for (var i = 0; i < descriptionArray.length; i++) {
-    speakDescription(i, queueMode);
-    queueMode = 1;
-  }
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
+    queueMode, null);
 };
 
 
@@ -434,7 +421,7 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
  */
 cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
     errorStr) {
-  cvox.ChromeVoxUserCommands.markInUserCommand_();
+  cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
     cvox.ChromeVox.tts.speak(
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -457,7 +444,7 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
  */
 cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
     errorStr) {
-  cvox.ChromeVoxUserCommands.markInUserCommand_();
+  cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findPrevious(predicate)) {
     cvox.ChromeVox.tts.speak(
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -493,9 +480,8 @@ cvox.ChromeVoxUserCommands.containsTagName_ = function(arr, tagName) {
  * event watchers, then automatically un-silence them after a short delay.
  * This prevents us from speaking that something has focused when the
  * focusing was a result of a ChromeVox action.
- * @private
  */
-cvox.ChromeVoxUserCommands.markInUserCommand_ = function() {
+cvox.ChromeVoxUserCommands.markInUserCommand = function() {
   cvox.ChromeVoxUserCommands.userCommandLevel_ += 1;
   setTimeout(function() {
     cvox.ChromeVoxUserCommands.userCommandLevel_ -= 1;
@@ -588,12 +574,8 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
 cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
   if (cvox.ChromeVoxSearch.isActive()) {
     cvox.ChromeVoxSearch.hide();
-    cvox.ChromeVox.tts.speak(
-        'Browse', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   } else {
     cvox.ChromeVoxSearch.show();
-    cvox.ChromeVox.tts.speak(
-        'Search', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
   return false;
 };
@@ -618,9 +600,8 @@ cvox.ChromeVoxUserCommands.commands['nextTtsEngine'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['decreaseTtsRate'] = function() {
-  cvox.ChromeVox.tts.decreaseProperty('Rate', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.RATE, false);
   return false;
-
 };
 
 
@@ -631,7 +612,7 @@ cvox.ChromeVoxUserCommands.commands['decreaseTtsRate'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['increaseTtsRate'] = function() {
-  cvox.ChromeVox.tts.increaseProperty('Rate', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.RATE, true);
   return false;
 };
 
@@ -643,7 +624,7 @@ cvox.ChromeVoxUserCommands.commands['increaseTtsRate'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['decreaseTtsPitch'] = function() {
-  cvox.ChromeVox.tts.decreaseProperty('Pitch', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.PITCH, false);
   return false;
 };
 
@@ -655,7 +636,7 @@ cvox.ChromeVoxUserCommands.commands['decreaseTtsPitch'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['increaseTtsPitch'] = function() {
-  cvox.ChromeVox.tts.increaseProperty('Pitch', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.PITCH, true);
   return false;
 };
 
@@ -667,7 +648,7 @@ cvox.ChromeVoxUserCommands.commands['increaseTtsPitch'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['decreaseTtsVolume'] = function() {
-  cvox.ChromeVox.tts.decreaseProperty('Volume', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.VOLUME, false);
   return false;
 };
 
@@ -679,7 +660,7 @@ cvox.ChromeVoxUserCommands.commands['decreaseTtsVolume'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['increaseTtsVolume'] = function() {
-  cvox.ChromeVox.tts.increaseProperty('Volume', true);
+  cvox.ChromeVox.tts.increaseOrDecreaseProperty(cvox.AbstractTts.VOLUME, true);
   return false;
 };
 
@@ -692,7 +673,7 @@ cvox.ChromeVoxUserCommands.commands['increaseTtsVolume'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['help'] = function() {
   cvox.ChromeVox.tts.stop();
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'HelpDocs',
     'action': 'open'});
   return false;
@@ -706,7 +687,7 @@ cvox.ChromeVoxUserCommands.commands['help'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['showBookmarkManager'] = function() {
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'BookmarkManager',
     'action': 'open'});
   return false;
@@ -721,7 +702,7 @@ cvox.ChromeVoxUserCommands.commands['showBookmarkManager'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['showOptionsPage'] = function() {
   cvox.ChromeVox.tts.stop();
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'Options',
     'action': 'open'});
   return false;
@@ -736,7 +717,7 @@ cvox.ChromeVoxUserCommands.commands['showOptionsPage'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['showKbExplorerPage'] = function() {
   cvox.ChromeVox.tts.stop();
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'KbExplorer',
     'action': 'open'});
   return false;
@@ -772,9 +753,10 @@ cvox.ChromeVoxUserCommands.commands['readLinkURL'] = function() {
   }
 
   if (url != '') {
-    cvox.Api.speak(url, 0, null);
+    cvox.ApiImplementation.speak(url, 0, null);
   } else {
-    cvox.Api.speak('No URL found', 0, null);
+    cvox.ApiImplementation.speak(
+        cvox.ChromeVox.msgs.getMsg('no_url_found'), 0, null);
   }
 };
 
@@ -783,7 +765,7 @@ cvox.ChromeVoxUserCommands.commands['readLinkURL'] = function() {
  * Reads out the current page title.
  */
 cvox.ChromeVoxUserCommands.commands['readCurrentTitle'] = function() {
-  cvox.Api.speak(document.title, 0, null);
+  cvox.ApiImplementation.speak(document.title, 0, null);
 };
 
 
@@ -791,7 +773,7 @@ cvox.ChromeVoxUserCommands.commands['readCurrentTitle'] = function() {
  * Reads out the current page URL.
  */
 cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
-  cvox.Api.speak(document.URL, 0, null);
+  cvox.ApiImplementation.speak(document.URL, 0, null);
 };
 
 
@@ -808,92 +790,29 @@ cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
 
 
 /**
- * Toggle navigating through tables on and off.
+ * Toggle table navigation on and off.
  */
 cvox.ChromeVoxUserCommands.commands['toggleTable'] = function() {
   if (cvox.ChromeVox.navigationManager.inTableMode()) {
     // Currently in table mode, so leave table mode.
-    cvox.ChromeVox.navigationManager.exitTable();
-    cvox.ChromeVoxUserCommands.finishNavCommand('Leaving table. ');
-  } else {
-    if (cvox.ChromeVox.navigationManager.enterTable()) {
-      cvox.ChromeVoxUserCommands.finishNavCommand('Inside table ');
+    var wasGrid = cvox.ChromeVox.navigationManager.insideGrid();
+    cvox.ChromeVox.navigationManager.exitTable(true);
+    if (wasGrid) {
+      cvox.ChromeVoxUserCommands.finishNavCommand(
+          cvox.ChromeVox.msgs.getMsg('leaving_grid') + ' ');
     } else {
-      cvox.ChromeVox.tts.speak(
-          'No table found.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      cvox.ChromeVoxUserCommands.finishNavCommand(
+          cvox.ChromeVox.msgs.getMsg('leaving_table') + ' ');
     }
-  }
-};
-
-
-/**
- * Move to the previous row of a table.
- */
-cvox.ChromeVoxUserCommands.commands['previousRow'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-  if (cvox.ChromeVox.navigationManager.previousRow()) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
-    cvox.ChromeVox.tts.speak(
-        'No cell above.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  }
-};
-
-
-/**
- * Move to the next row of a table.
- */
-cvox.ChromeVoxUserCommands.commands['nextRow'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-  if (cvox.ChromeVox.navigationManager.nextRow()) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('');
-  } else {
-    cvox.ChromeVox.tts.speak(
-        'No cell below.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  }
-};
-
-
-/**
- * Move to the previous column of a table.
- */
-cvox.ChromeVoxUserCommands.commands['previousCol'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-  if (cvox.ChromeVox.navigationManager.previousCol()) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('');
-  } else {
-    cvox.ChromeVox.tts.speak(
-        'No cell on left.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  }
-};
-
-
-/**
- * Move to the next column of a table.
- */
-cvox.ChromeVoxUserCommands.commands['nextCol'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
-    cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-  if (cvox.ChromeVox.navigationManager.nextCol()) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('');
-  } else {
-    cvox.ChromeVox.tts.speak(
-        'No cell on right.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    // Not currently in table mode. Try and see if there's a table here.
+    var inTable = cvox.ChromeVox.navigationManager.forceEnterTable(true);
+    if (!inTable) {
+      cvox.ChromeVoxUserCommands.finishNavCommand(
+          cvox.ChromeVox.msgs.getMsg('no_tables') + ' ');
+    } else {
+      cvox.ChromeVoxUserCommands.finishNavCommand('');
+    }
   }
 };
 
@@ -904,19 +823,22 @@ cvox.ChromeVoxUserCommands.commands['nextCol'] = function() {
 cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var rowHeader = cvox.ChromeVox.navigationManager.getRowHeaderText();
   var colHeader = cvox.ChromeVox.navigationManager.getColHeaderText();
   if (rowHeader != '') {
-    cvox.ChromeVox.tts.speak('Row header: ' + rowHeader, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('row_header') + ' ' + rowHeader, 0, null);
   }
   if (colHeader != '') {
-    cvox.ChromeVox.tts.speak('Column header: ' + colHeader, 1, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('column_header') + ' ' + colHeader, 1, null);
   }
   if ((rowHeader == '') && (colHeader == '')) {
-    cvox.ChromeVox.tts.speak('No headers', 0, null);
+    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_headers'), 0, null);
   }
 };
 
@@ -931,16 +853,16 @@ cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
 cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
 
-  var description = '';
-  description += ('Row ' +
-      cvox.ChromeVox.navigationManager.getRowIndex() + ' of ' +
-      cvox.ChromeVox.navigationManager.getRowCount() + ', Column ' +
-      cvox.ChromeVox.navigationManager.getColIndex() + ' of ' +
-      cvox.ChromeVox.navigationManager.getColCount());
+  var description = cvox.ChromeVox.msgs.getMsg('table_location',
+                        [cvox.ChromeVox.navigationManager.getRowIndex(),
+                         cvox.ChromeVox.navigationManager.getRowCount(),
+                         cvox.ChromeVox.navigationManager.getColIndex(),
+                         cvox.ChromeVox.navigationManager.getColCount()]);
 
   cvox.ChromeVox.tts.speak(description, 0, null);
 };
@@ -952,17 +874,21 @@ cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
 cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var rowHeader = cvox.ChromeVox.navigationManager.getRowHeaderText();
   if (rowHeader != '') {
-    cvox.ChromeVox.tts.speak('Row header: ' + rowHeader, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('row_header') + ' ' + rowHeader, 0, null);
   }
   else {
     // No explicit row header, ask for best guess
     var guessRowHeader = cvox.ChromeVox.navigationManager.getRowHeaderGuess();
-    cvox.ChromeVox.tts.speak('Row header: ' + guessRowHeader, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('row_header') +
+        ' ' + guessRowHeader, 0, null);
   }
 };
 
@@ -973,17 +899,21 @@ cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
 cvox.ChromeVoxUserCommands.commands['guessColHeader'] = function() {
   if (! cvox.ChromeVox.navigationManager.inTableMode()) {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
   var colHeader = cvox.ChromeVox.navigationManager.getColHeaderText();
   if (colHeader != '') {
-    cvox.ChromeVox.tts.speak('Column header: ' + colHeader, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('column_header') + ' ' + colHeader, 0, null);
   }
   else {
     // No explicit col header, ask for best guess
     var guessColHeader = cvox.ChromeVox.navigationManager.getColHeaderGuess();
-    cvox.ChromeVox.tts.speak('Column header: ' + guessColHeader, 0, null);
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('column_header') +
+        ' ' + guessColHeader, 0, null);
   }
 };
 
@@ -996,7 +926,8 @@ cvox.ChromeVoxUserCommands.commands['skipToBeginning'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1009,7 +940,8 @@ cvox.ChromeVoxUserCommands.commands['skipToEnd'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1022,7 +954,8 @@ cvox.ChromeVoxUserCommands.commands['skipToRowBeginning'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1035,7 +968,8 @@ cvox.ChromeVoxUserCommands.commands['skipToRowEnd'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1048,7 +982,8 @@ cvox.ChromeVoxUserCommands.commands['skipToColBeginning'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1061,7 +996,8 @@ cvox.ChromeVoxUserCommands.commands['skipToColEnd'] = function() {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
     cvox.ChromeVox.tts.speak(
-        'Not inside table.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+        cvox.ChromeVox.msgs.getMsg('not_inside_table'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 };
 
@@ -1080,7 +1016,7 @@ cvox.ChromeVoxUserCommands.commands['skipToColEnd'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextCheckbox'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.checkboxPredicate_,
-      'No next checkbox.');
+      cvox.ChromeVox.msgs.getMsg('no_next_checkbox'));
   return false;
 };
 
@@ -1094,7 +1030,7 @@ cvox.ChromeVoxUserCommands.commands['nextCheckbox'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousCheckbox'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.checkboxPredicate_,
-      'No previous checkbox.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_checkbox'));
   return false;
 };
 
@@ -1108,7 +1044,7 @@ cvox.ChromeVoxUserCommands.commands['previousCheckbox'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextRadio'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.radioPredicate_,
-      'No next radio button.');
+      cvox.ChromeVox.msgs.getMsg('no_next_radio_button'));
   return false;
 };
 
@@ -1122,7 +1058,7 @@ cvox.ChromeVoxUserCommands.commands['nextRadio'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousRadio'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.radioPredicate_,
-      'No previous radio button.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_radio_button'));
   return false;
 };
 
@@ -1136,7 +1072,7 @@ cvox.ChromeVoxUserCommands.commands['previousRadio'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextSlider'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.sliderPredicate_,
-      'No next slider.');
+      cvox.ChromeVox.msgs.getMsg('no_next_slider'));
   return false;
 };
 
@@ -1150,7 +1086,7 @@ cvox.ChromeVoxUserCommands.commands['nextSlider'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousSlider'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.sliderPredicate_,
-      'No previous slider.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_slider'));
   return false;
 };
 
@@ -1164,7 +1100,7 @@ cvox.ChromeVoxUserCommands.commands['previousSlider'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextGraphic'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.graphicPredicate_,
-      'No next graphic.');
+      cvox.ChromeVox.msgs.getMsg('no_next_graphic'));
   return false;
 };
 
@@ -1178,7 +1114,7 @@ cvox.ChromeVoxUserCommands.commands['nextGraphic'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousGraphic'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.graphicPredicate_,
-      'No previous graphic.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_graphic'));
   return false;
 };
 
@@ -1192,7 +1128,7 @@ cvox.ChromeVoxUserCommands.commands['previousGraphic'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextButton'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.buttonPredicate_,
-      'No next button.');
+      cvox.ChromeVox.msgs.getMsg('no_next_button'));
   return false;
 };
 
@@ -1206,7 +1142,7 @@ cvox.ChromeVoxUserCommands.commands['nextButton'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousButton'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.buttonPredicate_,
-      'No previous button.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_button'));
   return false;
 };
 
@@ -1220,7 +1156,7 @@ cvox.ChromeVoxUserCommands.commands['previousButton'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextComboBox'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.comboBoxPredicate_,
-      'No next combo box.');
+      cvox.ChromeVox.msgs.getMsg('no_next_combo_box'));
   return false;
 };
 
@@ -1234,7 +1170,7 @@ cvox.ChromeVoxUserCommands.commands['nextComboBox'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousComboBox'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.comboBoxPredicate_,
-      'No previous combo box.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_combo_box'));
   return false;
 };
 
@@ -1248,7 +1184,7 @@ cvox.ChromeVoxUserCommands.commands['previousComboBox'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextEditText'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.editTextPredicate_,
-      'No next editable text field.');
+      cvox.ChromeVox.msgs.getMsg('no_next_edit_text'));
   return false;
 };
 
@@ -1262,7 +1198,7 @@ cvox.ChromeVoxUserCommands.commands['nextEditText'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousEditText'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.editTextPredicate_,
-      'No previous editable text field.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_edit_text'));
   return false;
 };
 
@@ -1276,7 +1212,7 @@ cvox.ChromeVoxUserCommands.commands['previousEditText'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.headingPredicate_,
-      'No next heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading'));
   return false;
 };
 
@@ -1290,7 +1226,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.headingPredicate_,
-      'No previous heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading'));
   return false;
 };
 
@@ -1304,7 +1240,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading1'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading1Predicate_,
-      'No next level 1 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_1'));
   return false;
 };
 
@@ -1318,7 +1254,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading1'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading1'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading1Predicate_,
-      'No previous level 1 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_1'));
   return false;
 };
 
@@ -1332,7 +1268,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading1'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading2'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading2Predicate_,
-      'No next level 2 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_2'));
   return false;
 };
 
@@ -1346,7 +1282,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading2'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading2'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading2Predicate_,
-      'No previous level 2 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_2'));
   return false;
 };
 
@@ -1360,7 +1296,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading2'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading3'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading3Predicate_,
-      'No next level 3 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_3'));
   return false;
 };
 
@@ -1374,7 +1310,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading3'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading3'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading3Predicate_,
-      'No previous level 3 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_3'));
   return false;
 };
 
@@ -1388,7 +1324,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading3'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading4'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading4Predicate_,
-      'No next level 4 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_4'));
   return false;
 };
 
@@ -1402,7 +1338,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading4'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading4'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading4Predicate_,
-      'No previous level 4 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_4'));
   return false;
 };
 
@@ -1416,7 +1352,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading4'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading5'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading5Predicate_,
-      'No next level 5 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_5'));
   return false;
 };
 
@@ -1430,7 +1366,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading5'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading5'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading5Predicate_,
-      'No previous level 5 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_5'));
   return false;
 };
 
@@ -1444,7 +1380,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading5'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextHeading6'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.heading6Predicate_,
-      'No next level 6 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_next_heading_6'));
   return false;
 };
 
@@ -1458,7 +1394,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading6'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousHeading6'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.heading6Predicate_,
-      'No previous level 6 heading.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_heading_6'));
   return false;
 };
 
@@ -1472,7 +1408,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading6'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextNotLink'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.notLinkPredicate_,
-      'No next item that isn\'t a link.');
+      cvox.ChromeVox.msgs.getMsg('no_next_not_link'));
   return false;
 };
 
@@ -1486,7 +1422,7 @@ cvox.ChromeVoxUserCommands.commands['nextNotLink'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousNotLink'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.notLinkPredicate_,
-      'No previous item that isn\'t a link.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_not_link'));
   return false;
 };
 
@@ -1512,11 +1448,11 @@ cvox.ChromeVoxUserCommands.commands['nextAnchor'] = function() {
 
   if (temp) {
     cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
-    cvox.Api.syncToNode(temp, false);
+    cvox.ApiImplementation.syncToNode(temp, false);
     cvox.ChromeVox.navigationManager.previous(true);
     cvox.ChromeVoxUserCommands.commands['forward']();
   } else {
-    cvox.ChromeVox.tts.speak('No next anchor', 0,
+    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_next_anchor'), 0,
         cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 
@@ -1557,12 +1493,12 @@ cvox.ChromeVoxUserCommands.commands['previousAnchor'] = function() {
 
   if (temp) {
     cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
-    cvox.Api.syncToNode(temp, false);
+    cvox.ApiImplementation.syncToNode(temp, false);
     cvox.ChromeVox.navigationManager.previous(true);
     cvox.ChromeVoxUserCommands.commands['forward']();
   } else {
-    cvox.ChromeVox.tts.speak('No previous anchor', 0,
-        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_previous_anchor'),
+                             0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
 
   return false;
@@ -1578,7 +1514,7 @@ cvox.ChromeVoxUserCommands.commands['previousAnchor'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextLink'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.linkPredicate_,
-      'No next link.');
+      cvox.ChromeVox.msgs.getMsg('no_next_link'));
   return false;
 };
 
@@ -1592,7 +1528,7 @@ cvox.ChromeVoxUserCommands.commands['nextLink'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousLink'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.linkPredicate_,
-      'No previous link.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_link'));
   return false;
 };
 
@@ -1606,7 +1542,7 @@ cvox.ChromeVoxUserCommands.commands['previousLink'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextTable'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.tablePredicate_,
-      'No next table.');
+      cvox.ChromeVox.msgs.getMsg('no_next_table'));
   return false;
 };
 
@@ -1620,7 +1556,7 @@ cvox.ChromeVoxUserCommands.commands['nextTable'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousTable'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.tablePredicate_,
-      'No previous table.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_table'));
   return false;
 };
 
@@ -1634,7 +1570,7 @@ cvox.ChromeVoxUserCommands.commands['previousTable'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextList'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.listPredicate_,
-      'No next list.');
+      cvox.ChromeVox.msgs.getMsg('no_next_list'));
   return false;
 };
 
@@ -1648,7 +1584,7 @@ cvox.ChromeVoxUserCommands.commands['nextList'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousList'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.listPredicate_,
-      'No previous list.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_list'));
   return false;
 };
 
@@ -1662,7 +1598,7 @@ cvox.ChromeVoxUserCommands.commands['previousList'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextListItem'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.listItemPredicate_,
-      'No next list item.');
+      cvox.ChromeVox.msgs.getMsg('no_next_list_item'));
   return false;
 };
 
@@ -1676,7 +1612,7 @@ cvox.ChromeVoxUserCommands.commands['nextListItem'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousListItem'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.listItemPredicate_,
-      'No previous list item.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_list_item'));
   return false;
 };
 
@@ -1690,7 +1626,7 @@ cvox.ChromeVoxUserCommands.commands['previousListItem'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextBlockquote'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.blockquotePredicate_,
-      'No next blockquote.');
+      cvox.ChromeVox.msgs.getMsg('no_next_blockquote'));
   return false;
 };
 
@@ -1704,7 +1640,7 @@ cvox.ChromeVoxUserCommands.commands['nextBlockquote'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousBlockquote'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.blockquotePredicate_,
-      'No previous blockquote.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_blockquote'));
   return false;
 };
 
@@ -1718,7 +1654,7 @@ cvox.ChromeVoxUserCommands.commands['previousBlockquote'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextFormField'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.formFieldPredicate_,
-      'No next form field.');
+      cvox.ChromeVox.msgs.getMsg('no_next_form_field'));
   return false;
 };
 
@@ -1732,7 +1668,7 @@ cvox.ChromeVoxUserCommands.commands['nextFormField'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.formFieldPredicate_,
-      'No previous form field.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_form_field'));
   return false;
 };
 
@@ -1746,7 +1682,7 @@ cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextJump'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.jumpPredicate_,
-      'No next jump point.');
+      cvox.ChromeVox.msgs.getMsg('no_next_jump'));
   return false;
 };
 
@@ -1760,7 +1696,7 @@ cvox.ChromeVoxUserCommands.commands['nextJump'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.jumpPredicate_,
-      'No previous jump point.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_jump'));
   return false;
 };
 
@@ -1774,7 +1710,7 @@ cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
 cvox.ChromeVoxUserCommands.commands['nextLandmark'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
       cvox.ChromeVoxUserCommands.landmarkPredicate_,
-      'No next ARIA landmark.');
+      cvox.ChromeVox.msgs.getMsg('no_next_landmark'));
   return false;
 };
 
@@ -1788,7 +1724,7 @@ cvox.ChromeVoxUserCommands.commands['nextLandmark'] = function() {
 cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
       cvox.ChromeVoxUserCommands.landmarkPredicate_,
-      'No previous ARIA landmark.');
+      cvox.ChromeVox.msgs.getMsg('no_previous_landmark'));
   return false;
 };
 
@@ -1806,8 +1742,8 @@ cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
 cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
   var actionTaken = cvox.ChromeVox.navigationManager.actOnCurrentItem();
   if (!actionTaken) {
-    cvox.ChromeVox.tts.speak(
-        'No actions available.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_actions'),
+        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
   return false;
 };
@@ -1821,7 +1757,8 @@ cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
   cvox.ChromeVox.tts.speak(
-      'Clicked.', 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      cvox.ChromeVox.msgs.getMsg('element_clicked'),
+      0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   cvox.DomUtil.clickElem(cvox.ChromeVox.navigationManager.currentNode, false);
   return false;
 };
@@ -1835,7 +1772,7 @@ cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
 cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
   if (cvox.ChromeVox.lens) {
     cvox.ChromeVox.lens.showLens(true);
-    cvox.ExtensionBridge.send({
+    cvox.ChromeVox.host.sendToBackgroundPage({
       'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensVisible',
@@ -1854,7 +1791,7 @@ cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
 cvox.ChromeVoxUserCommands.commands['hideLens'] = function() {
   if (cvox.ChromeVox.lens) {
     cvox.ChromeVox.lens.showLens(false);
-    cvox.ExtensionBridge.send({
+    cvox.ChromeVox.host.sendToBackgroundPage({
       'target': 'Prefs',
       'action': 'setPref',
       'pref': 'lensVisible',
@@ -1894,7 +1831,7 @@ cvox.ChromeVoxUserCommands.commands['floatLens'] = function() {
     cvox.ChromeVox.lens.showLens(true);
   } catch (err) {
   }
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'Prefs',
     'action': 'setPref',
     'pref': 'lensAnchored',
@@ -1917,7 +1854,7 @@ cvox.ChromeVoxUserCommands.commands['anchorLens'] = function() {
     cvox.ChromeVox.lens.showLens(true);
   } catch (err) {
   }
-  cvox.ExtensionBridge.send({
+  cvox.ChromeVox.host.sendToBackgroundPage({
     'target': 'Prefs',
     'action': 'setPref',
     'pref': 'lensAnchored',
@@ -2396,28 +2333,30 @@ cvox.ChromeVoxUserCommands.showNavigationList = function(errorStr,
  */
 cvox.ChromeVoxUserCommands.commands['showHeadingsList'] = function() {
   var xpath = '//*[@role="heading"] | //h1 | //h2 | //h3 | //h4 | //h5 | //h6';
-  cvox.ChromeVoxUserCommands.showNavigationList('No headings.',
+  cvox.ChromeVoxUserCommands.showNavigationList(
+      cvox.ChromeVox.msgs.getMsg('powerkey_no_headings'),
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
-
 
 /**
  * Show links list with PowerKey.
  */
 cvox.ChromeVoxUserCommands.commands['showLinksList'] = function() {
   var xpath = '//a';
-  cvox.ChromeVoxUserCommands.showNavigationList('No links.',
-      cvox.XpathUtil.evalXPath(xpath, document.body), null);
-};
+    cvox.ChromeVoxUserCommands.showNavigationList(
+        cvox.ChromeVox.msgs.getMsg('powerkey_no_links'),
+        cvox.XpathUtil.evalXPath(xpath, document.body), null);
+  };
 
 
-/**
- * Show forms list with PowerKey.
- */
-cvox.ChromeVoxUserCommands.commands['showFormsList'] = function() {
-  var xpath = '//form';
-  cvox.ChromeVoxUserCommands.showNavigationList('No forms.',
-      cvox.XpathUtil.evalXPath(xpath, document.body), null);
+  /**
+   * Show forms list with PowerKey.
+   */
+  cvox.ChromeVoxUserCommands.commands['showFormsList'] = function() {
+    var xpath = '//form';
+    cvox.ChromeVoxUserCommands.showNavigationList(
+        cvox.ChromeVox.msgs.getMsg('powerkey_no_forms'),
+        cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
 
 
@@ -2446,7 +2385,8 @@ cvox.ChromeVoxUserCommands.commands['showTablesList'] = function() {
     }
     descriptions.push(description);
   }
-  cvox.ChromeVoxUserCommands.showNavigationList('No tables.',
+  cvox.ChromeVoxUserCommands.showNavigationList(
+      cvox.ChromeVox.msgs.getMsg('powerkey_no_tables'),
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
 
@@ -2468,7 +2408,8 @@ cvox.ChromeVoxUserCommands.commands['showLandmarksList'] = function() {
     }
     descriptions.push(description);
   }
-  cvox.ChromeVoxUserCommands.showNavigationList('No ARIA landmarks.',
+  cvox.ChromeVoxUserCommands.showNavigationList(
+      cvox.ChromeVox.msgs.getMsg('powerkey_no_landmarks'),
       landmarkNodes, descriptions);
 };
 
@@ -2498,6 +2439,28 @@ cvox.ChromeVoxUserCommands.commands['showJumpsList'] = function() {
     }
     descriptions.push(description);
   }
-  cvox.ChromeVoxUserCommands.showNavigationList('No jumps.', jumpNodes,
-      descriptions);
+  cvox.ChromeVoxUserCommands.showNavigationList(
+      cvox.ChromeVox.msgs.getMsg('powerkey_no_jumps'), jumpNodes, descriptions);
+};
+
+/**
+ * Announce the current position.
+ */
+cvox.ChromeVoxUserCommands.commands['announcePosition'] = function() {
+  var descriptionArray =
+      cvox.ChromeVox.navigationManager.getCurrentDescription();
+
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
+    0, null);
+};
+
+/**
+ * Fully describe the current position
+ */
+cvox.ChromeVoxUserCommands.commands['fullyDescribe'] = function() {
+  var descriptionArray =
+      cvox.ChromeVox.navigationManager.getCurrentFullDescription();
+
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
+    0, null);
 };

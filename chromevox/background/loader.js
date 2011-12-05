@@ -18,4 +18,4 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.require('cvox.ChromeVoxBackground');
+goog.require('cvox.ChromeVoxBackground');

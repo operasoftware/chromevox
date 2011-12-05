@@ -19,12 +19,12 @@
  */
 
 
-cvoxgoog.provide('cvox.DomUtil');
+goog.provide('cvox.DomUtil');
 
-cvoxgoog.require('cvox.AbstractEarcons');
-cvoxgoog.require('cvox.AriaUtil');
-cvoxgoog.require('cvox.NavDescription');
-cvoxgoog.require('cvox.XpathUtil');
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.AriaUtil');
+goog.require('cvox.NavDescription');
+goog.require('cvox.XpathUtil');
 
 
 
@@ -68,7 +68,7 @@ cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE = {
 /**
  * @type {Object}
  */
-cvox.DomUtil.TAG_TO_INFORMATION_TABLE = {
+cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE = {
   'A' : 'Link',
   'BUTTON' : 'Button',
   'H1' : 'Heading 1',
@@ -80,9 +80,27 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE = {
   'LI' : 'List item',
   'OL' : 'List',
   'SELECT' : 'List box',
-  'TABLE' : 'Table',
   'TEXTAREA' : 'Text area',
   'UL' : 'List'
+};
+
+/**
+ * @type {Object}
+ */
+cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF = {
+  'A' : '',
+  'BUTTON' : 'Button',
+  'H1' : '',
+  'H2' : '',
+  'H3' : '',
+  'H4' : '',
+  'H5' : '',
+  'H6' : '',
+  'LI' : '',
+  'OL' : '',
+  'SELECT' : 'List box',
+  'TEXTAREA' : 'Text area',
+  'UL' : ''
 };
 
 
@@ -253,6 +271,20 @@ cvox.DomUtil.collapseWhitespace = function(str) {
 
 
 /**
+ * Unescape HTML text(such as converting &#39; to ').
+ * Escaped text can happen when retrieving text from attributes
+ * such as title, alt, etc.
+ * @param {string} str The input string.
+ * @return {string} The string with all the text unescaped.
+ */
+cvox.DomUtil.unescape = function(str) {
+  var node = document.createElement('span');
+  node.innerHTML = str;
+  return node.textContent;
+};
+
+
+/**
  * Get the name of a node: this includes all static text content and any
  * HTML-author-specified label, title, alt text, aria-label, etc. - but
  * does not include:
@@ -297,11 +329,11 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
       }
     }
   } else if (node.hasAttribute && node.hasAttribute('aria-label')) {
-    label = node.getAttribute('aria-label');
+    label = cvox.DomUtil.unescape(node.getAttribute('aria-label'));
   } else if (node.constructor == HTMLImageElement) {
-    label = cvox.DomUtil.getImageTitle(node);
+    label = cvox.DomUtil.unescape(cvox.DomUtil.getImageTitle(node));
   } else if (node.hasAttribute && node.hasAttribute('title')) {
-    label = node.getAttribute('title');
+    label = cvox.DomUtil.unescape(node.getAttribute('title'));
   } else if (node.tagName == 'FIELDSET') {
     // Other labels will trump fieldset legend with this implementation.
     // Depending on how this works out on the web, we may later switch this
@@ -708,11 +740,11 @@ cvox.DomUtil.hasContent = function(node) {
 /**
  * Returns true if any of the targetNode's ancestors is an anchor.
  *
- * @param {Object} targetNode
+ * @param {Object} targetNode The node to check ancestors for.
  * @return {boolean} true if some ancestor is an anchor, false otherwise.
  */
 cvox.DomUtil.ancestorIsAnchor = function(targetNode) {
-  var ancestors= cvox.DomUtil.getAncestors(targetNode);
+  var ancestors = cvox.DomUtil.getAncestors(targetNode);
   var length = ancestors.length;
   for (var i = 2; i < length; i++) {
     if (ancestors[i].tagName == 'A' &&
@@ -796,9 +828,10 @@ cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
  * will be determined by the HTML tag for the node.
  *
  * @param {Node} targetNode The node to get the role name for.
+ * @param {number} verbosity The verbosity setting to use.
  * @return {string} The role name for the targetNode.
  */
-cvox.DomUtil.getRole = function(targetNode) {
+cvox.DomUtil.getRole = function(targetNode, verbosity) {
   var info;
   info = cvox.AriaUtil.getRoleName(targetNode);
   if (!info) {
@@ -811,7 +844,15 @@ cvox.DomUtil.getRole = function(targetNode) {
         targetNode.getAttribute('name')) {
       info = ''; // Don't want to add any role to anchors.
     } else {
-      info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE[targetNode.tagName];
+      if (verbosity == cvox.VERBOSITY_BRIEF) {
+        info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF[targetNode.tagName];
+      } else {
+        info =
+            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE[targetNode.tagName];
+
+        if (!info && targetNode.onclick)
+          info = "clickable";
+      }
     }
   }
   if (!info) {
@@ -936,6 +977,29 @@ cvox.DomUtil.getEarcon = function(node) {
   return null;
 };
 
+/**
+ * Returns the personality for a node.
+ *
+ * @param {Node} node The node to get the personality for.
+ * @return {Object?} The personality, or null if none applies.
+ */
+cvox.DomUtil.getPersonalityForNode = function(node) {
+  switch (node.tagName) {
+    case 'H1':
+      return {'relativePitch': -0.3};
+    case 'H2':
+      return {'relativePitch': -0.25};
+    case 'H3':
+      return {'relativePitch': -0.2};
+    case 'H4':
+      return {'relativePitch': -0.15};
+    case 'H5':
+      return {'relativePitch': -0.1};
+    case 'H6':
+      return {'relativePitch': -0.05};
+  }
+  return null;
+};
 
 
 /**
@@ -944,12 +1008,13 @@ cvox.DomUtil.getEarcon = function(node) {
  * tree to the lowest, i.e. ending with the current leaf node.
  *
  * @param {Array.<Node>} ancestorsArray An array of ancestor nodes.
- * @param {boolean=} recursive Whether or not the element's subtree should
+ * @param {boolean} recursive Whether or not the element's subtree should
  *     be used; true by default.
+ * @param {number} verbosity The verbosity setting.
  * @return {cvox.NavDescription} The description of the navigation action.
  */
 cvox.DomUtil.getDescriptionFromAncestors = function(
-    ancestorsArray, recursive) {
+    ancestorsArray, recursive, verbosity) {
   if (typeof(recursive) === 'undefined') {
     recursive = true;
   }
@@ -959,6 +1024,7 @@ cvox.DomUtil.getDescriptionFromAncestors = function(
   var userValue = '';
   var annotation = '';
   var earcons = [];
+  var personality = null;
 
   if (len > 0) {
     text = cvox.DomUtil.getName(ancestorsArray[len - 1], recursive);
@@ -966,19 +1032,30 @@ cvox.DomUtil.getDescriptionFromAncestors = function(
   }
   for (var i = len - 1; i >= 0; i--) {
     var node = ancestorsArray[i];
-    var role = cvox.DomUtil.getRole(node);
+
+    // Don't speak dialogs here, they're spoken when events occur.
+    var role = node.getAttribute ? node.getAttribute('role') : null;
+    if (role == 'dialog' || role == 'alertdialog') {
+      continue;
+    }
+
+    var roleText = cvox.DomUtil.getRole(node, verbosity);
+    // Use the ancestor closest to the target to be the personality.
+    if (!personality) {
+      personality = cvox.DomUtil.getPersonalityForNode(node);
+    }
     if (i < len - 1) {
       var name = cvox.DomUtil.getName(node, false);
       if (name) {
-        role = name + ' ' + role;
+        roleText = name + ' ' + roleText;
       }
     }
-    if (role.length > 0) {
+    if (roleText.length > 0) {
       if (annotation.length > 0) {
-        context = role + ' ' + cvox.DomUtil.getState(node, false) +
+        context = roleText + ' ' + cvox.DomUtil.getState(node, false) +
                   ' ' + context;
       } else {
-        annotation = role + ' ' + cvox.DomUtil.getState(node, true);
+        annotation = roleText + ' ' + cvox.DomUtil.getState(node, true);
       }
     }
     var earcon = cvox.DomUtil.getEarcon(node);
@@ -991,7 +1068,8 @@ cvox.DomUtil.getDescriptionFromAncestors = function(
       cvox.DomUtil.collapseWhitespace(text),
       cvox.DomUtil.collapseWhitespace(userValue),
       cvox.DomUtil.collapseWhitespace(annotation),
-      earcons);
+      earcons,
+      personality);
 };
 
 
@@ -1029,11 +1107,15 @@ cvox.DomUtil.isFocusable = function(targetNode) {
 
 /**
  * Sets the browser focus to the targetNode or its closest ancestor that is
- * able to get focus.
+ * focusable.
  *
  * @param {Object} targetNode The node to move the browser focus to.
+ * @param {boolean=} opt_focusDescendants Whether or not we check descendants
+ * of the target node to see if they are focusable. If true, sets focus on the
+ * first focusable descendant. If false, only sets focus on the targetNode or
+ * its closest ancestor. Default is false.
  */
-cvox.DomUtil.setFocus = function(targetNode) {
+cvox.DomUtil.setFocus = function(targetNode, opt_focusDescendants) {
   // Save the selection because Chrome will lose it if there's a focus or blur.
   var sel = window.getSelection();
   var range;
@@ -1048,9 +1130,20 @@ cvox.DomUtil.setFocus = function(targetNode) {
     document.activeElement.blur();
   }
 
-  // Search up the parent chain until a focusable node is found.x
-  while (targetNode && !cvox.DomUtil.isFocusable(targetNode)) {
-    targetNode = targetNode.parentNode;
+  if (opt_focusDescendants) {
+    // Search down the descendants chain until a focusable node is found
+    if (targetNode && !cvox.DomUtil.isFocusable(targetNode)) {
+      var focusableNode =
+          this.findNode(targetNode, cvox.DomUtil.isFocusable);
+      if (focusableNode) {
+        targetNode = focusableNode;
+      }
+    }
+  } else {
+    // Search up the parent chain until a focusable node is found.x
+    while (targetNode && !cvox.DomUtil.isFocusable(targetNode)) {
+      targetNode = targetNode.parentNode;
+    }
   }
 
   // If we found something focusable, focus it - otherwise, blur it.
@@ -1149,7 +1242,9 @@ cvox.DomUtil.skipLinkSync = function(targetNode) {
   }
 
   if (target) {
-    cvox.Api.syncToNode(target, true);
+    // TODO: common/dom_util.js should not be calling cvox.ApiImplementation!!!
+    cvox.ApiImplementation.syncToNode(target, true);
+
     // Insert a dummy node to adjust next Tab focus location.
     var parent = target.parentNode;
     var dummyNode = document.createElement('div');
@@ -1227,7 +1322,8 @@ cvox.DomUtil.isControl = function(node) {
  */
 cvox.DomUtil.getSurroundingControl = function(node) {
   var surroundingControl = null;
-  if (!cvox.DomUtil.isControl(node) && node.hasAttribute('role')) {
+  if (!cvox.DomUtil.isControl(node) && node.hasAttribute &&
+      node.hasAttribute('role')) {
     surroundingControl = node.parentElement;
     while (surroundingControl &&
         !cvox.AriaUtil.isCompositeControl(surroundingControl)) {
@@ -1304,7 +1400,8 @@ cvox.DomUtil.getControlDescription = function(control, opt_changedAncestors) {
     }
   }
 
-  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors);
+  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors,
+      true, cvox.VERBOSITY_VERBOSE);
 
   // Use heuristics if the control doesn't otherwise have a name.
   if (surroundingControl) {
@@ -1391,4 +1488,281 @@ cvox.DomUtil.getLinkURL = function(node) {
   }
 
   return '';
+};
+
+
+/**
+ * Checks if a given node is inside a table and returns the table node if it is
+ * @param {Node} node The node.
+ * @return {Node} If the node is inside a table, the table node. Null if it
+ * is not.
+ */
+cvox.DomUtil.getContainingTable = function(node) {
+  var ancestors = cvox.DomUtil.getAncestors(node);
+  if (node.constructor != Text && node.tagName == 'CAPTION') {
+    return null;
+  }
+  // Don't include the caption node because it is actually rendered outside
+  // of the table.
+  for (var i = ancestors.length - 1, ancestor;
+       ancestor = ancestors[i]; i--) {
+    if (ancestor.constructor != Text) {
+      if (ancestor.tagName == 'CAPTION') {
+        return null;
+      }
+      if ((ancestor.tagName == 'TABLE') ||
+          cvox.AriaUtil.isGrid(ancestor)) {
+          return ancestor;
+      }
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Determines whether a given table is a data table or a layout table
+ * @param {Node} tableNode The table node.
+ * @return {boolean} If the table is a layout table, returns true. False
+ * otherwise.
+ */
+cvox.DomUtil.isLayoutTable = function(tableNode) {
+  if (tableNode.rows && (tableNode.rows.length == 1 ||
+      (tableNode.rows[0].childElementCount == 1))) {
+    // This table has only one row or only "one" column.
+    // This is a quick check for column count and may not be accurate. See
+    // TraverseTable.getW3CColCount_ for a more accurate
+    // (but more complicated) way to determine column count.
+    return true;
+  }
+
+  // These heuristics are adapted from the Firefox data and layout table.
+  // heuristics: http://asurkov.blogspot.com/2011/10/data-vs-layout-table.html
+  if (cvox.AriaUtil.isGrid(tableNode)) {
+    // This table has an ARIA role identifying it as a grid.
+    // Not a layout table.
+    return false;
+  }
+  if (cvox.AriaUtil.isLandmark(tableNode)) {
+    // This table has an ARIA landmark role - not a layout table.
+    return false;
+  }
+
+  if (tableNode.caption || tableNode.summary) {
+    // This table has a caption or a summary - not a layout table.
+    return false;
+  }
+
+  if ((cvox.XpathUtil.evalXPath('tbody/tr/th', tableNode).length > 0) &&
+      (cvox.XpathUtil.evalXPath('tbody/tr/td', tableNode).length > 0)) {
+    // This table at least one column and at least one column header.
+    // Not a layout table.
+    return false;
+  }
+
+  if (cvox.XpathUtil.evalXPath('colgroup', tableNode).length > 0) {
+    // This table specifies column groups - not a layout table.
+    return false;
+  }
+
+  if ((cvox.XpathUtil.evalXPath('thead', tableNode).length > 0) ||
+      (cvox.XpathUtil.evalXPath('tfoot', tableNode).length > 0)) {
+    // This table has header or footer rows - not a layout table.
+    return false;
+  }
+
+  if ((cvox.XpathUtil.evalXPath('tbody/tr/td/embed', tableNode).length > 0) ||
+      (cvox.XpathUtil.evalXPath('tbody/tr/td/object', tableNode).length > 0) ||
+      (cvox.XpathUtil.evalXPath('tbody/tr/td/iframe', tableNode).length > 0) ||
+      (cvox.XpathUtil.evalXPath('tbody/tr/td/applet', tableNode).length > 0)) {
+    // This table contains embed, object, applet, or iframe elements. It is
+    // a layout table.
+    return true;
+  }
+
+  // These heuristics are loosely based on Okada and Miura's "Detection of
+  // Layout-Purpose TABLE Tags Based on Machine Learning" (2007).
+  // http://books.google.com/books?id=kUbmdqasONwC&lpg=PA116&ots=Lb3HJ7dISZ&lr&pg=PA116
+
+  // Increase the points for each heuristic. If there are 3 or more points,
+  // this is probably a layout table.
+  var points = 0;
+
+  if (! cvox.DomUtil.hasBorder(tableNode)) {
+    // This table has no border.
+    points++;
+  }
+
+  if (tableNode.rows.length <= 6) {
+    // This table has a limited number of rows.
+    points++;
+  }
+
+  if (cvox.DomUtil.countPreviousTags(tableNode) <= 12) {
+    // This table has a limited number of previous tags.
+    points++;
+  }
+
+ if (cvox.XpathUtil.evalXPath('tbody/tr/td/table', tableNode).length > 0) {
+   // This table has nested tables.
+   points++;
+ }
+  return (points >= 3);
+};
+
+
+/**
+ * Count previous tags, which we dfine as the number of HTML tags that
+ * appear before the given node.
+ * @param {Node} node The given node.
+ * @return {number} The number of previous tags.
+ */
+cvox.DomUtil.countPreviousTags = function(node) {
+  var ancestors = cvox.DomUtil.getAncestors(node);
+  return ancestors.length + cvox.DomUtil.countPreviousSiblings(node);
+};
+
+
+/**
+ * Counts previous siblings, not including text nodes.
+ * @param {Node} node The given node.
+ * @return {number} The number of previous siblings.
+ */
+cvox.DomUtil.countPreviousSiblings = function(node) {
+  var count = 0;
+  var prev = node.previousSibling;
+  while (prev != null) {
+    if (prev.constructor != Text) {
+      count++;
+    }
+    prev = prev.previousSibling;
+  }
+  return count;
+};
+
+
+/**
+ * Whether a given table has a border or not.
+ * @param {Node} tableNode The table node.
+ * @return {boolean} If the table has a border, return true. False otherwise.
+ */
+cvox.DomUtil.hasBorder = function(tableNode) {
+  // If .frame contains "void" there is no border.
+  if (tableNode.frame) {
+    return (tableNode.frame.indexOf('void') == -1);
+  }
+
+  // If .border is defined and  == "0" then there is no border.
+  if (tableNode.border) {
+    if (tableNode.border.length == 1) {
+      return (tableNode.border != '0');
+    } else {
+      return (tableNode.border.slice(0, -2) != 0);
+    }
+  }
+
+  // If .style.border-style is 'none' there is no border.
+  if (tableNode.style.borderStyle && tableNode.style.borderStyle == 'none') {
+    return false;
+  }
+
+  // If .style.border-width is specified in units of length
+  // ( https://developer.mozilla.org/en/CSS/border-width ) then we need
+  // to check if .style.border-width starts with 0[px,em,etc]
+  if (tableNode.style.borderWidth) {
+    return (tableNode.style.borderWidth.slice(0, -2) != 0);
+  }
+
+  // If .style.border-color is defined, then there is a border
+  if (tableNode.style.borderColor) {
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Return the first leaf node, starting at the top of the document.
+ * @return {Node?} The first leaf node in the document, if found.
+ */
+cvox.DomUtil.getFirstLeafNode = function() {
+  var node = document.body;
+  while (node && node.firstChild) {
+    node = node.firstChild;
+  }
+  while (node && !cvox.DomUtil.hasContent(node)) {
+    node = cvox.DomUtil.nextLeafNode(node);
+  }
+  return node;
+};
+
+
+/**
+ * Finds the first descendant node that matches the filter function, using
+ * a depth first search. This function offers the most general purpose way
+ * of finding a matching element. You may also wish to consider
+ * {@code goog.dom.query} which can express many matching criteria using
+ * CSS selector expressions. These expressions often result in a more
+ * compact representation of the desired result.
+ * This is the findNode function from goog.dom:
+ * http://code.google.com/p/closure-library/source/browse/trunk/closure/goog/dom/dom.js
+ *
+ * @param {Node} root The root of the tree to search.
+ * @param {function(Node) : boolean} p The filter function.
+ * @return {Node|undefined} The found node or undefined if none is found.
+ */
+cvox.DomUtil.findNode = function(root, p) {
+  var rv = [];
+  var found = this.findNodes_(root, p, rv, true, 10000);
+  return found ? rv[0] : undefined;
+};
+
+
+/**
+ * Finds the first or all the descendant nodes that match the filter function,
+ * using a depth first search.
+ * @param {Node} root The root of the tree to search.
+ * @param {function(Node) : boolean} p The filter function.
+ * @param {Array.<Node>} rv The found nodes are added to this array.
+ * @param {boolean} findOne If true we exit after the first found node.
+ * @param {number} maxChildCount The max child count. This is used as a kill
+ * switch - if there are more nodes than this, terminate the search.
+ * @return {boolean} Whether the search is complete or not. True in case
+ * findOne is true and the node is found. False otherwise. This is the
+ * findNodes_ function from goog.dom:
+ * http://code.google.com/p/closure-library/source/browse/trunk/closure/goog/dom/dom.js
+ * @private
+ */
+cvox.DomUtil.findNodes_ = function(root, p, rv, findOne, maxChildCount) {
+  if ((root != null) || (maxChildCount == 0)) {
+    var child = root.firstChild;
+    while (child) {
+      if (p(child)) {
+        rv.push(child);
+        if (findOne) {
+          return true;
+        }
+      }
+      maxChildCount = maxChildCount - 1;
+      if (this.findNodes_(child, p, rv, findOne, maxChildCount)) {
+        return true;
+      }
+      child = child.nextSibling;
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Converts a NodeList into an array
+ * @param {NodeList} nodeList The nodeList.
+ * @return {Array} The array of nodes in the nodeList.
+ */
+cvox.DomUtil.toArray = function(nodeList) {
+  var nodeArray = [];
+  for (var i = 0; i < nodeList.length; i++) {
+    nodeArray.push(nodeList[i]);
+  }
+  return nodeArray;
 };

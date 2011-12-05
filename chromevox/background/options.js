@@ -18,11 +18,11 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.provide('cvox.OptionsPage');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxPrefs');
+goog.require('cvox.ExtensionBridge');
+goog.require('cvox.Msgs');
 
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.ChromeVoxPrefs');
-cvoxgoog.require('cvox.ExtensionBridge');
 
 /**
  * Class to manage the options page.
@@ -42,6 +42,10 @@ cvox.OptionsPage.prefs;
  * building the key bindings table, and adding event listeners.
  */
 cvox.OptionsPage.init = function() {
+  cvox.ChromeVox.msgs = new cvox.Msgs();
+
+  cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
+
   cvox.OptionsPage.prefs = new cvox.ChromeVoxPrefs();
   cvox.OptionsPage.addKeys();
   cvox.OptionsPage.update();

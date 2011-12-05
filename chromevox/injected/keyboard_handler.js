@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cvoxgoog.provide('cvox.ChromeVoxKbHandler');
+goog.provide('cvox.ChromeVoxKbHandler');
 
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.ChromeVoxJSON');
-cvoxgoog.require('cvox.ChromeVoxSearch');
-cvoxgoog.require('cvox.ChromeVoxUserCommands');
-cvoxgoog.require('cvox.KeyUtil');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxSearch');
+goog.require('cvox.ChromeVoxUserCommands');
+goog.require('cvox.KeyUtil');
 
 /**
  * @fileoverview Handles user keyboard input events.
@@ -50,7 +49,8 @@ cvox.ChromeVoxKbHandler.powerkeyShortcuts = [];
  */
 cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
     keyToFunctionsTable) {
-  console.log('Got keyToFunctionsTable');
+  // TODO(dmazzoni): Set up externs properly instead of using window.
+  window.console.log('Got keyToFunctionsTable');
   cvox.ChromeVoxKbHandler.keyToFunctionsTable = keyToFunctionsTable;
   cvox.ChromeVox.sequenceSwitchKeyCodes =
       cvox.ChromeVoxKbHandler.getSequenceSwitchKeys();
@@ -137,6 +137,28 @@ cvox.ChromeVoxKbHandler.mustPassEnterKey = function() {
 cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   // The enter key can be handled either by ChromeVox or by the browser.
   if (evt.keyCode == 13) {
+    // If this is an internal link, try to sync to it.
+    if (document.activeElement.tagName == 'A' &&
+        cvox.DomUtil.isInternalLink(document.activeElement)) {
+      var targetNode;
+      var targetId = document.activeElement.href.split('#')[1];
+      targetNode = document.getElementById(targetId);
+      if (!targetNode) {
+        var nodes = document.getElementsByName(targetId);
+        if (nodes.length > 0) {
+          targetNode = nodes[0];
+        }
+      }
+      if (targetNode) {
+        cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+        var currentDesc =
+            cvox.ChromeVox.navigationManager.getCurrentDescription();
+        cvox.ChromeVox.navigationManager.speakDescriptionArray(
+            currentDesc, cvox.AbstractTts.QUEUE_MODE_FLUSH, null);
+        return true;
+      }
+    }
+
     // If the user is focused on something that explicitly takes the
     // enter key, that has precedence. Always let the key through.
     if (cvox.ChromeVoxKbHandler.mustPassEnterKey()) {
@@ -148,15 +170,13 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
       return true;
     }
   }
-
   var keyStr = cvox.KeyUtil.keyEventToString(evt);
   var functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
       cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
   var func = cvox.ChromeVoxUserCommands.commands[functionName];
-
   if (func && (!cvox.ChromeVoxUserCommands.powerkey ||
       !cvox.ChromeVoxUserCommands.powerkey.isVisible())) {
-    if (cvox.ChromeVoxSearch.isActive()) {
+    if (cvox.ChromeVoxSearch.isActive() && functionName != 'stopSpeech') {
       cvox.ChromeVoxSearch.hide();
       cvox.ChromeVox.navigationManager.syncToSelection();
     }

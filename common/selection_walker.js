@@ -19,10 +19,10 @@
  */
 
 
-cvoxgoog.provide('cvox.SelectionWalker');
+goog.provide('cvox.SelectionWalker');
 
-cvoxgoog.require('cvox.SelectionUtil');
-cvoxgoog.require('cvox.TraverseContent');
+goog.require('cvox.SelectionUtil');
+goog.require('cvox.TraverseContent');
 
 /**
  * @constructor
@@ -39,14 +39,14 @@ cvox.SelectionWalker.GRANULARITY_LEVELS = new Array(
     'sentence', 'word', 'character');
 
 /**
- * Decreases the granularity.
+ * Decreases the granularity. Also modifies the selection.
  * @param {boolean} forwards True if the selection is moving forwards.
  * @return {boolean} Returns true if the granularity was changed successfully.
+ * Returns false if we are already at the least granular setting.
  */
 cvox.SelectionWalker.prototype.lessGranular = function(forwards) {
-  this.currentGranularity = this.currentGranularity - 1;
-  if (this.currentGranularity < 0) {
-    this.currentGranularity = 0;
+  var success = this.changeGranularity(false);
+  if (!success) {
     return false;
   }
   if (forwards) {
@@ -60,18 +60,16 @@ cvox.SelectionWalker.prototype.lessGranular = function(forwards) {
 };
 
 /**
- * Increases the granularity.
+ * Increases the granularity. Also modifies the selection.
  * @param {boolean} forwards True if the selection is moving forwards.
  * @return {boolean} Returns true if the granularity was changed successfully.
+ * Returns false if we are already at the most granular setting.
  */
 cvox.SelectionWalker.prototype.moreGranular = function(forwards) {
-  this.currentGranularity = this.currentGranularity + 1;
-  var max = cvox.SelectionWalker.GRANULARITY_LEVELS.length - 1;
-  if (this.currentGranularity > max) {
-    this.currentGranularity = max;
+  var success = this.changeGranularity(true);
+  if (!success) {
     return false;
   }
-
   if (forwards) {
     cvox.SelectionUtil.collapseToStart(this.traverseContent.currentDomObj);
     this.next();
@@ -111,6 +109,34 @@ cvox.SelectionWalker.prototype.getGranularity = function() {
 };
 
 /**
+ * Changes the granularity level.
+ * @param {boolean} moreGranular True if we want to be more granular. False if
+ * we want to be less granular.
+ * @return {boolean} True if the granularity was changed successfully. If
+ * moreGranular is true but we are already at the most granular setting or if
+ * moreGranular is false but we are already at the least granular setting, the
+ * granularity setting will remain the same.
+ */
+cvox.SelectionWalker.prototype.changeGranularity = function(moreGranular) {
+  if (moreGranular) {
+    var max = cvox.SelectionWalker.GRANULARITY_LEVELS.length - 1;
+    if (this.currentGranularity == max) {
+      return false;
+    } else {
+      this.currentGranularity = this.currentGranularity + 1;
+      return true;
+    }
+  } else {
+    if (this.currentGranularity == 0) {
+      return false;
+    } else {
+      this.currentGranularity = this.currentGranularity - 1;
+      return true;
+    }
+  }
+};
+
+/**
  * Sets the node that the SelectionWalker should be moving through.
  * @param {Node} currentNode The node to set the SelectionWalker to.
  */
@@ -128,7 +154,8 @@ cvox.SelectionWalker.prototype.setCurrentNode = function(currentNode) {
  */
 cvox.SelectionWalker.prototype.getCurrentDescription = function(
     ancestorsArray) {
-  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestorsArray);
+  var description = cvox.DomUtil.getDescriptionFromAncestors(ancestorsArray,
+      true, cvox.ChromeVox.verbosity);
   description.text = cvox.SelectionUtil.getText();
   return description;
 };

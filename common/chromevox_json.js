@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cvoxgoog.provide('cvox.ChromeVoxJSON');
+goog.provide('cvox.ChromeVoxJSON');
 
 
 /**
@@ -32,8 +32,8 @@ if (!cvox.ChromeVoxJSON) {
   cvox.ChromeVoxJSON = {};
 }
 
-if (JSON.toString() == '[object JSON]') {
-  cvox.ChromeVoxJSON = JSON;
+if (window.JSON && window.JSON.toString() == '[object JSON]') {
+  cvox.ChromeVoxJSON = window.JSON;
 } else {
   /*
    *  JSON implementation renamed to cvox.ChromeVoxJSON.
@@ -71,7 +71,7 @@ if (JSON.toString() == '[object JSON]') {
       String.prototype.toJSON =
       Number.prototype.toJSON =
       Boolean.prototype.toJSON = function(key) {
-        return this.valueOf();
+        return /** @type {string} */ (this.valueOf());
       };
     }
 
@@ -236,6 +236,13 @@ if (JSON.toString() == '[object JSON]') {
     // If the JSON object does not yet have a stringify method, give it one.
 
     if (typeof cvox.ChromeVoxJSON.stringify !== 'function') {
+      /**
+       * @param {*} value Input object.
+       * @param {(Array.<string>|(function(string, *) : *)|null)=} replacer
+       *     Replacer array or function.
+       * @param {(number|string|null)=} space Whitespace character.
+       * @return {string} json string which represents jsonObj.
+       */
       cvox.ChromeVoxJSON.stringify = function(value, replacer, space) {
 
         // The stringify method takes a value and an optional replacer, and an
@@ -284,6 +291,11 @@ if (JSON.toString() == '[object JSON]') {
     // If the JSON object does not yet have a parse method, give it one.
 
     if (typeof cvox.ChromeVoxJSON.parse !== 'function') {
+      /**
+       * @param {string} text The string to parse.
+       * @param {(function(string, *) : *|null)=} reviver Reviver function.
+       * @return {*} The JSON object.
+       */
       cvox.ChromeVoxJSON.parse = function(text, reviver) {
 
         // The parse method takes a text and an optional reviver function, and

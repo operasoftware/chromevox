@@ -25,9 +25,9 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.provide('cvox.Interframe');
+goog.provide('cvox.Interframe');
 
-cvoxgoog.require('cvox.ChromeVoxJSON');
+goog.require('cvox.ChromeVoxJSON');
 
 /**
  * @constructor
@@ -70,7 +70,8 @@ cvox.Interframe.init = function() {
   cvox.Interframe.messageListener = function(event) {
     if (event.data.indexOf(cvox.Interframe.IF_MSG_PREFIX) == 0) {
       var suffix = event.data.substr(cvox.Interframe.IF_MSG_PREFIX.length);
-      var message = cvox.ChromeVoxJSON.parse(suffix, null);
+      var message = /** @type {Object} */ (
+          cvox.ChromeVoxJSON.parse(suffix));
       if (message['command'] == cvox.Interframe.SET_ID) {
         cvox.Interframe.id = message['id'];
       }

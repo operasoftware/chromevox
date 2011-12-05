@@ -18,17 +18,31 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-cvoxgoog.provide('cvox.ChromeVoxSearch');
+goog.provide('cvox.ChromeVoxSearch');
 
-cvoxgoog.require('cvox.AbstractEarcons');
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.SelectionUtil');
-cvoxgoog.require('cvox.XpathUtil');
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.ApiImplementation');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxNavigationManager');
+goog.require('cvox.SelectionUtil');
+goog.require('cvox.TraverseUtil');
+
 
 /**
- * @type {Object}
+ * @type {Element}
+ */
+cvox.ChromeVoxSearch.containerNode = null;
+
+/**
+ * @type {Element}
  */
 cvox.ChromeVoxSearch.txtNode = null;
+
+/**
+ * @type {string}
+ * @const
+ */
+cvox.ChromeVoxSearch.PROMPT = 'Search:';
 
 /**
  * @type {boolean}
@@ -36,19 +50,29 @@ cvox.ChromeVoxSearch.txtNode = null;
 cvox.ChromeVoxSearch.active = false;
 
 /**
- * @type {Array?}
- */
-cvox.ChromeVoxSearch.matchNodes = null;
-
-/**
- * @type {number?}
- */
-cvox.ChromeVoxSearch.matchNodesIndex = null;
-
-/**
  * @type {boolean}
  */
 cvox.ChromeVoxSearch.caseSensitive = false;
+
+/**
+ * @type {Node}
+ */
+cvox.ChromeVoxSearch.initialNode = null;
+
+/**
+ * @type {Range}
+ */
+cvox.ChromeVoxSearch.initialRange = null;
+
+/**
+ * @type {Node}
+ */
+cvox.ChromeVoxSearch.initialFocus = null;
+
+/**
+ * @type {Range}
+ */
+cvox.ChromeVoxSearch.startingRange = null;
 
 /**
  * Initializes the search widget.
@@ -59,8 +83,6 @@ cvox.ChromeVoxSearch.init = function() {
   window.addEventListener('keypress', cvox.ChromeVoxSearch.processKeyPress,
       true);
   window.addEventListener('keydown', cvox.ChromeVoxSearch.processKeyDown,
-      true);
-  window.addEventListener('scroll', cvox.ChromeVoxSearch.scrollHandler,
       true);
 };
 
@@ -74,32 +96,117 @@ cvox.ChromeVoxSearch.isActive = function() {
 };
 
 /**
- * Displays the search widget.
+ * Create the container node for the search overlay.
+ *
+ * @return {Element} The new element, not yet added to the document.
  */
-cvox.ChromeVoxSearch.show = function() {
-  cvox.ChromeVoxSearch.txtNode = document.createElement('div');
-  cvox.ChromeVoxSearch.txtNode.style['display'] = 'block';
-  cvox.ChromeVoxSearch.txtNode.style['position'] = 'absolute';
-  cvox.ChromeVoxSearch.txtNode.style['left'] = '2px';
-  cvox.ChromeVoxSearch.txtNode.style['top'] = (window.scrollY + 2) + 'px';
-  cvox.ChromeVoxSearch.txtNode.style['line-height'] = '1.2em';
-  cvox.ChromeVoxSearch.txtNode.style['z-index'] = '10001';
-  cvox.ChromeVoxSearch.txtNode.style['font-size'] = '20px';
-
-  document.body.insertBefore(cvox.ChromeVoxSearch.txtNode,
-      document.body.firstChild);
-  cvox.ChromeVoxSearch.active = true;
+cvox.ChromeVoxSearch.createContainerNode = function() {
+  var containerNode = document.createElement('div');
+  containerNode.style['position'] = 'fixed';
+  containerNode.style['top'] = '50%';
+  containerNode.style['left'] = '50%';
+  containerNode.style['-webkit-transition'] = 'all 0.3s ease-in';
+  containerNode.style['opacity'] = '0.0';
+  containerNode.setAttribute('aria-hidden', 'true');
+  return containerNode;
 };
 
 /**
- * Keeps the search widget at the upperleft hand corner of the screen when
- * the page scrolls.
+ * Create the search overlay. This should be a child of the node
+ * returned from createContainerNode.
+ *
+ * @return {Element} The new element, not yet added to the document.
  */
-cvox.ChromeVoxSearch.scrollHandler = function() {
-  if (!cvox.ChromeVoxSearch.active) {
-    return;
+cvox.ChromeVoxSearch.createOverlayNode = function() {
+  var overlayNode = document.createElement('div');
+  overlayNode.style['position'] = 'relative';
+  overlayNode.style['left'] = '-50%';
+  overlayNode.style['top'] = '-40px';
+  overlayNode.style['line-height'] = '1.2em';
+  overlayNode.style['z-index'] = '10001';
+  overlayNode.style['font-size'] = '20px';
+  overlayNode.style['padding'] = '30px';
+  overlayNode.style['min-width'] = '150px';
+  overlayNode.style['color'] = '#fff';
+  overlayNode.style['background-color'] = 'rgba(0, 0, 0, 0.7)';
+  overlayNode.style['border-radius'] = '10px';
+  return overlayNode;
+};
+
+/**
+ * Displays the search widget.
+ */
+cvox.ChromeVoxSearch.show = function() {
+  cvox.ChromeVoxSearch.initialNode =
+      cvox.ChromeVox.navigationManager.getCurrentNode();
+  var sel = window.getSelection();
+  if (sel.rangeCount >= 1) {
+    cvox.ChromeVoxSearch.initialRange = sel.getRangeAt(0);
+  } else {
+    cvox.ChromeVoxSearch.initialRange = null;
   }
-  cvox.ChromeVoxSearch.txtNode.style['top'] = (window.scrollY + 2) + 'px';
+
+  if (cvox.ChromeVoxSearch.initialRange) {
+    cvox.ChromeVoxSearch.startingRange = cvox.ChromeVoxSearch.initialRange;
+  } else if (cvox.ChromeVoxSearch.initialNode) {
+    cvox.ChromeVoxSearch.startingRange = document.createRange();
+    cvox.ChromeVoxSearch.startingRange.setStartBefore(
+        cvox.ChromeVoxSearch.initialNode);
+    cvox.ChromeVoxSearch.startingRange.setEndAfter(
+        cvox.ChromeVoxSearch.initialNode);
+  } else {
+    cvox.ChromeVoxSearch.startingRange = document.createRange();
+    cvox.ChromeVoxSearch.startingRange.selectNodeContents(
+        cvox.DomUtil.getFirstLeafNode());
+  }
+  cvox.ChromeVoxSearch.initialFocus = document.activeElement;
+
+  var containerNode = cvox.ChromeVoxSearch.createContainerNode();
+  cvox.ChromeVoxSearch.containerNode = containerNode;
+
+  var overlayNode = cvox.ChromeVoxSearch.createOverlayNode();
+  containerNode.appendChild(overlayNode);
+
+  var promptNode = document.createElement('span');
+  promptNode.innerHTML = cvox.ChromeVoxSearch.PROMPT;
+  overlayNode.appendChild(promptNode);
+
+  var txtNode = document.createElement('span');
+  cvox.ChromeVoxSearch.txtNode = txtNode;
+  overlayNode.appendChild(txtNode);
+
+  document.body.appendChild(containerNode);
+  cvox.ChromeVoxSearch.active = true;
+
+  window.setTimeout(function() {
+    containerNode.style['opacity'] = '1.0';
+  }, 0);
+
+  cvox.ChromeVox.tts.speak(
+      'Find in page, enter a search query',
+      cvox.AbstractTts.QUEUE_MODE_FLUSH,
+      cvox.AbstractTts.PERSONALITY_ANNOTATION);
+};
+
+/**
+ * Dismisses the search widget
+ */
+cvox.ChromeVoxSearch.hide = function() {
+  if (cvox.ChromeVoxSearch.active) {
+    var containerNode = cvox.ChromeVoxSearch.containerNode;
+    containerNode.style.opacity = '0.0';
+    window.setTimeout(function() {
+      document.body.removeChild(containerNode);
+    }, 1000);
+    cvox.ChromeVoxSearch.txtNode = null;
+    cvox.ChromeVoxSearch.containerNode = null;
+    cvox.ChromeVoxSearch.active = false;
+
+    cvox.ChromeVox.tts.speak(
+        'Exiting find in page',
+        cvox.AbstractTts.QUEUE_MODE_FLUSH,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  }
 };
 
 /**
@@ -112,27 +219,50 @@ cvox.ChromeVoxSearch.processKeyDown = function(evt) {
   if (!cvox.ChromeVoxSearch.active) {
     return false;
   }
+  var searchStr = cvox.ChromeVoxSearch.txtNode.textContent;
+  var handled = false;
   if (evt.keyCode == 8) { // Backspace
-    var searchStr = cvox.ChromeVoxSearch.txtNode.textContent;
     if (searchStr.length > 0) {
-      searchStr = searchStr.substring(searchStr, searchStr.length - 1);
-      cvox.ChromeVoxSearch.doSearch(searchStr,
-          cvox.ChromeVoxSearch.caseSensitive);
+      searchStr = searchStr.substring(0, searchStr.length - 1);
+      cvox.ChromeVoxSearch.txtNode.textContent = searchStr;
+      cvox.ChromeVoxSearch.beginSearch(searchStr);
     }
-    // Don't go to the previous page!
-    evt.preventDefault();
-    return true;
+    handled = true;
   } else if (evt.keyCode == 40) { // Down arrow
-    cvox.ChromeVoxSearch.next();
-    return true;
+    cvox.ChromeVoxSearch.next(searchStr);
+    handled = true;
   } else if (evt.keyCode == 38) { // Up arrow
-    cvox.ChromeVoxSearch.prev();
-    return true;
+    cvox.ChromeVoxSearch.prev(searchStr);
+    handled = true;
+  } else if (evt.keyCode == 13) { // Enter
+    cvox.ChromeVoxSearch.hide();
+    handled = true;
+  } else if (evt.keyCode == 27) { // Escape
+    cvox.ChromeVoxSearch.hide();
+    cvox.ApiImplementation.syncToNode(
+        cvox.ChromeVoxSearch.initialNode,
+        true,
+        cvox.AbstractTts.QUEUE_MODE_QUEUE);
+    window.getSelection().removeAllRanges();
+    if (cvox.ChromeVoxSearch.initialRange) {
+      window.getSelection().addRange(cvox.ChromeVoxSearch.initialRange);
+    }
+    if (cvox.ChromeVoxSearch.initialFocus) {
+      cvox.ChromeVox.markInUserCommand();
+      cvox.DomUtil.setFocus(cvox.ChromeVoxSearch.initialFocus);
+    } else if (document.activeElement) {
+      document.activeElement.blur();
+    }
+    handled = true;
   } else if (evt.ctrlKey && evt.keyCode == 67) { // ctrl + c
     cvox.ChromeVoxSearch.toggleCaseSensitivity();
-    return true;
+    handled = true;
   }
-  return false;
+  if (handled) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
+  return handled;
 };
 
 /**
@@ -145,10 +275,9 @@ cvox.ChromeVoxSearch.processKeyPress = function(evt) {
   if (!cvox.ChromeVoxSearch.active) {
     return false;
   }
-  var searchStr = cvox.ChromeVoxSearch.txtNode.textContent +
-      String.fromCharCode(evt.charCode);
-  cvox.ChromeVoxSearch.doSearch(searchStr,
-      cvox.ChromeVoxSearch.caseSensitive);
+  cvox.ChromeVoxSearch.txtNode.textContent += String.fromCharCode(evt.charCode);
+  var searchStr = cvox.ChromeVoxSearch.txtNode.textContent;
+  cvox.ChromeVoxSearch.beginSearch(searchStr);
   evt.preventDefault();
   evt.stopPropagation();
   return true;
@@ -160,171 +289,199 @@ cvox.ChromeVoxSearch.processKeyPress = function(evt) {
 cvox.ChromeVoxSearch.toggleCaseSensitivity = function() {
   if (cvox.ChromeVoxSearch.caseSensitive) {
     cvox.ChromeVoxSearch.caseSensitive = false;
-    cvox.ChromeVox.tts.speak('Ignoring case', 0, null);
+    cvox.ChromeVox.tts.speak('Ignoring case.', 0, null);
   } else {
     cvox.ChromeVoxSearch.caseSensitive = true;
-    cvox.ChromeVox.tts.speak('Case sensitive', 0, null);
+    cvox.ChromeVox.tts.speak('Case sensitive.', 0, null);
   }
 };
 
 /**
- * Performs the search and highlights and speaks the first result.
+ * Gets the next result.
  *
  * @param {string} searchStr The text to search for.
- * @param {boolean} caseSensitive Whether or not the search is case sensitive.
+ * @param {Range} startRange The range where the search should begin.
+ * @param {boolean} forwards Search forwards (true) or backwards (false).
+ * @return {Range?} The next result, if any, or null if none were found.
  */
-cvox.ChromeVoxSearch.doSearch = function(searchStr, caseSensitive) {
-  cvox.ChromeVoxSearch.txtNode.textContent = '';
-
-  cvox.ChromeVoxSearch.matchNodes = new Array();
-  var potentialMatchNodes;
-  if (caseSensitive) {
-    potentialMatchNodes = cvox.XpathUtil.evalXPath(
-        './/text()[contains(.,"' + searchStr + '")]',
-        document.body);
-  } else {
+cvox.ChromeVoxSearch.getNextResult = function(
+    searchStr, startRange, forwards) {
+  if (!cvox.ChromeVoxSearch.caseSensitive) {
     searchStr = searchStr.toLowerCase();
-    potentialMatchNodes = cvox.XpathUtil.evalXPath(
-        './/text()[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", ' +
-        '"abcdefghijklmnopqrstuvwxyz"), "' + searchStr + '")]',
-        document.body);
   }
-  // Only accept nodes that are considered to have content.
-  for (var i = 0, node; node = potentialMatchNodes[i]; i++) {
-    if (cvox.DomUtil.hasContent(node)) {
-      cvox.ChromeVoxSearch.matchNodes.push(node);
+
+  // Special case: search for the next result within the same text node.
+  if (startRange.endContainer.constructor == Text && forwards) {
+    var node = startRange.endContainer;
+    var index = startRange.endOffset;
+    var remainder = node.data.substr(index);
+    if (!cvox.ChromeVoxSearch.caseSensitive) {
+      remainder = remainder.toLowerCase();
+    }
+    var found = remainder.indexOf(searchStr);
+    if (found >= 0) {
+      var result = document.createRange();
+      result.setStart(node, index + found);
+      result.setEnd(node, index + found + searchStr.length);
+      return result;
     }
   }
-  var firstNode = cvox.ChromeVoxSearch.matchNodes[0];
-  if (firstNode) {
-    cvox.ChromeVoxSearch.matchNodesIndex = 0;
-    var startIndex = 0;
-    if (caseSensitive) {
-      startIndex = firstNode.textContent.indexOf(searchStr);
+
+  // Special case: search for the previous result within the same text node.
+  if (startRange.startContainer.constructor == Text && !forwards) {
+    var node = startRange.startContainer;
+    var index = startRange.startOffset;
+    var remainder = node.data.substr(0, index);
+    if (!cvox.ChromeVoxSearch.caseSensitive) {
+      remainder = remainder.toLowerCase();
+    }
+    var found = remainder.indexOf(searchStr);
+    if (found >= 0) {
+      var result = document.createRange();
+      result.setStart(node, found);
+      result.setEnd(node, found + searchStr.length);
+      return result;
+    }
+  }
+
+  // Otherwise, start searching for a match.
+  var current =
+      forwards ?
+      cvox.DomUtil.nextLeafNode(startRange.endContainer) :
+      cvox.DomUtil.previousLeafNode(startRange.startContainer);
+  while (current && current != document.body) {
+    if (cvox.DomUtil.hasContent(current)) {
+      var text = current.constructor == Text ?
+                 current.data :
+                 cvox.DomUtil.getName(current);
+      if (!cvox.ChromeVoxSearch.caseSensitive) {
+        text = text.toLowerCase();
+      }
+      var found = forwards ?
+                  text.indexOf(searchStr) :
+                  text.lastIndexOf(searchStr);
+      if (found >= 0) {
+        var result = document.createRange();
+        if (current.constructor == Text) {
+          result.setStart(current, found);
+          result.setEnd(current, found + searchStr.length);
+        } else {
+          result.setStartBefore(current);
+          result.setEndAfter(current);
+        }
+        return result;
+      }
+    }
+    if (forwards) {
+      current = cvox.DomUtil.nextLeafNode(current);
     } else {
-      startIndex = firstNode.textContent.toLowerCase().indexOf(searchStr);
+      current = cvox.DomUtil.previousLeafNode(current);
     }
-    cvox.SelectionUtil.selectText(firstNode, startIndex,
-        startIndex + searchStr.length);
-    cvox.ChromeVox.traverseContent.moveNext('sentence');
-    var sel = window.getSelection();
-    var range = sel.getRangeAt(0);
-    range.setStart(firstNode, startIndex);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    cvox.SelectionUtil.scrollToSelection(sel);
-    var selectionText = window.getSelection() + '';
-    var anchorNode = window.getSelection().anchorNode;
-    cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
-    cvox.ChromeVox.tts.speak(selectionText, 0, null);
-    // Try to set focus if possible (ie, if the user lands on a link).
-    window.setTimeout(function() {
-         cvox.DomUtil.setFocus(anchorNode);
-       }, 0);
-  } else {
-    // TODO (clchen): Replace this with an error sound once we have one defined.
+  };
+
+  // Edge of document reached, no matches found.
+  return null;
+};
+
+/**
+ * Performs the search starting from the initial position.
+ *
+ * @param {string} searchStr The text to search for.
+ */
+cvox.ChromeVoxSearch.beginSearch = function(searchStr) {
+  var result = cvox.ChromeVoxSearch.getNextResult(
+      searchStr, cvox.ChromeVoxSearch.startingRange, true);
+  cvox.ChromeVoxSearch.outputSearchResult(result);
+};
+
+/**
+ * Goes to the next matching result.
+ *
+ * @param {string} searchStr The text to search for.
+ */
+cvox.ChromeVoxSearch.next = function(searchStr) {
+  var range = window.getSelection().getRangeAt(0);
+  var result = cvox.ChromeVoxSearch.getNextResult(searchStr, range, true);
+  cvox.ChromeVoxSearch.outputSearchResult(result);
+};
+
+/**
+ * Goes to the previous matching result.
+ *
+ * @param {string} searchStr The text to search for.
+ */
+cvox.ChromeVoxSearch.prev = function(searchStr) {
+  var range = window.getSelection().getRangeAt(0);
+  var result = cvox.ChromeVoxSearch.getNextResult(searchStr, range, false);
+  cvox.ChromeVoxSearch.outputSearchResult(result);
+};
+
+/**
+ * Given a range corresponding to a search result, highlight the result,
+ * speak it, focus the node if applicable, and speak some instructions
+ * at the end.
+ *
+ * @param {Range?} result The DOM range where the next result was found.
+ *     If null, no more results were found and an error will be presented.
+ */
+cvox.ChromeVoxSearch.outputSearchResult = function(result) {
+  if (!result) {
     cvox.ChromeVox.tts.stop();
     cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+    return;
   }
-  cvox.ChromeVoxSearch.txtNode.textContent = searchStr;
-};
 
-/**
- * Dismisses the search widget
- */
-cvox.ChromeVoxSearch.hide = function() {
-  if (cvox.ChromeVoxSearch.active) {
-    cvox.ChromeVoxSearch.txtNode.parentNode.removeChild(
-        cvox.ChromeVoxSearch.txtNode);
-    cvox.ChromeVoxSearch.txtNode = null;
-    cvox.ChromeVoxSearch.active = false;
-  }
-};
-
-/**
- * Goes to the next matching result, highlights it, and speaks it.
- */
-cvox.ChromeVoxSearch.next = function() {
-  if (cvox.ChromeVoxSearch.matchNodes &&
-      (cvox.ChromeVoxSearch.matchNodes.length > 0)) {
-    cvox.ChromeVoxSearch.matchNodesIndex++;
-    if (cvox.ChromeVoxSearch.matchNodes.length >
-        cvox.ChromeVoxSearch.matchNodesIndex) {
-      var searchStr = cvox.ChromeVoxSearch.txtNode.textContent;
-      var targetNode = cvox.ChromeVoxSearch.matchNodes[
-          cvox.ChromeVoxSearch.matchNodesIndex];
-      var startIndex = 0;
-      if (cvox.ChromeVoxSearch.caseSensitive) {
-        startIndex = targetNode.textContent.indexOf(searchStr);
-      } else {
-        startIndex = targetNode.textContent.toLowerCase().indexOf(
-            searchStr.toLowerCase());
-      }
-      cvox.SelectionUtil.selectText(targetNode, startIndex,
-          startIndex + searchStr.length);
-      cvox.ChromeVox.traverseContent.moveNext('sentence');
-      var sel = window.getSelection();
-      var range = sel.getRangeAt(0);
-      range.setStart(targetNode, startIndex);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      cvox.SelectionUtil.scrollToSelection(sel);
-      var selectionText = window.getSelection() + '';
-      var anchorNode = window.getSelection().anchorNode;
-      cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
-      cvox.ChromeVox.tts.speak(selectionText, 0, null);
-      // Try to set focus if possible (ie, if the user lands on a link).
-      window.setTimeout(function() {
-          cvox.DomUtil.setFocus(anchorNode);
-        }, 0);
+  if (result.endContainer.constructor == Text) {
+    // Extend to the end of the sentence or to the end of the text block.
+    var endCursor = new Cursor(
+        result.endContainer,
+        result.endOffset,
+        result.endContainer.data);
+    var startCursor = endCursor.clone();
+    if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], {}) &&
+        endCursor.node == result.endContainer) {
+      result.setEnd(endCursor.node, endCursor.index);
     } else {
-      cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
-      cvox.ChromeVoxSearch.matchNodesIndex = -1;
-      cvox.ChromeVoxSearch.next();
+      result.setEndAfter(result.endContainer);
     }
   }
-};
 
-/**
- * Goes to the previous matching result, highlights it, and speaks it.
- */
-cvox.ChromeVoxSearch.prev = function() {
-  if (cvox.ChromeVoxSearch.matchNodes &&
-      (cvox.ChromeVoxSearch.matchNodes.length > 0)) {
-    cvox.ChromeVoxSearch.matchNodesIndex--;
-    if (cvox.ChromeVoxSearch.matchNodesIndex > -1) {
-      var searchStr = cvox.ChromeVoxSearch.txtNode.textContent;
-      var targetNode = cvox.ChromeVoxSearch.matchNodes[
-          cvox.ChromeVoxSearch.matchNodesIndex];
-      var startIndex = 0;
-      if (cvox.ChromeVoxSearch.caseSensitive) {
-        startIndex = targetNode.textContent.indexOf(searchStr);
-      } else {
-        startIndex = targetNode.textContent.toLowerCase().indexOf(
-            searchStr.toLowerCase());
-      }
-      cvox.SelectionUtil.selectText(targetNode, startIndex,
-          startIndex + searchStr.length);
-      cvox.ChromeVox.traverseContent.moveNext('sentence');
-      var sel = window.getSelection();
-      var range = sel.getRangeAt(0);
-      range.setStart(targetNode, startIndex);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      cvox.SelectionUtil.scrollToSelection(sel);
-      var selectionText = window.getSelection() + '';
-      var anchorNode = window.getSelection().anchorNode;
-      cvox.ChromeVox.navigationManager.syncToNode(anchorNode);
-      cvox.ChromeVox.tts.speak(selectionText, 0, null);
-      // Try to set focus if possible (ie, if the user lands on a link).
-      window.setTimeout(function() {
-          cvox.DomUtil.setFocus(anchorNode);
-        }, 0);
-    } else {
-      cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
-      cvox.ChromeVoxSearch.matchNodesIndex =
-          cvox.ChromeVoxSearch.matchNodes.length;
-      cvox.ChromeVoxSearch.prev();
-    }
+  // Sync to the original node and then to the current search result
+  // so that the previous node is set correctly for ancestor calculations.
+  cvox.ChromeVox.navigationManager.syncToNode(cvox.ChromeVoxSearch.initialNode);
+  cvox.ChromeVox.navigationManager.syncToNode(result.endContainer);
+  var description = cvox.DomUtil.getDescriptionFromAncestors(
+      cvox.ChromeVox.navigationManager.getChangedAncestors(),
+      true,
+      cvox.ChromeVox.verbosity);
+
+  // Now set the selection.
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(result);
+  cvox.SelectionUtil.scrollToSelection(sel);
+  var anchorNode = sel.anchorNode;
+
+  // If the result is in a pure-Text node, replace the full text of the
+  // target node with just the selection portion.
+  if (result.endContainer.constructor == Text) {
+    description.text = (sel + '');
   }
+
+  // Speak the description and some instructions.
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(
+      [description],
+      cvox.AbstractTts.QUEUE_MODE_FLUSH,
+      null);
+  cvox.ChromeVox.tts.speak(
+      'Press enter to accept or escape to cancel, ' +
+          'down for next and up for previous.',
+      cvox.AbstractTts.QUEUE_MODE_QUEUE,
+      cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
+  // Try to set focus if possible (ie, if the user lands on a link).
+  window.setTimeout(function() {
+    cvox.ChromeVox.markInUserCommand();
+    cvox.DomUtil.setFocus(anchorNode);
+  }, 0);
 };

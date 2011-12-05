@@ -18,10 +18,10 @@
  */
 
 
-cvoxgoog.provide('cvox.LinearDomWalker');
+goog.provide('cvox.LinearDomWalker');
 
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.XpathUtil');
+goog.require('cvox.DomUtil');
+goog.require('cvox.XpathUtil');
 
 
 
@@ -57,6 +57,19 @@ cvox.LinearDomWalker.prototype.setCurrentNode = function(node) {
     ancestor = ancestor.parentNode;
   }
   this.currentAncestors.reverse();
+};
+
+
+/**
+ * Syncs the current node to the given node, in response to some external
+ * action that caused the node to change.x
+ * @param {Node} node The node that should be treated as the current node.
+ */
+cvox.LinearDomWalker.prototype.syncToNode = function(node) {
+  if (node != this.currentNode) {
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(node);
+  }
 };
 
 

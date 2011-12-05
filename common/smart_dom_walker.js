@@ -19,14 +19,13 @@
  */
 
 
-cvoxgoog.provide('cvox.SmartDomWalker');
+goog.provide('cvox.SmartDomWalker');
 
-cvoxgoog.require('cvox.AriaUtil');
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.LinearDomWalker');
-cvoxgoog.require('cvox.TraverseTable');
-cvoxgoog.require('cvox.XpathUtil');
-
+goog.require('cvox.AriaUtil');
+goog.require('cvox.DomUtil');
+goog.require('cvox.LinearDomWalker');
+goog.require('cvox.TraverseTable');
+goog.require('cvox.XpathUtil');
 
 
 /**
@@ -38,10 +37,19 @@ cvoxgoog.require('cvox.XpathUtil');
 cvox.SmartDomWalker = function() {
   this.tables = [];
   this.currentTableNavigator = null;
-  this.announceTable = false;
   this.tableMode = false;
+  this.isGrid = false;
+
+  this.announceTable = false;
+
+  // Whether we've just bumped the edge (first or last row, first or last
+  // column) of the table.
+  this.bumpedEdge = false;
+
+  // Whether we've bumped the bottom or top edge of the table twice.
+  this.bumpedTwice = false;
 };
-cvoxgoog.inherits(cvox.SmartDomWalker, cvox.LinearDomWalker);
+goog.inherits(cvox.SmartDomWalker, cvox.LinearDomWalker);
 
 
 /**
@@ -123,50 +131,19 @@ cvox.SmartDomWalker.SMARTNAV_BREAKOUT_XPATH = './/blockquote |' +
 
 
 /**
- * Initializes table traversal if the current node is part of a table.
- * @return {boolean} Whether or not there is a table here.
+ * Starts table navigation
+ * @param {Node} tableNode A table node.
  */
-cvox.SmartDomWalker.prototype.enterTable = function() {
-  // Find out if this node is part of a table
-  if (! this.tableMode) {
-    // We are not currently looking in a table. Check ancestors of this node.
-    if (! (cvox.DomUtil.isDescendantOf(this.currentNode, 'TABLE'))) {
-      return false;
-    }
-    var ancestors = cvox.DomUtil.getAncestors(this.currentNode);
+cvox.SmartDomWalker.prototype.startTableNavigation = function(tableNode) {
+  this.currentTableNavigator =
+      new cvox.TraverseTable(tableNode);
+  this.tables.push(this.currentTableNavigator);
+  this.tableMode = true;
 
-    for (var i = (ancestors.length - 1); i >= 0; i--) {
-      if (ancestors[i].tagName == 'TABLE') {
-        this.currentTableNavigator = new cvox.TraverseTable(ancestors[i]);
-        this.tables.push(this.currentTableNavigator);
+  this.announceTable = true;
 
-        this.announceTable = true;
-
-        this.tableMode = true;
-        return true;
-      }
-    }
-    // No ancestor TABLE node found.
-    return false;
-  } else {
-    // We are currently looking in a table. Change currentTableNavigator
-    // to point to nested table.
-
-    var currentCell = this.currentTableNavigator.getCell();
-    var tableOrGridChildren =
-        cvox.XpathUtil.evalXPath('child::TABLE', currentCell);
-    if (tableOrGridChildren.length != 0) {
-      // If it has more than one child that is a table, point to the first one
-      this.currentTableNavigator =
-          new cvox.TraverseTable(tableOrGridChildren[0]);
-      this.tables.push(this.currentTableNavigator);
-
-      this.announceTable = true;
-      return true;
-    } else {
-      // No nested tables. Do nothing.
-      return false;
-    }
+  if (tableNode.getAttribute('role') == 'grid') {
+    this.isGrid = true;
   }
 };
 
@@ -175,7 +152,10 @@ cvox.SmartDomWalker.prototype.enterTable = function() {
  * Stops traversing the current table.
  */
 cvox.SmartDomWalker.prototype.exitTable = function() {
+  this.bumpedEdge = false;
+  this.bumpedTwice = false;
   this.tableMode = false;
+  this.isGrid = false;
 };
 
 
@@ -185,14 +165,15 @@ cvox.SmartDomWalker.prototype.exitTable = function() {
  * a valid first cell.
  */
 cvox.SmartDomWalker.prototype.goToFirstCell = function() {
-  if (this.tableMode) {
-    if (this.currentTableNavigator.goToCell([0, 0])) {
+  if (!this.tableMode) {
+    return null;
+  }
+  if (this.currentTableNavigator.goToCell([0, 0])) {
 
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      return this.currentNode;
-    }
+    return this.currentNode;
   }
   return null;
 };
@@ -204,14 +185,15 @@ cvox.SmartDomWalker.prototype.goToFirstCell = function() {
  * a valid last cell.
  */
 cvox.SmartDomWalker.prototype.goToLastCell = function() {
-  if (this.tableMode) {
-    if (this.currentTableNavigator.goToLastCell()) {
+  if (!this.tableMode) {
+    return null;
+  }
+  if (this.currentTableNavigator.goToLastCell()) {
 
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      return this.currentNode;
-    }
+    return this.currentNode;
   }
   return null;
 };
@@ -223,14 +205,19 @@ cvox.SmartDomWalker.prototype.goToLastCell = function() {
  * not have a valid first cell.
  */
 cvox.SmartDomWalker.prototype.goToRowFirstCell = function() {
-  if (this.tableMode) {
-    var cursor = this.currentTableNavigator.currentCellCursor;
-    if (this.currentTableNavigator.goToCell([cursor[0], 0])) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+  if (!this.tableMode) {
+    return null;
+  }
+  var cursor = this.currentTableNavigator.currentCellCursor;
+  if (this.currentTableNavigator.goToCell([cursor[0], 0])) {
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      return this.currentNode;
+    if (this.announceTable) {
+      this.announceTable = false;
     }
+
+    return this.currentNode;
   }
   return null;
 };
@@ -242,14 +229,18 @@ cvox.SmartDomWalker.prototype.goToRowFirstCell = function() {
  * does not have a valid last cell.
  */
 cvox.SmartDomWalker.prototype.goToRowLastCell = function() {
-  if (this.tableMode) {
-    if (this.currentTableNavigator.goToRowLastCell()) {
+  if (!this.tableMode) {
+    return null;
+  }
+  if (this.currentTableNavigator.goToRowLastCell()) {
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
-
-      return this.currentNode;
+    if (this.announceTable) {
+      this.announceTable = false;
     }
+
+    return this.currentNode;
   }
   return null;
 };
@@ -261,14 +252,19 @@ cvox.SmartDomWalker.prototype.goToRowLastCell = function() {
  * does not have a valid first cell.
  */
 cvox.SmartDomWalker.prototype.goToColFirstCell = function() {
-  if (this.tableMode) {
-    var cursor = this.currentTableNavigator.currentCellCursor;
-    if (this.currentTableNavigator.goToCell([0, cursor[1]])) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+  if (!this.tableMode) {
+    return null;
+  }
+  var cursor = this.currentTableNavigator.currentCellCursor;
+  if (this.currentTableNavigator.goToCell([0, cursor[1]])) {
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      return this.currentNode;
+    if (this.announceTable) {
+      this.announceTable = false;
     }
+
+    return this.currentNode;
   }
   return null;
 };
@@ -280,14 +276,19 @@ cvox.SmartDomWalker.prototype.goToColFirstCell = function() {
  * does not have a valid last cell.
  */
 cvox.SmartDomWalker.prototype.goToColLastCell = function() {
-  if (this.tableMode) {
-    if (this.currentTableNavigator.goToColLastCell()) {
+  if (!this.tableMode) {
+    return null;
+  }
+  if (this.currentTableNavigator.goToColLastCell()) {
 
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+    this.previousNode = this.currentNode;
+    this.setCurrentNode(this.currentTableNavigator.getCell());
 
-      return this.currentNode;
+    if (this.announceTable) {
+      this.announceTable = false;
     }
+
+    return this.currentNode;
   }
   return null;
 };
@@ -300,18 +301,34 @@ cvox.SmartDomWalker.prototype.goToColLastCell = function() {
  * table. Null if the table does not have a cell in that location.
  */
 cvox.SmartDomWalker.prototype.previousRow = function() {
-  if (this.tableMode) {
-    var activeIndex = this.currentTableNavigator.currentCellCursor;
-    if ((activeIndex) &&
-        (this.currentTableNavigator.goToCell([(activeIndex[0] - 1),
-          activeIndex[1]]))) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
-
-      return this.currentNode;
-
-    }
+  if (!this.tableMode) {
+    return null;
   }
+  var activeIndex = this.currentTableNavigator.currentCellCursor;
+  if ((activeIndex) &&
+      (this.currentTableNavigator.goToCell([(activeIndex[0] - 1),
+                                            activeIndex[1]]))) {
+    this.previousNode = this.currentNode;
+
+    if (this.findNearestValidElement_(false)) {
+      this.exitTable();
+      return this.currentNode;
+    }
+
+    this.setCurrentNode(this.currentTableNavigator.getCell());
+
+    if (this.announceTable) {
+      this.announceTable = false;
+    }
+
+    this.bumpedEdge = false;
+    this.bumpedTwice = false;
+    return this.currentNode;
+  }
+  if (this.bumpedEdge) {
+    this.bumpedTwice = true;
+  }
+  this.bumpedEdge = true;
   return null;
 };
 
@@ -323,18 +340,34 @@ cvox.SmartDomWalker.prototype.previousRow = function() {
  * table. Null if the table does not have a cell in that location.
  */
 cvox.SmartDomWalker.prototype.nextRow = function() {
-  if (this.tableMode) {
-    var activeIndex = this.currentTableNavigator.currentCellCursor;
-    if ((activeIndex) &&
-        (this.currentTableNavigator.goToCell([(activeIndex[0] + 1),
-                                              activeIndex[1]]))) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
-
-      return this.currentNode;
-
-    }
+  if (!this.tableMode) {
+    return null;
   }
+  var activeIndex = this.currentTableNavigator.currentCellCursor;
+  if ((activeIndex) &&
+      (this.currentTableNavigator.goToCell([(activeIndex[0] + 1),
+                                              activeIndex[1]]))) {
+    this.previousNode = this.currentNode;
+
+    if (this.findNearestValidElement_(true)) {
+      this.exitTable();
+      return this.currentNode;
+    }
+
+    this.setCurrentNode(this.currentTableNavigator.getCell());
+
+    if (this.announceTable) {
+      this.announceTable = false;
+    }
+
+    this.bumpedEdge = false;
+    this.bumpedTwice = false;
+    return this.currentNode;
+  }
+  if (this.bumpedEdge) {
+    this.bumpedTwice = true;
+  }
+  this.bumpedEdge = true;
   return null;
 };
 
@@ -346,17 +379,31 @@ cvox.SmartDomWalker.prototype.nextRow = function() {
  * table. Null if the table does not have a cell in that location.
  */
 cvox.SmartDomWalker.prototype.previousCol = function() {
-  if (this.tableMode) {
-    var activeIndex = this.currentTableNavigator.currentCellCursor;
-    if ((activeIndex) &&
-        (this.currentTableNavigator.goToCell([activeIndex[0],
-                                              (activeIndex[1] - 1)]))) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+  if (!this.tableMode) {
+    return null;
+  }
+  var activeIndex = this.currentTableNavigator.currentCellCursor;
+  if ((activeIndex) &&
+      (this.currentTableNavigator.goToCell([activeIndex[0],
+                                            (activeIndex[1] - 1)]))) {
+    this.previousNode = this.currentNode;
 
+    if (this.findNearestValidElement_(false)) {
+      this.exitTable();
       return this.currentNode;
     }
+
+    this.setCurrentNode(this.currentTableNavigator.getCell());
+
+    if (this.announceTable) {
+      this.announceTable = false;
+    }
+
+    this.bumpedEdge = false;
+    this.bumpedTwice = false;
+    return this.currentNode;
   }
+  this.bumpedEdge = true;
   return null;
 };
 
@@ -368,71 +415,47 @@ cvox.SmartDomWalker.prototype.previousCol = function() {
  * table. Null if the table does not have a cell in that location.
  */
 cvox.SmartDomWalker.prototype.nextCol = function() {
-  if (this.tableMode) {
-    var activeIndex = this.currentTableNavigator.currentCellCursor;
-    if ((activeIndex) &&
-        (this.currentTableNavigator.goToCell([activeIndex[0],
-                                              (activeIndex[1] + 1)]))) {
-      this.previousNode = this.currentNode;
-      this.setCurrentNode(this.currentTableNavigator.getCell());
+  if (!this.tableMode) {
+    return null;
+  }
+  var activeIndex = this.currentTableNavigator.currentCellCursor;
+  if ((activeIndex) &&
+      (this.currentTableNavigator.goToCell([activeIndex[0],
+                                            (activeIndex[1] + 1)]))) {
+    this.previousNode = this.currentNode;
 
+    if (this.findNearestValidElement_(true)) {
+      this.exitTable();
       return this.currentNode;
     }
+
+    this.setCurrentNode(this.currentTableNavigator.getCell());
+
+    if (this.announceTable) {
+      this.announceTable = false;
+    }
+
+    this.bumpedEdge = false;
+    this.bumpedTwice = false;
+    return this.currentNode;
   }
+  this.bumpedEdge = true;
   return null;
 };
 
 
-/** @inheritDoc */
+/** @override */
 cvox.SmartDomWalker.prototype.next = function() {
   this.previousNode = this.currentNode;
-
-  /* Make sure the handle to the current element is still valid (attached to
-   * the document); if it isn't, use the cached list of ancestors to find a
-   * valid node, then resume navigation from that point.
-   * The current node can be invalidated by AJAX changing content.
-   */
-  if (this.currentNode &&
-      !cvox.DomUtil.isAttachedToDocument(this.currentNode)) {
-    for (var i = this.currentAncestors.length - 1, ancestor;
-         ancestor = this.currentAncestors[i]; i--) {
-      if (cvox.DomUtil.isAttachedToDocument(ancestor)) {
-        this.setCurrentNode(ancestor);
-        // Previous-Next sequence to put us back at the correct level.
-        this.previous();
-        this.next();
-        break;
-      }
-    }
-  }
-
+  this.findNearestValidElement_(true);
   return this.nextContentNode();
 };
 
 
-/** @inheritDoc */
+/** @override */
 cvox.SmartDomWalker.prototype.previous = function() {
   this.previousNode = this.currentNode;
-
-  /* Make sure the handle to the current element is still valid (attached to the
-   * document); if it isn't, use the cached list of ancestors to find a valid
-   * node, then resume navigation from that point.
-   * The current node can be invalidated by AJAX changing content.
-   */
-  if (this.currentNode &&
-      !cvox.DomUtil.isAttachedToDocument(this.currentNode)) {
-    for (var i = this.currentAncestors.length - 1, ancestor;
-        ancestor = this.currentAncestors[i]; i--) {
-      if (cvox.DomUtil.isAttachedToDocument(ancestor)) {
-        this.setCurrentNode(ancestor);
-        // Next-previous sequence to put us back at the correct level.
-        this.next();
-        this.previous();
-        break;
-      }
-    }
-  }
-
+  this.findNearestValidElement_(true);
   return this.prevContentNode();
 };
 
@@ -598,7 +621,6 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
 
   var walker = new cvox.LinearDomWalker();
   walker.currentNode = this.currentNode;
-  walker.useSmartNav = false;
   walker.previous();
   walker.next();
 
@@ -618,7 +640,8 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     } else {
       ancestors = walker.getUniqueAncestors();
     }
-    var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors);
+    var description = cvox.DomUtil.getDescriptionFromAncestors(ancestors,
+        true, cvox.ChromeVox.verbosity);
     results.push(description);
     if (annotations.indexOf(description.annotation) == -1) {
       // If we have an Internal link collection, call it Link collection
@@ -663,14 +686,17 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     }
 
     if (this.announceTable) {
-      results.splice(0, 0, new cvox.NavDescription(
-          this.currentTableNavigator.rowCount + ' rows, ' +
-          this.currentTableNavigator.colCount + ' columns',
+      var len = results.length;
+      var summaryText = this.currentTableNavigator.summaryText();
+      results.push(new cvox.NavDescription(
+          'row ' + this.getRowIndex() + ' of ' +
+              this.currentTableNavigator.rowCount +
+          ' column ' + this.getColIndex() + ' of ' +
+              this.currentTableNavigator.colCount,
           '',
           '',
-          '',
+          summaryText ? summaryText + ' ' : '',
           []));
-      this.announceTable = false;
     }
 
     // Deal with spanned cells
@@ -683,7 +709,7 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
 };
 
 
-/** @inheritDoc */
+/** @override */
 cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
   if (targetNode.tagName == 'LABEL') {
     return cvox.DomUtil.isLeafNode(targetNode);
@@ -722,3 +748,39 @@ cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
   }
   return true;
 };
+
+
+/**
+ * Utility method to make sure the current node is still attached to the
+ * document.
+ * If not, then uses the cached list of ancestors to find a valid node and set
+ * that as the current node. The current node can be invalidated by AJAX
+ * changing content.
+ * @param {boolean} forwards True if we are moving forwards, false if we are
+ * not.
+ * @return {?boolean} True if we found a nearest valid node. False if we didn't
+ * find one or if the current node is valid anyway.
+ * @private
+ */
+cvox.SmartDomWalker.prototype.findNearestValidElement_ = function(forwards) {
+  if (this.currentNode &&
+      !cvox.DomUtil.isAttachedToDocument(this.currentNode)) {
+    for (var i = this.currentAncestors.length - 1, ancestor;
+         ancestor = this.currentAncestors[i]; i--) {
+      if (cvox.DomUtil.isAttachedToDocument(ancestor)) {
+        this.setCurrentNode(ancestor);
+        // Next-previous sequence to put us back at the correct level.
+        if (forwards) {
+          this.previous();
+          this.next();
+        } else {
+          this.next();
+          this.previous();
+        }
+        return true;
+      }
+    }
+  }
+  return false;
+};
+

@@ -24,11 +24,11 @@
  * @author rshearer@google.com (Rachel Shearer)
  */
 
-cvoxgoog.provide('cvox.TraverseContent');
+goog.provide('cvox.TraverseContent');
 
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.SelectionUtil');
-cvoxgoog.require('cvox.TraverseUtil');
+goog.require('cvox.DomUtil');
+goog.require('cvox.SelectionUtil');
+goog.require('cvox.TraverseUtil');
 
 /**
  * Moves a selection around a document or within a provided DOM object.
@@ -176,7 +176,7 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
-      console.log('Invalid selection granularity: "' + grain + '"');
+      window.console.log('Invalid selection granularity: "' + grain + '"');
       grain = cvox.TraverseContent.kSentence;
       str = cvox.TraverseUtil.getNextSentence(
           startCursor, endCursor, nodesCrossed, breakTags);
@@ -273,7 +273,7 @@ cvox.TraverseContent.prototype.movePrev = function(grain) {
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
-      console.log('Invalid selection granularity: "' + grain + '"');
+      window.console.log('Invalid selection granularity: "' + grain + '"');
       grain = cvox.TraverseContent.kSentence;
       str = cvox.TraverseUtil.getPreviousSentence(
           startCursor, endCursor, nodesCrossed, breakTags);
@@ -349,7 +349,7 @@ cvox.TraverseContent.prototype.nextElement = function(grain, domObj) {
       (grain === 'character') || (grain === 'paragraph'))) {
     // User has provided an invalid string.
     // Fall through to default: extend by sentence
-    console.log('Invalid selection granularity: "' + grain + '"');
+    window.console.log('Invalid selection granularity: "' + grain + '"');
     grain = 'sentence';
   }
 
@@ -390,7 +390,7 @@ cvox.TraverseContent.prototype.prevElement = function(grain, domObj) {
       (grain === 'character') || (grain === 'paragraph'))) {
     // User has provided an invalid string.
     // Fall through to default: extend by sentence
-    console.log('Invalid selection granularity: "' + grain + '"');
+    window.console.log('Invalid selection granularity: "' + grain + '"');
     grain = 'sentence';
   }
 

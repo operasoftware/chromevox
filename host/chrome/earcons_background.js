@@ -19,42 +19,42 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-cvoxgoog.provide('cvox.ChromeVoxEarcons');
+goog.provide('cvox.EarconsBackground');
 
-cvoxgoog.require('cvox.AbstractEarcons');
+goog.require('cvox.AbstractEarcons');
 
 /**
  * @constructor
  * @extends {cvox.AbstractEarcons}
  */
-cvox.ChromeVoxEarcons = function() {
+cvox.EarconsBackground = function() {
   //Inherit AbstractEarcons
   cvox.AbstractEarcons.call(this);
 
   this.audioMap = new Object();
 };
-cvoxgoog.inherits(cvox.ChromeVoxEarcons, cvox.AbstractEarcons);
+goog.inherits(cvox.EarconsBackground, cvox.AbstractEarcons);
 
 /**
  * @return {string} The human-readable name of the earcon set.
  */
-cvox.ChromeVoxEarcons.prototype.getName = function() {
+cvox.EarconsBackground.prototype.getName = function() {
   return 'ChromeVox earcons';
 };
 
 /**
  * @return {string} The base URL for loading earcons.
  */
-cvox.ChromeVoxEarcons.prototype.getBaseUrl = function() {
-  return cvox.ChromeVoxEarcons.BASE_URL;
+cvox.EarconsBackground.prototype.getBaseUrl = function() {
+  return cvox.EarconsBackground.BASE_URL;
 };
 
 /**
  * Plays the specified earcon sound.
  * @param {number} earcon The earcon index.
  */
-cvox.ChromeVoxEarcons.prototype.playEarcon = function(earcon) {
-  cvox.ChromeVoxEarcons.superClass_.playEarcon.call(this, earcon);
+cvox.EarconsBackground.prototype.playEarcon = function(earcon) {
+  cvox.EarconsBackground.superClass_.playEarcon.call(this, earcon);
   this.currentAudio = this.audioMap[earcon];
   if (!this.currentAudio) {
     var earconMap = this.getEarconMap();
@@ -76,7 +76,7 @@ cvox.ChromeVoxEarcons.prototype.playEarcon = function(earcon) {
 /**
  * @return {Object} The earcon map which is lazy initialized.
  */
-cvox.ChromeVoxEarcons.prototype.getEarconMap = function() {
+cvox.EarconsBackground.prototype.getEarconMap = function() {
   if (this.earconMap) {
     return this.earconMap;
   }
@@ -125,4 +125,4 @@ cvox.ChromeVoxEarcons.prototype.getEarconMap = function() {
  * The base URL for  loading eracons.
  * @type {string}
  */
-cvox.ChromeVoxEarcons.BASE_URL = 'earcons/';
+cvox.EarconsBackground.BASE_URL = 'earcons/';

@@ -20,17 +20,17 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-cvoxgoog.provide('cvox.ChromeVoxChoiceWidget');
+goog.provide('cvox.ChromeVoxChoiceWidget');
 
-cvoxgoog.require('cvox.AbstractEarcons');
-cvoxgoog.require('cvox.AbstractTts');
-cvoxgoog.require('cvox.ChromeVox');
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeVox');
 
 /**
  * @constructor
  */
 cvox.ChromeVoxChoiceWidget = function() {
-  this.powerKey = new PowerKey('main', null);
+  this.powerKey = new window.PowerKey('main', null);
   this.powerKey.createCompletionField(document.body, 50, null, null, null,
       false);
   this.powerKey.setAutoHideCompletionField(true);
@@ -58,7 +58,7 @@ cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
     var key = description.toLowerCase();
     var seq = 2;
     while (key in dedupKeys) {
-      description = descriptions[i] + " " + seq;
+      description = descriptions[i] + ' ' + seq;
       key = description.toLowerCase();
       seq++;
     }
@@ -80,7 +80,8 @@ cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
     cvox.ChromeVox.tts.speak(text, cvox.AbstractTts.QUEUE_MODE_FLUSH,
         null);
   });
-  this.powerKey.updateCompletionField(PowerKey.status.VISIBLE, true, 40, 20);
+  this.powerKey.updateCompletionField(
+      window.PowerKey.status.VISIBLE, true, 40, 20);
   cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.LISTBOX);
   window.setTimeout(function() {
       cvox.ChromeVox.tts.speak(prompt);

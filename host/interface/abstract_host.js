@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,31 @@
 // limitations under the License.
 
 /**
- * @fileoverview Loads the options page script.
+ * @fileoverview Abstract interface to methods that differ depending on the
+ * host platform.
  *
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.require('cvox.OptionsPage');
+goog.provide('cvox.AbstractHost');
+
+/**
+ * @constructor
+ */
+cvox.AbstractHost = function() {
+};
+
+/**
+ * Do all host-platform-specific initialization.
+ */
+cvox.AbstractHost.prototype.init = function() {
+};
+
+cvox.AbstractHost.prototype.reinit = function() {
+};
+
+cvox.AbstractHost.prototype.onPageLoad = function() {
+};
+
+cvox.AbstractHost.prototype.sendToBackgroundPage = function(message) {
+};

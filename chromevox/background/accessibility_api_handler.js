@@ -19,57 +19,56 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.provide('cvox.ChromeVoxAccessibilityApiHandler');
+goog.provide('cvox.AccessibilityApiHandler');
 
-cvoxgoog.require('cvox.AbstractEarcons');
-cvoxgoog.require('cvox.AbstractEarconsManager');
-cvoxgoog.require('cvox.AbstractTtsManager');
-cvoxgoog.require('cvox.ChromeVoxEditableTextBase');
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeVoxEditableTextBase');
+
 
 /**
  * Class that adds listeners and handles events from the accessibility API.
  */
-cvox.ChromeVoxAccessibilityApiHandler = function() {
+cvox.AccessibilityApiHandler = function() {
 };
 
 /**
  * The object used to play earcons.
  * @type Object
  */
-cvox.ChromeVoxAccessibilityApiHandler.ttsManager = null;
+cvox.AccessibilityApiHandler.tts = null;
 
 /**
  * The object used to manage speech.
  * @type Object
  */
-cvox.ChromeVoxAccessibilityApiHandler.earconsManager = null;
+cvox.AccessibilityApiHandler.earcons = null;
 
 /**
  * The object that can describe changes and cursor movement in a generic
  *     editable text field.
  * @type {Object}
  */
-cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler = null;
+cvox.AccessibilityApiHandler.editableTextHandler = null;
 
 /**
  * The queue mode for the next focus event.
  * @type {number}
  */
-cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 0;
+cvox.AccessibilityApiHandler.nextQueueMode = 0;
 
 /**
  * Initialize the accessibility API Handler.
- * @param {Object} ttsManager The TTS manager to use for speaking.
- * @param {Object} earconsManager The earcons manager to use for playing
+ * @param {Object} tts The TTS to use for speaking.
+ * @param {Object} earcons The earcons object to use for playing
  *        earcons.
  */
-cvox.ChromeVoxAccessibilityApiHandler.init = function(ttsManager,
-    earconsManager) {
-  cvox.ChromeVoxAccessibilityApiHandler.ttsManager = ttsManager;
-  cvox.ChromeVoxAccessibilityApiHandler.earconsManager = earconsManager;
+cvox.AccessibilityApiHandler.init = function(tts, earcons) {
+  cvox.AccessibilityApiHandler.tts = tts;
+  cvox.AccessibilityApiHandler.earcons = earcons;
   try {
     chrome.experimental.accessibility.setAccessibilityEnabled(true);
-    cvox.ChromeVoxAccessibilityApiHandler.addEventListeners();
+    cvox.AccessibilityApiHandler.addEventListeners();
   } catch (err) {
     console.log('Error trying to access accessibility extension api.');
   }
@@ -78,35 +77,38 @@ cvox.ChromeVoxAccessibilityApiHandler.init = function(ttsManager,
 /**
  * Adds event listeners.
  */
-cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
+cvox.AccessibilityApiHandler.addEventListeners = function() {
+  /** Alias getMsg as msg. */
+  var msg = cvox.ChromeVox.msgs.getMsg;
+
   var accessibility = chrome.experimental.accessibility;
 
   chrome.tabs.onCreated.addListener(function(tab) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
+    var tts = cvox.AccessibilityApiHandler.tts;
     var title = tab.title ? tab.title : tab.url;
-    tts.speak(title + ', tab created.', 0, {});
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    tts.speak(msg('chrome_tab_created', [title]), 0, {});
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
 
   chrome.tabs.onRemoved.addListener(function(tab) {
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
   chrome.tabs.onSelectionChanged.addListener(function(tabId, selectInfo) {
     chrome.tabs.get(tabId, function(tab) {
-      var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
+      var tts = cvox.AccessibilityApiHandler.tts;
       var title = tab.title ? tab.title : tab.url;
-      tts.speak(title + ', tab.', 0, {});
-      var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+      tts.speak(msg('chrome_tab_selected', [title]), 0, {});
+      var earcons = cvox.AccessibilityApiHandler.earcons;
       earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
     });
   });
 
   chrome.tabs.onUpdated.addListener(function(tabId, selectInfo) {
     chrome.tabs.get(tabId, function(tab) {
-      var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+      var earcons = cvox.AccessibilityApiHandler.earcons;
       if (tab.status == 'loading') {
         earcons.playEarcon(cvox.AbstractEarcons.BUSY_PROGRESS_LOOP);
       } else {
@@ -121,43 +123,64 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
     }
     chrome.windows.get(windowId, function(window) {
       chrome.tabs.getSelected(windowId, function(tab) {
-        var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-        var window_text = window.incognito ? 'incognito window, ' : 'window, ';
+        var tts = cvox.AccessibilityApiHandler.tts;
+        var msg_id = window.incognito ? 'chrome_incognito_window_selected' :
+          'chrome_normal_window_selected';
         var title = tab.title ? tab.title : tab.url;
-        tts.speak(window_text + title + ', tab.', 0, {});
-        var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+        tts.speak(msg(msg_id, [title]), 0, {});
+        var earcons = cvox.AccessibilityApiHandler.earcons;
         earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
       });
     });
   });
 
   chrome.experimental.accessibility.onWindowOpened.addListener(function(win) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
+    var tts = cvox.AccessibilityApiHandler.tts;
     tts.speak(win.name, 0, {});
     // Queue the next utterance because a window opening is always followed
     // by a focus event.
-    cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 1;
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    cvox.AccessibilityApiHandler.nextQueueMode = 1;
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
 
   chrome.experimental.accessibility.onWindowClosed.addListener(function(win) {
     // Don't speak, just play the earcon.
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
   chrome.experimental.accessibility.onMenuOpened.addListener(function(menu) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-    tts.speak(menu.name + ', menu opened.', 0, {});
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    var tts = cvox.AccessibilityApiHandler.tts;
+    tts.speak(msg('chrome_menu_opened', [menu.name]), 0, {});
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
 
   chrome.experimental.accessibility.onMenuClosed.addListener(function(menu) {
     // Don't speak, just play the earcon.
-    var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+    var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
+  });
+
+  chrome.experimental.accessibility.onVolumeChanged.addListener(
+      function(volume) {
+    // Don't speak, just play the earcon.
+    var earcons = cvox.AccessibilityApiHandler.earcons;
+    earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+  });
+
+  chrome.experimental.accessibility.onScreenUnlocked.addListener(
+      function(volume) {
+    // Don't speak, just play the earcon.
+    var earcons = cvox.AccessibilityApiHandler.earcons;
+    earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+  });
+
+  chrome.experimental.accessibility.onWokeUp.addListener(function(volume) {
+    // Don't speak, just play the earcon.
+    var earcons = cvox.AccessibilityApiHandler.earcons;
+    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
 
   chrome.experimental.accessibility.onControlFocused.addListener(
@@ -165,10 +188,10 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
      * @param {AccessibilityObject} ctl The focused control.
      */
     function(ctl) {
-      var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
+      var tts = cvox.AccessibilityApiHandler.tts;
       if (ctl.type == 'textbox') {
-        cvox.ChromeVoxAccessibilityApiHandler.trimWhitespace(ctl);
-        cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler =
+        cvox.AccessibilityApiHandler.trimWhitespace(ctl);
+        cvox.AccessibilityApiHandler.editableTextHandler =
             new cvox.ChromeVoxEditableTextBase(
                 ctl.details.value,
                 ctl.details.selectionStart,
@@ -176,43 +199,39 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
                 ctl.details.isPassword,
                 tts);
       } else {
-        cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler = null;
+        cvox.AccessibilityApiHandler.editableTextHandler = null;
       }
 
-      var description = cvox.ChromeVoxAccessibilityApiHandler.describe(ctl,
-          false);
+      var description = cvox.AccessibilityApiHandler.describe(ctl, false);
       tts.speak(description.utterance,
-                cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode,
+                cvox.AccessibilityApiHandler.nextQueueMode,
                 {});
-      cvox.ChromeVoxAccessibilityApiHandler.nextQueueMode = 0;
+      cvox.AccessibilityApiHandler.nextQueueMode = 0;
       if (description.earcon) {
-          var earcons =
-              cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+          var earcons = cvox.AccessibilityApiHandler.earcons;
           earcons.playEarcon(description.earcon);
       }
     });
 
   chrome.experimental.accessibility.onControlAction.addListener(function(ctl) {
-    var tts = cvox.ChromeVoxAccessibilityApiHandler.ttsManager;
-    var description = cvox.ChromeVoxAccessibilityApiHandler.describe(ctl,
-        true);
+    var tts = cvox.AccessibilityApiHandler.tts;
+    var description = cvox.AccessibilityApiHandler.describe(ctl, true);
     tts.speak(description.utterance, 0, {});
     if (description.earcon) {
-      var earcons = cvox.ChromeVoxAccessibilityApiHandler.earconsManager;
+      var earcons = cvox.AccessibilityApiHandler.earcons;
       earcons.playEarcon(description.earcon);
     }
   });
 
   chrome.experimental.accessibility.onTextChanged.addListener(function(ctl) {
-    if (cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler) {
-      cvox.ChromeVoxAccessibilityApiHandler.trimWhitespace(ctl);
+    if (cvox.AccessibilityApiHandler.editableTextHandler) {
+      cvox.AccessibilityApiHandler.trimWhitespace(ctl);
       var textChangeEvent = new cvox.TextChangeEvent(
           ctl.details.value,
           ctl.details.selectionStart,
           ctl.details.selectionEnd,
           true);  // triggered by user
-      cvox.ChromeVoxAccessibilityApiHandler.editableTextHandler.changed(
-          textChangeEvent);
+      cvox.AccessibilityApiHandler.editableTextHandler.changed(textChangeEvent);
     }
   });
 };
@@ -223,7 +242,7 @@ cvox.ChromeVoxAccessibilityApiHandler.addEventListeners = function() {
  * selectionStart and selectionEnd.
  * @param {Object} control The text control object.
  */
-cvox.ChromeVoxAccessibilityApiHandler.trimWhitespace = function(control) {
+cvox.AccessibilityApiHandler.trimWhitespace = function(control) {
   var d = control.details;
   var prefix = new RegExp(/^[\s\u200b]+/).exec(d.value);
   var suffix = new RegExp(/[\s\u200b]+$/).exec(d.value);
@@ -246,79 +265,74 @@ cvox.ChromeVoxAccessibilityApiHandler.trimWhitespace = function(control) {
  * @return {Object} An object containing a string field |utterance| and
  *     earcon |earcon|.
  */
-cvox.ChromeVoxAccessibilityApiHandler.describe = function(control,
-    isSelect) {
+cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
+  /** Alias getMsg as msg. */
+  var msg = cvox.ChromeVox.msgs.getMsg;
+
   var s = '';
   var earcon = undefined;
   var name = control.name.replace(/[_&]+/g, '').replace('...', '');
   switch (control.type) {
     case 'checkbox':
-      s += name;
       if (control.details.isChecked) {
         earcon = cvox.AbstractEarcons.CHECK_ON;
-        s += ', checkbox checked';
+        s += msg('describe_checkbox_checked', [name]);
       } else {
         earcon = cvox.AbstractEarcons.CHECK_OFF;
-        s += ', checkbox not checked';
+        s += msg('describe_checkbox_unchecked', [name]);
       }
       break;
     case 'radiobutton':
       s += name;
       if (control.details.isChecked) {
         earcon = cvox.AbstractEarcons.CHECK_ON;
-        s += ', radio button selected';
+        s += msg('describe_radio_selected', [name]);
       } else {
         earcon = cvox.AbstractEarcons.CHECK_OFF;
-        s += ', radio button unselected';
+        s += msg('describe_radio_unselected', [name]);
       }
       break;
     case 'menu':
-      s += name + ', menu';
+      s += msg('describe_menu', [name]);
       break;
     case 'menuitem':
-      s += name + ', menu item';
-      if (control.details.hasSubmenu) {
-        s += ', with submenu';
-      }
+      s += msg(
+          control.details.hasSubmenu ?
+              'describe_menu_item_with_submenu' : 'describe_menu', [name]);
       break;
     case 'window':
-      s += name + ', window';
+      s += msg('describe_window', [name]);
       break;
     case 'textbox':
       earcon = cvox.AbstractEarcons.EDITABLE_TEXT;
-      s += control.details.value;
-      if (name != '') {
-        s += ', ' + name;
+      var unnamed = name == '' ? 'unnamed_' : '';
+      var type, value;
+      if (control.details.isPassword) {
+        type = 'password';
+        value = control.details.value.replace(/./g, '*');
+      } else {
+        type = 'textbox';
+        value = control.details.value;
       }
-      s += ', ' + (control.details.isPassword ? ', password ' : '') +
-          ', text box';
+      s += msg('describe_' + unnamed + type, [value, name]);
       break;
     case 'button':
       earcon = cvox.AbstractEarcons.BUTTON;
-      s += name + ', button';
+      s += msg('describe_button', [name]);
       break;
     case 'combobox':
-      earcon = cvox.AbstractEarcons.LISTBOX;
-      s += control.details.value;
-      if (name != '') {
-        s += ', ' + name;
-      }
-      s += ', combo box';
-      break;
     case 'listbox':
       earcon = cvox.AbstractEarcons.LISTBOX;
-      s += control.details.value;
-      if (name != '') {
-        s += ', ' + name;
-      }
-      s += ', list box';
+      var unnamed = name == '' ? 'unnamed_' : '';
+      s += msg('describe_' + unnamed + control.type,
+                            [control.details.value, name]);
       break;
     case 'link':
       earcon = cvox.AbstractEarcons.LINK;
-      s += name + ', link';
+      s += msg('describe_link', [name]);
       break;
     case 'tab':
-      s += name + ', tab';
+      s += msg('describe_tab', [name]);
       break;
 
     default:
@@ -326,14 +340,11 @@ cvox.ChromeVoxAccessibilityApiHandler.describe = function(control,
   }
 
   if (isSelect) {
-    s += ', selected';
+    s += msg('describe_selected');
   }
-  try {
-    if (control.details.itemCount >= 0) {
-      s += ', ' + (control.details.itemIndex + 1) +
-          ' of ' + control.details.itemCount;
-    }
-  } catch (err) {
+  if (control.details && control.details.itemCount >= 0) {
+    s += msg('describe_index',
+        [control.details.itemIndex + 1, control.details.itemCount]);
   }
 
   s += '.';

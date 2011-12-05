@@ -19,10 +19,10 @@
  */
 
 
-cvoxgoog.provide('cvox.SelectionUtil');
+goog.provide('cvox.SelectionUtil');
 
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.XpathUtil');
+goog.require('cvox.DomUtil');
+goog.require('cvox.XpathUtil');
 
 /**
  * Utilities for improving selection.

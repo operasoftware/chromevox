@@ -19,12 +19,12 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-cvoxgoog.provide('cvox.LiveRegions');
+goog.provide('cvox.LiveRegions');
 
-cvoxgoog.require('cvox.AriaUtil');
-cvoxgoog.require('cvox.ChromeVox');
-cvoxgoog.require('cvox.DomUtil');
-cvoxgoog.require('cvox.NavDescription');
+goog.require('cvox.AriaUtil');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.DomUtil');
+goog.require('cvox.NavDescription');
 
 /**
  * @constructor
@@ -53,36 +53,59 @@ cvox.LiveRegions.pageLoadTime = null;
 /**
  * Time in milliseconds after initial page load to ignore live region
  * updates, to avoid announcing regions as they're initially created.
+ * The exception is alerts, they're announced when a page is loaded.
  * @type {number}
  * @const
  */
 cvox.LiveRegions.INITIAL_SILENCE_MS = 2000;
 
 /**
- * @param {Date=} pageLoadTime The time the page was loaded. Live region
+ * @param {Date} pageLoadTime The time the page was loaded. Live region
  *     updates within the first INITIAL_SILENCE_MS milliseconds are ignored.
+ * @param {number} queueMode Interrupt or flush.  Polite live region
+ *   changes always queue.
+ * @return {boolean} true if any regions announced.
  */
-cvox.LiveRegions.init = function(pageLoadTime) {
-  if (pageLoadTime) {
-    cvox.LiveRegions.pageLoadTime = pageLoadTime;
-  } else {
-    cvox.LiveRegions.pageLoadTime = new Date();
+cvox.LiveRegions.init = function(pageLoadTime, queueMode) {
+  if (queueMode == undefined) {
+    queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
 
+  cvox.LiveRegions.pageLoadTime = pageLoadTime;
+
+  var anyRegionsAnnounced = false;
   var regions = cvox.AriaUtil.getLiveRegions(document.body);
   for (var i = 0; i < regions.length; i++) {
-    cvox.LiveRegions.updateLiveRegion(regions[i]);
+    if (cvox.LiveRegions.updateLiveRegion(regions[i], queueMode)) {
+      anyRegionsAnnounced = true;
+      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+    }
   }
+
+  return anyRegionsAnnounced;
 };
 
 /**
  * Speak relevant changes to a live region.
  *
  * @param {Node} region The live region node that changed.
+ * @param {number} queueMode Interrupt or queue. Polite live region
+ *   changes always queue.
+ * @return {boolean} true if the region announced a change.
  */
-cvox.LiveRegions.updateLiveRegion = function(region) {
+cvox.LiveRegions.updateLiveRegion = function(region, queueMode) {
   if (cvox.AriaUtil.getAriaBusy(region)) {
-    return;
+    return false;
+  }
+
+  // Make sure it's visible.
+  var element = region;
+  while (element) {
+    var style = document.defaultView.getComputedStyle(element, null);
+    if (cvox.DomUtil.isInvisibleStyle(style)) {
+      return false;
+    }
+    element = element.parentElement;
   }
 
   // Retrieve the previous value of this region if we've tracked it
@@ -101,12 +124,14 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
   // Get the new value.
   var currentValue = cvox.LiveRegions.buildCurrentLiveRegionValue(region);
 
-  // If the page just loaded, keep track of the new value but don't
-  // announce anything.
-  if (Date() - cvox.LiveRegions.pageLoadTime <
-      cvox.LiveRegions.INITIAL_SILENCE_MS) {
+  // If the page just loaded and this is any region type other than 'alert',
+  // keep track of the new value but don't announce anything. Alerts are
+  // the exception, they're announced on page load.
+  var deltaTime = new Date() - cvox.LiveRegions.pageLoadTime;
+  if (cvox.AriaUtil.getRoleAttribute(region) != 'alert' &&
+      deltaTime < cvox.LiveRegions.INITIAL_SILENCE_MS) {
     cvox.LiveRegions.previousRegionValue[regionIndex] = currentValue;
-    return;
+    return false;
   }
 
   // Create maps of values in the live region for fast hash lookup.
@@ -115,14 +140,14 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
     previousValueMap[previousValue[i].toString()] = true;
   }
   var currentValueMap = {};
-  for (var i = 0; i < currentValue.length; i++) {
+  for (i = 0; i < currentValue.length; i++) {
     currentValueMap[currentValue[i].toString()] = true;
   }
 
   // Figure out the additions and removals.
   var additions = [];
   if (cvox.AriaUtil.getAriaRelevant(region, 'additions')) {
-    for (var i = 0; i < currentValue.length; i++) {
+    for (i = 0; i < currentValue.length; i++) {
       if (!previousValueMap[currentValue[i].toString()]) {
         additions.push(currentValue[i]);
       }
@@ -130,7 +155,7 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
   }
   var removals = [];
   if (cvox.AriaUtil.getAriaRelevant(region, 'removals')) {
-    for (var i = 0; i < previousValue.length; i++) {
+    for (i = 0; i < previousValue.length; i++) {
       if (!currentValueMap[previousValue[i].toString()]) {
         removals.push(previousValue[i]);
       }
@@ -142,8 +167,9 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
   // and just speak any additions (which includes changed nodes).
   var messages = [];
   if (additions.length == 0 && removals.length > 0) {
-    messages = [new cvox.NavDescription('removed:', '', '', '', [])].concat(
-        removals);
+    messages = [new cvox.NavDescription(
+        cvox.ChromeVox.msgs.getMsg('live_regions_removed'),
+        '', '', '', [])].concat(removals);
   } else {
     messages = additions;
   }
@@ -153,16 +179,20 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
 
   // Return if there's nothing to announce.
   if (messages.length == 0) {
-    return;
+    return false;
   }
 
   // Announce the changes with the appropriate politeness level.
   var live = cvox.AriaUtil.getAriaLive(region);
-  var queueMode = (live == 'assertive' ? 0 : 1);
-  for (var i = 0; i < messages.length; i++) {
-    messages[i].speak(queueMode);
-    queueMode = 1;
+  if (live == 'polite') {
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   }
+  for (i = 0; i < messages.length; i++) {
+    messages[i].speak(queueMode);
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  }
+
+  return true;
 };
 
 /**
@@ -180,7 +210,8 @@ cvox.LiveRegions.updateLiveRegion = function(region) {
 cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   if (cvox.AriaUtil.getAriaAtomic(node) ||
       cvox.DomUtil.isLeafNode(node)) {
-    var description = cvox.DomUtil.getDescriptionFromAncestors([node], true);
+    var description = cvox.DomUtil.getDescriptionFromAncestors([node], true,
+        cvox.ChromeVox.verbosity);
     if (!description.isEmpty()) {
       return [description];
     } else {
@@ -191,7 +222,8 @@ cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   var result = [];
 
   // Start with the description of this node.
-  var description = cvox.DomUtil.getDescriptionFromAncestors([node], false);
+  var description = cvox.DomUtil.getDescriptionFromAncestors([node], false,
+      cvox.ChromeVox.verbosity);
   if (!description.isEmpty()) {
     result.push(description);
   }

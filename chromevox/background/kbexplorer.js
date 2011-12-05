@@ -18,19 +18,23 @@
  * @author chaitanyag@google.com (Chaitanya Gharpure)
  */
 
-cvoxgoog.require('cvox.KeyUtil');
+goog.require('cvox.KeyUtil');
 
-var kbExplorer = {};
+
+/**
+ * Class to manage the keyboard explorer.
+ * @constructor
+ */
+cvox.KbExplorer = function() { };
+
 
 /**
  * Initialize keyboard explorer.
  */
-kbExplorer.init = function() {
-  document.write('<h2>ChromeOS Keyboard Explorer - Press any key to learn ' +
-      'its name. Ctrl + W will close the keyboard explorer.</h2>');
-  document.addEventListener('keydown', kbExplorer.onKeyDown, false);
-  document.addEventListener('keyup', kbExplorer.onKeyUp, false);
-  document.addEventListener('keypress', kbExplorer.onKeyPress, false);
+cvox.KbExplorer.init = function() {
+  document.addEventListener('keydown', cvox.KbExplorer.onKeyDown, false);
+  document.addEventListener('keyup', cvox.KbExplorer.onKeyUp, false);
+  document.addEventListener('keypress', cvox.KbExplorer.onKeyPress, false);
 };
 
 
@@ -38,7 +42,7 @@ kbExplorer.init = function() {
  * Handles keydown events by speaking the human understandable name of the key.
  * @param {Event} evt key event.
  */
-kbExplorer.onKeyDown = function(evt) {
+cvox.KbExplorer.onKeyDown = function(evt) {
   chrome.extension.getBackgroundPage().background.ttsManager.speak(
       cvox.KeyUtil.getReadableNameForKeyCode(evt.keyCode), false, null);
   evt.preventDefault();
@@ -50,7 +54,7 @@ kbExplorer.onKeyDown = function(evt) {
  * Handles keyup events.
  * @param {Event} evt key event.
  */
-kbExplorer.onKeyUp = function(evt) {
+cvox.KbExplorer.onKeyUp = function(evt) {
   evt.preventDefault();
   evt.stopPropagation();
 };
@@ -60,10 +64,10 @@ kbExplorer.onKeyUp = function(evt) {
  * Handles keypress events.
  * @param {Event} evt key event.
  */
-kbExplorer.onKeyPress = function(evt) {
+cvox.KbExplorer.onKeyPress = function(evt) {
   evt.preventDefault();
   evt.stopPropagation();
 };
 
-kbExplorer.init();
 
+goog.exportSymbol('load', cvox.KbExplorer.init);

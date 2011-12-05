@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cvoxgoog.provide('cvox.ChromeVoxEditableContentEditable');
-cvoxgoog.provide('cvox.ChromeVoxEditableHTMLInput');
-cvoxgoog.provide('cvox.ChromeVoxEditableTextArea');
-cvoxgoog.provide('cvox.ChromeVoxEditableTextBase');
-cvoxgoog.provide('cvox.TextChangeEvent');
+goog.provide('cvox.ChromeVoxEditableContentEditable');
+goog.provide('cvox.ChromeVoxEditableHTMLInput');
+goog.provide('cvox.ChromeVoxEditableTextArea');
+goog.provide('cvox.ChromeVoxEditableTextBase');
+goog.provide('cvox.TextChangeEvent');
 
-cvoxgoog.require('cvox.AbstractTts');
-cvoxgoog.require('cvox.DomUtil');
+goog.require('cvox.DomUtil');
 
 /**
  * @fileoverview Gives the user spoken feedback as they type, select text,
@@ -211,17 +210,6 @@ cvox.ChromeVoxEditableTextBase.prototype.isWordBreakChar = function(ch) {
          ch == ',' || ch == '.' || ch == '/';
 };
 
-
-/**
- * If a string consists of a single character, replace it with a
- * description of that character.
- * @param {string} ch The character to be spoken.
- * @return {string} The description.
- */
-cvox.ChromeVoxEditableTextBase.prototype.describeChar = function(ch) {
-  return cvox.AbstractTts.preprocess(ch);
-};
-
 /**
  * Speak text, but if it's a single character, describe the character.
  * @param {string} str The string to speak.
@@ -239,11 +227,8 @@ cvox.ChromeVoxEditableTextBase.prototype.speak =
   if (opt_triggeredByUser === true) {
     queueMode = 0;
   }
-  if (str.length == 1) {
-    this.tts.speak(this.describeChar(str), queueMode, {});
-  } else if (str.length > 1) {
-    this.tts.speak(str, queueMode, {});
-  }
+
+  this.tts.speak(str, queueMode, {});
 };
 
 /**
@@ -291,7 +276,6 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
       evt.end == this.end) {
     return;
   }
-
   if (evt.value == this.value) {
     this.describeSelectionChanged(evt);
   } else {
@@ -348,35 +332,35 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
         this.end == this.value.length &&
         evt.end == this.value.length) {
       // Autocomplete: the user typed one character of autocompleted text.
-      this.speak(this.describeChar(this.value.substr(this.start, 1)) + ', ' +
-          this.describeChar(this.value.substr(evt.start)),
+      this.speak(this.value.substr(this.start, 1) + ', ' +
+          this.value.substr(evt.start),
           evt.triggeredByUser);
     } else if (this.start == this.end) {
       // It was previously a cursor.
-      this.speak(this.describeChar(
-          this.value.substr(evt.start, evt.end - evt.start)) +
+      this.speak(
+          this.value.substr(evt.start, evt.end - evt.start) +
           ', selected.', evt.triggeredByUser);
     } else if (this.start == evt.start && this.end < evt.end) {
-      this.speak(this.describeChar(
-          this.value.substr(this.end, evt.end - this.end)) +
+      this.speak(
+          this.value.substr(this.end, evt.end - this.end) +
           ', added to selection.', evt.triggeredByUser);
     } else if (this.start == evt.start && this.end > evt.end) {
-      this.speak(this.describeChar(
-          this.value.substr(evt.end, this.end - evt.end)) +
+      this.speak(
+          this.value.substr(evt.end, this.end - evt.end) +
           ', removed from selection.', evt.triggeredByUser);
     } else if (this.end == evt.end && this.start > evt.start) {
-      this.speak(this.describeChar(
-          this.value.substr(evt.start, this.start - evt.start)) +
+      this.speak(
+          this.value.substr(evt.start, this.start - evt.start) +
           ', added to selection.', evt.triggeredByUser);
     } else if (this.end == evt.end && this.start < evt.start) {
-      this.speak(this.describeChar(
-          this.value.substr(this.start, evt.start - this.start)) +
+      this.speak(
+          this.value.substr(this.start, evt.start - this.start) +
           ', removed from selection.', evt.triggeredByUser);
     } else {
       // The selection changed but it wasn't an obvious extension of
       // a previous selection. Just read the new selection.
-      this.speak(this.describeChar(
-          this.value.substr(evt.start, evt.end - evt.start)) +
+      this.speak(
+          this.value.substr(evt.start, evt.end - evt.start) +
           ', selected.', evt.triggeredByUser);
     }
   }
@@ -387,6 +371,11 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
  * @param {cvox.TextChangeEvent} evt The text change event.
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
+  if (this.isPassword) {
+    this.speak('*', evt.triggeredByUser);
+    return;
+  }
+
   var value = this.value;
   var len = value.length;
   var newLen = evt.value.length;
@@ -440,6 +429,32 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   // First, restore the autocomplete text if any.
   evtValue += autocompleteSuffix;
 
+  // Try to do a diff between the new and the old text. If it is a one character
+  // insertion/deletion at the start or at the end, just speak that character.
+  if ((evtValue.length == (value.length + 1)) ||
+      ((evtValue.length + 1) == value.length)) {
+    // The user added text either to the beginning or the end.
+    if (evtValue.length > value.length) {
+      if (evtValue.indexOf(value) == 0) {
+        this.speak(evtValue[evtValue.length - 1], evt.triggeredByUser);
+        return;
+      } else if (evtValue.indexOf(value) == 1) {
+        this.speak(evtValue[0], evt.triggeredByUser);
+        return;
+      }
+    }
+    // The user deleted text either from the beginning or the end.
+    if (evtValue.length < value.length) {
+      if (value.indexOf(evtValue) == 0) {
+        this.speak(value[value.length - 1], evt.triggeredByUser);
+        return;
+      } else if (value.indexOf(evtValue) == 1) {
+        this.speak(value[0], evt.triggeredByUser);
+        return;
+      }
+    }
+  }
+
   // If the text is short, just speak the whole thing.
   if (newLen <= this.maxShortPhraseLen) {
     this.describeTextChangedHelper(evt, 0, 0, '');
@@ -486,10 +501,6 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
     evt, prefixLen, suffixLen, autocompleteSuffix) {
-  if (this.isPassword) {
-    this.speak('*', evt.triggeredByUser);
-    return;
-  }
   var len = this.value.length;
   var newLen = evt.value.length;
   var deletedLen = len - prefixLen - suffixLen;
@@ -512,15 +523,15 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
       if (index < prefixLen) {
         utterance = evt.value.substr(index, prefixLen + 1 - index);
       } else {
-        utterance = this.describeChar(inserted);
+        utterance = inserted;
       }
     } else {
-      utterance = this.describeChar(inserted);
+      utterance = inserted;
     }
   } else if (deletedLen > 1 && !autocompleteSuffix) {
     utterance = deleted + ', deleted.';
   } else if (deletedLen == 1) {
-    utterance = this.describeChar(deleted);
+    utterance = deleted;
   }
 
   if (autocompleteSuffix && utterance) {
@@ -544,7 +555,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
 cvox.ChromeVoxEditableElement = function() {
   this.justSpokeDescription = false;
 };
-cvoxgoog.inherits(cvox.ChromeVoxEditableElement,
+goog.inherits(cvox.ChromeVoxEditableElement,
     cvox.ChromeVoxEditableTextBase);
 
 /**
@@ -606,7 +617,7 @@ cvox.ChromeVoxEditableHTMLInput = function(node, tts) {
     this.value = this.value.replace(/./g, '*');
   }
 };
-cvoxgoog.inherits(cvox.ChromeVoxEditableHTMLInput,
+goog.inherits(cvox.ChromeVoxEditableHTMLInput,
     cvox.ChromeVoxEditableElement);
 
 /**
@@ -659,7 +670,7 @@ cvox.ChromeVoxEditableTextArea = function(node, tts) {
   this.characterToLineMap = {};
   this.lines = {};
 };
-cvoxgoog.inherits(cvox.ChromeVoxEditableTextArea,
+goog.inherits(cvox.ChromeVoxEditableTextArea,
     cvox.ChromeVoxEditableElement);
 
 /**
@@ -737,9 +748,9 @@ cvox.ChromeVoxEditableTextArea.prototype.updateShadow = function() {
   var shadow = cvox.ChromeVoxEditableTextArea.shadow;
   if (!shadow) {
     shadow = document.createElement('div');
-    document.body.appendChild(shadow);
     cvox.ChromeVoxEditableTextArea.shadow = shadow;
   }
+  document.body.appendChild(shadow);
 
   while (shadow.childNodes.length) {
     shadow.removeChild(shadow.childNodes[0]);
@@ -798,6 +809,7 @@ cvox.ChromeVoxEditableTextArea.prototype.updateShadow = function() {
   }
 
   this.shadowIsCurrent = true;
+  document.body.removeChild(shadow);
 };
 
 /******************************************/
@@ -826,7 +838,7 @@ cvox.ChromeVoxEditableContentEditable = function(node, tts) {
   this.characterToLineMap = {};
   this.lines = {};
 };
-cvoxgoog.inherits(cvox.ChromeVoxEditableContentEditable,
+goog.inherits(cvox.ChromeVoxEditableContentEditable,
     cvox.ChromeVoxEditableElement);
 
 /**
@@ -845,6 +857,12 @@ cvox.ChromeVoxEditableContentEditable.prototype.update =
     function(triggeredByUser) {
   var sel = window.getSelection();
   var cursorNode = sel.anchorNode;
+
+  if (cursorNode == null) {
+    // The update was called as the user was leaving the contentEditable area.
+    // There is nothing to describe, so return without doing anything.
+    return;
+  }
 
   if (this.currentChildNode != cursorNode) {
     this.currentChildNode = cursorNode;
@@ -866,8 +884,8 @@ cvox.ChromeVoxEditableContentEditable.prototype.update =
     goingBackwards = true;
   }
 
-  // TODO (clchen): Fix this! this.value doesn't make sense since
-  // contentEditable doesn't have value!
+  // TODO (clchen): Fix this! The shadow updating method is basically stubbed
+  // out so that things work, but it should be carefully re-examined.
   if (updatedValue != this.value) {
     this.shadowIsCurrent = false;
   }
@@ -890,8 +908,10 @@ cvox.ChromeVoxEditableContentEditable.prototype.update =
 cvox.ChromeVoxEditableContentEditable.prototype.needsUpdate = function() {
   // TODO: Fix this! Make it agree with the window selection.
   return (this.value != this.node.textContent ||
-          this.start != this.node.selectionStart ||
-          this.end != this.node.selectionEnd);
+      (this.start && this.node.selectionStart &&
+      (this.start != this.node.selectionStart)) ||
+      (this.end && this.node.selectionEnd &&
+      (this.end != this.node.selectionEnd)));
 };
 
 /**
@@ -945,9 +965,9 @@ cvox.ChromeVoxEditableContentEditable.prototype.updateShadow = function() {
   var shadow = cvox.ChromeVoxEditableContentEditable.shadow;
   if (!shadow) {
     shadow = document.createElement('div');
-    document.body.appendChild(shadow);
     cvox.ChromeVoxEditableContentEditable.shadow = shadow;
   }
+  document.body.appendChild(shadow);
 
   while (shadow.childNodes.length) {
     shadow.removeChild(shadow.childNodes[0]);
@@ -1009,4 +1029,5 @@ cvox.ChromeVoxEditableContentEditable.prototype.updateShadow = function() {
   }
 
   this.shadowIsCurrent = true;
+  document.body.removeChild(shadow);
 };
