@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,4 +40,25 @@ cvox.AbstractHost.prototype.onPageLoad = function() {
 };
 
 cvox.AbstractHost.prototype.sendToBackgroundPage = function(message) {
+};
+
+/**
+ * Returns the absolute URL to the API source.
+ * @return {string} The URL.
+ */
+cvox.AbstractHost.prototype.getApiSrc = function() {
+  return '';
+};
+
+/**
+ * Return the absolute URL to the given file.
+ * @param {string} path The URL suffix.
+ * @return {string} The full URL.
+ */
+cvox.AbstractHost.prototype.getFileSrc = function(path) {
+  return '';
+};
+
+cvox.AbstractHost.prototype.hasTtsCallback = function() {
+  return true;
 };

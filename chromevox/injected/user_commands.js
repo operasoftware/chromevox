@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,6 @@ goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.DomUtil');
-
-goog.require('cvox.SelectionUtil');
-
 
 
 /**
@@ -81,6 +78,14 @@ cvox.ChromeVoxUserCommands.userCommandLevel_ = 0;
  * @private
  */
 cvox.ChromeVoxUserCommands.mostRecentAnchor_ = null;
+
+/**
+ * A boolean to determine if continuous reading should keep going.
+ * This is only used for TTS engines without callbacks.
+ *
+ * @type {boolean}
+ */
+cvox.ChromeVoxUserCommands.keepReading = false;
 
 
 // TODO (chaitanyag): Move the PowerKey related code in a separate JS file.
@@ -264,6 +269,21 @@ cvox.ChromeVoxUserCommands.commands['toggleStickyMode'] = function() {
 
 
 /**
+ * Toggles the ChromeVox modifier key prefix. If the prefix is on, then for the
+ * next key will behave as if the user had pressed the modifier key combination.
+ * After that, the modifier key combination will go back to being off unless
+ * pressed.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['toggleKeyPrefix'] = function() {
+  cvox.ChromeVox.keyPrefixOn = !cvox.ChromeVox.keyPrefixOn;
+  return false;
+};
+
+
+/**
  * Moves forward and speaks the result.
  *
  * @return {boolean} Always return false since we want to prevent the default
@@ -396,8 +416,6 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   setTimeout(function() {
     cvox.ChromeVox.navigationManager.setFocus();
   }, 0);
-  cvox.SelectionUtil.scrollToSelection(window.getSelection());
-  cvox.ChromeVox.navigationManager.syncToSelection();
 
   var queueMode = 0;
 
@@ -421,6 +439,12 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
  */
 cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
     errorStr) {
+  // Don't do any navigational commands if the document is hidden from
+  // screen readers.
+  if (cvox.ChromeVox.entireDocumentIsHidden) {
+    return;
+  }
+
   cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
     cvox.ChromeVox.tts.speak(
@@ -444,6 +468,12 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
  */
 cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
     errorStr) {
+  // Don't do any navigational commands if the document is hidden from
+  // screen readers.
+  if (cvox.ChromeVox.entireDocumentIsHidden) {
+    return;
+  }
+
   cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findPrevious(predicate)) {
     cvox.ChromeVox.tts.speak(
@@ -588,7 +618,7 @@ cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['nextTtsEngine'] = function() {
-  cvox.ChromeVox.tts.nextEngine();
+  // TODO: new implementation needed.
   return false;
 };
 
@@ -781,8 +811,44 @@ cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
  * Starts reading the page contents from current location.
  */
 cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
-  cvox.ChromeVox.navigationManager.startReadingFromCurrentNode(
-      cvox.AbstractTts.QUEUE_MODE_FLUSH);
+  if (cvox.ChromeVox.host.hasTtsCallback()) {
+    cvox.ChromeVox.navigationManager.startReadingFromCurrentNode(
+        cvox.AbstractTts.QUEUE_MODE_FLUSH);
+  } else {
+    cvox.ChromeVoxUserCommands.keepReading = true;
+    cvox.ChromeVoxUserCommands.commands['readUntilStopped']();
+  }
+};
+
+/**
+ * Continously reads the page. Note that this is only used if callbacks are
+ * not available.
+ */
+cvox.ChromeVoxUserCommands.commands['readUntilStopped'] = function() {
+  if (!cvox.ChromeVoxUserCommands.keepReading) {
+    return;
+  }
+  if (!cvox.ChromeVox.tts.isSpeaking()) {
+    var navSucceeded = cvox.ChromeVox.navigationManager.navigateForward(true, true);
+    if (navSucceeded) {
+      cvox.ChromeVoxUserCommands.finishNavCommand('');
+    }
+  }
+  window.setTimeout(cvox.ChromeVoxUserCommands.commands['readUntilStopped'], 1000);
+};
+
+
+/**
+ * Jumps to the top of the page and reads the first thing.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['jumpToTop'] = function() {
+  cvox.ChromeVoxUserCommands.markInUserCommand();
+  cvox.ChromeVox.navigationManager.reset();
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
+  return false;
 };
 
 //
@@ -829,16 +895,27 @@ cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
   }
   var rowHeader = cvox.ChromeVox.navigationManager.getRowHeaderText();
   var colHeader = cvox.ChromeVox.navigationManager.getColHeaderText();
-  if (rowHeader != '') {
-    cvox.ChromeVox.tts.speak(
-        cvox.ChromeVox.msgs.getMsg('row_header') + ' ' + rowHeader, 0, null);
-  }
-  if (colHeader != '') {
-    cvox.ChromeVox.tts.speak(
-        cvox.ChromeVox.msgs.getMsg('column_header') + ' ' + colHeader, 1, null);
-  }
-  if ((rowHeader == '') && (colHeader == '')) {
+  if ((rowHeader == null) && (colHeader == null)) {
     cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_headers'), 0, null);
+  } else if ((rowHeader == '') && (colHeader == '')) {
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('empty_headers'), 0, null);
+  } else {
+    if (rowHeader != '') {
+      cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('row_header') + ' ' + rowHeader, 0, null);
+    } else if (rowHeader == '') {
+      cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('empty_row_header'), 0, null);
+    }
+    if (colHeader != '') {
+      cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('column_header') +
+              ' ' + colHeader, 1, null);
+    } else if (colHeader == '') {
+      cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('empty_col_header'), 1, null);
+    }
   }
 };
 
@@ -882,6 +959,10 @@ cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
   if (rowHeader != '') {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('row_header') + ' ' + rowHeader, 0, null);
+  } else if (rowHeader == '') {
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('empty_row_header') +
+            ' ' + rowHeader, 0, null);
   }
   else {
     // No explicit row header, ask for best guess
@@ -907,6 +988,9 @@ cvox.ChromeVoxUserCommands.commands['guessColHeader'] = function() {
   if (colHeader != '') {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('column_header') + ' ' + colHeader, 0, null);
+  } else if (colHeader == '') {
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('empty_column_header'), 0, null);
   }
   else {
     // No explicit col header, ask for best guess
@@ -1770,15 +1854,13 @@ cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
  * @return {boolean} Always return false to prevent the default action.
  */
 cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
-  if (cvox.ChromeVox.lens) {
-    cvox.ChromeVox.lens.showLens(true);
-    cvox.ChromeVox.host.sendToBackgroundPage({
-      'target': 'Prefs',
-      'action': 'setPref',
-      'pref': 'lensVisible',
-      'value': true
-    });
-  }
+  cvox.ChromeVox.lens.showLens(true);
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'lensVisible',
+    'value': true
+  });
   return false;
 };
 
@@ -1789,15 +1871,13 @@ cvox.ChromeVoxUserCommands.commands['showLens'] = function() {
  * @return {boolean} Always return false to prevent the default action.
  */
 cvox.ChromeVoxUserCommands.commands['hideLens'] = function() {
-  if (cvox.ChromeVox.lens) {
-    cvox.ChromeVox.lens.showLens(false);
-    cvox.ChromeVox.host.sendToBackgroundPage({
-      'target': 'Prefs',
-      'action': 'setPref',
-      'pref': 'lensVisible',
-      'value': false
-    });
-  }
+  cvox.ChromeVox.lens.showLens(false);
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'lensVisible',
+    'value': false
+  });
   return false;
 };
 
@@ -1808,12 +1888,10 @@ cvox.ChromeVoxUserCommands.commands['hideLens'] = function() {
  * @return {boolean} Always return false to prevent the default action.
  */
 cvox.ChromeVoxUserCommands.commands['toggleLens'] = function() {
-  if (cvox.ChromeVox.lens) {
-    if (cvox.ChromeVox.lens.isLensDisplayed()) {
-      cvox.ChromeVoxUserCommands.commands['hideLens']();
-    } else {
-      cvox.ChromeVoxUserCommands.commands['showLens']();
-    }
+  if (cvox.ChromeVox.lens.isLensDisplayed()) {
+    cvox.ChromeVoxUserCommands.commands['hideLens']();
+  } else {
+    cvox.ChromeVoxUserCommands.commands['showLens']();
   }
   return false;
 };
@@ -1859,6 +1937,23 @@ cvox.ChromeVoxUserCommands.commands['anchorLens'] = function() {
     'action': 'setPref',
     'pref': 'lensAnchored',
     'value': true
+  });
+
+  return false;
+};
+
+
+/**
+ * Toggle ChromeVox active or inactive.
+ *
+ * @return {boolean} Always return false to prevent the default action.
+ */
+cvox.ChromeVoxUserCommands.commands['toggleChromeVox'] = function() {
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'active',
+    'value': !cvox.ChromeVox.isActive
   });
 
   return false;
@@ -2337,6 +2432,7 @@ cvox.ChromeVoxUserCommands.commands['showHeadingsList'] = function() {
       cvox.ChromeVox.msgs.getMsg('powerkey_no_headings'),
       cvox.XpathUtil.evalXPath(xpath, document.body), null);
 };
+
 
 /**
  * Show links list with PowerKey.

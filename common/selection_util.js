@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -199,6 +199,19 @@ cvox.SelectionUtil.isSelectionValid = function(sel) {
   var regExpWhiteSpace = new RegExp(/^\s+$/);
   return (! ((regExpWhiteSpace.test(sel.toString())) ||
              (sel.toString() == '')));
+};
+
+/**
+ * Checks the contents of a range for meaningful content.
+ * @param {Range} range The range.
+ * @return {boolean} True if the range is valid.  False if the range
+ *     contains only whitespace or is an empty string.
+ */
+cvox.SelectionUtil.isRangeValid = function(range) {
+  var text = range.cloneContents().textContent;
+  var regExpWhiteSpace = new RegExp(/^\s+$/);
+  return (! ((regExpWhiteSpace.test(text)) ||
+             (text == '')));
 };
 
 /**
@@ -591,9 +604,9 @@ cvox.SelectionUtil.collapseToEnd = function(node) {
  * @return {string} The string of text contained in the current selection.
  */
 cvox.SelectionUtil.getText = function() {
-  var text = '';
   var sel = window.getSelection();
   if (cvox.SelectionUtil.hasContentWithTag(sel, 'IMG')) {
+    var text = '';
     var docFrag = sel.getRangeAt(0).cloneContents();
     var span = document.createElement('span');
     span.appendChild(docFrag);
@@ -601,8 +614,35 @@ cvox.SelectionUtil.getText = function() {
     for (var i = 0, node; node = leafNodes[i]; i++) {
       text = text + ' ' + cvox.DomUtil.getName(node);
     }
+    return text;
   } else {
-    text = text + sel;
+    return this.getSelectionText_();
   }
-  return text;
+};
+
+/**
+ * Returns the selection as text instead of a selection object. Note that this
+ * function must be used in place of getting text directly from the DOM
+ * if you want i18n tests to pass.
+ *
+ * @return {string} The text.
+ */
+cvox.SelectionUtil.getSelectionText_ = function() {
+  return '' + window.getSelection();
+};
+
+
+/**
+ * Returns a range as text instead of a selection object. Note that this
+ * function must be used in place of getting text directly from the DOM
+ * if you want i18n tests to pass.
+ *
+ * @param {Range} range A range.
+ * @return {string} The text.
+ */
+cvox.SelectionUtil.getRangeText = function(range) {
+  if (range)
+    return range.cloneContents().textContent.replace(/\s+/g, ' ');
+  else
+    return '';
 };

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
  *
  * @author chaitanyag@google.com (Chaitanya Gharpure)
  */
+
+goog.provide('cvox.KbExplorer');
 
 goog.require('cvox.KeyUtil');
 
@@ -43,7 +45,7 @@ cvox.KbExplorer.init = function() {
  * @param {Event} evt key event.
  */
 cvox.KbExplorer.onKeyDown = function(evt) {
-  chrome.extension.getBackgroundPage().background.ttsManager.speak(
+  chrome.extension.getBackgroundPage()['speak'](
       cvox.KeyUtil.getReadableNameForKeyCode(evt.keyCode), false, null);
   evt.preventDefault();
   evt.stopPropagation();

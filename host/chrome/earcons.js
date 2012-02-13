@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,28 +19,31 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.Earcons');
+goog.provide('cvox.ChromeEarcons');
 
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ExtensionBridge');
+goog.require('cvox.HostFactory');
 
 /**
  * @constructor
  * @extends {cvox.AbstractEarcons}
  */
-cvox.Earcons = function() {
+cvox.ChromeEarcons = function() {
   cvox.AbstractEarcons.call(this);
 };
-goog.inherits(cvox.Earcons, cvox.AbstractEarcons);
+goog.inherits(cvox.ChromeEarcons, cvox.AbstractEarcons);
 
 /**
  * Plays the specified earcon.
  * @param {number} earcon The earcon to be played.
  */
-cvox.Earcons.prototype.playEarcon = function(earcon) {
-  cvox.Earcons.superClass_.playEarcon.call(this, earcon);
+cvox.ChromeEarcons.prototype.playEarcon = function(earcon) {
+  cvox.ChromeEarcons.superClass_.playEarcon.call(this, earcon);
   cvox.ExtensionBridge.send({
                               'target': 'EARCON',
                               'action': 'play',
                               'earcon': earcon});
 };
+
+cvox.HostFactory.earconsConstructor = cvox.ChromeEarcons;

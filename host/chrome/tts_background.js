@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,9 +83,6 @@ cvox.TtsBackground.prototype.speak = function(
       properties['startCallback']();
     }
   };
-
-  // Map locale to lang
-  mergedProperties['lang'] = mergedProperties['locale'];
 
   chrome.tts.speak(textString, mergedProperties);
 };

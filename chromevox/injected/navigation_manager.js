@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 goog.provide('cvox.ChromeVoxNavigationManager');
 
+goog.require('cvox.ActiveIndicator');
 goog.require('cvox.ChromeVoxChoiceWidget');
 goog.require('cvox.DomUtil');
 goog.require('cvox.Interframe');
@@ -30,6 +31,7 @@ goog.require('cvox.NavDescription');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.SelectionWalker');
 goog.require('cvox.SmartDomWalker');
+goog.require('cvox.WalkerDecorator');
 
 
 
@@ -43,20 +45,10 @@ cvox.ChromeVoxNavigationManager = function() {
   this.currentNavStrategy = 2;
   this.subNavigating = false;
 
-  this.linearDomWalker = new cvox.LinearDomWalker();
-  this.smartDomWalker = new cvox.SmartDomWalker();
-  this.selectionWalker = new cvox.SelectionWalker();
-  this.customWalker = null;
-  this.selectionUniqueAncestors = [];
-
-  this.iframeIdMap = {};
-  this.nextIframeId = 1;
-  this.currentDialog = null;
   this.addInterframeListener_();
 
-  // Keeps track of whether we are currently navigating inside of a table (even
-  // if we are not in table mode).
-  this.currentTable_ = null;
+  this.reset();
+  this.navigateForward(false);
 };
 
 
@@ -72,6 +64,45 @@ cvox.ChromeVoxNavigationManager.STRATEGIES =
  */
 cvox.ChromeVoxNavigationManager.STRATEGY_NAMES =
     ['SELECTION', 'OBJECT', 'GROUP', 'CUSTOM'];
+
+
+/**
+ * Resets the navigation manager to the top of the page.
+ */
+cvox.ChromeVoxNavigationManager.prototype.reset = function() {
+  if (this.activeIndicator) {
+    this.activeIndicator.removeFromDom();
+  }
+
+  this.currentNode = null;
+  this.nodeInformationArray = new Array();
+  this.walkerDecorator = new cvox.WalkerDecorator();
+  this.linearDomWalker = new cvox.LinearDomWalker();
+  this.smartDomWalker = new cvox.SmartDomWalker();
+  this.selectionWalker = new cvox.SelectionWalker();
+  this.customWalker = null;
+  this.walkerDecorator.decorate(this.linearDomWalker);
+  this.walkerDecorator.decorate(this.smartDomWalker);
+  this.walkerDecorator.decorate(this.selectionWalker);
+
+  this.selectionUniqueAncestors = [];
+
+  this.iframeIdMap = {};
+  this.nextIframeId = 1;
+  this.currentDialog = null;
+
+  // Keeps track of whether we are currently navigating inside of a table (even
+  // if we are not in table mode).
+  this.currentTable_ = null;
+
+  // TODO (deboer): Technically the choice widget could (and should) be
+  // initialized here, but there is a problem with the tests not pulling in
+  // PowerKey.
+  this.choiceWidget = null;
+
+  this.currentTable_ = null;
+  this.activeIndicator = new cvox.ActiveIndicator();
+};
 
 
 /**
@@ -201,7 +232,7 @@ cvox.ChromeVoxNavigationManager.prototype.syncUp = function() {
         node = node.parentNode;
       }
       // Check if we are now inside a table. If so, switch start table nav.
-      if (this.tryEnterTable_(this.currentNode, true)) {
+      if ((node !== null) && this.tryEnterTable_(this.currentNode, true)) {
         break;
       }
       this.smartDomWalker.setCurrentNode(this.currentNode);
@@ -211,6 +242,8 @@ cvox.ChromeVoxNavigationManager.prototype.syncUp = function() {
       this.navigateForward(false);
     break;
   }
+
+  this.updateIndicator();
 };
 
 
@@ -229,34 +262,13 @@ cvox.ChromeVoxNavigationManager.prototype.syncDown = function(opt_forwards) {
       if (this.smartDomWalker.getCurrentNode() != null) {
         this.currentNode = this.smartDomWalker.getCurrentNode();
         this.linearDomWalker.setCurrentNode(this.currentNode);
+        this.updateIndicator();
       }
-    break;
+      break;
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
-      // We've been navigating with linear navigation, so need to sync down
-      // to selection navigation.
-      if (this.selectionWalker.currentGranularity == 0) {
-        this.selectionWalker.setCurrentNode(this.currentNode);
-        if (!!this.currentNode) {
-          if (opt_forwards) {
-            this.selectAllTextInNode_(this.currentNode);
-            cvox.SelectionUtil.collapseToEnd(this.currentNode);
-          } else {
-            cvox.SelectionUtil.collapseToStart(this.currentNode);
-          }
-        }
-      } else {
-        // We've been navigating at the selection level, so need to sync down
-        // to a different granularity within selection naivgation.
-        this.selectionWalker.setCurrentNode(this.currentNode);
-        if (!!this.currentNode) {
-          if (opt_forwards) {
-            cvox.SelectionUtil.collapseToEnd(this.currentNode);
-          } else {
-              cvox.SelectionUtil.collapseToStart(this.currentNode);
-          }
-        }
-      }
-    break;
+      // Selects the whole range.
+      this.selectionWalker.setCurrentNode(this.currentNode);
+      break;
   }
 };
 
@@ -309,8 +321,8 @@ cvox.ChromeVoxNavigationManager.prototype.next =
         return true;
       }
       if (smartNode) {
-        this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
+        this.updateIndicator();
         return true;
       }
       return false;
@@ -324,8 +336,8 @@ cvox.ChromeVoxNavigationManager.prototype.next =
         return true;
       }
       if (node) {
-        this.selectAllTextInNode_(node);
         this.currentNode = node;
+        this.updateIndicator();
         return true;
       }
       return false;
@@ -333,7 +345,9 @@ cvox.ChromeVoxNavigationManager.prototype.next =
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
       this.selectionUniqueAncestors = [];
       var movedOk = this.selectionWalker.next();
-      if (!movedOk) {
+      if (movedOk) {
+        this.updateIndicator();
+      } else {
         var selectionNode = this.linearDomWalker.next();
         if (navigateIframes && this.tryEnterExitIframe_(selectionNode, true)) {
           return true;
@@ -346,11 +360,12 @@ cvox.ChromeVoxNavigationManager.prototype.next =
         if (selectionNode) {
           this.currentNode = selectionNode;
           this.selectionWalker.setCurrentNode(this.currentNode);
-          this.selectionWalker.next();
+          this.selectionWalker.initRange(true);
           // Make sure we don't skip over controls when moving selection.
           if (cvox.DomUtil.isControl(selectionNode)) {
             selectionNode.focus();
           }
+          this.updateIndicator();
           return true;
         }
         return false;
@@ -420,8 +435,8 @@ cvox.ChromeVoxNavigationManager.prototype.previous =
         return true;
       }
       if (smartNode) {
-        this.selectAllTextInNode_(smartNode);
         this.currentNode = smartNode;
+        this.updateIndicator();
         return true;
       }
       return false;
@@ -435,8 +450,8 @@ cvox.ChromeVoxNavigationManager.prototype.previous =
         return true;
       }
       if (node) {
-        this.selectAllTextInNode_(node);
         this.currentNode = node;
+        this.updateIndicator();
         return true;
       }
       return false;
@@ -444,7 +459,9 @@ cvox.ChromeVoxNavigationManager.prototype.previous =
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
       this.selectionUniqueAncestors = [];
       var movedOk = this.selectionWalker.previous();
-      if (!movedOk) {
+      if (movedOk) {
+        this.updateIndicator();
+      } else {
         var selectionNode = this.linearDomWalker.previous();
         if (navigateIframes && this.tryEnterExitIframe_(selectionNode, false)) {
           return true;
@@ -457,13 +474,12 @@ cvox.ChromeVoxNavigationManager.prototype.previous =
         if (selectionNode) {
           this.currentNode = selectionNode;
           this.selectionWalker.setCurrentNode(this.currentNode);
-          this.selectAllTextInNode_(this.currentNode);
-          cvox.SelectionUtil.collapseToEnd(this.currentNode);
-          this.selectionWalker.previous();
+          this.selectionWalker.initRange(false);
           // Make sure we don't skip over controls when moving selection.
           if (cvox.DomUtil.isControl(selectionNode)) {
             selectionNode.focus();
           }
+          this.updateIndicator();
           return true;
         }
         return false;
@@ -557,10 +573,11 @@ cvox.ChromeVoxNavigationManager.prototype.up = function() {
         this.lastUsedNavStrategy = this.currentNavStrategy;
         this.currentNavStrategy =
             cvox.ChromeVoxNavigationManager.STRATEGIES.LINEARDOM;
-        this.selectAllTextInNode_(this.currentNode);
       }
       break;
   }
+
+  this.updateIndicator();
 };
 
 
@@ -618,6 +635,8 @@ cvox.ChromeVoxNavigationManager.prototype.down = function() {
       var changed = this.selectionWalker.moreGranular(true);
       break;
   }
+
+  this.updateIndicator();
 };
 
 
@@ -645,6 +664,9 @@ cvox.ChromeVoxNavigationManager.prototype.forceEnterTable = function() {
  */
 cvox.ChromeVoxNavigationManager.prototype.tryEnterTable_ =
     function(node, forwards, opt_forceTableNav) {
+  if (!node) {
+    return false;
+  }
   // If this node is in a data table, switch to group mode.
   var tableNode = cvox.DomUtil.getContainingTable(node);
   if (!tableNode ||
@@ -673,8 +695,8 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterTable_ =
   }
 
   if (cell) {
-    this.selectAllTextInNode_(cell);
     this.currentNode = cell;
+    this.updateIndicator();
     this.currentTable_ = tableNode;
     return true;
   }
@@ -697,8 +719,8 @@ cvox.ChromeVoxNavigationManager.prototype.exitTable = function(forwards) {
       cell = this.smartDomWalker.goToFirstCell();
     }
     if (cell) {
-      this.selectAllTextInNode_(cell);
       this.currentNode = cell;
+      this.updateIndicator();
       this.currentTable_ = null;
       this.smartDomWalker.exitTable();
       forwards ? this.next(true) : this.previous(true);
@@ -715,8 +737,8 @@ cvox.ChromeVoxNavigationManager.prototype.exitTable = function(forwards) {
 cvox.ChromeVoxNavigationManager.prototype.previousRow = function() {
   var previousRowNode = this.smartDomWalker.previousRow();
   if (previousRowNode) {
-    this.selectAllTextInNode_(previousRowNode);
     this.currentNode = previousRowNode;
+    this.updateIndicator();
     return true;
   } else {
     return false;
@@ -732,8 +754,8 @@ cvox.ChromeVoxNavigationManager.prototype.previousRow = function() {
 cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
   var nextRowNode = this.smartDomWalker.nextRow();
   if (nextRowNode) {
-    this.selectAllTextInNode_(nextRowNode);
     this.currentNode = nextRowNode;
+    this.updateIndicator();
     return true;
   } else {
     return false;
@@ -749,8 +771,8 @@ cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
 cvox.ChromeVoxNavigationManager.prototype.previousCol = function() {
   var previousColNode = this.smartDomWalker.previousCol();
   if (previousColNode) {
-    this.selectAllTextInNode_(previousColNode);
     this.currentNode = previousColNode;
+    this.updateIndicator();
     return true;
   } else {
     return false;
@@ -766,8 +788,8 @@ cvox.ChromeVoxNavigationManager.prototype.previousCol = function() {
 cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
   var nextColNode = this.smartDomWalker.nextCol();
   if (nextColNode) {
-    this.selectAllTextInNode_(nextColNode);
     this.currentNode = nextColNode;
+    this.updateIndicator();
     return true;
   } else {
     return false;
@@ -777,8 +799,8 @@ cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
 
 /**
  * Returns the text content of the row header(s) of the current cell.
- * @return {string} The text content of the row header(s) of the current cell
- * or '' if the cell has no row headers.
+ * @return {?string} The text content of the row header(s) of the current cell
+ * or null if the cell has no row headers.
  */
 cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
   return this.smartDomWalker.getRowHeaderText();
@@ -788,7 +810,7 @@ cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
 /**
  * Returns the text content of best-guess row header of the current cell.
  * This is used when the table does not specify row and column headers.
- * @return {string} The text content of the guessed row header of the current
+ * @return {?string} The text content of the guessed row header of the current
  * cell.
  */
 cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
@@ -798,8 +820,8 @@ cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
 
 /**
  * Returns the text content of the col header(s) of the current cell.
- * @return {string} The text content of the col header(s) of the current cell
- * or '' if the cell has no col headers.
+ * @return {?string} The text content of the col header(s) of the current cell
+ * or null if the cell has no col headers.
  */
 cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
   return this.smartDomWalker.getColHeaderText();
@@ -809,7 +831,7 @@ cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
 /**
  * Returns the text content of best-guess col header of the current cell.
  * This is used when the table does not specify col and column headers.
- * @return {string} The text content of the guessed col header of the current
+ * @return {?string} The text content of the guessed col header of the current
  * cell.
  */
 cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
@@ -946,8 +968,8 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
 
   var smartNode = functionToTry.call(obj);
   if (smartNode) {
-    this.selectAllTextInNode_(smartNode);
     this.currentNode = smartNode;
+    this.updateIndicator();
     return true;
   } else {
     this.switchToStrategy(originalNavStrategy, originalGranularity);
@@ -960,13 +982,14 @@ cvox.ChromeVoxNavigationManager.prototype.trySwitchToStrategyAndSelect_ =
  * Moves to the next occurrence of a node that matches the given predicate,
  * if one exists, using the linearDomWalker.
  * @param {function(Array.<Node>)} predicate A function taking an array
- *     of unique ancestor nodes as a parameter and returning true if it's
- *     what to search for.
+ *     of unique ancestor nodes as a parameter and returning a desired node.
+ *     It returns null if that node can't be found.
  * @return {boolean} True if a match was found.
  */
 cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
   this.syncPosition();
-  var node = undefined;
+  var originalNode = this.getCurrentNode();
+  var nodeToTry = undefined;
   // Sync the linear DOM walker before running find to make sure it starts
   // from the right spot.
   if (this.currentNavStrategy !=
@@ -974,22 +997,26 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
     this.linearDomWalker.syncToNode(this.getCurrentNode());
   }
   while (true) {
-    node = this.linearDomWalker.next();
-    if (!node) {
+    nodeToTry = this.linearDomWalker.next();
+    if (!nodeToTry) {
       break;
     }
 
-    if ((node = predicate(this.linearDomWalker.getUniqueAncestors()))) {
+    if ((nodeToTry = predicate(this.linearDomWalker.getUniqueAncestors()))) {
       break;
     }
   }
 
-  if (node) {
-    this.selectAllTextInNode_(node);
-    this.currentNode = node;
+  if (nodeToTry) {
+    this.currentNode = nodeToTry;
+    this.updateIndicator();
     this.linearDomWalker.syncToNode(this.currentNode);
     this.smartDomWalker.syncToNode(this.currentNode);
     return true;
+  } else {
+    // No matching node was found. Need to sync the linear walker back to
+    // original position.
+    this.linearDomWalker.syncToNode(originalNode);
   }
 
   return false;
@@ -1006,7 +1033,8 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
  */
 cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
   this.syncPosition();
-  var node = undefined;
+  var originalNode = this.getCurrentNode();
+  var nodeToTry = undefined;
   // Sync the linear DOM walker before running find to make sure it starts
   // from the right spot.
   if (this.currentNavStrategy !=
@@ -1014,22 +1042,26 @@ cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
     this.linearDomWalker.syncToNode(this.getCurrentNode());
   }
   while (true) {
-    node = this.linearDomWalker.previous();
-    if (!node) {
+    nodeToTry = this.linearDomWalker.previous();
+    if (!nodeToTry) {
       break;
     }
 
-    if ((node = predicate(this.linearDomWalker.getUniqueAncestors()))) {
+    if ((nodeToTry = predicate(this.linearDomWalker.getUniqueAncestors()))) {
       break;
     }
   }
 
-  if (node) {
-    this.selectAllTextInNode_(node);
-    this.currentNode = node;
+  if (nodeToTry) {
+    this.currentNode = nodeToTry;
+    this.updateIndicator();
     this.linearDomWalker.syncToNode(this.currentNode);
     this.smartDomWalker.syncToNode(this.currentNode);
     return true;
+  } else {
+    // No matching node was found. Need to sync the linear walker back to
+    // original position.
+    this.linearDomWalker.syncToNode(originalNode);
   }
 
   return false;
@@ -1127,6 +1159,7 @@ cvox.ChromeVoxNavigationManager.prototype.syncToSelection = function() {
 
     this.linearDomWalker.syncToNode(this.currentNode);
     this.smartDomWalker.syncToNode(this.currentNode);
+    this.updateIndicator();
   }
 };
 
@@ -1145,13 +1178,10 @@ cvox.ChromeVoxNavigationManager.prototype.syncToNode = function(targetNode) {
   }
   this.linearDomWalker.syncToNode(targetNode);
   this.smartDomWalker.syncToNode(targetNode);
-
-  // Don't touch the selection of control nodes as those could have serious
-  // side effects (such as making it impossible to type in an input field).
-  if (targetNode != null && !cvox.DomUtil.isControl(targetNode)) {
-    this.selectionWalker.setCurrentNode(targetNode);
-  }
+  this.selectionWalker.setCurrentNode(targetNode);
   this.currentNode = targetNode;
+
+  this.activeIndicator.syncToNode(targetNode);
 };
 
 
@@ -1228,23 +1258,15 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
       if (this.inTableMode()) {
         if (this.smartDomWalker.bumpedEdge) {
           // We have reached the edge of the table and need an earcon here
-          var len = navDescriptions.length;
-          navDescriptions.splice(0, 0, new cvox.NavDescription(
-          '',
-          '',
-          '',
-          '',
-          [cvox.AbstractEarcons.WRAP_EDGE]));
+          if (navDescriptions.length > 0) {
+            navDescriptions[0].pushEarcon(cvox.AbstractEarcons.WRAP_EDGE);
+          }
         }
         if (this.smartDomWalker.announceTable) {
           // We have entered a table and need an earcon here
-          var len = navDescriptions.length;
-          navDescriptions.splice(0, 0, new cvox.NavDescription(
-          '',
-          '',
-          '',
-          '',
-          [cvox.AbstractEarcons.WRAP]));
+          if (navDescriptions.length > 0) {
+            navDescriptions[0].pushEarcon(cvox.AbstractEarcons.WRAP);
+          }
         }
       }
       return navDescriptions;
@@ -1366,8 +1388,8 @@ cvox.ChromeVoxNavigationManager.prototype.actOnCurrentItem = function() {
                 .createSimpleClickFunction(link));
           }
         }
-        var choiceWidget = new cvox.ChromeVoxChoiceWidget();
-        choiceWidget.show(descriptions, functions,
+        this.choiceWidget = new cvox.ChromeVoxChoiceWidget();
+        this.choiceWidget.show(descriptions, functions,
             descriptions.toString());
         return true;
       }
@@ -1483,10 +1505,8 @@ cvox.ChromeVoxNavigationManager.prototype.switchToStrategy =
     if (!opt_forwards) {
       var node = this.linearDomWalker.getCurrentNode();
       if (!!node) {
-        cvox.SelectionUtil.selectAllTextInNode(node);
-        cvox.SelectionUtil.collapseToEnd(node);
+        this.selectionWalker.setCurrentNode(node);
       }
-      this.selectionWalker.previous();
     }
 
     var currentGranularity = this.selectionWalker.currentGranularity;
@@ -1565,8 +1585,6 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
 cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
     node, forwards) {
   if (node == null && window.parent != window) {
-    cvox.SelectionUtil.collapseToStart(document.body);
-
     var message = {
       'command': 'exitIframe',
       'forwards': forwards,
@@ -1580,8 +1598,6 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
   if (node == null || node.tagName != 'IFRAME' || !node.src) {
     return false;
   }
-
-  cvox.SelectionUtil.collapseToStart(document.body);
 
   var iframeElement = /** @type {HTMLIFrameElement} */(node);
 
@@ -1611,22 +1627,33 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
 };
 
 /**
- * Select all of the text in a node, unless it's an ARIA composite control
- * like a listbox where it'd look funny to select the text.
- * @param {Node} node The node to try to select text.
- * @private
+ * Checks if the choice widget is currently active.
+ * @return {boolean} True if the choice widget is active.
  */
-cvox.ChromeVoxNavigationManager.prototype.selectAllTextInNode_ =
-    function(node) {
-  if (cvox.AriaUtil.isCompositeControl(node)) {
-    var newRange = document.createRange();
-    newRange.setStart(node, 0);
-    newRange.setEnd(node, 0);
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(newRange);
+cvox.ChromeVoxNavigationManager.prototype.isChoiceWidgetActive = function() {
+  if (this.choiceWidget) {
+    return this.choiceWidget.isActive();
+  }
+  return false;
+};
+
+/**
+ * Update the active indicator to reflect the current node or selection.
+ */
+cvox.ChromeVoxNavigationManager.prototype.updateIndicator = function() {
+  cvox.SelectionUtil.scrollElementsToView(this.currentNode);
+  if (this.currentNavStrategy ==
+          cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION) {
+    this.activeIndicator.syncToRange(this.selectionWalker.getCurrentRange());
   } else {
-    cvox.SelectionUtil.selectAllTextInNode(node);
+    this.activeIndicator.syncToNode(this.currentNode);
   }
 };
 
+/**
+ * Show or hide the active indicator based on whether ChromeVox is
+ * active or not.
+ */
+cvox.ChromeVoxNavigationManager.prototype.showOrHideIndicator = function() {
+  this.activeIndicator.setVisible(cvox.ChromeVox.isActive);
+};

@@ -387,6 +387,8 @@ cvox.TraverseTable.prototype.buildShadowTable_ = function() {
               shadowNode.activeCell = activeTableCell;
               shadowNode.rowHeaderCells = [];
               shadowNode.colHeaderCells = [];
+              shadowNode.isRowHeader = false;
+              shadowNode.isColHeader = false;
             } else {
               // This position is spanned.
               shadowNode.spanned = true;
@@ -397,6 +399,8 @@ cvox.TraverseTable.prototype.buildShadowTable_ = function() {
               shadowNode.activeCell = activeTableCell;
               shadowNode.rowHeaderCells = [];
               shadowNode.colHeaderCells = [];
+              shadowNode.isRowHeader = false;
+              shadowNode.isColHeader = false;
             }
             // Check this shadowNode to see if it is a candidate header cell
             if (cvox.TableUtil.checkIfHeader(shadowNode.activeCell)) {
@@ -520,10 +524,12 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
     }
 
     if ((specifiedScope == 'row') || (assumedScope == 'row')) {
+      currentShadowNode.isRowHeader = true;
+
       // Go right until you hit the edge of the table or a data
       // cell after another header cell.
       // Add this cell to each shadowNode.rowHeaderCells attribute as you go.
-      for (var rightCtr = currentShadowNode.j + 1;
+      for (var rightCtr = currentShadowNode.j;
            rightCtr < this.shadowTable_[currentShadowNode.i].length;
            rightCtr++) {
 
@@ -536,10 +542,6 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
           if (rightCtr < this.shadowTable_[currentShadowNode.i].length - 1) {
             var checkDataCell =
                 this.shadowTable_[currentShadowNode.i][rightCtr + 1];
-            if ((checkDataCell.activeCell.tagName == 'TD') ||
-                (checkDataCell.activeCell.getAttribute('role') == 'gridcell')) {
-              break;
-            }
           }
         }
         rightShadowNode.rowHeaderCells.push(currentCell);
@@ -548,11 +550,13 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
         this.tableRowHeaders.push(currentCell);
       }
     } else if ((specifiedScope == 'col') || (assumedScope == 'col')) {
+      currentShadowNode.isColHeader = true;
+
       // Go down until you hit the edge of the table or a data cell
       // after another header cell.
       // Add this cell to each shadowNode.colHeaders attribute as you go.
 
-      for (var downCtr = currentShadowNode.i + 1;
+      for (var downCtr = currentShadowNode.i;
            downCtr < this.shadowTable_.length;
            downCtr++) {
 
@@ -568,10 +572,6 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
           if (downCtr < this.shadowTable_.length - 1) {
             var checkDataCell =
                 this.shadowTable_[downCtr + 1][currentShadowNode.j];
-            if ((checkDataCell.activeCell.tagName == 'TD') ||
-                (checkDataCell.activeCell.getAttribute('role') == 'gridcell')) {
-              break;
-            }
           }
         }
         downShadowNode.colHeaderCells.push(currentCell);
@@ -581,6 +581,8 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
       }
 
     } else if (specifiedScope == 'rowgroup') {
+       currentShadowNode.isRowHeader = true;
+
       // This cell is a row header for the rest of the cells in this row group.
       var currentRowGroup = currentShadowNode.rowGroup;
 
@@ -614,6 +616,8 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
       }
 
     } else if (specifiedScope == 'colgroup') {
+      currentShadowNode.isColHeader = true;
+
       // This cell is a col header for the rest of the cells in this col group.
       var currentColGroup = currentShadowNode.colGroup;
 
@@ -845,6 +849,30 @@ cvox.TraverseTable.prototype.isSpanned = function() {
       this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
 
   return shadowEntry.spanned;
+};
+
+
+/**
+ * Whether or not the current cell is a row header cell.
+ * @return {boolean} Whether or not the current cell is a row header cell.
+ */
+cvox.TraverseTable.prototype.isRowHeader = function() {
+  var shadowEntry =
+      this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
+
+  return shadowEntry.isRowHeader;
+};
+
+
+/**
+ * Whether or not the current cell is a col header cell.
+ * @return {boolean} Whether or not the current cell is a col header cell.
+ */
+cvox.TraverseTable.prototype.isColHeader = function() {
+  var shadowEntry =
+      this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
+
+  return shadowEntry.isColHeader;
 };
 
 

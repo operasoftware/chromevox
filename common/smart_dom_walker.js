@@ -462,21 +462,25 @@ cvox.SmartDomWalker.prototype.previous = function() {
 
 /**
  * Returns the text content of the row header(s) of the active table cell.
- * @return {string} The text content of the row header(s) of the current cell
- * or '' if the cell has no row headers. If there is more than one header,
+ * @return {?string} The text content of the row header(s) of the current cell
+ * or null if the cell has no row headers. If there is more than one header,
  * their text content is concatenated into one string which is returned.
  */
 cvox.SmartDomWalker.prototype.getRowHeaderText = function() {
   var rowHeaderText = '';
   if (this.tableMode) {
     var rowHeaders = this.currentTableNavigator.getCellRowHeaders();
+    if (rowHeaders == null) {
+      return null;
+    }
     for (var i = 0; i < rowHeaders.length; i++) {
       rowHeaderText += cvox.DomUtil.collapseWhitespace(
           cvox.DomUtil.getValue(rowHeaders[i]) + ' ' +
-          cvox.DomUtil.getName(rowHeaders[i]));
+              cvox.DomUtil.getName(rowHeaders[i]));
     }
+    return rowHeaderText;
   }
-  return rowHeaderText;
+  return null;
 };
 
 
@@ -484,8 +488,8 @@ cvox.SmartDomWalker.prototype.getRowHeaderText = function() {
  * Returns the text content for the first cell in the current row. This is
  * used as the 'best guess' at a row header for the current cell, when no
  * row header is explicitly specified.
- * @return {string} The text content of the guessed row header of the current
- * cell or '' if we aren't in table mode.
+ * @return {?string} The text content of the guessed row header of the current
+ * cell or null if we aren't in table mode.
  */
 cvox.SmartDomWalker.prototype.getRowHeaderGuess = function() {
   var rowHeaderText = '';
@@ -495,16 +499,17 @@ cvox.SmartDomWalker.prototype.getRowHeaderGuess = function() {
         this.currentTableNavigator.getCellAt([currentCursor[0], 0]);
     rowHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInRow) + ' ' +
-        cvox.DomUtil.getName(firstCellInRow));
+            cvox.DomUtil.getName(firstCellInRow));
+    return rowHeaderText;
   }
-  return rowHeaderText;
+  return null;
 };
 
 
 /**
  * Returns the text content of the col header(s) of the active table cell.
- * @return {string} The text content of the col header(s) of the current cell
- * or '' if the cell has no col headers. If there is more than one header,
+ * @return {?string} The text content of the col header(s) of the current cell
+ * or null if the cell has no col headers. If there is more than one header,
  * their text content is concatenated into one string which is returned.
  */
 cvox.SmartDomWalker.prototype.getColHeaderText = function() {
@@ -516,8 +521,9 @@ cvox.SmartDomWalker.prototype.getColHeaderText = function() {
           cvox.DomUtil.getValue(colHeaders[i]) + ' ' +
           cvox.DomUtil.getName(colHeaders[i]));
     }
+    return colHeaderText;
   }
-  return colHeaderText;
+  return null;
 };
 
 
@@ -525,8 +531,8 @@ cvox.SmartDomWalker.prototype.getColHeaderText = function() {
  * Returns the text content for the first cell in the current col. This is
  * used as the 'best guess' at a col header for the current cell, when no
  * col header is explicitly specified.
- * @return {string} The text content of the guessed col header of the current
- * cell or '' if we aren't in table mode.
+ * @return {?string} The text content of the guessed col header of the current
+ * cell or null if we aren't in table mode.
  */
 cvox.SmartDomWalker.prototype.getColHeaderGuess = function() {
   var colHeaderText = '';
@@ -537,8 +543,9 @@ cvox.SmartDomWalker.prototype.getColHeaderGuess = function() {
     colHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInCol) + ' ' +
         cvox.DomUtil.getName(firstCellInCol));
+    return colHeaderText;
   }
-  return colHeaderText;
+  return null;
 };
 
 
@@ -606,7 +613,7 @@ cvox.SmartDomWalker.prototype.getColCount = function() {
  * @return {boolean} If this annotation should be a collection.
  */
 cvox.SmartDomWalker.prototype.isAnnotationCollection = function(annotation) {
-  return (annotation == 'Link');
+  return (annotation == cvox.ChromeVox.msgs.getMsg('tag_link'));
 };
 
 
@@ -645,9 +652,13 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     results.push(description);
     if (annotations.indexOf(description.annotation) == -1) {
       // If we have an Internal link collection, call it Link collection
-      if (description.annotation == 'Internal link') {
-        if (annotations.indexOf('Link') == -1) {
-          annotations.push('Link');
+      // NOTE(deboer): The message comparison is a symptom of a bad design.
+      // I suspect this code belongs elsewhere but I don't know where, yet.
+      if (description.annotation ==
+              cvox.ChromeVox.msgs.getMsg('internal_link')) {
+        var linkMsg = cvox.ChromeVox.msgs.getMsg('tag_link');
+        if (annotations.indexOf(linkMsg) == -1) {
+          annotations.push(linkMsg);
         }
       } else {
         annotations.push(description.annotation);
@@ -675,7 +686,8 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
         firstContext,
         '',
         '',
-        commonAnnotation + ' collection with ' + results.length + ' items',
+        cvox.ChromeVox.msgs.getMsg('collection',
+            [commonAnnotation, cvox.ChromeVox.msgs.getNumber(results.length)]),
         []));
   }
 
@@ -688,21 +700,43 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
     if (this.announceTable) {
       var len = results.length;
       var summaryText = this.currentTableNavigator.summaryText();
-      results.push(new cvox.NavDescription(
-          'row ' + this.getRowIndex() + ' of ' +
-              this.currentTableNavigator.rowCount +
-          ' column ' + this.getColIndex() + ' of ' +
-              this.currentTableNavigator.colCount,
-          '',
-          '',
-          summaryText ? summaryText + ' ' : '',
-          []));
+      var rowIndex = this.getRowIndex();
+      var colIndex = this.getColIndex();
+      var rowCount = this.currentTableNavigator.rowCount;
+      var colCount = this.currentTableNavigator.colCount;
+      if (rowIndex != null && colIndex != null &&
+          rowCount != null && colCount != null) {
+        results.push(new cvox.NavDescription(
+            cvox.ChromeVox.msgs.getMsg(
+                'table_location',
+                [cvox.ChromeVox.msgs.getNumber(rowIndex),
+                 cvox.ChromeVox.msgs.getNumber(rowCount),
+                 cvox.ChromeVox.msgs.getNumber(colIndex),
+                 cvox.ChromeVox.msgs.getNumber(colCount)]),
+            '',
+            '',
+            summaryText ? summaryText + ' ' : '',
+            []));
+      }
     }
 
     // Deal with spanned cells
     if (this.currentTableNavigator.isSpanned()) {
       results.push(new cvox.NavDescription(
           '', '', '', 'spanned', []));
+    }
+
+    // Make cells that are row or column headers speak with a different
+    // personality
+    if (this.currentTableNavigator.isRowHeader() ||
+        this.currentTableNavigator.isColHeader()) {
+      results.push(new cvox.NavDescription(
+          '',
+          '',
+          '',
+          '',
+          [],
+          cvox.AbstractTts.PERSONALITY_H2));
     }
   }
   return results;

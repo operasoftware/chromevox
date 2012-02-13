@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ goog.provide('cvox.DomUtil');
 
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.AriaUtil');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.NavDescription');
 goog.require('cvox.XpathUtil');
 
@@ -39,68 +40,58 @@ cvox.DomUtil = function() {
 /**
  * @type {Object}
  */
-cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE = {
-  'button' : 'Button',
-  'checkbox' : 'Check box',
-  'color' : 'Color picker',
-  'datetime' : 'Date time control',
-  'datetime-local' : 'Date time control',
-  'date' : 'Date control',
-  'email' : 'Edit text for email',
-  'file' : 'File selection',
-  'hidden' : '',
-  'image' : 'Button',
-  'month' : 'Month control',
-  'number' : 'Edit text numeric only',
-  'password' : 'Password edit text',
-  'radio' : 'Radio button',
-  'range' : 'Slider',
-  'reset' : 'Reset',
-  'search' : 'Edit text for search',
-  'submit' : 'Button',
-  'tel' : 'Edit text for telephone number',
-  'text' : 'Edit text',
-  'url' : 'Edit text for URL',
-  'week' : 'Week of the year control'
+cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG = {
+  'button' : 'input_type_button',
+  'checkbox' : 'input_type_checkbox',
+  'color' : 'input_type_color',
+  'datetime' : 'input_type_datetime',
+  'datetime-local' : 'input_type_datetime_local',
+  'date' : 'input_type_date',
+  'email' : 'input_type_email',
+  'file' : 'input_type_file',
+  'image' : 'input_type_image',
+  'month' : 'input_type_month',
+  'number' : 'input_type_number',
+  'password' : 'input_type_password',
+  'radio' : 'input_type_radio',
+  'range' : 'input_type_range',
+  'reset' : 'input_type_reset',
+  'search' : 'input_type_search',
+  'submit' : 'input_type_submit',
+  'tel' : 'input_type_tel',
+  'text' : 'input_type_text',
+  'url' : 'input_type_url',
+  'week' : 'input_type_week'
 };
 
 
 /**
  * @type {Object}
  */
-cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE = {
-  'A' : 'Link',
-  'BUTTON' : 'Button',
-  'H1' : 'Heading 1',
-  'H2' : 'Heading 2',
-  'H3' : 'Heading 3',
-  'H4' : 'Heading 4',
-  'H5' : 'Heading 5',
-  'H6' : 'Heading 6',
-  'LI' : 'List item',
-  'OL' : 'List',
-  'SELECT' : 'List box',
-  'TEXTAREA' : 'Text area',
-  'UL' : 'List'
+cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
+  'A' : 'tag_link',
+  'BUTTON' : 'tag_button',
+  'H1' : 'tag_h1',
+  'H2' : 'tag_h2',
+  'H3' : 'tag_h3',
+  'H4' : 'tag_h4',
+  'H5' : 'tag_h5',
+  'H6' : 'tag_h6',
+  'LI' : 'tag_li',
+  'OL' : 'tag_ol',
+  'SELECT' : 'tag_select',
+  'TEXTAREA' : 'tag_textarea',
+  'UL' : 'tag_ul'
 };
 
 /**
+ * ChromeVox does not speak the omitted tags.
  * @type {Object}
  */
-cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF = {
-  'A' : '',
-  'BUTTON' : 'Button',
-  'H1' : '',
-  'H2' : '',
-  'H3' : '',
-  'H4' : '',
-  'H5' : '',
-  'H6' : '',
-  'LI' : '',
-  'OL' : '',
-  'SELECT' : 'List box',
-  'TEXTAREA' : 'Text area',
-  'UL' : ''
+cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG = {
+  'BUTTON' : 'tag_button',
+  'SELECT' : 'tag_select',
+  'TEXTAREA' : 'tag_textarea'
 };
 
 
@@ -740,7 +731,7 @@ cvox.DomUtil.hasContent = function(node) {
 /**
  * Returns true if any of the targetNode's ancestors is an anchor.
  *
- * @param {Object} targetNode The node to check ancestors for.
+ * @param {Node} targetNode The node to check ancestors for.
  * @return {boolean} true if some ancestor is an anchor, false otherwise.
  */
 cvox.DomUtil.ancestorIsAnchor = function(targetNode) {
@@ -759,8 +750,8 @@ cvox.DomUtil.ancestorIsAnchor = function(targetNode) {
 /**
  * Returns a list of all the ancestors of a given node.
  *
- * @param {Object} targetNode The node to get ancestors for.
- * @return {Object} An array of ancestors for the targetNode.
+ * @param {Node} targetNode The node to get ancestors for.
+ * @return {Array.<Node>} An array of ancestors for the targetNode.
  */
 cvox.DomUtil.getAncestors = function(targetNode) {
   var ancestors = new Array();
@@ -808,8 +799,8 @@ cvox.DomUtil.compareAncestors = function(ancestorsA, ancestorsB) {
  * the node information (identifying when interesting node boundaries have been
  * crossed, etc.).
  *
- * @param {Object} previousNode The previous node.
- * @param {Object} currentNode The current node.
+ * @param {Node} previousNode The previous node.
+ * @param {Node} currentNode The current node.
  * @return {Array.<Node>} An array of unique ancestors for the current node.
  */
 cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
@@ -836,22 +827,35 @@ cvox.DomUtil.getRole = function(targetNode, verbosity) {
   info = cvox.AriaUtil.getRoleName(targetNode);
   if (!info) {
     if (targetNode.tagName == 'INPUT') {
-      info = cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE[targetNode.type];
+      var msg =
+          cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG[targetNode.type];
+      if (msg) {
+        info = cvox.ChromeVox.msgs.getMsg(msg);
+      }
     } else if (targetNode.tagName == 'A' &&
         cvox.DomUtil.isInternalLink(targetNode)) {
-      info = 'Internal link';
+      info = cvox.ChromeVox.msgs.getMsg('internal_link');
     } else if (targetNode.tagName == 'A' &&
         targetNode.getAttribute('name')) {
       info = ''; // Don't want to add any role to anchors.
     } else {
       if (verbosity == cvox.VERBOSITY_BRIEF) {
-        info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF[targetNode.tagName];
+        var msg =
+            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG[
+                targetNode.tagName];
+        if (msg) {
+          info = cvox.ChromeVox.msgs.getMsg(msg);
+        }
       } else {
-        info =
-            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE[targetNode.tagName];
+        var msg =
+            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG[
+                targetNode.tagName];
+        if (msg) {
+          info = cvox.ChromeVox.msgs.getMsg(msg);
+        }
 
         if (!info && targetNode.onclick)
-          info = "clickable";
+          info = 'clickable';
       }
     }
   }
@@ -904,23 +908,28 @@ cvox.DomUtil.getState = function(targetNode, primary) {
   }
 
   if (targetNode.tagName == 'INPUT') {
-    if (targetNode.type == 'checkbox' || targetNode.type == 'radio') {
-      if (targetNode.checked) {
-        info = info + ' checked';
-      } else {
-        info = info + ' not checked';
-      }
+    var INPUT_MSGS = {
+      'checkbox-true': 'checkbox_checked_state',
+      'checkbox-false': 'checkbox_unchecked_state',
+      'radio-true': 'radio_selected_state',
+      'radio-false': 'radio_unselected_state' };
+    var msgId = INPUT_MSGS[targetNode.type + '-' + !!targetNode.checked];
+    if (msgId) {
+      info += ' ' + cvox.ChromeVox.msgs.getMsg(msgId);
     }
     if (cvox.DomUtil.isDisabled(targetNode)) {
-      info += ' disabled ';
+      info += ' ' + cvox.ChromeVox.msgs.getMsg('aria_disabled_true');
     }
   } else if (targetNode.tagName == 'SELECT') {
-    info = info + ' ' + (targetNode.selectedIndex + 1) + ' of ' +
-        targetNode.options.length;
+    info += ' ' + cvox.ChromeVox.msgs.getMsg('list_position',
+        [cvox.ChromeVox.msgs.getNumber(targetNode.selectedIndex + 1),
+         cvox.ChromeVox.msgs.getNumber(targetNode.options.length)]);
   } else if (targetNode.tagName == 'UL' ||
              targetNode.tagName == 'OL' ||
              role == 'list') {
-    info = info + ' with ' + cvox.DomUtil.getListLength(targetNode) + ' items';
+    info += ' ' + cvox.ChromeVox.msgs.getMsg('list_with_items',
+        [cvox.ChromeVox.msgs.getNumber(
+            cvox.DomUtil.getListLength(targetNode))]);
   }
 
   return info;
@@ -986,17 +995,17 @@ cvox.DomUtil.getEarcon = function(node) {
 cvox.DomUtil.getPersonalityForNode = function(node) {
   switch (node.tagName) {
     case 'H1':
-      return {'relativePitch': -0.3};
+      return cvox.AbstractTts.PERSONALITY_H1;
     case 'H2':
-      return {'relativePitch': -0.25};
+      return cvox.AbstractTts.PERSONALITY_H2;
     case 'H3':
-      return {'relativePitch': -0.2};
+      return cvox.AbstractTts.PERSONALITY_H3;
     case 'H4':
-      return {'relativePitch': -0.15};
+      return cvox.AbstractTts.PERSONALITY_H4;
     case 'H5':
-      return {'relativePitch': -0.1};
+      return cvox.AbstractTts.PERSONALITY_H5;
     case 'H6':
-      return {'relativePitch': -0.05};
+      return cvox.AbstractTts.PERSONALITY_H6;
   }
   return null;
 };
@@ -1242,8 +1251,7 @@ cvox.DomUtil.skipLinkSync = function(targetNode) {
   }
 
   if (target) {
-    // TODO: common/dom_util.js should not be calling cvox.ApiImplementation!!!
-    cvox.ApiImplementation.syncToNode(target, true);
+    cvox.ChromeVox.syncToNode(target, true);
 
     // Insert a dummy node to adjust next Tab focus location.
     var parent = target.parentNode;
@@ -1730,7 +1738,7 @@ cvox.DomUtil.findNode = function(root, p) {
  * @return {boolean} Whether the search is complete or not. True in case
  * findOne is true and the node is found. False otherwise. This is the
  * findNodes_ function from goog.dom:
- * http://code.google.com/p/closure-library/source/browse/trunk/closure/goog/dom/dom.js
+ * http://code.google.com/p/closure-library/source/browse/trunk/closure/goog/dom/dom.js.
  * @private
  */
 cvox.DomUtil.findNodes_ = function(root, p, rv, findOne, maxChildCount) {

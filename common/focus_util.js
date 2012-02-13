@@ -36,6 +36,9 @@ cvox.FocusUtil = function() {
  * provide interactive text editing to the user.
  * From the W3C table of possible type keywords:
  * http://www.w3.org/TR/html5/the-input-element.html#attr-input-type
+ *
+ * TODO(dmazzoni): merge this with cvox.DomUtil.isInputTypeText
+ *
  * @type {Object}
  */
 cvox.FocusUtil.INPUT_TYPE_ACCEPTS_SELECTION_TABLE = {
@@ -71,26 +74,34 @@ cvox.FocusUtil.INPUT_TYPE_ACCEPTS_SELECTION_TABLE = {
  * @return {boolean} True if the currently focused element accepts text input.
  */
 cvox.FocusUtil.isFocusInTextInputField = function() {
-  // TODO(rshearer): Check all editable text fields here, including
-  // aria role=textbox.
-
   var activeElement = document.activeElement;
+
+  if (!activeElement) {
+    return false;
+  }
 
   if (activeElement.isContentEditable) {
     return true;
   }
 
-  if ((activeElement.tagName === 'INPUT') ||
-      (activeElement.tagName === 'TEXTAREA') ||
-      (activeElement.tagName === 'SELECT')) {
+  if (activeElement.getAttribute('role') == 'textbox') {
+    return true;
+  }
 
-    if (activeElement.getAttribute('readOnly') == 'true') {
-      return false;
-    } else if (! activeElement.hasAttribute('type')) {
+  if (activeElement.getAttribute('readOnly') == 'true') {
+    return false;
+  }
+
+  if (activeElement.tagName === 'TEXTAREA' ||
+      activeElement.tagName === 'SELECT') {
+    return true;
+  }
+
+  if (activeElement.tagName === 'INPUT') {
+    if (!activeElement.hasAttribute('type')) {
       return true;
     } else {
       var activeType = activeElement.getAttribute('type').toLowerCase();
-
       return cvox.FocusUtil.INPUT_TYPE_ACCEPTS_SELECTION_TABLE[activeType];
     }
   }

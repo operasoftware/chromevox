@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,83 +74,88 @@ cvox.KeyUtil.maxSeqLength = 2;
  *   Shift
  *   Meta
  *
- * @param {Object} keyEvent The keyEvent to convert.
+ * @param {Event} keyEvent The keyEvent to convert.
  * @return {string} A string representation of the key event.
  */
 cvox.KeyUtil.keyEventToString = function(keyEvent) {
   var str = '';
 
-  if (keyEvent.cvoxKey ||
-      (keyEvent.stickyMode && cvox.ChromeVox.modKeyStr.indexOf('Cvox') >= 0)) {
-    // Force modifier when sticky mode is ON
-    if (str) {
-      str += '+';
-    }
-    str += 'Cvox';
+  var util = cvox.KeyUtil;
+  if (util.maxSeqLength == util.sequenceBuffer.length) {
+    // Reset the sequence buffer if max sequence length is reached.
+    util.sequencing = false;
+    util.sequenceBuffer = [];
   }
-  if (keyEvent.ctrlKey || keyEvent.keyCode == 17 ||
-      (keyEvent.stickyMode && cvox.ChromeVox.modKeyStr.indexOf('Ctrl') >= 0 &&
-       !keyEvent.cvoxKey)) {
-    if (str) {
-      str += '+';
-    }
-    str += 'Ctrl';
+  var keyIsPrefixed = util.sequencing || keyEvent['keyPrefixOn'] ||
+      keyEvent['stickyMode'];
+
+  // Check if the Cvox key should be considered as pressed because the
+  // modifier key combination is active.
+  var keyWasCvox = false;
+  var modifierKeyCombo = cvox.ChromeVox.modKeyStr.replace(/\+/g, '');
+
+  // For each modifier that is held down, remove it from the combo.
+  // If the combo string becomes empty, then the user has activated the combo.
+  // We need to check for the keyCode too since Linux will not set the
+  // keyEvent.modKey property if it is the modKey by itself.
+  if (keyEvent.ctrlKey || (keyEvent.keyCode == 17)) {
+    modifierKeyCombo = modifierKeyCombo.replace('Ctrl', '');
+    str += 'Ctrl+';
   }
-  if (keyEvent.altKey || keyEvent.keyCode == 18 ||
-      (keyEvent.stickyMode && cvox.ChromeVox.modKeyStr.indexOf('Alt') >= 0 &&
-       !keyEvent.cvoxKey)) {
-    if (str) {
-      str += '+';
-    }
-    str += 'Alt';
+  if (keyEvent.altKey || (keyEvent.keyCode == 18)) {
+    modifierKeyCombo = modifierKeyCombo.replace('Alt', '');
+    str += 'Alt+';
   }
-  if (keyEvent.shiftKey || keyEvent.keyCode == 16 ||
-      (keyEvent.stickyMode && cvox.ChromeVox.modKeyStr.indexOf('Shift') >= 0 &&
-       !keyEvent.cvoxKey)) {
-    // We do not force the Shift modifier when sticky mode is ON, because
-    // Shift is not used in all keyboard shortcuts.
-    if (str) {
-      str += '+';
-    }
-    str += 'Shift';
+  if (keyEvent.shiftKey || (keyEvent.keyCode == 16)) {
+    modifierKeyCombo = modifierKeyCombo.replace('Shift', '');
+    str += 'Shift+';
   }
-  if (keyEvent.metaKey ||
-      (keyEvent.stickyMode && cvox.ChromeVox.modKeyStr.indexOf('Meta') >= 0 &&
-       !keyEvent.cvoxKey)) {
-    if (str) {
-      str += '+';
-    }
-    str += 'Meta';
+  if (keyEvent.metaKey || (keyEvent.keyCode == 91) ||
+      (keyEvent.keyCode == 93) || keyEvent['searchKeyHeld']) {
+    var metaKeyName = cvox.KeyUtil.getReadableNameForKeyCode(91);
+    modifierKeyCombo = modifierKeyCombo.replace(metaKeyName, '');
+    str += metaKeyName + '+';
   }
 
+  if (modifierKeyCombo.length == 0) {
+    keyWasCvox = true;
+    str = '';
+  }
+
+  if (keyIsPrefixed) {
+    str = 'Prefix>' + str;
+  } else if (modifierKeyCombo.length == 0) {
+    str = 'Cvox+' + str;
+  }
+
+  // Prefix followed by any modifier alone does not make sense.
+  // Return now and don't get out of sequencing mode; instead, wait for the
+  // user to hit a non-modifier key.
+  if (keyIsPrefixed && cvox.KeyUtil.isModifierKey(keyEvent.keyCode)) {
+    util.sequencing = true;
+    return str;
+  }
+
+  // TODO (clchen): Make the sticky mode double tap key configurable.
   var currTime = new Date().getTime();
-  if (str == cvox.ChromeVox.stickyKeyStr &&
-      keyEvent.keyCode == cvox.ChromeVox.stickyKeyCode) {
-    // Only the Cros (Search) key was pressed. This is a sign that the user may
-    // be toggling the sticky mode. On ChromeOS we use this to enable/disable
-    // the ChromeVox sticky nav mode.
-    var prevTime = cvox.KeyUtil.modeKeyPressTime;
+  var stickyKeyCode = 45; // Insert for Linux and Windows
+  if (cvox.ChromeVox.isChromeOS || cvox.ChromeVox.isMac) {
+    stickyKeyCode = 91; // GUI key (Search/Cmd) for ChromeOs and Mac
+  }
+  if (keyEvent.keyCode == stickyKeyCode) {
+    // Only the modifier key was pressed. This is a sign that the user may
+    // be toggling the sticky mode.
+    var prevTime = util.modeKeyPressTime;
     // TODO (chaitanyag,dmazzoni,clchen): Make double tap speed configurable
     // through ChromeVox setting?
     if (prevTime > 0 && currTime - prevTime < 300) {  // Double tap
-      str += '>' + cvox.ChromeVox.stickyKeyStr;
+      return 'Cvox>Cvox+';
     }
-    cvox.KeyUtil.modeKeyPressTime = currTime;
+    util.modeKeyPressTime = currTime;
   } else {
-    cvox.KeyUtil.modeKeyPressTime = 0;
+    util.modeKeyPressTime = 0;
   }
-
-  if (str) {
-    str += '+';
-  }
-
-  var util = cvox.KeyUtil;
-  if (str == cvox.ChromeVox.modKeyStr + '+') {
-    if (cvox.KeyUtil.maxSeqLength == util.sequenceBuffer.length) {
-      // Reset the sequence buffer if max sequence length is reached.
-      util.sequencing = false;
-      util.sequenceBuffer = [];
-    }
+  if ((str == 'Cvox+') || (str == 'Prefix>')) {
     if (!util.sequencing && util.isSequenceSwitchKeyCode(keyEvent.keyCode)) {
       util.sequencing = true;
       util.sequenceBuffer.push(keyEvent.keyCode);
@@ -166,8 +171,8 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
     util.sequenceBuffer = [];
   }
 
-  if (!util.sequencing && !cvox.KeyUtil.isModifierKey(keyEvent.keyCode)) {
-    str += cvox.KeyUtil.keyCodeToString(keyEvent.keyCode);
+  if (!util.sequencing && !util.isModifierKey(keyEvent.keyCode)) {
+    str += util.keyCodeToString(keyEvent.keyCode);
   }
   return str;
 };
@@ -200,8 +205,7 @@ cvox.KeyUtil.keyCodeToString = function(keyCode) {
  */
 cvox.KeyUtil.isModifierKey = function(keyCode) {
   // Shift, Ctrl, Alt, Search/LWin
-  return keyCode == 16 || keyCode == 17 || keyCode == 18 || keyCode == 91 ||
-      keyCode == cvox.ChromeVox.stickyKeyCode;
+  return keyCode == 16 || keyCode == 17 || keyCode == 18 || keyCode == 91;
 };
 
 /**
@@ -239,8 +243,14 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
     return 'Shift';
   } else if (keyCode == 9) {
     return 'Tab';
-  } else if (keyCode == 91) {
-    return cvox.ChromeVox.isChromeOS ? 'Search' : 'Left Window';
+  } else if ((keyCode == 91) || (keyCode == 93)) {
+    if (cvox.ChromeVox.isChromeOS) {
+      return 'Search';
+    } else if (cvox.ChromeVox.isMac) {
+      return 'Cmd';
+    } else {
+      return 'Win';
+    }
   } else if (keyCode == 8) {
     return 'Backspace';
   } else if (keyCode == 32) {
@@ -306,8 +316,6 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
  * @return {?string} Readable string representation of the input.
  */
 cvox.KeyUtil.getReadableNameForStr = function(keyStr) {
-  if (keyStr == cvox.ChromeVox.stickyKeyStr) {
-    return cvox.KeyUtil.getReadableNameForKeyCode(cvox.ChromeVox.stickyKeyCode);
-  }
+  // TODO (clchen): Refactor this function away since it is no longer used.
   return null;
 };

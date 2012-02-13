@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,14 @@ cvox.TraverseContent = function(domObj) {
   } else {
     this.currentDomObj = document.body;
   }
+  var range = document.createRange();
+  range.selectNode(this.currentDomObj);
+  this.startCursor_ = new cvox.Cursor(
+      range.startContainer, range.startOffset,
+      cvox.TraverseUtil.getNodeText(range.startContainer));
+  this.endCursor_ = new cvox.Cursor(
+      range.endContainer, range.endOffset,
+      cvox.TraverseUtil.getNodeText(range.endContainer));
 };
 
 /**
@@ -76,7 +84,7 @@ cvox.TraverseContent.prototype.skipInvalidSelections = true;
  * If line and sentence navigation should break at <a> links.
  * @type {boolean}
  */
-cvox.TraverseContent.prototype.breakAtLinks = false;
+cvox.TraverseContent.prototype.breakAtLinks = true;
 
 /**
  * The string constant for character granularity.
@@ -126,80 +134,135 @@ cvox.TraverseContent.kAllGrains =
      cvox.TraverseContent.kCharacter];
 
 /**
+ * Set the current position to match the current WebKit selection.
+ */
+cvox.TraverseContent.prototype.syncToSelection = function() {
+  this.normalizeSelection();
+
+  var selection = window.getSelection();
+  if (!selection || !selection.anchorNode || !selection.focusNode) {
+    return;
+  }
+  this.startCursor_ = new cvox.Cursor(
+      selection.anchorNode, selection.anchorOffset,
+      cvox.TraverseUtil.getNodeText(selection.anchorNode));
+  this.endCursor_ = new cvox.Cursor(
+      selection.focusNode, selection.focusOffset,
+      cvox.TraverseUtil.getNodeText(selection.focusNode));
+};
+
+/**
+ * Set the WebKit selection based on the current position.
+ */
+cvox.TraverseContent.prototype.updateSelection = function() {
+  cvox.TraverseUtil.setSelection(this.startCursor_, this.endCursor_);
+  cvox.SelectionUtil.scrollToSelection(window.getSelection());
+};
+
+/**
+ * Get the current position as a range.
+ * @return {Range} The current range.
+ */
+cvox.TraverseContent.prototype.getCurrentRange = function() {
+  var range = document.createRange();
+  range.setStart(this.startCursor_.node, this.startCursor_.index);
+  range.setEnd(this.endCursor_.node, this.endCursor_.index);
+  return range;
+};
+
+/**
+ * Get the current text content as a string.
+ * @return {string} The current spanned content.
+ */
+cvox.TraverseContent.prototype.getCurrentText = function() {
+  return cvox.SelectionUtil.getRangeText(this.getCurrentRange());
+};
+
+/**
+ * Collapse to the end of the range.
+ */
+cvox.TraverseContent.prototype.collapseToEnd = function() {
+  this.startCursor_ = this.endCursor_.clone();
+};
+
+/**
+ * Collapse to the start of the range.
+ */
+cvox.TraverseContent.prototype.collapseToStart = function() {
+  this.endCursor_ = this.startCursor_.clone();
+};
+
+/**
  * Moves selection forward.
  *
  * @param {string} grain specifies "sentence", "word", "character",
  *     or "paragraph" granularity.
- * @return {Selection} Either:
- *                1) The fixed-up selection.
+ * @return {?string} Either:
+ *                1) The new selected text.
  *                2) null if the end of the domObj has been reached.
  */
 cvox.TraverseContent.prototype.moveNext = function(grain) {
-  this.normalizeSelection();
-
-  var selection = window.getSelection();
-  var startCursor = new Cursor(
-      selection.anchorNode, selection.anchorOffset,
-      cvox.TraverseUtil.getNodeText(selection.anchorNode));
-  var endCursor = new Cursor(
-      selection.focusNode, selection.focusOffset,
-      cvox.TraverseUtil.getNodeText(selection.focusNode));
   var breakTags = this.getBreakTags();
+
   // As a special case, if the current selection is empty or all
   // whitespace, ensure that the next returned selection will NOT be
   // only whitespace - otherwise you can get trapped.
   var skipWhitespace = this.skipWhitespace;
 
-  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
+  var range = this.getCurrentRange();
+  if (!cvox.SelectionUtil.isRangeValid(range)) {
     skipWhitespace = true;
   }
 
-  var nodesCrossed = [];
+  var elementsEntered = [];
+  var elementsLeft = [];
   var str;
-
   do {
     if (grain === cvox.TraverseContent.kSentence) {
       str = cvox.TraverseUtil.getNextSentence(
-          startCursor, endCursor, nodesCrossed, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          breakTags);
     } else if (grain === cvox.TraverseContent.kWord) {
-      str = cvox.TraverseUtil.getNextWord(startCursor, endCursor,
-          nodesCrossed);
+      str = cvox.TraverseUtil.getNextWord(
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft);
     } else if (grain === cvox.TraverseContent.kCharacter) {
-      str = cvox.TraverseUtil.getNextChar(startCursor, endCursor,
-          nodesCrossed, skipWhitespace);
+      str = cvox.TraverseUtil.getNextChar(
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          skipWhitespace);
     } else if (grain === cvox.TraverseContent.kParagraph) {
-      str = cvox.TraverseUtil.getNextParagraph(startCursor, endCursor,
-          nodesCrossed);
+      str = cvox.TraverseUtil.getNextParagraph(
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft);
     } else if (grain === cvox.TraverseContent.kLine) {
       str = cvox.TraverseUtil.getNextLine(
-        startCursor, endCursor, nodesCrossed, this.lineLength, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          this.lineLength, breakTags);
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
       window.console.log('Invalid selection granularity: "' + grain + '"');
       grain = cvox.TraverseContent.kSentence;
       str = cvox.TraverseUtil.getNextSentence(
-          startCursor, endCursor, nodesCrossed, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          breakTags);
     }
-
-    // Select the new object.
-    selection = cvox.TraverseUtil.setSelection(startCursor, endCursor);
 
     if (str == null) {
       // We reached the end of the document.
       return null;
     }
-  } while (this.skipInvalidSelections && selection.isCollapsed);
 
-  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
+    range = this.getCurrentRange();
+    var isInvalid = !range.getBoundingClientRect();
+  } while (this.skipInvalidSelections && isInvalid);
+
+  if (!cvox.SelectionUtil.isRangeValid(range)) {
     // It's OK if the selection navigation lands on whitespace once, but if it
     // hits whitespace more than once, then skip forward until there is real
     // content.
     if (!this.lastSelectionWasWhitespace) {
       this.lastSelectionWasWhitespace = true;
     } else {
-      while (!cvox.SelectionUtil.isSelectionValid(
-          selection = window.getSelection())) {
+      while (!cvox.SelectionUtil.isRangeValid(this.getCurrentRange())) {
         this.moveNext(grain);
       }
     }
@@ -207,17 +270,7 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
     this.lastSelectionWasWhitespace = false;
   }
 
-  if (!cvox.DomUtil.isDescendantOfNode(
-      selection.focusNode, selection.anchorNode)) {
-    // Selection spans more than a single node, trim it back.
-    if (selection.anchorNode.nodeType == 3) { // NODETYPE 3 == text node
-      cvox.SelectionUtil.selectText(selection.anchorNode,
-          selection.anchorOffset,
-          selection.anchorNode.textContent.length);
-      return window.getSelection();
-    }
-  }
-  return selection;
+  return this.getCurrentText();
 };
 
 
@@ -226,95 +279,80 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
  *
  * @param {string} grain specifies "sentence", "word", "character",
  *     or "paragraph" granularity.
- * @return {Selection} Either:
- *                1) The fixed-up selection.
+ * @return {?string} Either:
+ *                1) The new selected text.
  *                2) null if the beginning of the domObj has been reached.
  */
 cvox.TraverseContent.prototype.movePrev = function(grain) {
-  this.normalizeSelection();
-
-  var selection = window.getSelection();
-  var startCursor = new Cursor(
-      selection.anchorNode, selection.anchorOffset,
-      cvox.TraverseUtil.getNodeText(selection.anchorNode));
-  var endCursor = new Cursor(
-      selection.focusNode, selection.focusOffset,
-      cvox.TraverseUtil.getNodeText(selection.focusNode));
   var breakTags = this.getBreakTags();
+
   // As a special case, if the current selection is empty or all
   // whitespace, ensure that the next returned selection will NOT be
   // only whitespace - otherwise you can get trapped.
   var skipWhitespace = this.skipWhitespace;
-  if (!cvox.SelectionUtil.isSelectionValid(selection))
+
+  var range = this.getCurrentRange();
+  if (!cvox.SelectionUtil.isRangeValid(range)) {
     skipWhitespace = true;
+  }
 
-  var nodesCrossed = [];
+  var elementsEntered = [];
+  var elementsLeft = [];
   var str;
-
   do {
     if (grain === cvox.TraverseContent.kSentence) {
       str = cvox.TraverseUtil.getPreviousSentence(
-          startCursor, endCursor, nodesCrossed, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          breakTags);
     } else if (grain === cvox.TraverseContent.kWord) {
-      str = cvox.TraverseUtil.getPreviousWord(startCursor, endCursor,
-          nodesCrossed);
+      str = cvox.TraverseUtil.getPreviousWord(
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft);
     } else if (grain === cvox.TraverseContent.kCharacter) {
-      var skipWhitespace = this.skipWhitespace;
-      if (!cvox.SelectionUtil.isSelectionValid(selection))
-        skipWhitespace = true;
-      str = cvox.TraverseUtil.getPreviousChar(startCursor, endCursor,
-          nodesCrossed, skipWhitespace);
+      str = cvox.TraverseUtil.getPreviousChar(
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          skipWhitespace);
     } else if (grain === cvox.TraverseContent.kParagraph) {
       str = cvox.TraverseUtil.getPreviousParagraph(
-        startCursor, endCursor, nodesCrossed);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft);
     } else if (grain === cvox.TraverseContent.kLine) {
       str = cvox.TraverseUtil.getPreviousLine(
-        startCursor, endCursor, nodesCrossed, this.lineLength, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          this.lineLength, breakTags);
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
       window.console.log('Invalid selection granularity: "' + grain + '"');
       grain = cvox.TraverseContent.kSentence;
       str = cvox.TraverseUtil.getPreviousSentence(
-          startCursor, endCursor, nodesCrossed, breakTags);
+          this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
+          breakTags);
     }
-
-    // Select the new object.
-    selection = cvox.TraverseUtil.setSelection(startCursor, endCursor);
 
     if (str == null) {
       // We reached the end of the document.
       return null;
     }
-  } while (this.skipInvalidSelections && selection.isCollapsed);
 
-  if (!cvox.SelectionUtil.isSelectionValid(selection)) {
+    range = this.getCurrentRange();
+    var isInvalid = !range.getBoundingClientRect();
+  } while (this.skipInvalidSelections && isInvalid);
+
+  if (!cvox.SelectionUtil.isRangeValid(range)) {
     // It's OK if the selection navigation lands on whitespace once, but if it
     // hits whitespace more than once, then skip forward until there is real
     // content.
     if (!this.lastSelectionWasWhitespace) {
       this.lastSelectionWasWhitespace = true;
     } else {
-      while (!cvox.SelectionUtil.isSelectionValid(
-          selection = window.getSelection())) {
-        this.movePrev(grain);
+      while (!cvox.SelectionUtil.isRangeValid(this.getCurrentRange())) {
+        this.moveNext(grain);
       }
     }
   } else {
     this.lastSelectionWasWhitespace = false;
   }
 
-  if (!cvox.DomUtil.isDescendantOfNode(
-      selection.focusNode, selection.anchorNode)) {
-    // Selection spans more than a single node, trim it back.
-    if (selection.focusNode.nodeType == 3) { // NODETYPE 3 == text node
-      cvox.SelectionUtil.selectText(selection.focusNode,
-          0, selection.focusOffset);
-      return window.getSelection();
-    }
-  }
-
-  return selection;
+  return this.getCurrentText();
 };
 
 /**
@@ -336,36 +374,25 @@ cvox.TraverseContent.prototype.getBreakTags = function() {
  * @param {string} grain specifies "sentence", "word", "character",
  *     or "paragraph" granularity.
  * @param {Node=} domObj a DOM node (optional).
- * @return {Selection} Either:
- *               1) The current selection.
- *               2) null if the end of the domObj has been reached.
+ * @return {?string} Either:
+ *                1) The new selected text.
+ *                2) null if the end of the domObj has been reached.
  */
 cvox.TraverseContent.prototype.nextElement = function(grain, domObj) {
   if (domObj != null) {
     this.currentDomObj = domObj;
   }
 
-  if (! ((grain === 'sentence') || (grain === 'word') ||
-      (grain === 'character') || (grain === 'paragraph'))) {
-    // User has provided an invalid string.
-    // Fall through to default: extend by sentence
-    window.console.log('Invalid selection granularity: "' + grain + '"');
-    grain = 'sentence';
-  }
-
-  var sel = this.moveNext(grain);
-  if (sel != null &&
-      (!cvox.DomUtil.isDescendantOfNode(sel.anchorNode, this.currentDomObj) ||
-       !cvox.DomUtil.isDescendantOfNode(sel.focusNode, this.currentDomObj))) {
+  var result = this.moveNext(grain);
+  if (result != null &&
+      (!cvox.DomUtil.isDescendantOfNode(
+          this.startCursor_.node, this.currentDomObj) ||
+       !cvox.DomUtil.isDescendantOfNode(
+           this.endCursor_.node, this.currentDomObj))) {
     return null;
   }
 
-  if (sel != null) {
-    // Force window scroll to current selection
-    cvox.SelectionUtil.scrollToSelection(window.getSelection());
-  }
-
-  return sel;
+  return result;
 };
 
 
@@ -376,38 +403,25 @@ cvox.TraverseContent.prototype.nextElement = function(grain, domObj) {
  * @param {string} grain specifies "sentence", "word", "character",
  *     or "paragraph" granularity.
  * @param {Node=} domObj a DOM node (optional).
- * @return {Selection} Either:
- *               1) The current selection.
- *               2) null if the beginning of the domObj has been reached.
+ * @return {?string} Either:
+ *                1) The new selected text.
+ *                2) null if the beginning of the domObj has been reached.
  */
 cvox.TraverseContent.prototype.prevElement = function(grain, domObj) {
-
   if (domObj != null) {
     this.currentDomObj = domObj;
   }
 
-  if (! ((grain === 'sentence') || (grain === 'word') ||
-      (grain === 'character') || (grain === 'paragraph'))) {
-    // User has provided an invalid string.
-    // Fall through to default: extend by sentence
-    window.console.log('Invalid selection granularity: "' + grain + '"');
-    grain = 'sentence';
-  }
-
-  var sel = this.movePrev(grain);
-
-  if (sel != null &&
-      (!cvox.DomUtil.isDescendantOfNode(sel.anchorNode, this.currentDomObj) ||
-       !cvox.DomUtil.isDescendantOfNode(sel.focusNode, this.currentDomObj))) {
+  var result = this.movePrev(grain);
+  if (result != null &&
+      (!cvox.DomUtil.isDescendantOfNode(
+          this.startCursor_.node, this.currentDomObj) ||
+       !cvox.DomUtil.isDescendantOfNode(
+           this.endCursor_.node, this.currentDomObj))) {
     return null;
   }
 
-  if (sel != null) {
-    // Force window scroll to current selection
-    cvox.SelectionUtil.scrollToSelection(window.getSelection());
-  }
-
-  return sel;
+  return result;
 };
 
 /**

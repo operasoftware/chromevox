@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,15 +18,18 @@
  */
 
 
-goog.provide('chromevis.ChromeVisLens');
+goog.provide('cvox.Lens');
 
+goog.require('cvox.AbstractLens');
 goog.require('cvox.SelectionUtil');
+goog.require('cvox.TraverseUtil');
 
 /**
  * Constructor for CSS lens. Initializes the lens settings.
  * @constructor
+ * @extends {cvox.AbstractLens}
  */
-chromevis.ChromeVisLens = function() {
+cvox.Lens = function() {
 
   /**
    * The current amount of padding (in pixels) between the text
@@ -99,13 +102,14 @@ chromevis.ChromeVisLens = function() {
   this.maxHistory = 20;
 
   /**
-   * The current ChromeVis lens object
+   * The current lens object
    * @type {Element}
    */
-  this.lens = chromevis.ChromeVisLens.ACTIVE_DOC.createElement('span');
+  this.lens = cvox.Lens.activeDoc.createElement('span');
 
   this.initializeLens_();
 };
+goog.inherits(cvox.Lens, cvox.AbstractLens);
 
 
 /**
@@ -114,56 +118,49 @@ chromevis.ChromeVisLens = function() {
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.EL_ID = 'chromeVisBackground2LensDiv';
+cvox.Lens.EL_ID = 'chromeVisBackground2LensDiv';
 
 /**
  * The name of the attribute specifying whether the lens is centered
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.CENTER_ATTRB = 'data-isCentered';
+cvox.Lens.CENTER_ATTRB = 'data-isCentered';
 
 /**
  * The name of the attribute specifying the lens magnification
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.MULT_ATTRB = 'data-textMag';
+cvox.Lens.MULT_ATTRB = 'data-textMag';
 
 /**
  * The name of the attribute specifying the lens text color
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.TXT_COLOR_ATTRB = 'data-textColor';
+cvox.Lens.TXT_COLOR_ATTRB = 'data-textColor';
 
 /**
  * The name of the attribute specifying the lens background color
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.BG_COLOR_ATTRB = 'data-bgColor';
+cvox.Lens.BG_COLOR_ATTRB = 'data-bgColor';
 
 /**
  * The name of the attribute specifying whether the lens is anchored
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.ANCHOR_ATTRB = 'data-isAnchored';
-
-/**
- * The active document
- * @type {Document}
- * @const
- */
-chromevis.ChromeVisLens.ACTIVE_DOC = window.document;
+cvox.Lens.ANCHOR_ATTRB = 'data-isAnchored';
 
 /**
  * The down arrow image url
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.DOWN_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KG' +
+cvox.Lens.DOWN_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KG' +
     'goAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/o' +
     'L2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxETCtVNA2AAAADfSURBVEjH7' +
     'dYhbsMwFAbgzwNFRSO9wu4xEtIbjPQUJYW95NDAwEBASVHBPPIiRWuWJqvVSpWf9EAc25/0l' +
@@ -177,7 +174,7 @@ chromevis.ChromeVisLens.DOWN_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KG' +
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.UP_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KGgo' +
+cvox.Lens.UP_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KGgo' +
     'AAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2' +
     'nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxETL55J1ycAAADYSURBVEjH7ZY' +
     '9CoNAEEbfhmBlZeMVco80Nt4gjaewsfSSqVKkSGGRxsoik2YE8S+r7CKE/WAQZ2f3ofJAIyI' +
@@ -191,7 +188,7 @@ chromevis.ChromeVisLens.UP_ARROW_IMG = 'url(data:image/png;base64,iVBORw0KGgo' +
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.PLUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAAA' +
+cvox.Lens.PLUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAAA' +
     'NSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwA' +
     'AAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEULqYPcXYAAABdSURBVEjHY/z//z/' +
     'DQAAmhgECoxYPf4tZcEkwMjIS0lsOpTvxKcKVaxhxShC2GKaRkRyLRxPXqMUjy2IXaJbBhZG' +
@@ -202,7 +199,7 @@ chromevis.ChromeVisLens.PLUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAAA' +
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.MINUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
+cvox.Lens.MINUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
     'ANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkw' +
     'AAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEVDGp0AdMAAAA9SURBVEjH7dWxCQ' +
     'AwDANBK2T/lT8bBFzZxasWHKoUoCZyaijCwsLCwvvh2ykn+V4ZkPWL4x8LCwsLC6+DHwVvCj' +
@@ -213,7 +210,7 @@ chromevis.ChromeVisLens.MINUS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
  * @type {string}
  * @const
  */
-chromevis.ChromeVisLens.CROSS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
+cvox.Lens.CROSS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
     'ANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkw' +
     'AAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sIFxEVKrh5hC4AAADDSURBVEjH7ZbRDc' +
     'MgDETvugErsAKzdIWswApdgVm6QlfIClnB/TGSG6UqoKB81CdZCCF4PoMlKCK4QjdcJAc72M' +
@@ -222,21 +219,27 @@ chromevis.ChromeVisLens.CROSS_IMG = 'url(data:image/png;base64,iVBORw0KGgoAAA' +
     'iXns4Gl6O2McoW3nIm/bPnYAc7eFRvJmkZLrREq8AAAAAASUVORK5CYII=)';
 
 /**
+ * The active document.
+ * @type {Document}
+ */
+cvox.Lens.activeDoc = window.document;
+
+/**
  * Initializes the ChromeVis lens with settings pulled from background page.
  * @private
  */
-chromevis.ChromeVisLens.prototype.initializeLens_ = function() {
+cvox.Lens.prototype.initializeLens_ = function() {
   this.initializeLensCSS_();
 
   this.lens.style.display = 'none';
-  chromevis.ChromeVisLens.ACTIVE_DOC.body.appendChild(this.lens);
+  cvox.Lens.activeDoc.body.appendChild(this.lens);
 
-  chromevis.ChromeVisLens.ACTIVE_DOC.addEventListener('scroll',
-      function() {
-        if (cvox.ChromeVox.lens) {
-          cvox.ChromeVox.lens.updateAnchorLens();
+  cvox.Lens.activeDoc.addEventListener('scroll',
+      goog.bind(function() {
+        if (this) {
+          this.updateAnchorLens();
         }
-      }, true);
+      }, this), true);
 
   this.updateAnchorLens();
 };
@@ -247,39 +250,39 @@ chromevis.ChromeVisLens.prototype.initializeLens_ = function() {
  * to update.
  * @private
  */
-chromevis.ChromeVisLens.prototype.handleBackgroundMessage = function(message) {
+cvox.Lens.prototype.handleBackgroundMessage = function(message) {
   switch (message.data) {
-    case chromevis.ChromeVisLens.ANCHOR_ATTRB:
-      self.setAnchoredLens(message.value);
-      self.isAnchored ? self.updateAnchorLens() : self.updateBubbleLens();
+    case cvox.Lens.ANCHOR_ATTRB:
+      this.setAnchoredLens(message.value);
+      this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
       break;
-    case chromevis.ChromeVisLens.CENTER_ATTRB:
-      self.isCentered = message.value;
-      if (!self.isAnchored) {
-        self.updateBubbleLens();
+    case cvox.Lens.CENTER_ATTRB:
+      this.isCentered = message.value;
+      if (!this.isAnchored) {
+        this.updateBubbleLens();
       }
       break;
-    case chromevis.ChromeVisLens.MULT_ATTRB:
+    case cvox.Lens.MULT_ATTRB:
       var multData = message.value;
       if (multData != null) {
-        self.multiplier = parseFloat(multData);
-        self.setMagnification();
+        this.multiplier = parseFloat(multData);
+        this.setMagnification();
         // Must update position of lens after text size has changed
-        self.isAnchored ? self.updateAnchorLens() : self.updateBubbleLens();
+        this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
       }
       break;
-    case chromevis.ChromeVisLens.TXT_COLOR_ATTRB:
+    case cvox.Lens.TXT_COLOR_ATTRB:
       var textColorData = message.value;
       if (textColorData != null) {
-        self.textColor = textColorData;
-        self.setTextColor();
+        this.textColor = textColorData;
+        this.setTextColor();
       }
       break;
-    case chromevis.ChromeVisLens.BG_COLOR_ATTRB:
+    case cvox.Lens.BG_COLOR_ATTRB:
       var bgColorData = message.value;
       if (bgColorData != null) {
-        self.bgColor = bgColorData;
-        self.setBgColor();
+        this.bgColor = bgColorData;
+        this.setBgColor();
       }
       break;
   }
@@ -287,10 +290,21 @@ chromevis.ChromeVisLens.prototype.handleBackgroundMessage = function(message) {
 
 
 /**
+ * Sets the lens multiplier.
+ * @param {number} multiplier The new multiplier.
+ * @override
+ */
+cvox.Lens.prototype.setMultiplier = function(multiplier) {
+  this.multiplier = multiplier;
+};
+
+
+/**
  * Displays or hides the lens.
  * @param {boolean} show Whether or not the lens should be shown.
+ * @override
  */
-chromevis.ChromeVisLens.prototype.showLens = function(show) {
+cvox.Lens.prototype.showLens = function(show) {
   show ? this.lens.style.display = 'block' :
          this.lens.style.display = 'none';
 
@@ -302,8 +316,9 @@ chromevis.ChromeVisLens.prototype.showLens = function(show) {
 
 /**
  * @return {boolean} True if the lens is currently shown.
+ * @override
  */
-chromevis.ChromeVisLens.prototype.isLensDisplayed = function() {
+cvox.Lens.prototype.isLensDisplayed = function() {
   return this.isLensDisplayed_;
 };
 
@@ -312,7 +327,7 @@ chromevis.ChromeVisLens.prototype.isLensDisplayed = function() {
  * Initializes the lens CSS.
  * @private
  */
-chromevis.ChromeVisLens.prototype.initializeLensCSS_ = function() {
+cvox.Lens.prototype.initializeLensCSS_ = function() {
   this.lens.style.backgroundColor = this.bgColor;
 
   // Style settings
@@ -335,9 +350,8 @@ chromevis.ChromeVisLens.prototype.initializeLensCSS_ = function() {
 
   this.lens.style.boxShadow = '1px 1px 2px #808080';
 
-  // Class setting - this special class name means ChromeVis will
-  // not try to select text content inside the lens.
-  this.lens.className = cvox.TraverseUtil.SKIP_CLASS;
+  // Set aria-hidden - don't want ChromeVox to try and speak the lens.
+  this.lens.setAttribute('aria-hidden', 'true');
 };
 
 
@@ -345,8 +359,9 @@ chromevis.ChromeVisLens.prototype.initializeLensCSS_ = function() {
  * Sets whether the lens is anchored to the top of the page or whether it floats
  * near the selected text.
  * @param {boolean} anchored Whether or not the lens is anchored.
+ * @override
  */
-chromevis.ChromeVisLens.prototype.setAnchoredLens = function(anchored) {
+cvox.Lens.prototype.setAnchoredLens = function(anchored) {
   this.isAnchored = anchored;
   if ((this.isLensDisplayed_) && (!this.isAnchored)) {
     document.body.style.marginTop = 0;
@@ -358,7 +373,7 @@ chromevis.ChromeVisLens.prototype.setAnchoredLens = function(anchored) {
  * Refreshes the position of the anchor lens on the page. This is usually done
  * in response to scrolling or a window resize.
  */
-chromevis.ChromeVisLens.prototype.updateAnchorLens = function() {
+cvox.Lens.prototype.updateAnchorLens = function() {
   if (this.isAtBottom) {
     this.lens.style.top = '';
     this.lens.style.bottom = (5 - window.scrollY) + 'px';
@@ -394,7 +409,7 @@ chromevis.ChromeVisLens.prototype.updateAnchorLens = function() {
  * Refreshes the position of the bubble lens on the page.  This is done in
  * response to the selection changing or the window resizing.
  */
-chromevis.ChromeVisLens.prototype.updateBubbleLens = function() {
+cvox.Lens.prototype.updateBubbleLens = function() {
   var sel = window.getSelection();
   var pos = cvox.SelectionUtil.findSelPosition(sel);
 
@@ -485,20 +500,20 @@ chromevis.ChromeVisLens.prototype.updateBubbleLens = function() {
  * <div> html element containing the text to be displayed.
  * @param {Element} contentElem The element to display in the lens.
  */
-chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
+cvox.Lens.prototype.setLensContent = function(contentElem) {
   if (!this.isLensDisplayed_) {
     return;
   }
 
   // Need to replace current lens node due to Webkit caching some
   // display settings between lens changes.
-  chromevis.ChromeVisLens.ACTIVE_DOC = window.document;
-  chromevis.ChromeVisLens.ACTIVE_DOC.body.removeChild(this.lens);
-  this.lens = chromevis.ChromeVisLens.ACTIVE_DOC.createElement('span');
+  cvox.Lens.activeDoc = window.document;
+  cvox.Lens.activeDoc.body.removeChild(this.lens);
+  this.lens = cvox.Lens.activeDoc.createElement('span');
 
   this.initializeLensCSS_();
 
-  chromevis.ChromeVisLens.ACTIVE_DOC.body.appendChild(this.lens);
+  cvox.Lens.activeDoc.body.appendChild(this.lens);
 
   while (this.lens.firstChild) {
     this.lens.removeChild(this.lens.firstChild);
@@ -524,37 +539,37 @@ chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
 
   // Button to set position of the lens.
   var button1 = document.createElement('button');
-  button1.onclick = function() {
-    cvox.ChromeVox.lens.changeLocation();
-    (this.style.backgroundImage == chromevis.ChromeVisLens.DOWN_ARROW_IMG) ?
-        this.style.backgroundImage = chromevis.ChromeVisLens.UP_ARROW_IMG :
-        this.style.backgroundImage = chromevis.ChromeVisLens.DOWN_ARROW_IMG;
+  button1.onclick = goog.bind(function() {
+    this.changeLocation();
+    (this.style.backgroundImage == cvox.Lens.DOWN_ARROW_IMG) ?
+        this.style.backgroundImage = cvox.Lens.UP_ARROW_IMG :
+        this.style.backgroundImage = cvox.Lens.DOWN_ARROW_IMG;
     this.style.backgroundColor = '#888';
-   };
+  }, this);
   if (this.isAtBottom) {
-    button1.style.backgroundImage = chromevis.ChromeVisLens.UP_ARROW_IMG;
+    button1.style.backgroundImage = cvox.Lens.UP_ARROW_IMG;
   } else {
-    button1.style.backgroundImage = chromevis.ChromeVisLens.DOWN_ARROW_IMG;
+    button1.style.backgroundImage = cvox.Lens.DOWN_ARROW_IMG;
   }
-  cvox.ChromeVox.lens.setButtonStyle(button1);
+  this.setButtonStyle(button1);
   this.lens.appendChild(button1);
 
   // Button to increase font size.
   var button2 = document.createElement('button');
-  button2.onclick = function() {
-    cvox.ChromeVox.lens.increaseFontSize();
-   };
-  button2.style.backgroundImage = chromevis.ChromeVisLens.PLUS_IMG;
-  cvox.ChromeVox.lens.setButtonStyle(button2);
+  button2.onclick = goog.bind(function() {
+    this.increaseFontSize();
+  }, this);
+  button2.style.backgroundImage = cvox.Lens.PLUS_IMG;
+  this.setButtonStyle(button2);
   this.lens.appendChild(button2);
 
   // Button to increase font size.
   var button3 = document.createElement('button');
-  button3.onclick = function() {
-    cvox.ChromeVox.lens.decreaseFontSize();
-   };
-  button3.style.backgroundImage = chromevis.ChromeVisLens.MINUS_IMG;
-  cvox.ChromeVox.lens.setButtonStyle(button3);
+  button3.onclick = goog.bind(function() {
+    this.decreaseFontSize();
+  }, this);
+  button3.style.backgroundImage = cvox.Lens.MINUS_IMG;
+  this.setButtonStyle(button3);
   this.lens.appendChild(button3);
 
   // Button to temporarily hide the lens (until next message appears).
@@ -564,8 +579,8 @@ chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
     document.body.style.marginTop = '0px';
     document.body.style.marginBottom = '0px';
    };
-  button4.style.backgroundImage = chromevis.ChromeVisLens.CROSS_IMG;
-  cvox.ChromeVox.lens.setButtonStyle(button4);
+  button4.style.backgroundImage = cvox.Lens.CROSS_IMG;
+  this.setButtonStyle(button4);
   this.lens.appendChild(button4);
 
   this.magnifyText_();
@@ -578,7 +593,7 @@ chromevis.ChromeVisLens.prototype.setLensContent = function(contentElem) {
  *
  * @param {Element} button The button to be styled.
  */
-chromevis.ChromeVisLens.prototype.setButtonStyle = function(button) {
+cvox.Lens.prototype.setButtonStyle = function(button) {
   button.onmouseover = function() {this.style.backgroundColor = '#ccc';};
   button.onmouseout = function() {this.style.backgroundColor = '#888';};
   button.style.backgroundColor = '#888';
@@ -593,7 +608,7 @@ chromevis.ChromeVisLens.prototype.setButtonStyle = function(button) {
 /**
  * Decrease font size inside the lens.
  */
-chromevis.ChromeVisLens.prototype.decreaseFontSize = function() {
+cvox.Lens.prototype.decreaseFontSize = function() {
   if (this.multiplier > 1) {
     this.multiplier = this.multiplier / 1.1;
   }
@@ -604,7 +619,7 @@ chromevis.ChromeVisLens.prototype.decreaseFontSize = function() {
 /**
  * Increase font size inside the lens.
  */
-chromevis.ChromeVisLens.prototype.increaseFontSize = function() {
+cvox.Lens.prototype.increaseFontSize = function() {
   if (this.multiplier < 5) {
     this.multiplier = this.multiplier * 1.1;
   }
@@ -615,16 +630,16 @@ chromevis.ChromeVisLens.prototype.increaseFontSize = function() {
 /**
  * If the lens is at the top, move it to bottom, and vice versa.
  */
-chromevis.ChromeVisLens.prototype.changeLocation = function() {
-  cvox.ChromeVox.lens.isAtBottom = !cvox.ChromeVox.lens.isAtBottom;
-  cvox.ChromeVox.lens.updateAnchorLens();
+cvox.Lens.prototype.changeLocation = function() {
+  this.isAtBottom = !this.isAtBottom;
+  this.updateAnchorLens();
 };
 
 /**
  * Update the text displayed inside the lens.  This is done in response to the
  * selection changing.
  */
-chromevis.ChromeVisLens.prototype.updateText = function() {
+cvox.Lens.prototype.updateText = function() {
   if (!this.isLensDisplayed_) {
     return;
   }
@@ -666,7 +681,7 @@ chromevis.ChromeVisLens.prototype.updateText = function() {
 /**
  * Updates the lens in response to a window resize.
  */
-chromevis.ChromeVisLens.prototype.updateResized = function() {
+cvox.Lens.prototype.updateResized = function() {
   this.isAnchored ? this.updateAnchorLens() : this.updateBubbleLens();
 };
 
@@ -674,7 +689,7 @@ chromevis.ChromeVisLens.prototype.updateResized = function() {
 /**
  * Updates the lens in response to the document being scrolled;
  */
-chromevis.ChromeVisLens.prototype.updateScrolled = function() {
+cvox.Lens.prototype.updateScrolled = function() {
   if (this.isAnchored) {
     this.updateAnchorLens();
 
@@ -695,7 +710,7 @@ chromevis.ChromeVisLens.prototype.updateScrolled = function() {
  * Adjusts the text magnification.
  * @private
  */
-chromevis.ChromeVisLens.prototype.magnifyText_ = function() {
+cvox.Lens.prototype.magnifyText_ = function() {
   var adjustment = (this.multiplier * 100) + '%';
 
   if (this.lens.firstChild) {
@@ -714,7 +729,7 @@ chromevis.ChromeVisLens.prototype.magnifyText_ = function() {
  * Adjusts the padding around the text inside the lens.
  * @private
  */
-chromevis.ChromeVisLens.prototype.padText_ = function() {
+cvox.Lens.prototype.padText_ = function() {
   if (this.padding_ < 0) {
     return;
   }
@@ -725,7 +740,7 @@ chromevis.ChromeVisLens.prototype.padText_ = function() {
 /**
  * Sets the text magnification multiplier.
  */
-chromevis.ChromeVisLens.prototype.setMagnification = function() {
+cvox.Lens.prototype.setMagnification = function() {
   this.magnifyText_();
   this.padText_();
 };
@@ -735,7 +750,7 @@ chromevis.ChromeVisLens.prototype.setMagnification = function() {
  * Returns the current text size multiplier for magnification.
  * @return {number} The current text size multiplier.
  */
-chromevis.ChromeVisLens.prototype.getMagnification = function() {
+cvox.Lens.prototype.getMagnification = function() {
   return this.multiplier;
 };
 
@@ -744,7 +759,7 @@ chromevis.ChromeVisLens.prototype.getMagnification = function() {
  * Returns the current background color.
  * @return {string} The lens background color.
  */
-chromevis.ChromeVisLens.prototype.getBgColor = function() {
+cvox.Lens.prototype.getBgColor = function() {
   return this.bgColor;
 };
 
@@ -752,7 +767,7 @@ chromevis.ChromeVisLens.prototype.getBgColor = function() {
 /**
  * Updates the lens background color.
  */
-chromevis.ChromeVisLens.prototype.setBgColor = function() {
+cvox.Lens.prototype.setBgColor = function() {
   this.lens.style.backgroundColor = this.bgColor;
 };
 
@@ -761,7 +776,7 @@ chromevis.ChromeVisLens.prototype.setBgColor = function() {
  * Returns the current text color.
  * @return {string} The lens text color.
  */
-chromevis.ChromeVisLens.prototype.getTextColor = function() {
+cvox.Lens.prototype.getTextColor = function() {
   return this.textColor;
 };
 
@@ -769,7 +784,7 @@ chromevis.ChromeVisLens.prototype.getTextColor = function() {
 /**
  * Updates the lens text color.
  */
-chromevis.ChromeVisLens.prototype.setTextColor = function() {
+cvox.Lens.prototype.setTextColor = function() {
   if (this.lens.firstChild) {
     this.lens.firstChild.style.color = this.textColor;
   }

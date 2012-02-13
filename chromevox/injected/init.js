@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,33 +27,86 @@ goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
-goog.require('cvox.Earcons');
-goog.require('cvox.Host');
+goog.require('cvox.HostFactory');
 goog.require('cvox.LiveRegions');
-goog.require('cvox.Msgs');
-goog.require('cvox.TraverseContent');
-goog.require('cvox.Tts');
+
+// INJECTED_AFTER_LOAD is set true by ChromeVox itself or ChromeOS when this
+// script is injected after page load (i.e. when manually enabling ChromeVox).
+if (!window['INJECTED_AFTER_LOAD'])
+  window['INJECTED_AFTER_LOAD'] = false;
+
+/**
+ * Initial speech when the page loads. This may happen only after we get
+ * prefs back, so we can make sure ChromeVox is active.
+ */
+cvox.ChromeVox.speakInitialPageLoad = function() {
+  // Don't speak page title and other information if this script is not injected
+  // at the time of page load. This global is set by Chrome OS.
+  var disableSpeak = window['INJECTED_AFTER_LOAD'];
+
+  if (!cvox.ChromeVox.isActive) {
+    disableSpeak = true;
+  }
+
+  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
+
+  // If we're the top-level frame, speak the title of the page +
+  // the active element if it is a user control.
+  if (window.top == window) {
+    var message = document.title;
+    if (message && !disableSpeak) {
+      cvox.ChromeVox.tts.speak(message, queueMode, null);
+      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+    }
+  } else {
+    // If we're not the top-level frame, we should queue all initial
+    // speech so it comes after the main frame's title announcement.
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  }
+
+  // Initialize live regions and speak alerts.
+  if (cvox.LiveRegions.init(new Date(), queueMode, disableSpeak)) {
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  }
+
+  // If this iframe has focus, speak the current focused element.
+  if (document.hasFocus()) {
+    var activeElem = document.activeElement;
+    if (cvox.DomUtil.isControl(activeElem)) {
+      cvox.ChromeVox.navigationManager.syncToNode(activeElem);
+      cvox.ChromeVox.navigationManager.setFocus();
+      if (!disableSpeak) {
+        var description = cvox.DomUtil.getControlDescription(activeElem);
+        description.speak(queueMode);
+        queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+      }
+    }
+  }
+};
 
 /**
  * Initializes cvox.ChromeVox.
  */
 cvox.ChromeVox.init = function() {
-  cvox.ChromeVox.host = new cvox.Host();
-  cvox.ChromeVox.host.init();
-
   // Setup globals
+  cvox.ChromeVox.tts = cvox.HostFactory.getTts();
+  cvox.ChromeVox.earcons = cvox.HostFactory.getEarcons();
+  cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   cvox.ChromeVox.isActive = true;
-  cvox.ChromeVox.traverseContent = new cvox.TraverseContent();
   cvox.ChromeVox.navigationManager =
       new cvox.ChromeVoxNavigationManager();
   cvox.ChromeVox.markInUserCommand =
       cvox.ChromeVoxUserCommands.markInUserCommand;
+  cvox.ChromeVox.syncToNode =
+      cvox.ApiImplementation.syncToNode;
+  cvox.ChromeVox.processEmbeddedPdfs =
+      cvox.ChromeVoxInit.processEmbeddedPdfs;
 
-  cvox.ChromeVox.tts = new cvox.Tts();
-  cvox.ChromeVox.earcons = new cvox.Earcons();
-  cvox.ChromeVox.msgs = new cvox.Msgs();
+  cvox.ChromeVox.speakInitialMessages = cvox.ChromeVox.speakInitialPageLoad;
 
-  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
+  // Do platform specific initialization here.
+  cvox.ChromeVox.host = cvox.HostFactory.getHost();
+  cvox.ChromeVox.host.init();
 
   // Initialize common components
   cvox.ChromeVoxSearch.init();
@@ -66,37 +119,6 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVox.executeUserCommand = function(commandName) {
     cvox.ChromeVoxUserCommands.commands[commandName]();
   };
-
-  // If we're the top-level frame, speak the title of the page +
-  // the active element if it is a user control.
-  if (window.top == window) {
-    var message = document.title;
-    if (message) {
-      cvox.ChromeVox.tts.speak(message, queueMode, null);
-      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-    }
-  } else {
-    // If we're not the top-level frame, we should queue all initial
-    // speech so it comes after the main frame's title announcement.
-    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-  }
-
-  // Initialize live regions and speak alerts.
-  if (cvox.LiveRegions.init(new Date(), queueMode)) {
-    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-  }
-
-  // If this iframe has focus, speak the current focused element.
-  if (document.hasFocus()) {
-    var activeElem = document.activeElement;
-    if (cvox.DomUtil.isControl(activeElem)) {
-      cvox.ChromeVox.navigationManager.syncToNode(activeElem);
-      cvox.ChromeVox.navigationManager.setFocus();
-      var description = cvox.DomUtil.getControlDescription(activeElem);
-      description.speak(queueMode);
-      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-    }
-  }
 
   cvox.ChromeVox.host.onPageLoad();
   cvox.ApiImplementation.init();
@@ -115,12 +137,13 @@ cvox.ChromeVox.reinit = function() {
  * Process PDFs created with Chrome's built-in PDF plug-in, which has an
  * accessibility hook.
  */
-cvox.ChromeVox.processEmbeddedPdfs = function() {
+cvox.ChromeVoxInit.processEmbeddedPdfs = function() {
   var es = document.querySelectorAll('embed[type="application/pdf"]');
-  if ((es.length == 1) &&
-      (document.head.getAttribute('addedByChromeVox') == 'true')) {
-    window.location.href = 'chrome-extension://' + 'bdcfgfeioooifpgmbfjpopbcbgdmehnb' +
-        'chromevox/background/pdf_viewer.html#' + es[0].src;
+  // We check if it is a built-in PDF by the lack of a <head> and
+  // the embed's name being "plugin"
+  if (es.length == 1 && !document.head && es[0].name == 'plugin') {
+    window.location.href = cvox.ChromeVox.host.getFileSrc(
+        'chromevox/background/pdf_viewer.html#' + es[0].src);
   }
   for (var i = 0; i < es.length; i++) {
     var e = es[i];
@@ -128,10 +151,13 @@ cvox.ChromeVox.processEmbeddedPdfs = function() {
       var infoJSON = e.accessibility();
       var info = cvox.ChromeVoxJSON.parse(infoJSON);
 
-      if (!info.copyable)
-        continue;
       if (!info.loaded) {
         setTimeout(cvox.ChromeVox.processEmbeddedPdfs, 100);
+        continue;
+      }
+      if (!info.copyable) {
+        cvox.ChromeVox.tts.speak(
+            'Unable to access copy-protected PDF. Skipping.');
         continue;
       }
 
@@ -165,7 +191,7 @@ cvox.ChromeVox.processEmbeddedPdfs = function() {
         pageDiv.style.boxShadow = '0pt 0pt 10pt #333';
 
         // Text Nodes
-        var texts = page.textBox;
+        var texts = page['textBox'];
         for (var j = 0; j < texts.length; j++) {
           var text = texts[j];
           var textSpan = document.createElement('Span');
@@ -177,8 +203,8 @@ cvox.ChromeVox.processEmbeddedPdfs = function() {
           textSpan.style.fontSize = text.fontSize + 'pt';
 
           // Text Content
-          for (var k = 0; k < text.textNodes.length; k++) {
-            var node = text.textNodes[k];
+          for (var k = 0; k < text['textNodes'].length; k++) {
+            var node = text['textNodes'][k];
             if (node.type == 'text') {
               textSpan.appendChild(document.createTextNode(node.text));
             } else if (node.type == 'url') {
@@ -194,7 +220,7 @@ cvox.ChromeVox.processEmbeddedPdfs = function() {
         div.appendChild(pageAnchor);
         div.appendChild(pageDiv);
 
-        if (i < info.numberOfPages - 1) {
+        if (i < info['numberOfPages'] - 1) {
           setTimeout(function() { displayPage(i + 1); }, 0);
         } else {
           e.parentNode.replaceChild(div, e);

@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,25 +19,35 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('cvox.Host');
+goog.provide('cvox.ChromeHost');
 
-goog.require('chromevis.ChromeVisLens');
 goog.require('cvox.AbstractHost');
+goog.require('cvox.ApiImplementation');
+goog.require('cvox.ChromeVoxEventWatcher');
+goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
+goog.require('cvox.HostFactory');
+goog.require('cvox.Lens');
 
 /**
  * @constructor
  * @extends {cvox.AbstractHost}
  */
-cvox.Host = function() {
+cvox.ChromeHost = function() {
   cvox.AbstractHost.call(this);
-};
-goog.inherits(cvox.Host, cvox.AbstractHost);
 
-cvox.Host.prototype.init = function() {
+  /** @type {boolean} @private */
+  this.gotPrefsAtLeastOnce_ = false;
+};
+goog.inherits(cvox.ChromeHost, cvox.AbstractHost);
+
+cvox.ChromeHost.prototype.init = function() {
   cvox.ExtensionBridge.setupBackgroundPort();
 
-  cvox.ExtensionBridge.addMessageListener(function(message) {
+  // TODO(deboer): This pattern is relatively painful since it
+  // must be duplicated in all host.js files. It also causes odd
+  // dependencies.
+  cvox.ExtensionBridge.addMessageListener(goog.bind(function(message) {
       if (message['keyBindings']) {
         cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message['keyBindings']);
       }
@@ -47,35 +57,71 @@ cvox.Host.prototype.init = function() {
             (prefs['cursorIsBlock'] == 'true');
         cvox.ChromeVoxEventWatcher.focusFollowsMouse =
             (prefs['focusFollowsMouse'] == 'true');
-        if (prefs['lensVisible'] == 'true' &&
-            cvox.ChromeVox.lens &&
-            !cvox.ChromeVox.lens.isLensDisplayed()) {
-          cvox.ChromeVox.lens.showLens(true);
+
+        cvox.ChromeVox.version = prefs['version'];
+
+        this.activateOrDeactivateChromeVox(prefs['active'] == 'true');
+        if (!this.gotPrefsAtLeastOnce_) {
+          cvox.ChromeVox.speakInitialMessages();
         }
-        if (prefs['lensVisible'] == 'false' &&
-            cvox.ChromeVox.lens &&
-            cvox.ChromeVox.lens.isLensDisplayed()) {
-          cvox.ChromeVox.lens.showLens(false);
-        }
+        this.gotPrefsAtLeastOnce_ = true;
+
         if (cvox.ChromeVox.lens) {
+          if (prefs['lensVisible'] == 'true' &&
+              !cvox.ChromeVox.lens.isLensDisplayed()) {
+            cvox.ChromeVox.lens.showLens(true);
+          }
+          if (prefs['lensVisible'] == 'false' &&
+              cvox.ChromeVox.lens.isLensDisplayed()) {
+            cvox.ChromeVox.lens.showLens(false);
+          }
           cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == 'true');
         }
+
         if (prefs['useBriefMode'] == 'true') {
           cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
         } else {
           cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
         }
-      }
-    });
+        if (prefs['cvoxKey']) {
+          cvox.ChromeVox.modKeyStr = prefs['cvoxKey'];
+        }
 
+        cvox.ApiImplementation.siteSpecificScriptLoader =
+            prefs['siteSpecificScriptLoader'];
+        cvox.ApiImplementation.siteSpecificScriptBase =
+            prefs['siteSpecificScriptBase'];
+      }
+    }, this));
 
   cvox.ExtensionBridge.send({
       'target': 'Prefs',
       'action': 'getPrefs'
     });
 
-  // On Windows and Mac, cause any existing system screen readers to not try to
-  // speak the web content in the browser.
+  this.hidePageFromNativeScreenReaders();
+
+  if (window.top == window) {
+    cvox.ChromeVox.lens = new cvox.Lens();
+    cvox.ChromeVox.lens.setMultiplier(2.25);
+    cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
+  }
+};
+
+cvox.ChromeHost.prototype.reinit = function() {
+  cvox.ExtensionBridge.init();
+};
+
+/**
+ * On Windows and Mac, cause any existing system screen readers to not try to
+ * speak the web content in the browser.
+ */
+cvox.ChromeHost.prototype.hidePageFromNativeScreenReaders = function() {
+  var originalHidden = document.body.getAttribute('aria-hidden');
+  if (originalHidden == 'true') {
+    cvox.ChromeVox.entireDocumentIsHidden = true;
+  }
+
   if ((navigator.platform.indexOf('Win') == 0) ||
       (navigator.platform.indexOf('Mac') == 0)) {
     document.body.setAttribute('aria-hidden', true);
@@ -86,38 +132,76 @@ cvox.Host.prototype.init = function() {
   }
 };
 
-cvox.Host.prototype.reinit = function() {
-  cvox.ExtensionBridge.init();
+/**
+ * Clean up after ourselves to re-enable native screen readers.
+ */
+cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
+  if ((navigator.platform.indexOf('Win') == 0) ||
+      (navigator.platform.indexOf('Mac') == 0)) {
+    document.body.removeAttribute('aria-hidden');
+    if (document.body.getAttribute('chromevoxoriginalrole') != '') {
+      document.body.setAttribute(
+          'role', document.body.getAttribute('chromevoxoriginalrole'));
+    } else {
+      document.body.removeAttribute('role');
+    }
+    document.body.removeAttribute('chromevoxignoreariahidden');
+    document.body.removeAttribute('chromevoxoriginalrole');
+  }
 };
 
-cvox.Host.prototype.onPageLoad = function() {
-  if (window.top == window) {
-    cvox.ChromeVox.lens = new chromevis.ChromeVisLens();
-    cvox.ChromeVox.lens.multiplier = 2.25;
-    cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
-  }
-
+cvox.ChromeHost.prototype.onPageLoad = function() {
   cvox.ChromeVox.processEmbeddedPdfs();
 
-  cvox.ExtensionBridge.addDisconnectListener(function() {
+  cvox.ExtensionBridge.addDisconnectListener(goog.bind(function() {
     cvox.ChromeVox.isActive = false;
     cvox.ChromeVoxEventWatcher.cleanup(document);
-
-    // Clean up after ourselves on Windows to re-enable native screen readers.
-    if (navigator.platform.indexOf('Win') == 0) {
-      document.body.removeAttribute('aria-hidden');
-      if (document.body.getAttribute('chromevoxoriginalrole') != '') {
-        document.body.setAttribute(
-            'role', document.body.getAttribute('chromevoxoriginalrole'));
-      } else {
-        document.body.removeAttribute('role');
-      }
-      document.body.removeAttribute('chromevoxignoreariahidden');
-      document.body.removeAttribute('chromevoxoriginalrole');
-    }
-  });
+    cvox.ChromeVox.navigationManager.reset();
+    this.unhidePageFromNativeScreenReaders();
+  }, this));
 };
 
-cvox.Host.prototype.sendToBackgroundPage = function(message) {
+cvox.ChromeHost.prototype.sendToBackgroundPage = function(message) {
   cvox.ExtensionBridge.send(message);
 };
+
+cvox.ChromeHost.prototype.getApiSrc = function(message) {
+  return this.getFileSrc('chromevox/injected/api.js');
+};
+
+cvox.ChromeHost.prototype.getFileSrc = function(file) {
+  return window.chrome.extension.getURL(file);
+};
+
+/**
+ * Activates or deactivates ChromeVox.
+ * @param {boolean} active Whether ChromeVox should be active.
+ */
+cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
+  if (active == cvox.ChromeVox.isActive) {
+    return;
+  }
+
+  cvox.ChromeVox.isActive = active;
+  cvox.ChromeVox.navigationManager.showOrHideIndicator();
+
+  // If ChromeVox is inactive, the event watcher will only listen
+  // for key events.
+  cvox.ChromeVoxEventWatcher.cleanup(document);
+  cvox.ChromeVoxEventWatcher.init(document);
+
+  if (document.activeElement) {
+    var speakNodeAlso = document.hasFocus();
+    cvox.ApiImplementation.syncToNode(document.activeElement, speakNodeAlso);
+  } else {
+    cvox.ChromeVox.navigationManager.updateIndicator();
+  }
+
+  if (active) {
+    this.unhidePageFromNativeScreenReaders();
+  } else {
+    this.hidePageFromNativeScreenReaders();
+  }
+};
+
+cvox.HostFactory.hostConstructor = cvox.ChromeHost;

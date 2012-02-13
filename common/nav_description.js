@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,6 +69,16 @@ cvox.NavDescription.prototype.toString = function() {
          ' text="' + this.text + '" ' +
          ' userValue="' + this.userValue + '" ' +
          ' annotation="' + this.annotation + '")';
+};
+
+
+/**
+ * Modifies the earcon to play along with the spoken description of the object.
+ * @param {number} earconId An earcon id to be pushed on to the list of earcon
+ * ids to play along with the spoken description of this object.
+ */
+cvox.NavDescription.prototype.pushEarcon = function(earconId) {
+  this.earcons.push(earconId);
 };
 
 

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,29 +114,29 @@ cvox.ChromeVoxKbHandler.getSequenceSwitchKeys = function() {
  * @return {boolean} True if an Enter key event must be passed to the browser.
  */
 cvox.ChromeVoxKbHandler.mustPassEnterKey = function() {
-  if (!document.activeElement) {
+  var activeElement = document.activeElement;
+  if (!activeElement) {
     return false;
   }
-  if (document.activeElement.isContentEditable) {
-    return true;
-  }
-  return (document.activeElement.tagName == 'INPUT') ||
-       (document.activeElement.tagName == 'A' &&
-           !cvox.DomUtil.isInternalLink(document.activeElement)) ||
-       (document.activeElement.tagName == 'SELECT') ||
-       (document.activeElement.tagName == 'BUTTON') ||
-       (document.activeElement.tagName == 'TEXTAREA');
+  return (activeElement.isContentEditable) ||
+         (activeElement.getAttribute('role') == 'textbox') ||
+         (activeElement.tagName == 'INPUT') ||
+         (activeElement.tagName == 'A' &&
+             !cvox.DomUtil.isInternalLink(activeElement)) ||
+         (activeElement.tagName == 'SELECT') ||
+         (activeElement.tagName == 'BUTTON') ||
+         (activeElement.tagName == 'TEXTAREA');
 };
 
 /**
  * Handles key down events.
  *
- * @param {Object} evt The key down event to process.
+ * @param {Event} evt The key down event to process.
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   // The enter key can be handled either by ChromeVox or by the browser.
-  if (evt.keyCode == 13) {
+  if (evt.keyCode == 13 && cvox.ChromeVox.isActive) {
     // If this is an internal link, try to sync to it.
     if (document.activeElement.tagName == 'A' &&
         cvox.DomUtil.isInternalLink(document.activeElement)) {
@@ -169,10 +169,34 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     if (!cvox.ChromeVox.navigationManager.canActOnCurrentItem()) {
       return true;
     }
+    // Act on this element.
+    return cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
   }
   var keyStr = cvox.KeyUtil.keyEventToString(evt);
   var functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
       cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
+  // TODO (clchen): Disambiguate why functions are null. If the user pressed
+  // something that is not a valid combination, make an error noise so there
+  // is some feedback.
+  if (functionName === null) {
+    // The prefix key having been hit first can also serve as the Cvox modifier
+    // being down.
+    keyStr = keyStr.replace('Prefix>', 'Cvox+');
+    functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
+      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
+  }
+
+  // If ChromeVox isn't active, ignore every command except the one
+  // to toggle ChromeVox active again.
+  if (!cvox.ChromeVox.isActive && functionName != 'toggleChromeVox') {
+    return true;
+  }
+
+  // This is the key event handler return value - true if the event should
+  // propagate and the default action should be performed, false if we eat
+  // the key.
+  var returnValue = true;
+
   var func = cvox.ChromeVoxUserCommands.commands[functionName];
   if (func && (!cvox.ChromeVoxUserCommands.powerkey ||
       !cvox.ChromeVoxUserCommands.powerkey.isVisible())) {
@@ -180,18 +204,24 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
       cvox.ChromeVoxSearch.hide();
       cvox.ChromeVox.navigationManager.syncToSelection();
     }
-    return func();
+    returnValue = func();
   } else if (keyStr.indexOf(cvox.ChromeVox.modKeyStr) == 0) {
     if (cvox.ChromeVoxUserCommands.powerkey &&
         cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
       // if PowerKey is visible, hide it, since modifier keys have no use when
       // PowerKey is visible.
       cvox.ChromeVoxUserCommands.hidePowerKey();
-      return false;
+      returnValue = false;
     }
     // Modifier keys are active -- prevent default action
-    return false;
+    returnValue = false;
   }
 
-  return true;
+  // If the whole document is hidden from screen readers, let the app
+  // catch keys as well.
+  if (cvox.ChromeVox.entireDocumentIsHidden) {
+    returnValue = true;
+  }
+
+  return returnValue;
 };

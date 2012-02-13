@@ -1,0 +1,88 @@
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+/**
+ * @fileoverview A host factory.  This factory allows us to decouple the
+ * cvox.Host|Tts|... creatation from the main ChromeVox code.
+ * @author deboer@google.com (James deBoer)
+ */
+
+goog.provide('cvox.HostFactory');
+
+goog.require('cvox.AbstractEarcons');
+goog.require('cvox.AbstractHost');
+goog.require('cvox.AbstractMsgs');
+goog.require('cvox.AbstractTts');
+
+
+
+
+/**
+ * @namespace.
+ */
+cvox.HostFactory = function() {};
+
+/**
+ * Returns the host.
+ * @return {cvox.AbstractHost}
+ */
+cvox.HostFactory.getHost = function() {
+  return new cvox.HostFactory.hostConstructor;
+};
+
+/**
+ * Returns the TTS interface.
+ * @return {cvox.AbstractTts}
+ */
+cvox.HostFactory.getTts = function() {
+  return new cvox.HostFactory.ttsConstructor;
+};
+
+/**
+ * Returns the message interface.
+ * @return {cvox.AbstractMsgs}
+ */
+cvox.HostFactory.getMsgs = function() {
+  return new cvox.HostFactory.msgsConstructor;
+};
+
+/**
+ * Returns the earcons interface.
+ * @return {cvox.AbstractEarcons}
+ */
+cvox.HostFactory.getEarcons = function() {
+  return new cvox.HostFactory.earconsConstructor;
+};
+
+/**
+ * @type {function (new:cvox.AbstractHost)}
+ */
+cvox.HostFactory.hostConstructor;
+
+/**
+ * @type {function (new:cvox.AbstractTts)}
+ */
+cvox.HostFactory.ttsConstructor;
+
+/**
+ * @type {function (new:cvox.AbstractMsgs)}
+ */
+cvox.HostFactory.msgsConstructor;
+
+/**
+ * @type {function (new:cvox.AbstractEarcons)}
+ */
+cvox.HostFactory.earconsConstructor;
+

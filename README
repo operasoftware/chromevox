@@ -1,0 +1,28 @@
+ChromeVox is a Chrome extension that turns Chrome into a self-voicing browser.
+It runs on ChromeOs, Chrome and Android (as AndroidVox).
+
+BUILDING:
+
+The rhino Javascript intepreter and the Google closure compiler are required.
+Please update the top of Makefile with their paths.
+
+The Closure libraries don't have a good packaging system.  The easiest way to
+get the required tools is to download them from code.google.com and
+move them to /usr/local/lib/closure.  The directory should have the following
+files:
+
+compiler.jar
+closurebuilder.py
+depstree.py
+depswriter.py
+jscompiler.py
+source.py
+treescan.py
+
+To build AndroidVox, run 'make androidVoxDev.js'
+
+RUNNING:
+
+TODO(clchen): Add instructions for running androidVox on a Android device.
+
+

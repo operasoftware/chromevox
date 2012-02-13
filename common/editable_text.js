@@ -19,6 +19,7 @@ goog.provide('cvox.ChromeVoxEditableTextBase');
 goog.provide('cvox.TextChangeEvent');
 
 goog.require('cvox.DomUtil');
+goog.require('cvox.EditableTextAreaShadow');
 
 /**
  * @fileoverview Gives the user spoken feedback as they type, select text,
@@ -223,9 +224,9 @@ cvox.ChromeVoxEditableTextBase.prototype.speak =
   if (this.node && (document.activeElement != this.node)) {
     return;
   }
-  var queueMode = 1;
+  var queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   if (opt_triggeredByUser === true) {
-    queueMode = 0;
+    queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
 
   this.tts.speak(str, queueMode, {});
@@ -294,6 +295,11 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
     function(evt) {
+  // TODO(deboer): Factor this into two function:
+  //   - one to determine the selection event
+  //   - one to speak
+  // TODO(deboer): Reconcile this function with this.getValue()
+
   if (this.isPassword) {
     this.speak('*', evt.triggeredByUser);
     return;
@@ -306,8 +312,11 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
     } else if (this.getLineIndex(this.start) !=
         this.getLineIndex(evt.start)) {
       // Moved to a different line; read it.
-      this.speak(this.getLine(this.getLineIndex(evt.start)),
-          evt.triggeredByUser);
+      var lineValue = this.getLine(this.getLineIndex(evt.start));
+      if (lineValue == '') {
+        lineValue = cvox.ChromeVox.msgs.getMsg('text_box_blank');
+      }
+      this.speak(lineValue, evt.triggeredByUser);
     } else if (this.start == evt.start + 1 ||
         this.start == evt.start - 1) {
       // Moved by one character; read it.
@@ -709,10 +718,7 @@ cvox.ChromeVoxEditableTextArea.prototype.needsUpdate = function() {
  * @return {number} The 0-based line number corresponding to that character.
  */
 cvox.ChromeVoxEditableTextArea.prototype.getLineIndex = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-  return this.characterToLineMap[index];
+  return this.getShadow().getLineIndex(index);
 };
 
 /**
@@ -721,11 +727,7 @@ cvox.ChromeVoxEditableTextArea.prototype.getLineIndex = function(index) {
  * @return {number} The 0-based index of the first character in this line.
  */
 cvox.ChromeVoxEditableTextArea.prototype.getLineStart = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-
-  return this.lines[index].startIndex;
+  return this.getShadow().getLineStart(index);
 };
 
 /**
@@ -734,82 +736,25 @@ cvox.ChromeVoxEditableTextArea.prototype.getLineStart = function(index) {
  * @return {number} The 0-based index of the end of this line.
  */
 cvox.ChromeVoxEditableTextArea.prototype.getLineEnd = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-
-  return this.lines[index].endIndex;
+  return this.getShadow().getLineEnd(index);
 };
 
 /**
  * Update the shadow object, an offscreen div used to compute line numbers.
+ * @return {cvox.EditableTextAreaShadow} The shadow object.
  */
-cvox.ChromeVoxEditableTextArea.prototype.updateShadow = function() {
+cvox.ChromeVoxEditableTextArea.prototype.getShadow = function() {
   var shadow = cvox.ChromeVoxEditableTextArea.shadow;
-  if (!shadow) {
-    shadow = document.createElement('div');
-    cvox.ChromeVoxEditableTextArea.shadow = shadow;
-  }
-  document.body.appendChild(shadow);
-
-  while (shadow.childNodes.length) {
-    shadow.removeChild(shadow.childNodes[0]);
-  }
-
-  shadow.style.cssText = window.getComputedStyle(this.node, null).cssText;
-  shadow.style.visibility = 'hidden';
-  shadow.style.position = 'absolute';
-  shadow.style.top = -9999;
-  shadow.style.left = -9999;
-
-  var shadowWrap = document.createElement('div');
-  shadow.appendChild(shadowWrap);
-
-  var text = this.node.value;
-  var outputHtml = '';
-  var lastWasWhitespace = false;
-  var currentSpan = null;
-  for (var i = 0; i < text.length; i++) {
-    var ch = text[i];
-    var isWhitespace = this.isWhitespaceChar(ch);
-    if ((isWhitespace != lastWasWhitespace) || i == 0) {
-      currentSpan = document.createElement('span');
-      currentSpan.startIndex = i;
-      shadowWrap.appendChild(currentSpan);
+  if (!this.shadowIsCurrent) {
+    if (!shadow) {
+      shadow = cvox.ChromeVoxEditableTextArea.shadow =
+          new cvox.EditableTextAreaShadow();
     }
-    currentSpan.innerText += ch;
-    currentSpan.endIndex = i;
-    lastWasWhitespace = isWhitespace;
-  }
-  if (currentSpan) {
-    currentSpan.endIndex = text.length;
-  } else {
-    currentSpan = document.createElement('span');
-    currentSpan.startIndex = 0;
-    currentSpan.endIndex = 0;
-    shadowWrap.appendChild(currentSpan);
-  }
+    shadow.update(this.node);
 
-  this.characterToLineMap = {};
-  this.lines = {};
-  var firstSpan = shadowWrap.childNodes[0];
-  var lineIndex = -1;
-  var lineOffset = -1;
-  for (var n = firstSpan; n; n = n.nextSibling) {
-    if (n.offsetTop > lineOffset) {
-      lineIndex++;
-      this.lines[lineIndex] = {};
-      this.lines[lineIndex].startIndex = n.startIndex;
-      lineOffset = n.offsetTop;
-    }
-    this.lines[lineIndex].endIndex = n.endIndex;
-    for (var j = n.startIndex; j <= n.endIndex; j++) {
-      this.characterToLineMap[j] = lineIndex;
-    }
+    this.shadowIsCurrent = true;
   }
-
-  this.shadowIsCurrent = true;
-  document.body.removeChild(shadow);
+  return shadow;
 };
 
 /******************************************/

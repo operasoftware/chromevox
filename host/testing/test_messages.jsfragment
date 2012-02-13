@@ -1,0 +1,15 @@
+// Copyright 2011 Google Inc. All Rights Reserved.
+
+/**
+ * @fileoverview The English test messages.
+ * This Javascript fragment is combined with the messages.json file to
+ * produce a messages object useable in tests.
+ *
+ * c.f. the 'test_messages' genrule in the BUILD file.
+ *
+ * @author deboer@google.com (James deBoer)
+ */
+
+goog.provide('cvox.TestMessages');
+
+cvox.TestMessages =

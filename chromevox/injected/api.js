@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,6 +61,18 @@
    var nextCvoxId_ = 1;
 
    /**
+    * The next id to use for async callbacks.
+    * @type {number}
+    */
+   var nextCallbackId_ = 1;
+
+   /**
+    * Map from callback ID to callback function.
+    * @type {Object.<number, function(Object)>}
+    */
+   var callbackMap_ = {};
+
+   /**
     * Internal function to connect to the content script.
     */
    function connect_() {
@@ -74,8 +86,33 @@
        if (event.data == DISCONNECT_MSG) {
          channel_ = null;
        }
-       // Handle message
+       try {
+         var message = JSON.parse(event.data);
+         if (message['id'] && callbackMap_[message['id']]) {
+           callbackMap_[message['id']](message);
+           delete callbackMap_[message['id']];
+         }
+       } catch (e) {
+       }
      };
+   }
+
+   /**
+    * Internal function to send a message to the content script and
+    * call a callback with the response.
+    * @param {Object} message A serializable message.
+    * @param {function(Object)} callback A callback that will be called
+    *     with the response message.
+    */
+   function callAsync_(message, callback) {
+     var id = nextCallbackId_;
+     nextCallbackId_++;
+     if (message['args'] === undefined) {
+       message['args'] = [];
+     }
+     message['args'] = [id].concat(message['args']);
+     callbackMap_[id] = callback;
+     channel_.port1.postMessage(JSON.stringify(message));
    }
 
    /**
@@ -304,6 +341,29 @@
        'args': [makeNodeReference_(targetElement), shiftKey]
      };
      channel_.port1.postMessage(JSON.stringify(message));
+   };
+
+   /**
+    * Returns the build info.
+    *
+    * @param {function(string)} callback Function to receive the build info.
+    */
+   cvox.Api.getBuild = function(callback) {
+     callAsync_({'cmd': 'getBuild'}, function(response) {
+       callback(response['build']);
+     });
+   };
+
+   /**
+    * Returns the ChromeVox version, a string of the form 'x.y.z',
+    * like '1.18.0'.
+    *
+    * @param {function(string)} callback Function to receive the version.
+    */
+   cvox.Api.getVersion = function(callback) {
+     callAsync_({'cmd': 'getVersion'}, function(response) {
+       callback(response['version']);
+     });
    };
 
    cvox.Api.internalEnable();

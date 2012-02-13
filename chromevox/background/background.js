@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@
 goog.provide('cvox.ChromeVoxBackground');
 
 goog.require('cvox.AccessibilityApiHandler');
+goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxPrefs');
 goog.require('cvox.EarconsBackground');
 goog.require('cvox.ExtensionBridge');
-goog.require('cvox.Msgs');
+goog.require('cvox.HostFactory');
 goog.require('cvox.TtsBackground');
 
 
@@ -45,7 +46,7 @@ cvox.ChromeVoxBackground = function() {
  * Initialize the background page: set up TTS and bridge listeners.
  */
 cvox.ChromeVoxBackground.prototype.init = function() {
-  cvox.ChromeVox.msgs = new cvox.Msgs();
+  cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   this.prefs = new cvox.ChromeVoxPrefs();
   this.readPrefs();
 
@@ -80,6 +81,17 @@ cvox.ChromeVoxBackground.prototype.init = function() {
  * @param {Tab} tab The tab where ChromeVox scripts should be injected.
  */
 cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab = function(tab) {
+  // INJECTED_AFTER_LOAD is set true to prevent ChromeVox from giving
+  // the same feedback as a page loading.
+  chrome.tabs.executeScript(
+      tab.id,
+      {'code': 'window.INJECTED_AFTER_LOAD = true;',
+       'allFrames': true},
+      function() {
+        if (chrome.extension.lastError) {
+          console.log('ERROR: Did not inject into ' + tab.url);
+        }
+      });
   chrome.tabs.executeScript(
       tab.id,
       {'file': 'chromeVoxChromePageScript.js',
@@ -106,15 +118,18 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
     var value = this.tts.ttsProperties[msg['property']];
     var valueAsPercent = Math.round(value * 100);
     var announcement;
-    switch(msg['property']) {
+    switch (msg['property']) {
     case cvox.AbstractTts.RATE:
-      announcement = cvox.Msgs.getMsg('announce_rate', [valueAsPercent]);
+      announcement = cvox.ChromeVox.msgs.getMsg('announce_rate',
+                                                [valueAsPercent]);
       break;
     case cvox.AbstractTts.PITCH:
-      announcement = cvox.Msgs.getMsg('announce_pitch', [valueAsPercent]);
+      announcement = cvox.ChromeVox.msgs.getMsg('announce_pitch',
+                                                [valueAsPercent]);
       break;
     case cvox.AbstractTts.VOLUME:
-      announcement = cvox.Msgs.getMsg('announce_volume', [valueAsPercent]);
+      announcement = cvox.ChromeVox.msgs.getMsg('announce_volume',
+                                                [valueAsPercent]);
       break;
     }
     if (announcement) {
@@ -133,8 +148,6 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
 cvox.ChromeVoxBackground.prototype.onEarconMessage = function(msg) {
   if (msg.action == 'play') {
     this.earcons.playEarcon(msg.earcon);
-  } else if (msg.action == 'nextEarcons') {
-    this.earcons.nextEarcons();
   }
 };
 
@@ -144,8 +157,7 @@ cvox.ChromeVoxBackground.prototype.onEarconMessage = function(msg) {
  * messages to the proper destination.
  */
 cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
-  var context = this;
-  cvox.ExtensionBridge.addMessageListener(function(msg, port) {
+  cvox.ExtensionBridge.addMessageListener(goog.bind(function(msg, port) {
     var target = msg['target'];
     var action = msg['action'];
 
@@ -157,8 +169,7 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       break;
     case 'HelpDocs':
       var helpPage = new Object();
-      helpPage.url = 'http://google-axs-chrome.googlecode.com/svn/trunk/' +
-          'chromevox_tutorial/index.html';
+      helpPage.url = 'http://chromevox.com/tutorial/index.html';
       chrome.tabs.create(helpPage);
       break;
     case 'Options':
@@ -170,41 +181,41 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       break;
     case 'Prefs':
       if (action == 'getPrefs') {
-        context.prefs.sendPrefsToPort(port);
+        this.prefs.sendPrefsToPort(port);
       } else if (action == 'setPref') {
-        context.prefs.setPref(msg['pref'], msg['value']);
-        context.readPrefs();
+        if (msg['pref'] == 'active' &&
+            msg['value'] != 'true' &&
+            cvox.ChromeVox.isActive) {
+          this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
+        }
+        this.prefs.setPref(msg['pref'], msg['value']);
+        this.readPrefs();
       }
       break;
     case 'TTS':
       if (msg['startCallbackId']) {
-        msg.properties['startCallback'] = function() {
+        msg['properties']['startCallback'] = function() {
           port.postMessage({'message': 'TTS_CALLBACK',
                             'id': msg['startCallbackId']});
         };
       }
       if (msg['endCallbackId']) {
-        msg.properties['endCallback'] = function() {
+        msg['properties']['endCallback'] = function() {
           port.postMessage({'message': 'TTS_CALLBACK',
                             'id': msg['endCallbackId']});
         };
       }
       try {
-        context.onTtsMessage(msg);
+        this.onTtsMessage(msg);
       } catch (err) {
         console.log(err);
       }
       break;
     case 'EARCON':
-      context.onEarconMessage(msg);
-      break;
-    case 'Msgs':
-      port.postMessage(
-          {'message': 'Msgs',
-           'injectedMessages': context.msgs.getInjectedMessages()});
+      this.onEarconMessage(msg);
       break;
     }
-  });
+  }, this));
 };
 
 
@@ -212,11 +223,10 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
  * Listen for changes to local storage, and reloads the key map.
  */
 cvox.ChromeVoxBackground.prototype.addStorageListener = function() {
-  var context = this;
-  function storageEventHandler() {
+  var storageEventHandler = goog.bind(function() {
     // Reload the key map from local storage
-    context.prefs.reloadKeyMap();
-  };
+    this.prefs.reloadKeyMap();
+  }, this);
   window.addEventListener('storage', storageEventHandler, false);
 };
 
@@ -237,9 +247,7 @@ cvox.ChromeVoxBackground.prototype.checkVersionNumber = function() {
  */
 cvox.ChromeVoxBackground.prototype.displayReleaseNotes = function(version) {
   chrome.tabs.create(
-      {'url':
-       'http://google-axs-chrome.googlecode.com/svn/trunk/' +
-           'chromevox_tutorial/releasenotes_' + version + '.html'});
+      {'url': 'http://chromevox.com/release_notes.html'});
 
   // Update version number in local storage
   localStorage['versionString'] = version;
@@ -276,8 +284,13 @@ cvox.ChromeVoxBackground.prototype.readPrefs = function() {
   var prefs = this.prefs.getPrefs();
   cvox.ChromeVoxEditableTextBase.cursorIsBlock =
       (prefs['cursorIsBlock'] == 'true');
+  cvox.ChromeVox.isActive = (prefs['active'] == 'true');
 };
 
-var background = new cvox.ChromeVoxBackground();
-background.init();
-
+// Create the background page object and export a function window['speak']
+// so that other background pages can access it.
+(function() {
+   var background = new cvox.ChromeVoxBackground();
+   background.init();
+   window['speak'] = goog.bind(background.tts.speak, background.tts);
+})();

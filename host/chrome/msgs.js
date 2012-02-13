@@ -1,12 +1,27 @@
-// Copyright 2011 Google Inc. All Rights Reserved.
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 
 /**
- * @fileoverview Defined the convenience function cvox.Msgs.getMsg.
+ * @fileoverview A cvox.AbstractMsgs implementation for Chrome.
  * @author deboer@google.com (James deBoer)
  */
 
-goog.provide('cvox.Msgs');
+goog.provide('cvox.ChromeMsgs');
+
 goog.require('cvox.AbstractMsgs');
+goog.require('cvox.HostFactory');
 
 
 
@@ -14,10 +29,10 @@ goog.require('cvox.AbstractMsgs');
  * @constructor
  * @extends {cvox.AbstractMsgs}
  */
-cvox.Msgs = function() {
+cvox.ChromeMsgs = function() {
   cvox.AbstractMsgs.call(this);
 };
-goog.inherits(cvox.Msgs, cvox.AbstractMsgs);
+goog.inherits(cvox.ChromeMsgs, cvox.AbstractMsgs);
 
 
 /**
@@ -26,7 +41,16 @@ goog.inherits(cvox.Msgs, cvox.AbstractMsgs);
  * @const
  * @private
  */
-cvox.Msgs.NAMESPACE_ = 'chromevox_';
+cvox.ChromeMsgs.NAMESPACE_ = 'chromevox_';
+
+
+/**
+ * Return the current locale.
+ * @return {string} The locale.
+ */
+cvox.ChromeMsgs.prototype.getLocale = function() {
+  return chrome.i18n.getMessage('locale');
+};
 
 
 /**
@@ -39,9 +63,9 @@ cvox.Msgs.NAMESPACE_ = 'chromevox_';
  * @param {Array.<string>} opt_subs Substitution strings.
  * @return {string} The message.
  */
-cvox.Msgs.prototype.getMsg = function(message_id, opt_subs) {
+cvox.ChromeMsgs.prototype.getMsg = function(message_id, opt_subs) {
   var message = chrome.i18n.getMessage(
-      cvox.Msgs.NAMESPACE_ + message_id, opt_subs);
+      cvox.ChromeMsgs.NAMESPACE_ + message_id, opt_subs);
   if (message == undefined || message == '') {
     throw new Error('Invalid ChromeVox message id: ' + message_id);
   }
@@ -55,9 +79,22 @@ cvox.Msgs.prototype.getMsg = function(message_id, opt_subs) {
  *
  * @param {Node} root The root node where the translation should be performed.
  */
-cvox.Msgs.prototype.addTranslatedMessagesToDom = function(root) {
+cvox.ChromeMsgs.prototype.addTranslatedMessagesToDom = function(root) {
   var elts = root.querySelectorAll('.i18n');
   for (var i = 0; i < elts.length; i++) {
     elts[i].textContent = this.getMsg(elts[i].getAttribute('msgid'));
   }
 };
+
+
+/**
+ * Retuns a number formatted correctly.
+ *
+ * @param {number} num The number.
+ * @return {string} The number in the correct locale.
+ */
+cvox.ChromeMsgs.prototype.getNumber = function(num) {
+  return '' + num;
+};
+
+cvox.HostFactory.msgsConstructor = cvox.ChromeMsgs;

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 goog.provide('cvox.LinearDomWalker');
 
+goog.require('cvox.AbstractWalker');
 goog.require('cvox.DomUtil');
 goog.require('cvox.XpathUtil');
 
@@ -27,12 +28,14 @@ goog.require('cvox.XpathUtil');
 
 /**
  * @constructor
+ * @extends {cvox.AbstractWalker}
  */
 cvox.LinearDomWalker = function() {
   this.currentNode = null;
   this.currentAncestors = new Array();
   this.previousNode = null;
 };
+goog.inherits(cvox.LinearDomWalker, cvox.AbstractWalker);
 
 
 /**

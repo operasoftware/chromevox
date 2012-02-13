@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,16 @@ goog.require('cvox.ExtensionBridge');
  * @constructor
  */
 cvox.ChromeVoxPrefs = function() {
-  this.init(false);
+  var lastRunVersion = localStorage['lastRunVersion'];
+  if (!lastRunVersion) {
+    lastRunVersion = '1.16.0';
+  }
+  var loadExistingSettings = true;
+  if (lastRunVersion == '1.16.0') {
+    loadExistingSettings = false;
+  }
+  localStorage['lastRunVersion'] = chrome.app.getDetails().version;
+  this.init(loadExistingSettings);
 };
 
 
@@ -43,11 +52,17 @@ cvox.ChromeVoxPrefs = function() {
  * @type {Object.<string, Object>}
  */
 cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
+  'active': true,
   'lensVisible': false,
   'lensAnchored': true,
   'focusFollowsMouse': false,
   'useBriefMode': false,
-  'cursorIsBlock': false
+  'cursorIsBlock': false,
+  'cvoxKey': '',
+  'siteSpecificScriptBase':
+      'https://ssl.gstatic.com/accessibility/javascript/ext/',
+  'siteSpecificScriptLoader':
+      'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js'
 };
 
 
@@ -81,8 +96,11 @@ cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
       localStorage[key] = cvox.ChromeVoxPrefs.DEFAULT_PREFS[key];
     }
   }
+  // Set the default modifier key if isn't already in localStorage.
+  if (localStorage['cvoxKey'].length < 1) {
+    this.resetModifier_();
+  }
 
-  //
   // Try to intelligently merge the key maps; any new command that isn't
   // already in the key map should get added, unless there's a key conflict.
   // If we're pulling from local storage, get the current key map from
@@ -131,20 +149,20 @@ cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
  * @return {Object.<Array.<string>>} The default key map.
  */
 cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
-  var stkyKey = cvox.ChromeVox.stickyKeyStr;
-  var stkyKeyCode = cvox.ChromeVox.stickyKeyCode;
-  var mod1 = cvox.ChromeVox.modKeyStr;
+  var mod1 = 'Cvox';
   /** Alias getMsg as msg. */
-  var msg = cvox.ChromeVox.msgs.getMsg;
+  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
   var keyMap = {};
 
-  keyMap['Ctrl+'] = ['stopSpeech', msg('stop_speech_key')]; // Ctrl
-  keyMap['Cvox+'] = ['stopSpeech', msg('stop_speech_key')]; // Cvox
+  keyMap['Ctrl+'] = ['stopSpeech', msg('stop_speech_key')]; // Cvox
 
   // Double tap Modifier#1
-  keyMap[(stkyKey + '>' + stkyKey + '+')] =
+  keyMap[(mod1 + '>' + mod1 + '+')] =
       ['toggleStickyMode', msg('toggle_sticky_mode')];
+
+  // Turning on prefix key
+  keyMap[('Ctrl+Z')] = ['toggleKeyPrefix', msg('toggle_key_prefix')];
 
   // TAB/Shift+TAB
   keyMap['#9'] = ['handleTab', msg('handle_tab_next')]; // Tab
@@ -163,7 +181,6 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+#187')] =
       ['nextGranularity', msg('next_granularity')]; //+
 
-  keyMap['#13'] = ['actOnCurrentItem', msg('act_on_current_item')]; // ENTER
   keyMap[(mod1 + '+#32')] =
       ['forceClickOnCurrentItem',
       msg('force_click_on_current_item')]; // SPACE
@@ -195,6 +212,8 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
       ['showOptionsPage', msg('show_options_page')];
   keyMap[(mod1 + '+O>K')] =
       ['showKbExplorerPage', msg('show_kb_explorer_page')];
+  keyMap[(mod1 + '+A>A')] = ['toggleChromeVox', msg('toggle_chromevox_active')];
+
   // TODO Assign a different shortcut when nextTtsEngine works.
   //keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
 
@@ -366,6 +385,7 @@ cvox.ChromeVoxPrefs.prototype.getPrefs = function() {
   for (var key in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
     prefs[key] = localStorage[key];
   }
+  prefs['version'] = chrome.app.getDetails().version;
   return prefs;
 };
 
@@ -401,11 +421,25 @@ cvox.ChromeVoxPrefs.prototype.getKeyMap = function() {
   return this.keyMap;
 };
 
+/**
+ * Reset to the default key bindings.
+ * @private
+ */
+cvox.ChromeVoxPrefs.prototype.resetModifier_ = function() {
+  if (cvox.ChromeVox.isChromeOS) {
+    localStorage['cvoxKey'] = 'Shift+Search';
+  } else if (cvox.ChromeVox.isMac) {
+    localStorage['cvoxKey'] = 'Ctrl+Cmd';
+  } else {
+    localStorage['cvoxKey'] = 'Ctrl+Alt';
+  }
+};
 
 /**
  * Reset to the default key bindings.
  */
 cvox.ChromeVoxPrefs.prototype.resetKeys = function() {
+  this.resetModifier_();
   this.keyMap = this.createDefaultKeyMap();
   this.saveKeyMap();
   this.sendPrefsToAllTabs(false, true);
@@ -452,7 +486,7 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToPort = function(port) {
 /**
  * Set the value of a pref and update all active tabs if it's changed.
  * @param {string} key The pref key.
- * @param {Object} value The new value of the pref.
+ * @param {Object|string} value The new value of the pref.
  */
 cvox.ChromeVoxPrefs.prototype.setPref = function(key, value) {
   if (localStorage[key] != value) {

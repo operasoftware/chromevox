@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 goog.provide('cvox.ChromeVoxChoiceWidget');
 
+goog.require('axsjax.common.PowerKey');
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.AbstractTts');
 goog.require('cvox.ChromeVox');
@@ -86,4 +87,15 @@ cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
   window.setTimeout(function() {
       cvox.ChromeVox.tts.speak(prompt);
     }, 0);
+};
+
+/**
+ * Checks if the choice widget is currently active.
+ * @return {boolean} True if the choice widget is active.
+ */
+cvox.ChromeVoxChoiceWidget.prototype.isActive = function() {
+  if (this.powerKey.getStatus() == window.PowerKey.status.VISIBLE) {
+    return true;
+  }
+  return false;
 };

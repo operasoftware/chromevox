@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,22 +21,51 @@
 
 goog.provide('cvox.SelectionWalker');
 
+goog.require('cvox.AbstractWalker');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TraverseContent');
 
 /**
  * @constructor
+ * @extends {cvox.AbstractWalker}
  */
 cvox.SelectionWalker = function() {
   this.traverseContent = new cvox.TraverseContent();
   this.currentGranularity = 0;
 };
+goog.inherits(cvox.SelectionWalker, cvox.AbstractWalker);
 
 /**
- * @type {Object}
+ * The granularity levels to use, in order from most general to most granular.
+ * @type {Array.<string>}
+ * @const
  */
 cvox.SelectionWalker.GRANULARITY_LEVELS = new Array(
-    'sentence', 'word', 'character');
+    cvox.TraverseContent.kSentence,
+    cvox.TraverseContent.kWord,
+    cvox.TraverseContent.kCharacter);
+
+/**
+ * Get the current position as a range.
+ * @return {Range} The current range.
+ */
+cvox.SelectionWalker.prototype.getCurrentRange = function() {
+  return this.traverseContent.getCurrentRange();
+};
+
+/**
+ * Initialize the range based on the current direction.
+ * @param {boolean} forwards True if the selection is moving forwards.
+ */
+cvox.SelectionWalker.prototype.initRange = function(forwards) {
+  if (forwards) {
+    this.traverseContent.collapseToStart();
+    this.next();
+  } else {
+    this.traverseContent.collapseToEnd();
+    this.previous();
+  }
+};
 
 /**
  * Decreases the granularity. Also modifies the selection.
@@ -49,13 +78,7 @@ cvox.SelectionWalker.prototype.lessGranular = function(forwards) {
   if (!success) {
     return false;
   }
-  if (forwards) {
-    cvox.SelectionUtil.collapseToStart(this.traverseContent.currentDomObj);
-    this.next();
-  } else {
-    cvox.SelectionUtil.collapseToEnd(this.traverseContent.currentDomObj);
-    this.previous();
-  }
+  this.initRange(forwards);
   return true;
 };
 
@@ -70,34 +93,28 @@ cvox.SelectionWalker.prototype.moreGranular = function(forwards) {
   if (!success) {
     return false;
   }
-  if (forwards) {
-    cvox.SelectionUtil.collapseToStart(this.traverseContent.currentDomObj);
-    this.next();
-  } else {
-    cvox.SelectionUtil.collapseToEnd(this.traverseContent.currentDomObj);
-    this.previous();
-  }
+  this.initRange(forwards);
   return true;
 };
 
 /**
  * Moves selection to the next item.
- * @return {boolean} Returns true if the selection was moved successfully.
+ * @return {Node} Returns node the selection moves to; null when end reached.
  */
 cvox.SelectionWalker.prototype.next = function() {
   var status = this.traverseContent.nextElement(
       cvox.SelectionWalker.GRANULARITY_LEVELS[this.currentGranularity]);
-  return !!status;
+  return status ? this.traverseContent.currentDomObj : null;
 };
 
 /**
  * Moves selection to the previous item.
- * @return {boolean} Returns true if the selection was moved successfully.
+ * @return {Node} Returns node the selection moves to; null when end reached.
  */
 cvox.SelectionWalker.prototype.previous = function() {
   var status = this.traverseContent.prevElement(
       cvox.SelectionWalker.GRANULARITY_LEVELS[this.currentGranularity]);
-  return !!status;
+  return status ? this.traverseContent.currentDomObj : null;
 };
 
 /**
@@ -137,13 +154,13 @@ cvox.SelectionWalker.prototype.changeGranularity = function(moreGranular) {
 };
 
 /**
- * Sets the node that the SelectionWalker should be moving through.
+ * Sets the node that the SelectionWalker should be moving through,
+ *     if different than the current node.
  * @param {Node} currentNode The node to set the SelectionWalker to.
  */
 cvox.SelectionWalker.prototype.setCurrentNode = function(currentNode) {
   if (currentNode != this.traverseContent.currentDomObj) {
     this.traverseContent = new cvox.TraverseContent(currentNode);
-    this.traverseContent.reset();
   }
 };
 
@@ -156,6 +173,6 @@ cvox.SelectionWalker.prototype.getCurrentDescription = function(
     ancestorsArray) {
   var description = cvox.DomUtil.getDescriptionFromAncestors(ancestorsArray,
       true, cvox.ChromeVox.verbosity);
-  description.text = cvox.SelectionUtil.getText();
+  description.text = this.traverseContent.getCurrentText();
   return description;
 };

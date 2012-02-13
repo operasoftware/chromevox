@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxNavigationManager');
+goog.require('cvox.Cursor');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TraverseUtil');
 
@@ -377,7 +378,7 @@ cvox.ChromeVoxSearch.getNextResult = function(
     } else {
       current = cvox.DomUtil.previousLeafNode(current);
     }
-  };
+  }
 
   // Edge of document reached, no matches found.
   return null;
@@ -433,12 +434,12 @@ cvox.ChromeVoxSearch.outputSearchResult = function(result) {
 
   if (result.endContainer.constructor == Text) {
     // Extend to the end of the sentence or to the end of the text block.
-    var endCursor = new Cursor(
+    var endCursor = new cvox.Cursor(
         result.endContainer,
         result.endOffset,
         result.endContainer.data);
     var startCursor = endCursor.clone();
-    if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], {}) &&
+    if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], [], {}) &&
         endCursor.node == result.endContainer) {
       result.setEnd(endCursor.node, endCursor.index);
     } else {

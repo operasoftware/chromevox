@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,18 @@ cvox.ApiImplementation = function() {
 };
 
 /**
+ * The URL to the script loader.
+ * @type {string}
+ */
+cvox.ApiImplementation.siteSpecificScriptLoader;
+
+/**
+ * The URL base for the site-specific scripts.
+ * @type {string}
+ */
+cvox.ApiImplementation.siteSpecificScriptBase;
+
+/**
  * Inject the API into the page and set up communication with it.
  */
 cvox.ApiImplementation.init = function() {
@@ -42,12 +54,9 @@ cvox.ApiImplementation.init = function() {
 
   var forceRedownload = '?' + new Date().getTime();
   var apiScript = document.createElement('script');
-  var apiPath = 'chromevox/injected/api.js';
   apiScript.type = 'text/javascript';
   apiScript.setAttribute('cvoxapi', '1');
-  // TODO(dmazzoni): Move this to host/chrome, to avoid dependency on
-  // chrome.extension.
-  apiScript.src = window.chrome.extension.getURL(apiPath) + forceRedownload;
+  apiScript.src = cvox.ChromeVox.host.getApiSrc() + forceRedownload;
   document.head.appendChild(apiScript);
 
   apiScript.onload = function() {
@@ -56,8 +65,10 @@ cvox.ApiImplementation.init = function() {
       var enhancementLoaderScript = document.createElement('script');
       enhancementLoaderScript.type = 'text/javascript';
       enhancementLoaderScript.src =
-          'https://www.corp.google.com/~dmazzoni/no_crawl/chromevox/scripts/loader.js';
+          cvox.ApiImplementation.siteSpecificScriptLoader;
       enhancementLoaderScript.setAttribute('chromevoxScriptLoader', '1');
+      enhancementLoaderScript.setAttribute('chromevoxScriptBase',
+          cvox.ApiImplementation.siteSpecificScriptBase);
       document.head.appendChild(enhancementLoaderScript);
     }
   };
@@ -89,19 +100,21 @@ cvox.ApiImplementation.portSetup = function(event) {
  */
 cvox.ApiImplementation.dispatchApiMessage = function(message) {
   var method;
-  switch(message.cmd) {
+  switch (message['cmd']) {
     case 'speak': method = cvox.ApiImplementation.speak; break;
     case 'speakNodeRef': method = cvox.ApiImplementation.speakNodeRef; break;
     case 'stop': method = cvox.ApiImplementation.stop; break;
     case 'playEarcon': method = cvox.ApiImplementation.playEarcon; break;
     case 'syncToNodeRef': method = cvox.ApiImplementation.syncToNodeRef; break;
     case 'clickNodeRef': method = cvox.ApiImplementation.clickNodeRef; break;
+    case 'getBuild': method = cvox.ApiImplementation.getBuild; break;
+    case 'getVersion': method = cvox.ApiImplementation.getVersion; break;
   }
   if (!method) {
-    throw 'Unknown API call: ' + message.cmd;
+    throw 'Unknown API call: ' + message['cmd'];
   }
 
-  method.apply(cvox.ApiImplementation, message.args);
+  method.apply(cvox.ApiImplementation, message['args']);
 };
 
 /**
@@ -260,4 +273,35 @@ cvox.ApiImplementation.syncToNode = function(
 cvox.ApiImplementation.clickNodeRef = function(nodeRef, shiftKey) {
   cvox.DomUtil.clickElem(
       cvox.ApiImplementation.getNodeFromRef_(nodeRef), shiftKey);
+};
+
+/**
+ * Get the ChromeVox build info string.
+ * @param {number} callbackId The callback Id.
+ */
+cvox.ApiImplementation.getBuild = function(callbackId) {
+  cvox.ApiImplementation.port.postMessage(JSON.stringify(
+      {
+        'id': callbackId,
+        'build': 'BUILD_TIMESTAMP_PLACEHOLDER'
+      }));
+};
+
+/**
+ * Get the ChromeVox version.
+ * @param {number} callbackId The callback Id.
+ */
+cvox.ApiImplementation.getVersion = function(callbackId) {
+  var version = cvox.ChromeVox.version;
+  if (version == null) {
+    window.setTimeout(function() {
+      cvox.ApiImplementation.getVersion(callbackId);
+    }, 1000);
+    return;
+  }
+  cvox.ApiImplementation.port.postMessage(JSON.stringify(
+      {
+        'id': callbackId,
+        'version': version
+      }));
 };

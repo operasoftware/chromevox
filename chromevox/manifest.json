@@ -1,7 +1,7 @@
 {
   "name": "__MSG_CHROMEVOX_NAME__",
   "version": "1.0",
-  "description": "__MSG_CHROMEVOX_DESCRIPTION__ (uncompiled).",
+  "description": "__MSG_CHROMEVOX_DESCRIPTION__.",
   "background_page": "chromevox/background/background.html",
   "permissions": [
     "bookmarks",
@@ -17,9 +17,8 @@
       "js": [
         "closure/closure_preinit.js",
         "closure/base.js",
-        "powerkey-bundle.js",
-        "chromevox/injected/deps.js",
-        "chromevox/injected/main.js"
+        "deps.js",
+        "chromevox/injected/loader.js"
       ]
     }
   ],

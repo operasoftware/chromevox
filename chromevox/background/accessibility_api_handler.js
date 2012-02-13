@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,6 +69,9 @@ cvox.AccessibilityApiHandler.init = function(tts, earcons) {
   try {
     chrome.experimental.accessibility.setAccessibilityEnabled(true);
     cvox.AccessibilityApiHandler.addEventListeners();
+    if (cvox.ChromeVox.isActive) {
+      cvox.AccessibilityApiHandler.speakAlertsForActiveTab();
+    }
   } catch (err) {
     console.log('Error trying to access accessibility extension api.');
   }
@@ -79,11 +82,14 @@ cvox.AccessibilityApiHandler.init = function(tts, earcons) {
  */
 cvox.AccessibilityApiHandler.addEventListeners = function() {
   /** Alias getMsg as msg. */
-  var msg = cvox.ChromeVox.msgs.getMsg;
+  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
   var accessibility = chrome.experimental.accessibility;
 
   chrome.tabs.onCreated.addListener(function(tab) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     var tts = cvox.AccessibilityApiHandler.tts;
     var title = tab.title ? tab.title : tab.url;
     tts.speak(msg('chrome_tab_created', [title]), 0, {});
@@ -92,11 +98,17 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.tabs.onRemoved.addListener(function(tab) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
   chrome.tabs.onSelectionChanged.addListener(function(tabId, selectInfo) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     chrome.tabs.get(tabId, function(tab) {
       var tts = cvox.AccessibilityApiHandler.tts;
       var title = tab.title ? tab.title : tab.url;
@@ -107,6 +119,9 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.tabs.onUpdated.addListener(function(tabId, selectInfo) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     chrome.tabs.get(tabId, function(tab) {
       var earcons = cvox.AccessibilityApiHandler.earcons;
       if (tab.status == 'loading') {
@@ -118,6 +133,9 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.windows.onFocusChanged.addListener(function(windowId) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     if (windowId == chrome.windows.WINDOW_ID_NONE) {
       return;
     }
@@ -135,6 +153,9 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.experimental.accessibility.onWindowOpened.addListener(function(win) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     var tts = cvox.AccessibilityApiHandler.tts;
     tts.speak(win.name, 0, {});
     // Queue the next utterance because a window opening is always followed
@@ -145,12 +166,18 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.experimental.accessibility.onWindowClosed.addListener(function(win) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     // Don't speak, just play the earcon.
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
   chrome.experimental.accessibility.onMenuOpened.addListener(function(menu) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     var tts = cvox.AccessibilityApiHandler.tts;
     tts.speak(msg('chrome_menu_opened', [menu.name]), 0, {});
     var earcons = cvox.AccessibilityApiHandler.earcons;
@@ -158,29 +185,66 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.experimental.accessibility.onMenuClosed.addListener(function(menu) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
     // Don't speak, just play the earcon.
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
-  chrome.experimental.accessibility.onVolumeChanged.addListener(
-      function(volume) {
-    // Don't speak, just play the earcon.
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-  });
+  // systemPrivate API is only available when this extension is loaded as a
+  // component extension embedded in Chrome.
+  chrome.permissions.contains({ permissions: ['systemPrivate'] },
+                              function(result) {
+    if (result) {
+      chrome.systemPrivate.onVolumeChanged.addListener(function(volume) {
+        if (!cvox.ChromeVox.isActive) {
+          return;
+        }
+        // Don't speak, just play the earcon.
+        var earcons = cvox.AccessibilityApiHandler.earcons;
+        earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+      });
 
-  chrome.experimental.accessibility.onScreenUnlocked.addListener(
-      function(volume) {
-    // Don't speak, just play the earcon.
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-  });
+      chrome.systemPrivate.onBrightnessChanged.addListener(
+          /**
+           * @param {{brightness: number, userInitiated: boolean}} brightness
+           */
+          function(brightness) {
+        if (brightness.userInitiated) {
+          var earcons = cvox.AccessibilityApiHandler.earcons;
+          earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+          var tts = cvox.AccessibilityApiHandler.tts;
+          tts.speak(msg('chrome_brightness_changed', [brightness.brightness]),
+                    0, {});
+        }
+      });
 
-  chrome.experimental.accessibility.onWokeUp.addListener(function(volume) {
-    // Don't speak, just play the earcon.
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+      chrome.systemPrivate.onScreenUnlocked.addListener(function() {
+        chrome.systemPrivate.getUpdateStatus(function(status) {
+          if (!cvox.ChromeVox.isActive) {
+            return;
+          }
+          // Speak about system update when it's ready, otherwise speak nothing.
+          if (status.state == 'NeedRestart') {
+            var tts = cvox.AccessibilityApiHandler.tts;
+            tts.speak(msg('chrome_system_need_restart'), 0, {});
+          }
+          var earcons = cvox.AccessibilityApiHandler.earcons;
+          earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+        });
+      });
+
+      chrome.systemPrivate.onWokeUp.addListener(function() {
+        if (!cvox.ChromeVox.isActive) {
+          return;
+        }
+        // Don't speak, just play the earcon.
+        var earcons = cvox.AccessibilityApiHandler.earcons;
+        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+      });
+    }
   });
 
   chrome.experimental.accessibility.onControlFocused.addListener(
@@ -188,6 +252,10 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
      * @param {AccessibilityObject} ctl The focused control.
      */
     function(ctl) {
+      if (!cvox.ChromeVox.isActive) {
+        return;
+      }
+
       var tts = cvox.AccessibilityApiHandler.tts;
       if (ctl.type == 'textbox') {
         cvox.AccessibilityApiHandler.trimWhitespace(ctl);
@@ -214,6 +282,10 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
     });
 
   chrome.experimental.accessibility.onControlAction.addListener(function(ctl) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
+
     var tts = cvox.AccessibilityApiHandler.tts;
     var description = cvox.AccessibilityApiHandler.describe(ctl, true);
     tts.speak(description.utterance, 0, {});
@@ -224,6 +296,10 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   });
 
   chrome.experimental.accessibility.onTextChanged.addListener(function(ctl) {
+    if (!cvox.ChromeVox.isActive) {
+      return;
+    }
+
     if (cvox.AccessibilityApiHandler.editableTextHandler) {
       cvox.AccessibilityApiHandler.trimWhitespace(ctl);
       var textChangeEvent = new cvox.TextChangeEvent(
@@ -267,7 +343,7 @@ cvox.AccessibilityApiHandler.trimWhitespace = function(control) {
  */
 cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
   /** Alias getMsg as msg. */
-  var msg = cvox.ChromeVox.msgs.getMsg;
+  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
   var s = '';
   var earcon = undefined;
@@ -353,4 +429,57 @@ cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
   description.utterance = s;
   description.earcon = earcon;
   return description;
+};
+
+/**
+ * Speaks alerts for the active tab.  This method is intended to be used to
+ * speak alerts which were shown before ChromeVox loading.
+ */
+cvox.AccessibilityApiHandler.speakAlertsForActiveTab = function() {
+  var tts = cvox.AccessibilityApiHandler.tts;
+  var earcons = cvox.AccessibilityApiHandler.earcons;
+
+  chrome.tabs.query({'active': true}, function(tabs) {
+    if (tabs.length < 1)
+      return;
+    chrome.experimental.accessibility.getAlertsForTab(tabs[0].id,
+                                                      function(alerts) {
+      if (alerts.length == 0)
+        return;
+
+      var string = '';
+      for (var i = 0; i < alerts.length; i++)
+        string += alerts[i].message + ' ';
+      var speakAlerts = function() {
+        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+        tts.speak(string, 0, {});
+      };
+
+      // If tab content is already loaded, speak immediately.
+      if (tabs[0].status == 'complete') {
+        speakAlerts();
+        return;
+      }
+
+      // If tab content loading is not complete, wait to avoid interruption
+      // from other messages.
+      var removeListeners = function() {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        chrome.tabs.onRemoved.removeListener(removeListeners);
+      };
+      var onUpdated = function(tabId, changeInfo, tab) {
+        if (tabId != tabs[0].id || changeInfo.status != 'complete')
+          return;
+        speakAlerts();
+        removeListeners();
+      };
+      var onRemoved = function(tabId, removeInfo) {
+        if (tabId != tabs[0].id)
+          return;
+        removeListeners();
+      };
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      chrome.tabs.onRemoved.addListener(onRemoved);
+    });
+  });
 };

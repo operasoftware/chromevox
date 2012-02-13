@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,15 +19,16 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.require('cvox.AbstractTts');
+goog.provide('cvox.ChromeTts');
 
-goog.provide('cvox.Tts');
+goog.require('cvox.AbstractTts');
+goog.require('cvox.HostFactory');
 
 /**
  * @constructor
  * @extends {cvox.AbstractTts}
  */
-cvox.Tts = function() {
+cvox.ChromeTts = function() {
   cvox.AbstractTts.call(this);
 
   this.lens_ = null;
@@ -35,19 +36,19 @@ cvox.Tts = function() {
 
   this.addBridgeListener();
 };
-goog.inherits(cvox.Tts, cvox.AbstractTts);
+goog.inherits(cvox.ChromeTts, cvox.AbstractTts);
 
 /**
  * Current call id, used for matching callback functions.
  * @type {number}
  */
-cvox.Tts.callId = 0;
+cvox.ChromeTts.callId = 0;
 
 /**
  * Maps call ids to callback functions.
  * @type {Object.<number, Function>}
  */
-cvox.Tts.functionMap = new Object();
+cvox.ChromeTts.functionMap = new Object();
 
 /**
  * Speaks the given string using the specified queueMode and properties.
@@ -56,14 +57,16 @@ cvox.Tts.functionMap = new Object();
  *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
  */
-cvox.Tts.prototype.speak = function(textString, queueMode, properties) {
+cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
   if (!properties)
     properties = {};
+
+  properties['lang'] = cvox.ChromeVox.msgs.getLocale();
 
   textString =
       cvox.AbstractTts.preprocessWithProperties(textString, properties);
 
-  cvox.Tts.superClass_.speak.call(this, textString, queueMode, properties);
+  cvox.ChromeTts.superClass_.speak.call(this, textString, queueMode, properties);
 
   if (this.lens_) {
     if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
@@ -98,26 +101,26 @@ cvox.Tts.prototype.speak = function(textString, queueMode, properties) {
   if (properties && properties['startCallback'] != undefined) {
     console.log('  using startCallback');
 
-    cvox.Tts.functionMap[cvox.Tts.callId] =
+    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
         properties['startCallback'];
-    message['startCallbackId'] = cvox.Tts.callId++;
+    message['startCallbackId'] = cvox.ChromeTts.callId++;
   }
   if (properties && properties['endCallback'] != undefined) {
     console.log('  using endCallback');
 
-    cvox.Tts.functionMap[cvox.Tts.callId] =
+    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
         properties['endCallback'];
-    message['endCallbackId'] = cvox.Tts.callId++;
+    message['endCallbackId'] = cvox.ChromeTts.callId++;
   }
 
   cvox.ExtensionBridge.send(message);
 };
 
 /**
- * Set a chromevis.ChromeVisLens to display any messages spoken via speak().
- * @param {Object} lens The chromevis.ChromeVisLens object.
+ * Set a cvox.Lens to display any messages spoken via speak().
+ * @param {cvox.AbstractLens} lens The lens.
  */
-cvox.Tts.prototype.setLens = function(lens) {
+cvox.ChromeTts.prototype.setLens = function(lens) {
   this.lens_ = lens;
 };
 
@@ -125,32 +128,19 @@ cvox.Tts.prototype.setLens = function(lens) {
  * Returns true if the TTS is currently speaking.
  * @return {boolean} True if the TTS is speaking.
  */
-cvox.Tts.prototype.isSpeaking = function() {
-  cvox.Tts.superClass_.isSpeaking.call(this);
+cvox.ChromeTts.prototype.isSpeaking = function() {
+  cvox.ChromeTts.superClass_.isSpeaking.call(this);
   return false;
 };
 
 /**
  * Stops speech.
  */
-cvox.Tts.prototype.stop = function() {
-  cvox.Tts.superClass_.stop.call(this);
+cvox.ChromeTts.prototype.stop = function() {
+  cvox.ChromeTts.superClass_.stop.call(this);
   cvox.ExtensionBridge.send(
       {'target': 'TTS',
        'action': 'stop'});
-};
-
-/**
- * Switch to the next TTS engine and optionally announce its name.
- *
- * @param {boolean} announce If true, will announce the name of the
- *     new TTS engine.
- */
-cvox.Tts.prototype.nextEngine = function(announce) {
-  cvox.Tts.superClass_.nextTtsEngine.call(this, announce);
-  cvox.ExtensionBridge.send(
-      {'target': 'TTS',
-       'action': 'nextEngine'});
 };
 
 /**
@@ -159,7 +149,7 @@ cvox.Tts.prototype.nextEngine = function(announce) {
  * @param {boolean} increase If true, increases the property value by one
  *     step size, otherwise decreases.
  */
-cvox.Tts.prototype.increaseOrDecreaseProperty =
+cvox.ChromeTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   cvox.ExtensionBridge.send(
       {'target': 'TTS',
@@ -174,8 +164,8 @@ cvox.Tts.prototype.increaseOrDecreaseProperty =
  * @param {boolean} announce Whether to announce that the property is
  * changing.
  */
-cvox.Tts.prototype.increaseProperty = function(property_name, announce) {
-  cvox.Tts.superClass_.increaseProperty.call(this, property_name, announce);
+cvox.ChromeTts.prototype.increaseProperty = function(property_name, announce) {
+  cvox.ChromeTts.superClass_.increaseProperty.call(this, property_name, announce);
   cvox.ExtensionBridge.send(
       {'target': 'TTS',
        'action': 'increase' + property_name,
@@ -185,17 +175,19 @@ cvox.Tts.prototype.increaseProperty = function(property_name, announce) {
 /**
  * Listens for TTS_COMPLETED message and executes the callback function.
  */
-cvox.Tts.prototype.addBridgeListener = function() {
+cvox.ChromeTts.prototype.addBridgeListener = function() {
   cvox.ExtensionBridge.addMessageListener(
       function(msg, port) {
         var message = msg['message'];
         if (message == 'TTS_CALLBACK') {
           var id = msg['id'];
-          var func = cvox.Tts.functionMap[id];
+          var func = cvox.ChromeTts.functionMap[id];
           if (func != undefined) {
             func();
-            delete cvox.Tts.functionMap[id];
+            delete cvox.ChromeTts.functionMap[id];
           }
         }
       });
 };
+
+cvox.HostFactory.ttsConstructor = cvox.ChromeTts;

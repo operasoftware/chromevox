@@ -1,4 +1,17 @@
-//javascript/axsjax/common/PowerKey.js
+// Copyright 2012 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @fileoverview PowerKey - JavaScript library for providing keyboard
  * enhancements for Web 2.0 applications. The scripts support IE 6+ and
@@ -6,6 +19,11 @@
  * to Firefox 3.0+.
  * @author chaitanyag@google.com (Chaitanya P. Gharpure)
  */
+
+goog.provide('axsjax.common.PowerKey');
+
+// Also provide PowerKey, so we don't break closure apps that expect PowerKey.
+goog.provide('PowerKey');
 
 /**
  * Javascript class for providing keyboard interface enhancements for
@@ -1150,8 +1168,7 @@ PowerKey.prototype.setManagedCompletionList_ = function(managedCmpListsPos) {
   this.context = managedCmpList.name;
   this.setCompletionList(managedCmpList.values);
   this.managedCmpListsPos_ = managedCmpListsPos;
-  var status = (this.cmpFloatElement.className == 'pkVisibleStatus') ?
-      PowerKey.status.VISIBLE : PowerKey.status.HIDDEN;
+  var status = this.getStatus();
   this.updateCompletionField(status);
   if (this.managedCompletionListCallback_) {
     this.managedCompletionListCallback_(managedCmpList.name);
@@ -1208,6 +1225,16 @@ PowerKey.prototype.setListElement_ = function(text) {
  */
 PowerKey.prototype.setDefaultCSSStyle = function() {
   PowerKey.setDefaultCSSStyle();
+};
+
+/**
+ * Returns the status of the PowerKey object.
+ * @return {string} status Indicates whether the completion field is
+ * PowerKey.status.VISIBLE or PowerKey.status.HIDDEN.
+ */
+PowerKey.prototype.getStatus = function() {
+  return (this.cmpFloatElement.className == 'pkVisibleStatus') ?
+      PowerKey.status.VISIBLE : PowerKey.status.HIDDEN;
 };
 
 // Methods in the PowerKey class end here.
@@ -1474,3 +1501,6 @@ PowerKey.status = {
   HIDDEN: 'hidden'
 };
 
+axsjax.common.PowerKey = PowerKey;
+
+goog.exportSymbol('PowerKey', PowerKey);

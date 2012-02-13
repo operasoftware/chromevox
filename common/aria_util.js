@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ goog.provide('cvox.AriaUtil');
 
 
 goog.require('cvox.AbstractEarcons');
+goog.require('cvox.ChromeVox');
 
 
 /**
@@ -44,44 +45,51 @@ cvox.AriaUtil.MIN = 'Min ';
  */
 cvox.AriaUtil.MAX = 'Max ';
 
+/**
+ * A constant indicating no role name.
+ * @type {string}
+ */
+cvox.AriaUtil.NO_ROLE_NAME = ' ';
 
 /**
+ * A mapping from ARIA role names to their message ids.
  * @type {Object.<string, string>}
  */
 cvox.AriaUtil.WIDGET_ROLE_TO_NAME = {
-  'alert' : 'Alert',
-  'alertdialog' : 'Alert dialog',
-  'button' : 'Button',
-  'checkbox' : 'Check box',
-  'columnheader' : 'Column header',
-  'combobox' : 'Combo box',
-  'dialog' : 'Dialog',
-  'grid' : 'Grid',
-  'gridcell' : 'Cell',
-  'link' : 'Link',
-  'listbox' : 'List box',
-  'log' : 'Log',
-  'marquee' : 'Marquee',
-  'menu' : 'Menu',
-  'menubar' : 'Menu bar',
-  'menuitemcheckbox' : 'Menu item check box',
-  'menuitemradio' : 'Menu item radio button',
-  'option': ' ',
-  'progressbar' : 'Progress bar',
-  'radio' : 'Radio button',
-  'radiogroup' : 'Radio button group',
-  'rowheader' : 'Row header',
-  'scrollbar' : 'Scroll bar',
-  'slider' : 'Slider',
-  'spinbutton' : 'Spin button',
-  'status' : 'Status',
-  'tab' : 'Tab',
-  'tabpanel' : 'Tab panel',
-  'textbox' : 'Text box',
-  'timer' : 'Timer',
-  'toolbar' : 'Tool bar',
-  'tooltip' : 'Tool tip',
-  'treeitem' : 'Tree item'
+  'alert' : 'aria_role_alert',
+  'alertdialog' : 'aria_role_alertdialog',
+  'button' : 'aria_role_button',
+  'checkbox' : 'aria_role_checkbox',
+  'columnheader' : 'aria_role_columnheader',
+  'combobox' : 'aria_role_combobox',
+  'dialog' : 'aria_role_dialog',
+  'grid' : 'aria_role_grid',
+  'gridcell' : 'aria_role_gridcell',
+  'link' : 'aria_role_link',
+  'listbox' : 'aria_role_listbox',
+  'log' : 'aria_role_log',
+  'marquee' : 'aria_role_marquee',
+  'menu' : 'aria_role_menu',
+  'menubar' : 'aria_role_menubar',
+  'menuitem' : 'aria_role_menuitem',
+  'menuitemcheckbox' : 'aria_role_menuitemcheckbox',
+  'menuitemradio' : 'aria_role_menuitemradio',
+  'option' : cvox.AriaUtil.NO_ROLE_NAME,
+  'progressbar' : 'aria_role_progressbar',
+  'radio' : 'aria_role_radio',
+  'radiogroup' : 'aria_role_radiogroup',
+  'rowheader' : 'aria_role_rowheader',
+  'scrollbar' : 'aria_role_scrollbar',
+  'slider' : 'aria_role_slider',
+  'spinbutton' : 'aria_role_spinbutton',
+  'status' : 'aria_role_status',
+  'tab' : 'aria_role_tab',
+  'tabpanel' : 'aria_role_tabpanel',
+  'textbox' : 'aria_role_textbox',
+  'timer' : 'aria_role_timer',
+  'toolbar' : 'aria_role_toolbar',
+  'tooltip' : 'aria_role_tooltip',
+  'treeitem' : 'aria_role_treeitem'
 };
 
 
@@ -89,29 +97,29 @@ cvox.AriaUtil.WIDGET_ROLE_TO_NAME = {
  * @type {Object.<string, string>}
  */
 cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME = {
-  'article' : 'Article',
-  'application' : 'Application',
-  'banner' : 'Banner',
-  'columnheader' : 'Column header',
-  'complementary' : 'Complementary',
-  'contentinfo' : 'Content info',
-  'definition' : 'Definition',
-  'directory' : 'Directory',
-  'document' : 'Document',
-  'form' : 'Form',
-  'group' : 'Group',
-  'heading' : 'Heading',
-  'img' : 'Image',
-  'list' : 'List',
-  'listitem' : 'List item',
-  'main' : 'Main',
-  'math' : 'Math',
-  'navigation' : 'Navigation',
-  'note' : 'Note',
-  'region' : 'Region',
-  'rowheader' : 'Row header',
-  'search' : 'Search',
-  'separator' : 'Separator'
+  'article' : 'aria_role_article',
+  'application' : 'aria_role_application',
+  'banner' : 'aria_role_banner',
+  'columnheader' : 'aria_role_columnheader',
+  'complementary' : 'aria_role_complementary',
+  'contentinfo' : 'aria_role_contentinfo',
+  'definition' : 'aria_role_definition',
+  'directory' : 'aria_role_directory',
+  'document' : 'aria_role_document',
+  'form' : 'aria_role_form',
+  'group' : 'aria_role_group',
+  'heading' : 'aria_role_heading',
+  'img' : 'aria_role_img',
+  'list' : 'aria_role_list',
+  'listitem' : 'aria_role_listitem',
+  'main' : 'aria_role_main',
+  'math' : 'aria_role_math',
+  'navigation' : 'aria_role_navigation',
+  'note' : 'aria_role_note',
+  'region' : 'aria_role_region',
+  'rowheader' : 'aria_role_rowheader',
+  'search' : 'aria_role_search',
+  'separator' : 'aria_role_separator'
 };
 
 
@@ -120,26 +128,37 @@ cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME = {
  */
 cvox.AriaUtil.ATTRIBUTE_VALUE_TO_STATUS = [
   { name: 'aria-autocomplete', values:
-        {'inline': 'Autocompletion inline', 'list': 'Autocompletion list',
-          'both': 'Autocompletion inline and list'} },
+      {'inline' : 'aria_autocomplete_inline',
+       'list' : 'aria_autocomplete_list',
+       'both' : 'aria_autocomplete_both'} },
   { name: 'aria-checked', values:
-        {'true': 'Checked', 'false': 'Not checked',
-          'mixed': 'Partially checked'} },
-  { name: 'aria-disabled', values: {'true': 'Disabled'} },
+      {'true' : 'aria_checked_true',
+       'false' : 'aria_checked_false',
+       'mixed' : 'aria_checked_mixed'} },
+  { name: 'aria-disabled', values:
+      {'true' : 'aria_disabled_true'} },
   { name: 'aria-expanded', values:
-        {'true': 'Expanded', 'false': 'Collapsed'} },
+      {'true' : 'aria_expanded_true',
+       'false' : 'aria_expanded_false'} },
   { name: 'aria-invalid', values:
-        {'true': 'Invalid input', 'grammar': 'Grammatical mistake detected',
-          'spelling': 'Spelling mistake detected'} },
-  { name: 'aria-multiline', values: {'true': 'Multi line'} },
-  { name: 'aria-multiselectable', values: {'true': 'Multi select'} },
+      {'true' : 'aria_invalid_true',
+       'grammar' : 'aria_invalid_grammar',
+       'spelling' : 'aria_invalid_spelling'} },
+  { name: 'aria-multiline', values:
+      {'true' : 'aria_multiline_true'} },
+  { name: 'aria-multiselectable', values:
+      {'true' : 'aria_multiselectable_true'} },
   { name: 'aria-pressed', values:
-        {'true': 'Pressed', 'false': 'Not pressed',
-          'mixed': 'Partially pressed'} },
-  { name: 'aria-readonly', values: {'true': 'Read only'} },
-  { name: 'aria-required', values: {'true': 'Required'} },
+      {'true' : 'aria_pressed_true',
+       'false' : 'aria_pressed_false',
+       'mixed' : 'aria_pressed_mixed'} },
+  { name: 'aria-readonly', values:
+      {'true' : 'aria_readonly_true'} },
+  { name: 'aria-required', values:
+      {'true' : 'aria_required_true'} },
   { name: 'aria-selected', values:
-        {'true': 'Selected', 'false': 'Not selected'} }
+      {'true' : 'aria_selected_true',
+       'false' : 'aria_selected_false'} }
 ];
 
 
@@ -207,6 +226,22 @@ cvox.AriaUtil.isDescendantOfRole = function(node, roleName) {
 
 
 /**
+ * Helper function to return the role name message for a role.
+ * @param {string} role The role.
+ * @return {?string} The name of the role, localized.
+ */
+cvox.AriaUtil.getRoleNameForRole_ = function(role) {
+  var msgId = cvox.AriaUtil.WIDGET_ROLE_TO_NAME[role];
+  if (!msgId) {
+    return null;
+  }
+  if (msgId == cvox.AriaUtil.NO_ROLE_NAME) {
+    return ' ';
+  }
+  return cvox.ChromeVox.msgs.getMsg(msgId);
+};
+
+/**
  * Returns a string to be presented to the user that identifies what the
  * targetNode's role is.
  *
@@ -218,9 +253,13 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
   if (targetNode && targetNode.getAttribute) {
     var role = cvox.AriaUtil.getRoleAttribute(targetNode);
     if (role) {
-      roleName = cvox.AriaUtil.WIDGET_ROLE_TO_NAME[role];
+      roleName = cvox.AriaUtil.getRoleNameForRole_(role);
       if (!roleName) {
         roleName = cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME[role];
+        var msgId = cvox.AriaUtil.STRUCTURE_ROLE_TO_NAME[role];
+        if (msgId) {
+          roleName = cvox.ChromeVox.msgs.getMsg(msgId);
+        }
         if ((role == 'heading') && (targetNode.hasAttribute('aria-level'))) {
           roleName = roleName + ' ' + targetNode.getAttribute('aria-level');
         }
@@ -229,6 +268,10 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
 
     // To a user, a menu item within a menu bar is called a "menu";
     // any other menu item is called a "menu item".
+    //
+    // TODO(deboer): This block feels like a hack. dmazzoni suggests
+    // using css-like syntax for names.  Investigate further if
+    // we need more of these hacks.
     if (role == 'menuitem') {
       var container = targetNode.parentElement;
       while (container) {
@@ -240,10 +283,8 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
         container = container.parentElement;
       }
       if (container && cvox.AriaUtil.getRoleAttribute(container) == 'menubar') {
-        roleName = 'Menu';
-      } else {
-        roleName = 'Menu item';
-      }
+        roleName = cvox.AriaUtil.getRoleNameForRole_('menu');
+      }  // else roleName is already 'Menu item', no need to change it.
     }
   }
   if (!roleName) {
@@ -271,9 +312,12 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
   for (var i = 0, attr; attr = cvox.AriaUtil.ATTRIBUTE_VALUE_TO_STATUS[i];
       i++) {
     var value = targetNode.getAttribute(attr.name);
-    var status = attr.values[value];
-    if (status) {
-      state = state + ' ' + status;
+    var msg_id = attr.values[value];
+    if (msg_id) {
+      var status = cvox.ChromeVox.msgs.getMsg(msg_id);
+      if (status) {
+        state = state + ' ' + status;
+      }
     }
   }
   if (targetNode.getAttribute('role') == 'grid') {
@@ -305,7 +349,8 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
   if ((valueNow != null) && (valueMin != null) && (valueMax != null)) {
     if ((role == 'scrollbar') || (role == 'progressbar')) {
       var percent = Math.round((valueNow / (valueMax - valueMin)) * 100);
-      return state + ' ' + percent + '%';
+      return state + ' ' + cvox.ChromeVox.msgs.getMsg('state_percent',
+          [cvox.ChromeVox.msgs.getNumber(percent)]);
     }
   }
 
@@ -342,7 +387,8 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
       while (parentControl &&
              !cvox.AriaUtil.isCompositeControl(parentControl)) {
         parentControl = parentControl.parentElement;
-        if (cvox.AriaUtil.getRoleAttribute(parentControl) == 'treeitem') {
+        if (parentControl &&
+            cvox.AriaUtil.getRoleAttribute(parentControl) == 'treeitem') {
           break;
         }
       }
@@ -388,7 +434,9 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
         }
       }
       if (currentIndex) {
-        state = state + ' ' + currentIndex + ' of ' + descendants.length;
+        state = state + ' ' + cvox.ChromeVox.msgs.getMsg('list_position',
+            [cvox.ChromeVox.msgs.getNumber(currentIndex),
+             cvox.ChromeVox.msgs.getNumber(descendants.length)]);
       }
     }
   }
@@ -823,6 +871,9 @@ cvox.AriaUtil.getEarcon = function(node) {
  * @return {string} role of the targetNode.
  */
 cvox.AriaUtil.getRoleAttribute = function(targetNode) {
+  if (!targetNode.getAttribute) {
+    return '';
+  }
   var role = targetNode.getAttribute('role');
   if (targetNode.hasAttribute('chromevoxoriginalrole')) {
     role = targetNode.getAttribute('chromevoxoriginalrole');

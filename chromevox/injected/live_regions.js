@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,9 +64,10 @@ cvox.LiveRegions.INITIAL_SILENCE_MS = 2000;
  *     updates within the first INITIAL_SILENCE_MS milliseconds are ignored.
  * @param {number} queueMode Interrupt or flush.  Polite live region
  *   changes always queue.
+ * @param {boolean} disableSpeak true if change announcement should be disabled.
  * @return {boolean} true if any regions announced.
  */
-cvox.LiveRegions.init = function(pageLoadTime, queueMode) {
+cvox.LiveRegions.init = function(pageLoadTime, queueMode, disableSpeak) {
   if (queueMode == undefined) {
     queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
@@ -76,7 +77,8 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode) {
   var anyRegionsAnnounced = false;
   var regions = cvox.AriaUtil.getLiveRegions(document.body);
   for (var i = 0; i < regions.length; i++) {
-    if (cvox.LiveRegions.updateLiveRegion(regions[i], queueMode)) {
+    if (cvox.LiveRegions.updateLiveRegion(regions[i], queueMode,
+                                          disableSpeak)) {
       anyRegionsAnnounced = true;
       queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
     }
@@ -91,9 +93,10 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode) {
  * @param {Node} region The live region node that changed.
  * @param {number} queueMode Interrupt or queue. Polite live region
  *   changes always queue.
+ * @param {boolean} disableSpeak true if change announcement should be disabled.
  * @return {boolean} true if the region announced a change.
  */
-cvox.LiveRegions.updateLiveRegion = function(region, queueMode) {
+cvox.LiveRegions.updateLiveRegion = function(region, queueMode, disableSpeak) {
   if (cvox.AriaUtil.getAriaBusy(region)) {
     return false;
   }
@@ -177,8 +180,8 @@ cvox.LiveRegions.updateLiveRegion = function(region, queueMode) {
   // Store the new value of the live region.
   cvox.LiveRegions.previousRegionValue[regionIndex] = currentValue;
 
-  // Return if there's nothing to announce.
-  if (messages.length == 0) {
+  // Return if speak is disabled or there's nothing to announce.
+  if (disableSpeak || messages.length == 0) {
     return false;
   }
 

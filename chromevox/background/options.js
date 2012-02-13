@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,15 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
+goog.require('cvox.ChromeEarcons');
+goog.require('cvox.ChromeHost');
+goog.require('cvox.ChromeMsgs');
+goog.require('cvox.ChromeTts');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxPrefs');
 goog.require('cvox.ExtensionBridge');
-goog.require('cvox.Msgs');
+goog.require('cvox.HostFactory');
+
 
 
 /**
@@ -38,13 +43,56 @@ cvox.OptionsPage = function() {
 cvox.OptionsPage.prefs;
 
 /**
+ * A mapping from keycodes to their human readable text equivalents.
+ * This is initialized in cvox.OptionsPage.init for internationalization.
+ * @type {Object.<string, string>}
+ */
+cvox.OptionsPage.KEYCODE_TO_TEXT = {
+};
+
+/**
+ * A mapping from human readable text to keycode values.
+ * This is initialized in cvox.OptionsPage.init for internationalization.
+ * @type {Object.<string, string>}
+ */
+cvox.OptionsPage.TEXT_TO_KEYCODE = {
+};
+
+/**
  * Initialize the options page by setting the current value of all prefs,
  * building the key bindings table, and adding event listeners.
  */
 cvox.OptionsPage.init = function() {
-  cvox.ChromeVox.msgs = new cvox.Msgs();
+  cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
 
   cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
+
+  cvox.OptionsPage.KEYCODE_TO_TEXT = {
+    '#8' : cvox.ChromeVox.msgs.getMsg('backspace_key'),
+    '#9' : cvox.ChromeVox.msgs.getMsg('tab_key'),
+    '#13' : cvox.ChromeVox.msgs.getMsg('enter_key'),
+    '#32' : cvox.ChromeVox.msgs.getMsg('space_key'),
+    '#37' : cvox.ChromeVox.msgs.getMsg('left_key'),
+    '#38' : cvox.ChromeVox.msgs.getMsg('up_key'),
+    '#39' : cvox.ChromeVox.msgs.getMsg('right_key'),
+    '#40' : cvox.ChromeVox.msgs.getMsg('down_key'),
+    '#186' : ';',
+    '#187' : '=',
+    '#188' : ',',
+    '#189' : '-',
+    '#190' : '.',
+    '#191' : '/',
+    '#192' : '`',
+    '#219' : '[',
+    '#220' : '\\',
+    '#221' : ']',
+    '#222' : '\''
+  };
+
+  for (var key in cvox.OptionsPage.KEYCODE_TO_TEXT) {
+    cvox.OptionsPage.TEXT_TO_KEYCODE[cvox.OptionsPage.KEYCODE_TO_TEXT[key]] =
+        key;
+  }
 
   cvox.OptionsPage.prefs = new cvox.ChromeVoxPrefs();
   cvox.OptionsPage.addKeys();
@@ -109,7 +157,9 @@ cvox.OptionsPage.addKeys = function() {
     inputElem.className = 'key';
     inputElem.name = name;
     inputElem.id = name;
-    inputElem.value = key;
+    var displayedCombo = cvox.OptionsPage.convertBetweenCodesAndText(key,
+          cvox.OptionsPage.KEYCODE_TO_TEXT);
+    inputElem.value = displayedCombo;
 
     var labelElem = document.createElement('label');
     container.appendChild(labelElem);
@@ -128,6 +178,8 @@ cvox.OptionsPage.setValue = function(element, value) {
     element.checked = (value == 'true');
   } else if (element.tagName == 'INPUT' && element.type == 'radio') {
     element.checked = (String(element.value) == value);
+  } else {
+    element.value = value;
   }
 };
 
@@ -154,7 +206,16 @@ cvox.OptionsPage.eventListener = function(event) {
         }
       }
     } else if (target.className == 'key') {
-      var success = cvox.OptionsPage.prefs.setKey(target.name, target.value);
+      var keyCode = cvox.OptionsPage.convertBetweenCodesAndText(target.value,
+          cvox.OptionsPage.TEXT_TO_KEYCODE);
+      var success = false;
+      if (target.name == 'cvoxKey') {
+        // TODO (clchen): Implement a check when setting the modifier key.
+        cvox.OptionsPage.prefs.setPref(target.name, keyCode);
+        success = true;
+      } else {
+        success = cvox.OptionsPage.prefs.setKey(target.name, keyCode);
+      }
       if (success) {
         target.removeAttribute('aria-invalid');
       } else {
@@ -163,6 +224,42 @@ cvox.OptionsPage.eventListener = function(event) {
     }
   }, 0);
   return true;
+};
+
+/**
+ * Converts between keycodes and their human readable text equivalents.
+ * For example, this can convert Ctrl+#186 to Ctrl+; and vice versa.
+ *
+ * @param {string} input The input string which is either a keycode
+ * string or a human readable text string.
+ * @param {Object} conversionTable The conversion table to use. This
+ * will determine which way the conversion is going. Valid conversion
+ * tables are:
+ * cvox.OptionsPage.KEYCODE_TO_TEXT
+ * and
+ * cvox.OptionsPage.TEXT_TO_KEYCODE.
+ * @return {string} The converted string.
+ */
+cvox.OptionsPage.convertBetweenCodesAndText = function(input, conversionTable) {
+  var output = '';
+  var keySequences = input.split('>');
+
+  for (var i = 0, keySequence; keySequence = keySequences[i]; i++) {
+    var keys = keySequence.split('+');
+    for (var j = 0, key; key = keys[j]; j++) {
+      if (conversionTable[key] != null) {
+        key = conversionTable[key];
+      }
+      output = output + key + '+';
+    }
+    // Remove the extra + at the end.
+    output = output.substring(0, output.length - 1);
+    output = output + '>';
+  }
+  // Remove the extra > at the end.
+  output = output.substring(0, output.length - 1);
+
+  return output;
 };
 
 /**

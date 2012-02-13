@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
  */
 
 goog.provide('cvox.AbstractTts');
+
+goog.require('cvox.AbstractLens');
 
 /**
  * Creates a new instance.
@@ -218,10 +220,10 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 
 
 /**
- * Set a chromevis.ChromeVisLens to display any messages spoken via speak().
+ * Set a lens to display any messages spoken via speak().
  * This is an abstract method, meant to be implemented by some subclasses
  * only.
- * @param {Object} lens The chromevis.ChromeVisLens object.
+ * @param {cvox.AbstractLens} lens The lens.
  */
 cvox.AbstractTts.prototype.setLens = function(lens) {
 };
@@ -442,6 +444,60 @@ cvox.AbstractTts.PERSONALITY_EMPHASIS = {
   'relativeRate': -0.1,
   'color': '#6bb',
   'fontWeight': 'bold'
+};
+
+
+/**
+ * TTS personality for H1 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H1 = {
+  'relativePitch': -0.3
+};
+
+
+/**
+ * TTS personality for H2 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H2 = {
+  'relativePitch': -0.25
+};
+
+
+/**
+ * TTS personality for H3 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H3 = {
+  'relativePitch': -0.2
+};
+
+
+/**
+ * TTS personality for H4 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H4 = {
+  'relativePitch': -0.15
+};
+
+
+/**
+ * TTS personality for H5 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H5 = {
+  'relativePitch': -0.10
+};
+
+
+/**
+ * TTS personality for H6 headings
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_H6 = {
+  'relativePitch': -0.05
 };
 
 

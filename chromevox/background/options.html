@@ -19,12 +19,9 @@ input[aria-invalid="true"] {
 
 <script type="text/javascript" src="../../closure/closure_preinit.js"></script>
 <script type="text/javascript" src="../../closure/base.js"></script>
-<script type="text/javascript" src="../../build/build_defs.js"></script>
-<script type="text/javascript" src="../../build/build_config_chrome.js"></script>
-<script type="text/javascript" src="deps.js"></script>
+<script type="text/javascript" src="../../deps.js"></script>
 <script type="text/javascript" src="options.js"></script>
-
-<script type="text/javascript" src="../../chromeVoxChromeOptionsScript.js">
+<script type="text/javascript" src="../../chromeVoxChromeOptionsScript.js">	
 </script>
 
 </head>
@@ -103,7 +100,12 @@ immediately.</p>
 <button id="resetToDefaultKeys" class="i18n" msgid="options_reset_keys">
   Reset to default keys
 </button>
-
+  <label>
+    <input type="text" class="key" name="cvoxKey"
+        class="i18n" msgid="options_cvox_modifier_key">
+    ChromeVox modifier key combination (Cvox)
+  </label>
+  <br>
 <div id="keysContainer">
 
 </div>

@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,13 +45,6 @@ cvox.ChromeVoxEventWatcher = function() {
 cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS = 10;
 
 /**
- * The delay before a mouseover triggers focusing or announcing anything.
- * @const
- * @type {number}
- */
-cvox.ChromeVoxEventWatcher.MOUSEOVER_DELAY_MS = 500;
-
-/**
  * The delay between subsequent calls to the timer function to check
  * focused text controls.
  * @const
@@ -79,6 +72,33 @@ cvox.ChromeVoxEventWatcher.MAX_WAIT_TIME_MS_ = 50;
  */
 cvox.ChromeVoxEventWatcher.WAIT_TIME_MS_ = 10;
 
+/**
+ * Amount of time in ms to wait before considering a subtree modified event to
+ * be the start of a new burst of subtree modified events.
+ * @const
+ * @type {number}
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.SUBTREE_MODIFIED_BURST_DURATION_ = 1000;
+
+
+/**
+ * Number of subtree modified events that are part of the same burst to process
+ * before we give up on processing any more events from that burst.
+ * @const
+ * @type {number}
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.SUBTREE_MODIFIED_BURST_COUNT_LIMIT_ = 3;
+
+
+/**
+ * Maximum number of live regions that we will attempt to process.
+ * @const
+ * @type {number}
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.MAX_LIVE_REGIONS_ = 5;
 
 /**
  * Inits the event watcher and adds listeners.
@@ -151,6 +171,12 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
   cvox.ChromeVoxEventWatcher.focusFollowsMouse = false;
 
   /**
+   * The delay before a mouseover triggers focusing or announcing anything.
+   * @type {number}
+   */
+  cvox.ChromeVoxEventWatcher.mouseoverDelayMs = 500;
+
+  /**
    * Array of events that need to be processed.
    * @type {Array.<Event>}
    * @private
@@ -184,7 +210,36 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
    */
   cvox.ChromeVoxEventWatcher.readyCallbacks_ = new Array();
 
+  /**
+   * Whether or not the ChromeOS Search key (keyCode == 91) is being held.
+   *
+   * We must track this manually because on ChromeOS, the Search key being held
+   * down does not cause keyEvent.metaKey to be set.
+   *
+   * TODO (clchen, dmazzoni): Refactor this since there are edge cases
+   * where manually tracking key down and key up can fail (such as when
+   * the user switches tabs before letting go of the key being held).
+   *
+   * @type {boolean}
+   * @private
+   */
+  cvox.ChromeVoxEventWatcher.searchKeyHeld_ = false;
+
   cvox.ChromeVoxEventWatcher.addEventListeners_(doc);
+
+  /**
+   * The time when the last burst of subtree modified events started
+   * @type {number}
+   * @private
+   */
+  cvox.ChromeVoxEventWatcher.lastSubtreeModifiedEventBurstTime_ = 0;
+
+  /**
+   * The number of subtree modified events in the current burst.
+   * @type {number}
+   * @private
+   */
+  cvox.ChromeVoxEventWatcher.subtreeModifiedEventsCount_ = 0;
 };
 
 /**
@@ -209,12 +264,18 @@ cvox.ChromeVoxEventWatcher.addEvent = function(evt) {
 /**
  * Adds a callback to be called when the event watcher has finished
  * processing all pending events.
+ * @param {Function} cb The callback.
  */
 cvox.ChromeVoxEventWatcher.addReadyCallback = function(cb) {
   cvox.ChromeVoxEventWatcher.readyCallbacks_.push(cb);
   cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_();
 };
 
+/**
+ * Returns whether or not there are pending events.
+ * @return {boolean} Whether or not there are pending events.
+ * @private
+ */
 cvox.ChromeVoxEventWatcher.hasPendingEvents_ = function() {
   return cvox.ChromeVoxEventWatcher.firstUnprocessedEventTime != -1 ||
       cvox.ChromeVoxEventWatcher.queueProcessingScheduled_;
@@ -222,13 +283,13 @@ cvox.ChromeVoxEventWatcher.hasPendingEvents_ = function() {
 
 /**
  * Checks if the event watcher has pending events.  If not, call the oldest
- * readyCallback.
+ * readyCallback in a loop until exhausted or until there are pending events.
  * @private
  */
 cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_ = function() {
-  if (!cvox.ChromeVoxEventWatcher.hasPendingEvents_() &&
-      !cvox.ChromeVoxEventWatcher.queueProcessingScheduled_ &&
-      cvox.ChromeVoxEventWatcher.readyCallbacks_.length > 0) {
+  while (!cvox.ChromeVoxEventWatcher.hasPendingEvents_() &&
+         !cvox.ChromeVoxEventWatcher.queueProcessingScheduled_ &&
+         cvox.ChromeVoxEventWatcher.readyCallbacks_.length > 0) {
     cvox.ChromeVoxEventWatcher.readyCallbacks_.shift()();
   }
 };
@@ -237,14 +298,22 @@ cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_ = function() {
 /**
  * Add all of our event listeners to the document.
  * @param {!Document} doc The DOM document to add event listeners to.
+ * @private
  */
 cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
+  // We always need key listeners.
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'keypress', cvox.ChromeVoxEventWatcher.keyPressEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'keydown', cvox.ChromeVoxEventWatcher.keyDownEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'keyup', cvox.ChromeVoxEventWatcher.keyUpEventWatcher, true);
+
+  // If ChromeVox isn't active, skip all other event listeners.
+  if (!cvox.ChromeVox.isActive) {
+    return;
+  }
+
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'focus', cvox.ChromeVoxEventWatcher.focusEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
@@ -263,7 +332,6 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
       'mouseover', cvox.ChromeVoxEventWatcher.mouseOverEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'mouseout', cvox.ChromeVoxEventWatcher.mouseOutEventWatcher, true);
-
 };
 
 /**
@@ -348,10 +416,12 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
           return;
         }
 
+        var target = /** @type {Node} */(evt.target);
         cvox.DomUtil.setFocus(evt.target);
-        cvox.ChromeVoxEventWatcher.focusEventWatcher(evt);
-        cvox.ChromeVoxEventWatcher.announcedMouseOverNode = evt.target;
-      }, cvox.ChromeVoxEventWatcher.MOUSEOVER_DELAY_MS);
+        cvox.ApiImplementation.syncToNode(target, true,
+            cvox.AbstractTts.QUEUE_MODE_FLUSH);
+        cvox.ChromeVoxEventWatcher.announcedMouseOverNode = target;
+      }, cvox.ChromeVoxEventWatcher.mouseoverDelayMs);
 
   return true;
 };
@@ -458,21 +528,30 @@ cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
+  cvox.ChromeVoxUserCommands.keepReading = false;
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     cvox.ChromeVoxEventWatcher.previousTextHandlerState =
         cvox.ChromeVoxEventWatcher.currentTextHandler.saveState();
   }
   cvox.ChromeVoxEventWatcher.lastKeypressTime = new Date().getTime();
 
-  if (evt.keyCode == cvox.ChromeVox.stickyKeyCode) {
-    cvox.ChromeVoxEventWatcher.cvoxKey = true;
+  if (cvox.ChromeVox.isChromeOS && evt.keyCode == 91) {
+    cvox.ChromeVoxEventWatcher.searchKeyHeld_ = true;
   }
-  evt.cvoxKey = cvox.ChromeVoxEventWatcher.cvoxKey;
-  evt.stickyMode = cvox.ChromeVox.isStickyOn;
+
+  // Store some extra ChromeVox-specific properties in the event.
+  // Use associative array syntax (foo['bar'] rather than foo.bar)
+  // so that the jscompiler doesn't try to rename these.
+  evt['searchKeyHeld'] = cvox.ChromeVoxEventWatcher.searchKeyHeld_;
+  evt['stickyMode'] = cvox.ChromeVox.isStickyOn;
+  evt['keyPrefixOn'] = cvox.ChromeVox.keyPrefixOn;
+
+  cvox.ChromeVox.keyPrefixOn = false;
 
   cvox.ChromeVoxEventWatcher.eventToEat = null;
-  if (!cvox.ChromeVoxKbHandler.basicKeyDownActionsListener(evt) ||
-          cvox.ChromeVoxEventWatcher.handleControlAction(evt)) {
+  if (!cvox.ChromeVox.navigationManager.isChoiceWidgetActive() &&
+      (!cvox.ChromeVoxKbHandler.basicKeyDownActionsListener(evt) ||
+      cvox.ChromeVoxEventWatcher.handleControlAction(evt))) {
     // Swallow the event immediately to prevent the arrow keys
     // from driving controls on the web page.
     evt.preventDefault();
@@ -493,9 +572,8 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyUpEventWatcher = function(evt) {
-  if (evt.keyCode == cvox.ChromeVox.stickyKeyCode) {
-    // Treat LWin/Search key as a modifier key only on ChromeOS
-    cvox.ChromeVoxEventWatcher.cvoxKey = false;
+  if (evt.keyCode == 91) {
+    cvox.ChromeVoxEventWatcher.searchKeyHeld_ = false;
   }
   if (cvox.ChromeVoxEventWatcher.eventToEat &&
       evt.keyCode == cvox.ChromeVoxEventWatcher.eventToEat.keyCode) {
@@ -580,14 +658,37 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher = function(evt) {
  * @param {Event} evt The event to handle.
  */
 cvox.ChromeVoxEventWatcher.subtreeModifiedHandler = function(evt) {
+  // Subtree modified events can happen in bursts. If several events happen at
+  // the same time, trying to process all of them will slow ChromeVox to
+  // a crawl and make the page itself unresponsive (ie, Google+).
+  // Before processing subtree modified events, make sure that it is not part of
+  // a large burst of events.
+  // TODO (clchen): Revisit this after the DOM mutation events are
+  // available in Chrome.
+  var currentTime = new Date().getTime();
+
+  if ((cvox.ChromeVoxEventWatcher.lastSubtreeModifiedEventBurstTime_ +
+      cvox.ChromeVoxEventWatcher.SUBTREE_MODIFIED_BURST_DURATION_) >
+      currentTime) {
+    cvox.ChromeVoxEventWatcher.subtreeModifiedEventsCount_++;
+    if (cvox.ChromeVoxEventWatcher.subtreeModifiedEventsCount_ >
+        cvox.ChromeVoxEventWatcher.SUBTREE_MODIFIED_BURST_COUNT_LIMIT_) {
+      return;
+    }
+  } else {
+    cvox.ChromeVoxEventWatcher.lastSubtreeModifiedEventBurstTime_ = currentTime;
+    cvox.ChromeVoxEventWatcher.subtreeModifiedEventsCount_ = 1;
+  }
+
   if (!evt || !evt.target) {
     return;
   }
   var target = /** @type {Element} */ evt.target;
   var regions = cvox.AriaUtil.getLiveRegions(target);
-  for (var i = 0; i < regions.length; i++) {
+  for (var i = 0; (i < regions.length) &&
+      (i < cvox.ChromeVoxEventWatcher.MAX_LIVE_REGIONS_); i++) {
     cvox.LiveRegions.updateLiveRegion(
-        regions[i], cvox.AbstractTts.QUEUE_MODE_FLUSH);
+        regions[i], cvox.AbstractTts.QUEUE_MODE_FLUSH, false);
   }
 };
 
@@ -629,11 +730,12 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
       cvox.ChromeVoxEventWatcher.currentTextHandler =
           new cvox.ChromeVoxEditableTextArea(currentFocus, cvox.ChromeVox.tts);
-    } else if (currentFocus.isContentEditable) {
+    } else if (currentFocus.isContentEditable ||
+               currentFocus.getAttribute('role') == 'textbox') {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
       cvox.ChromeVoxEventWatcher.currentTextHandler =
           new cvox.ChromeVoxEditableContentEditable(currentFocus,
-          cvox.ChromeVox.tts);
+              cvox.ChromeVox.tts);
     }
 
     if (cvox.ChromeVoxEventWatcher.currentTextControl) {
@@ -868,7 +970,10 @@ cvox.ChromeVoxEventWatcher.handleDialogFocus = function(target) {
 /**
  * Returns true if we should wait to process events.
  * @param {number} lastFocusTimestamp The timestamp of the last focus event.
+ * @param {number} firstTimestamp The timestamp of the first event.
  * @param {number} currentTime The current timestamp.
+ * @return {boolean} True if we should wait to process events.
+ * @private
  */
 cvox.ChromeVoxEventWatcher.shouldWaitToProcess_ = function(
     lastFocusTimestamp, firstTimestamp, currentTime) {

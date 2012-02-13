@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,62 +20,15 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
-goog.provide('Cursor');
-
-/**
- * A class to represent a cursor location in the document,
- * like the start position or end position of a selection range.
- *
- * Later this may be extended to support "virtual text" for an object,
- * like the ALT text for an image.
- *
- * Note: we cache the text of a particular node at the time we
- * traverse into it. Later we should add support for dynamically
- * reloading it.
- * @param {Node} node The DOM node.
- * @param {number} index The index of the character within the node.
- * @param {string} text The cached text contents of the node.
- * @constructor
- */
-Cursor = function(node, index, text) {
-  this.node = node;
-  this.index = index;
-  this.text = text;
-};
-
-/**
- * @return {Cursor} A new cursor pointing to the same location.
- */
-Cursor.prototype.clone = function() {
-  return new Cursor(this.node, this.index, this.text);
-};
-
-/**
- * Modify this cursor to point to the location that another cursor points to.
- * @param {Cursor} otherCursor The cursor to copy from.
- */
-Cursor.prototype.copyFrom = function(otherCursor) {
-  this.node = otherCursor.node;
-  this.index = otherCursor.index;
-  this.text = otherCursor.text;
-};
-
 goog.provide('cvox.TraverseUtil');
 
+goog.require('cvox.Cursor');
 
 /**
  * Utility functions for stateless DOM traversal.
  * @constructor
  */
 cvox.TraverseUtil = function() {};
-
-/**
- * The name of the class that indicates an element and descendant elements
- * should not be traversed.
- * @type {string}
- * @const
- */
-cvox.TraverseUtil.SKIP_CLASS = 'Axs_Chrome_Skip';
 
 /**
  * Gets the text representation of a node. This allows us to substitute
@@ -126,8 +79,8 @@ cvox.TraverseUtil.isWhitespace = function(c) {
 
 /**
  * Set the selection to the range between the given start and end cursors.
- * @param {Cursor} start The desired start of the selection.
- * @param {Cursor} end The desired end of the selection.
+ * @param {cvox.Cursor} start The desired start of the selection.
+ * @param {cvox.Cursor} end The desired end of the selection.
  * @return {Selection} the selection object.
  */
 cvox.TraverseUtil.setSelection = function(start, end) {
@@ -148,22 +101,22 @@ cvox.TraverseUtil.setSelection = function(start, end) {
  * @return {boolean} Whether or not the html node is visible.
  */
 cvox.TraverseUtil.isVisible = function(node) {
-  if (!node.style)
+  if (!node.style) {
     return true;
+  }
   var style = window.getComputedStyle(/** @type {Element} */(node), null);
   return (!!style && style.display != 'none' && style.visibility != 'hidden');
 };
 
 /**
- * Use the class name to figure out if this DOM node should be traversed.
- * @param {Node} node A HTML DOM node.
+ * Check if this DOM node has the attribute aria-hidden='true', which should
+ * hide it from screen readers.
+ * @param {Node} node An HTML DOM node.
  * @return {boolean} Whether or not the html node should be traversed.
  */
-cvox.TraverseUtil.isSkipped = function(node) {
-  // Any node that is a descendant of a node with the blacklisted class
-  // will not be traversed.
-  if (cvox.DomUtil.isDescendantOf(node, null,
-      cvox.TraverseUtil.SKIP_CLASS)) {
+cvox.TraverseUtil.isHidden = function(node) {
+  if (node instanceof HTMLElement &&
+      node.getAttribute('aria-hidden') == 'true') {
     return true;
   }
   return false;
@@ -171,23 +124,26 @@ cvox.TraverseUtil.isSkipped = function(node) {
 
 /**
  * Moves the cursor forwards until it has crossed exactly one character.
- * @param {Cursor} cursor The cursor location where the search should start.
- *     On exit, the cursor will be immediately to the right of the
+ * @param {cvox.Cursor} cursor The cursor location where the search should
+ *     start.  On exit, the cursor will be immediately to the right of the
  *     character returned.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The character found, or null if the bottom of the
  *     document has been reached.
  */
-cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
+cvox.TraverseUtil.forwardsChar = function(
+    cursor, elementsEntered, elementsLeft) {
   while (true) {
     // Move down until we get to a leaf node.
     var childNode = null;
     if (!cvox.TraverseUtil.treatAsLeafNode(cursor.node)) {
       for (var i = cursor.index; i < cursor.node.childNodes.length; i++) {
         var node = cursor.node.childNodes[i];
-        if (cvox.TraverseUtil.isSkipped(node)) {
-          nodesCrossed.push(node);
+        if (cvox.TraverseUtil.isHidden(node)) {
+          if (node instanceof HTMLElement) {
+            elementsEntered.push(node);
+          }
           continue;
         }
         if (cvox.TraverseUtil.isVisible(node)) {
@@ -200,8 +156,8 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
       cursor.node = childNode;
       cursor.index = 0;
       cursor.text = cvox.TraverseUtil.getNodeText(cursor.node);
-      if (cursor.node.constructor != Text) {
-        nodesCrossed.push(cursor.node);
+      if (cursor.node instanceof HTMLElement) {
+        elementsEntered.push(cursor.node);
       }
       continue;
     }
@@ -217,8 +173,10 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
       for (var node = cursor.node.nextSibling;
            node != null;
            node = node.nextSibling) {
-        if (cvox.TraverseUtil.isSkipped(node)) {
-          nodesCrossed.push(node);
+        if (cvox.TraverseUtil.isHidden(node)) {
+          if (node instanceof HTMLElement) {
+            elementsEntered.push(node);
+          }
           continue;
         }
         if (cvox.TraverseUtil.isVisible(node)) {
@@ -227,13 +185,17 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
         }
       }
       if (siblingNode) {
+        if (cursor.node instanceof HTMLElement) {
+          elementsLeft.push(cursor.node);
+        }
+
         cursor.node = siblingNode;
         cursor.text = cvox.TraverseUtil.getNodeText(siblingNode);
         cursor.index = 0;
 
-        if (cursor.node.constructor != Text) {
-          nodesCrossed.push(cursor.node);
-	}
+        if (cursor.node instanceof HTMLElement) {
+          elementsEntered.push(cursor.node);
+        }
 
         break;
       }
@@ -241,6 +203,9 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
       // Otherwise, move to the parent.
       if (cursor.node.parentNode &&
           cursor.node.parentNode.constructor != HTMLBodyElement) {
+        if (cursor.node instanceof HTMLElement) {
+          elementsLeft.push(cursor.node);
+        }
         cursor.node = cursor.node.parentNode;
         cursor.text = null;
         cursor.index = 0;
@@ -253,23 +218,26 @@ cvox.TraverseUtil.forwardsChar = function(cursor, nodesCrossed) {
 
 /**
  * Moves the cursor backwards until it has crossed exactly one character.
- * @param {Cursor} cursor The cursor location where the search should start.
- *     On exit, the cursor will be immediately to the left of the
+ * @param {cvox.Cursor} cursor The cursor location where the search should
+ *     start.  On exit, the cursor will be immediately to the left of the
  *     character returned.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The previous character, or null if the top of the
  *     document has been reached.
  */
-cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
+cvox.TraverseUtil.backwardsChar = function(
+    cursor, elementsEntered, elementsLeft) {
   while (true) {
     // Move down until we get to a leaf node.
     var childNode = null;
     if (!cvox.TraverseUtil.treatAsLeafNode(cursor.node)) {
       for (var i = cursor.index - 1; i >= 0; i--) {
         var node = cursor.node.childNodes[i];
-        if (cvox.TraverseUtil.isSkipped(node)) {
-          nodesCrossed.push(node);
+        if (cvox.TraverseUtil.isHidden(node)) {
+          if (node instanceof HTMLElement) {
+            elementsEntered.push(node);
+          }
           continue;
         }
         if (cvox.TraverseUtil.isVisible(node)) {
@@ -285,8 +253,9 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
         cursor.index = cursor.text.length;
       else
         cursor.index = cursor.node.childNodes.length;
-      if (cursor.node.constructor != Text)
-        nodesCrossed.push(cursor.node);
+      if (cursor.node instanceof HTMLElement) {
+        elementsEntered.push(cursor.node);
+      }
       continue;
     }
 
@@ -302,8 +271,10 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
       for (var node = cursor.node.previousSibling;
            node != null;
            node = node.previousSibling) {
-        if (cvox.TraverseUtil.isSkipped(node)) {
-          nodesCrossed.push(node);
+        if (cvox.TraverseUtil.isHidden(node)) {
+          if (node instanceof HTMLElement) {
+            elementsEntered.push(node);
+          }
           continue;
         }
         if (cvox.TraverseUtil.isVisible(node)) {
@@ -312,20 +283,29 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
         }
       }
       if (siblingNode) {
+        if (cursor.node instanceof HTMLElement) {
+          elementsLeft.push(cursor.node);
+        }
+
         cursor.node = siblingNode;
         cursor.text = cvox.TraverseUtil.getNodeText(siblingNode);
         if (cursor.text.length)
           cursor.index = cursor.text.length;
         else
           cursor.index = cursor.node.childNodes.length;
-        if (cursor.node.constructor != Text)
-          nodesCrossed.push(cursor.node);
+
+        if (cursor.node instanceof HTMLElement) {
+          elementsEntered.push(cursor.node);
+        }
         break;
       }
 
       // Otherwise, move to the parent.
       if (cursor.node.parentNode &&
           cursor.node.parentNode.constructor != HTMLBodyElement) {
+        if (cursor.node instanceof HTMLElement) {
+          elementsLeft.push(cursor.node);
+        }
         cursor.node = cursor.node.parentNode;
         cursor.text = null;
         cursor.index = 0;
@@ -342,11 +322,12 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
  * true, will skip until a real character is found. Otherwise, it will
  * attempt to select all of the whitespace between the initial position
  * of endCursor and the next non-whitespace character.
- * @param {Cursor} startCursor On exit, points to the position before
+ * @param {cvox.Cursor} startCursor On exit, points to the position before
  *     the char.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     char.  On exit, will point to the position past the char.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  *     initial and final cursor position will be pushed onto this array.
  * @param {boolean} skipWhitespace If true, will keep scanning until a
  *     non-whitespace character is found.
@@ -354,11 +335,12 @@ cvox.TraverseUtil.backwardsChar = function(cursor, nodesCrossed) {
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextChar = function(
-    startCursor, endCursor, nodesCrossed, skipWhitespace) {
+    startCursor, endCursor, elementsEntered, elementsLeft, skipWhitespace) {
 
   // Save the starting position and get the first character.
   startCursor.copyFrom(endCursor);
-  var c = cvox.TraverseUtil.forwardsChar(endCursor, nodesCrossed);
+  var c = cvox.TraverseUtil.forwardsChar(
+      endCursor, elementsEntered, elementsLeft);
   if (c == null)
     return null;
 
@@ -367,8 +349,9 @@ cvox.TraverseUtil.getNextChar = function(
 
   // Keep scanning until we find a non-whitespace or non-skipped character.
   while ((cvox.TraverseUtil.isWhitespace(c)) ||
-      (cvox.TraverseUtil.isSkipped(endCursor.node))) {
-    c = cvox.TraverseUtil.forwardsChar(endCursor, nodesCrossed);
+      (cvox.TraverseUtil.isHidden(endCursor.node))) {
+    c = cvox.TraverseUtil.forwardsChar(
+        endCursor, elementsEntered, elementsLeft);
     if (c == null)
       return null;
   }
@@ -380,8 +363,8 @@ cvox.TraverseUtil.getNextChar = function(
     return c;
   }
   else {
-    for (var i = 0; i < nodesCrossed.length; i++) {
-      if (cvox.TraverseUtil.isSkipped(nodesCrossed[i])) {
+    for (var i = 0; i < elementsEntered.length; i++) {
+      if (cvox.TraverseUtil.isHidden(elementsEntered[i])) {
         // We need to make sure that startCursor and endCursor aren't
         // surrounding a skippable node.
         endCursor.index--;
@@ -402,11 +385,12 @@ cvox.TraverseUtil.getNextChar = function(
  * If skipWhitespace is true, will skip until a real character is found.
  * Otherwise, it will attempt to select all of the whitespace between
  * the initial position of endCursor and the next non-whitespace character.
- * @param {Cursor} startCursor The position to start searching for the
+ * @param {cvox.Cursor} startCursor The position to start searching for the
  *     char. On exit, will point to the position before the char.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     char. On exit, will point to the position past the char.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  *     initial and final cursor position will be pushed onto this array.
  * @param {boolean} skipWhitespace If true, will keep scanning until a
  *     non-whitespace character is found.
@@ -414,11 +398,12 @@ cvox.TraverseUtil.getNextChar = function(
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousChar = function(
-    startCursor, endCursor, nodesCrossed, skipWhitespace) {
+    startCursor, endCursor, elementsEntered, elementsLeft, skipWhitespace) {
 
   // Save the starting position and get the first character.
   endCursor.copyFrom(startCursor);
-  var c = cvox.TraverseUtil.backwardsChar(startCursor, nodesCrossed);
+  var c = cvox.TraverseUtil.backwardsChar(
+      startCursor, elementsEntered, elementsLeft);
   if (c == null)
     return null;
 
@@ -427,8 +412,9 @@ cvox.TraverseUtil.getPreviousChar = function(
 
   // Keep scanning until we find a non-whitespace or non-skipped character.
   while ((cvox.TraverseUtil.isWhitespace(c)) ||
-      (cvox.TraverseUtil.isSkipped(startCursor.node))) {
-    c = cvox.TraverseUtil.backwardsChar(startCursor, nodesCrossed);
+      (cvox.TraverseUtil.isHidden(startCursor.node))) {
+    c = cvox.TraverseUtil.backwardsChar(
+        startCursor, elementsEntered, elementsLeft);
     if (c == null)
       return null;
   }
@@ -439,8 +425,8 @@ cvox.TraverseUtil.getPreviousChar = function(
     endCursor.index++;
     return c;
   } else {
-    for (var i = 0; i < nodesCrossed.length; i++) {
-      if (cvox.TraverseUtil.isSkipped(nodesCrossed[i])) {
+    for (var i = 0; i < elementsEntered.length; i++) {
+      if (cvox.TraverseUtil.isHidden(elementsEntered[i])) {
         startCursor.index++;
         endCursor.copyFrom(startCursor);
         endCursor.index++;
@@ -457,26 +443,26 @@ cvox.TraverseUtil.getPreviousChar = function(
  * Finds the next word, starting from endCursor.  Upon exit, startCursor
  * and endCursor will surround the next word.  A word is defined to be
  * a string of 1 or more non-whitespace characters in the same DOM node.
- * @param {Cursor} startCursor On exit, will point to the beginning of the
+ * @param {cvox.Cursor} startCursor On exit, will point to the beginning of the
  *     word returned.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     word.  On exit, will point to the end of the word returned.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The next word, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextWord = function(startCursor, endCursor,
-    nodesCrossed) {
+    elementsEntered, elementsLeft) {
 
   // Find the first non-whitespace or non-skipped character.
   var cursor = endCursor.clone();
-  var c = cvox.TraverseUtil.forwardsChar(cursor, nodesCrossed);
+  var c = cvox.TraverseUtil.forwardsChar(cursor, elementsEntered, elementsLeft);
   if (c == null)
     return null;
   while ((cvox.TraverseUtil.isWhitespace(c)) ||
-      (cvox.TraverseUtil.isSkipped(cursor.node))) {
-    c = cvox.TraverseUtil.forwardsChar(cursor, nodesCrossed);
+      (cvox.TraverseUtil.isHidden(cursor.node))) {
+    c = cvox.TraverseUtil.forwardsChar(cursor, elementsEntered, elementsLeft);
     if (c == null)
       return null;
   }
@@ -493,20 +479,23 @@ cvox.TraverseUtil.getNextWord = function(startCursor, endCursor,
   // word goes up until the tag boundary but not past it.
   endCursor.copyFrom(cursor);
   var word = c;
-  var newNodesCrossed = [];
-  c = cvox.TraverseUtil.forwardsChar(cursor, newNodesCrossed);
+  var newEntered = [];
+  var newLeft = [];
+  c = cvox.TraverseUtil.forwardsChar(cursor, newEntered, newLeft);
   if (c == null) {
     return word;
   }
   while (!cvox.TraverseUtil.isWhitespace(c) &&
-     newNodesCrossed.length == 0) {
+         newEntered.length == 0 &&
+         newLeft == 0) {
     word += c;
     endCursor.copyFrom(cursor);
-    c = cvox.TraverseUtil.forwardsChar(cursor, newNodesCrossed);
+    c = cvox.TraverseUtil.forwardsChar(cursor, newEntered, newLeft);
     if (c == null) {
       return word;
     }
   }
+
   return word;
 };
 
@@ -514,26 +503,27 @@ cvox.TraverseUtil.getNextWord = function(startCursor, endCursor,
  * Finds the previous word, starting from startCursor.  Upon exit, startCursor
  * and endCursor will surround the previous word.  A word is defined to be
  * a string of 1 or more non-whitespace characters in the same DOM node.
- * @param {Cursor} startCursor The position to start searching for the
+ * @param {cvox.Cursor} startCursor The position to start searching for the
  *     previous word.  On exit, will point to the beginning of the
  *     word returned.
- * @param {Cursor} endCursor On exit, will point to the end of the
+ * @param {cvox.Cursor} endCursor On exit, will point to the end of the
  *     word returned.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The previous word, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousWord = function(startCursor, endCursor,
-    nodesCrossed) {
+    elementsEntered, elementsLeft) {
   // Find the first non-whitespace or non-skipped character.
   var cursor = startCursor.clone();
-  var c = cvox.TraverseUtil.backwardsChar(cursor, nodesCrossed);
+  var c = cvox.TraverseUtil.backwardsChar(
+      cursor, elementsEntered, elementsLeft);
   if (c == null)
     return null;
   while ((cvox.TraverseUtil.isWhitespace(c) ||
-      (cvox.TraverseUtil.isSkipped(cursor.node)))) {
-    c = cvox.TraverseUtil.backwardsChar(cursor, nodesCrossed);
+      (cvox.TraverseUtil.isHidden(cursor.node)))) {
+    c = cvox.TraverseUtil.backwardsChar(cursor, elementsEntered, elementsLeft);
     if (c == null)
       return null;
   }
@@ -549,15 +539,18 @@ cvox.TraverseUtil.getPreviousWord = function(startCursor, endCursor,
   // word goes up until the tag boundary but not past it.
   startCursor.copyFrom(cursor);
   var word = c;
-  var newNodesCrossed = [];
-  c = cvox.TraverseUtil.backwardsChar(cursor, newNodesCrossed);
+  var newEntered = [];
+  var newLeft = [];
+  c = cvox.TraverseUtil.backwardsChar(cursor, newEntered, newLeft);
   if (c == null)
     return word;
   while (!cvox.TraverseUtil.isWhitespace(c) &&
-      newNodesCrossed.length == 0) {
+         newEntered.length == 0 &&
+         newLeft.length == 0) {
     word = c + word;
     startCursor.copyFrom(cursor);
-    c = cvox.TraverseUtil.backwardsChar(cursor, newNodesCrossed);
+
+    c = cvox.TraverseUtil.backwardsChar(cursor, newEntered, newLeft);
     if (c == null)
       return word;
   }
@@ -565,38 +558,64 @@ cvox.TraverseUtil.getPreviousWord = function(startCursor, endCursor,
   return word;
 };
 
+
+/**
+ * Given elements entered and left, and break tags, returns true if the
+ *     current word should break.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
+ * @param {Object.<string, boolean>} breakTags Associative array of tags
+ *     that should break.
+ * @return {boolean} True if elementsEntered or elementsLeft include an
+ *     element with one of these tags.
+ */
+cvox.TraverseUtil.includesBreakTagOrSkippedNode = function(
+    elementsEntered, elementsLeft, breakTags) {
+  for (var i = 0; i < elementsEntered.length; i++) {
+    if (cvox.TraverseUtil.isHidden(elementsEntered[i])) {
+      return true;
+    }
+    var style = window.getComputedStyle(elementsEntered[i], null);
+    if ((style && style.display != 'inline') ||
+        breakTags[elementsEntered[i].tagName]) {
+      return true;
+    }
+  }
+  for (i = 0; i < elementsLeft.length; i++) {
+    var style = window.getComputedStyle(elementsLeft[i], null);
+    if ((style && style.display != 'inline') ||
+        breakTags[elementsLeft[i].tagName]) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
 /**
  * Finds the next sentence, starting from endCursor.  Upon exit,
  * startCursor and endCursor will surround the next sentence.
  *
- * @param {Cursor} startCursor On exit, marks the beginning of the sentence.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor On exit, marks the beginning of the
+ *     sentence.
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     sentence.  On exit, will point to the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
- * @param {Object} breakTags Associative array of tags that should break
- *     the sentence.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
+ * @param {Object.<string, boolean>} breakTags Associative array of tags
+ *     that should break the sentence.
  * @return {?string} The next sentence, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextSentence = function(
-    startCursor, endCursor, nodesCrossed, breakTags) {
+    startCursor, endCursor, elementsEntered, elementsLeft, breakTags) {
   return cvox.TraverseUtil.getNextString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
         if (str.substr(-1) == '.')
           return true;
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
-            return true;
-          }
-          var style = window.getComputedStyle(nodes[i], null);
-          if (style && (style.display != 'inline' ||
-                        breakTags[nodes[i].tagName])) {
-            return true;
-          }
-        }
-        return false;
+        return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
+            elementsEntered, elementsLeft, breakTags);
       });
 };
 
@@ -604,34 +623,25 @@ cvox.TraverseUtil.getNextSentence = function(
  * Finds the previous sentence, starting from startCursor.  Upon exit,
  * startCursor and endCursor will surround the previous sentence.
  *
- * @param {Cursor} startCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor The position to start searching for the next
  *     sentence.  On exit, will point to the start of the returned string.
- * @param {Cursor} endCursor On exit, the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
- * @param {Object} breakTags Associative array of tags that should break
- *     the sentence.
+ * @param {cvox.Cursor} endCursor On exit, the end of the returned string.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
+ * @param {Object.<string, boolean>} breakTags Associative array of tags
+ *     that should break the sentence.
  * @return {?string} The previous sentence, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousSentence = function(
-    startCursor, endCursor, nodesCrossed, breakTags) {
+    startCursor, endCursor, elementsEntered, elementsLeft, breakTags) {
   return cvox.TraverseUtil.getPreviousString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
         if (word.substr(-1) == '.')
           return true;
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
-            return true;
-          }
-          var style = window.getComputedStyle(nodes[i], null);
-          if (style && (style.display != 'inline' ||
-                        breakTags[nodes[i].tagName])) {
-            return true;
-          }
-        }
-        return false;
+        return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
+            elementsEntered, elementsLeft, breakTags);
       });
 };
 
@@ -639,35 +649,27 @@ cvox.TraverseUtil.getPreviousSentence = function(
  * Finds the next line, starting from endCursor.  Upon exit,
  * startCursor and endCursor will surround the next line.
  *
- * @param {Cursor} startCursor On exit, marks the beginning of the line.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor On exit, marks the beginning of the line.
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     line.  On exit, will point to the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @param {number} lineLength The maximum number of characters in a line.
- * @param {Object} breakTags Associative array of tags that should break
- *     the line.
+ * @param {Object.<string, boolean>} breakTags Associative array of tags
+ *     that should break the line.
  * @return {?string} The next line, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextLine = function(
-    startCursor, endCursor, nodesCrossed, lineLength, breakTags) {
+    startCursor, endCursor, elementsEntered, elementsLeft, lineLength,
+    breakTags) {
   return cvox.TraverseUtil.getNextString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
         if (str.length + word.length + 1 > lineLength)
           return true;
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
-            return true;
-          }
-          var style = window.getComputedStyle(nodes[i], null);
-          if (style && (style.display != 'inline' ||
-                        breakTags[nodes[i].tagName])) {
-            return true;
-          }
-        }
-        return false;
+        return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
+            elementsEntered, elementsLeft, breakTags);
       });
 };
 
@@ -675,35 +677,27 @@ cvox.TraverseUtil.getNextLine = function(
  * Finds the previous line, starting from startCursor.  Upon exit,
  * startCursor and endCursor will surround the previous line.
  *
- * @param {Cursor} startCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor The position to start searching for the next
  *     line.  On exit, will point to the start of the returned string.
- * @param {Cursor} endCursor On exit, the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {cvox.Cursor} endCursor On exit, the end of the returned string.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @param {number} lineLength The maximum number of characters in a line.
- * @param {Object} breakTags Associative array of tags that should break
- *     the sentence.
+ * @param {Object.<string, boolean>} breakTags Associative array of tags
+ *     that should break the line.
  *  @return {?string} The previous line, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousLine = function(
-    startCursor, endCursor, nodesCrossed, lineLength, breakTags) {
+    startCursor, endCursor, elementsEntered, elementsLeft, lineLength,
+    breakTags) {
   return cvox.TraverseUtil.getPreviousString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
         if (str.length + word.length + 1 > lineLength)
           return true;
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
-            return true;
-          }
-          var style = window.getComputedStyle(nodes[i], null);
-          if (style && (style.display != 'inline' ||
-                        breakTags[nodes[i].tagName])) {
-            return true;
-          }
-        }
-        return false;
+        return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
+            elementsEntered, elementsLeft, breakTags);
       });
 };
 
@@ -711,24 +705,31 @@ cvox.TraverseUtil.getPreviousLine = function(
  * Finds the next paragraph, starting from endCursor.  Upon exit,
  * startCursor and endCursor will surround the next paragraph.
  *
- * @param {Cursor} startCursor On exit, marks the beginning of the paragraph.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor On exit, marks the beginning of the
+ *     paragraph.
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     paragraph.  On exit, will point to the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The next paragraph, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextParagraph = function(startCursor, endCursor,
-    nodesCrossed) {
+    elementsEntered, elementsLeft) {
   return cvox.TraverseUtil.getNextString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
+        for (var i = 0; i < elementsEntered.length; i++) {
+          if (cvox.TraverseUtil.isHidden(elementsEntered[i])) {
             return true;
           }
-          var style = window.getComputedStyle(nodes[i], null);
+          var style = window.getComputedStyle(elementsEntered[i], null);
+          if (style && style.display != 'inline') {
+            return true;
+          }
+        }
+        for (i = 0; i < elementsLeft.length; i++) {
+          var style = window.getComputedStyle(elementsLeft[i], null);
           if (style && style.display != 'inline') {
             return true;
           }
@@ -741,24 +742,30 @@ cvox.TraverseUtil.getNextParagraph = function(startCursor, endCursor,
  * Finds the previous paragraph, starting from startCursor.  Upon exit,
  * startCursor and endCursor will surround the previous paragraph.
  *
- * @param {Cursor} startCursor The position to start searching for the next
+ * @param {cvox.Cursor} startCursor The position to start searching for the next
  *     paragraph.  On exit, will point to the start of the returned string.
- * @param {Cursor} endCursor On exit, the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
+ * @param {cvox.Cursor} endCursor On exit, the end of the returned string.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
  * @return {?string} The previous paragraph, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousParagraph = function(
-    startCursor, endCursor, nodesCrossed) {
+    startCursor, endCursor, elementsEntered, elementsLeft) {
   return cvox.TraverseUtil.getPreviousString(
-      startCursor, endCursor, nodesCrossed,
-      function(str, word, nodes) {
-        for (var i = 0; i < nodes.length; i++) {
-          if (cvox.TraverseUtil.isSkipped(nodes[i])) {
+      startCursor, endCursor, elementsEntered, elementsLeft,
+      function(str, word, elementsEntered, elementsLeft) {
+        for (var i = 0; i < elementsEntered.length; i++) {
+          if (cvox.TraverseUtil.isHidden(elementsEntered[i])) {
             return true;
           }
-          var style = window.getComputedStyle(nodes[i], null);
+          var style = window.getComputedStyle(elementsEntered[i], null);
+          if (style && style.display != 'inline') {
+            return true;
+          }
+        }
+        for (i = 0; i < elementsLeft.length; i++) {
+          var style = window.getComputedStyle(elementsLeft[i], null);
           if (style && style.display != 'inline') {
             return true;
           }
@@ -776,56 +783,60 @@ cvox.TraverseUtil.getPreviousParagraph = function(
  * Finds the next contiguous string, starting from endCursor.  Upon exit,
  * startCursor and endCursor will surround the next string.
  *
- * The breakBefore function takes three parameters, and
+ * The breakBefore function takes four parameters, and
  * should return true if the string should be broken before the proposed
  * next word:
  *   str The string so far.
  *   word The next word to be added.
- *   nodesCrossed The nodes crossed in reaching this next word.
+ *   elementsEntered The elements entered in reaching this next word.
+ *   elementsLeft The elements left in reaching this next word.
  *
- * @param {Cursor} startCursor On exit, will point to the beginning of the
+ * @param {cvox.Cursor} startCursor On exit, will point to the beginning of the
  *     next string.
- * @param {Cursor} endCursor The position to start searching for the next
+ * @param {cvox.Cursor} endCursor The position to start searching for the next
  *     string.  On exit, will point to the end of the returned string.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
- * @param {function(string, string, Array.<string>)} breakBefore
- *     Function that takes the string so far, next word to be added, and
- *     nodes crossed, and returns true if the string should be ended before
- *     adding this word.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
+ * @param {function(string, string, Array.<Element>, Array.<Element>)}
+ *     breakBefore Function that takes the string so far, next word to be
+ *     added, and elements entered and left, and returns true if the string
+ *     should be ended before adding this word.
  * @return {?string} The next string, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextString = function(
-    startCursor, endCursor, nodesCrossed, breakBefore) {
+    startCursor, endCursor, elementsEntered, elementsLeft, breakBefore) {
   // Get the first word and set the start cursor to the start of the
   // first word.
   var wordStartCursor = endCursor.clone();
   var wordEndCursor = endCursor.clone();
-  var newNodesCrossed = [];
+  var newEntered = [];
+  var newLeft = [];
   var str = '';
   var word = cvox.TraverseUtil.getNextWord(
-      wordStartCursor, wordEndCursor, newNodesCrossed);
+      wordStartCursor, wordEndCursor, newEntered, newLeft);
   if (word == null)
     return null;
   startCursor.copyFrom(wordStartCursor);
 
   // Always add the first word when the string is empty, and then keep
   // adding more words as long as breakBefore returns false
-  while (!str || !breakBefore(str, word, newNodesCrossed)) {
+  while (!str || !breakBefore(str, word, newEntered, newLeft)) {
     // Append this word, set the end cursor to the end of this word, and
     // update the returned list of nodes crossed to include ones we crossed
     // in reaching this word.
     if (str)
       str += ' ';
     str += word;
-    nodesCrossed = nodesCrossed.concat(newNodesCrossed);
+    elementsEntered = elementsEntered.concat(newEntered);
+    elementsLeft = elementsLeft.concat(newLeft);
     endCursor.copyFrom(wordEndCursor);
 
     // Get the next word and go back to the top of the loop.
-    newNodesCrossed = [];
+    newEntered = [];
+    newLeft = [];
     word = cvox.TraverseUtil.getNextWord(
-        wordStartCursor, wordEndCursor, newNodesCrossed);
+        wordStartCursor, wordEndCursor, newEntered, newLeft);
     if (word == null)
       return str;
   }
@@ -841,50 +852,53 @@ cvox.TraverseUtil.getNextString = function(
  * Finds the previous contiguous string, starting from startCursor.  Upon exit,
  * startCursor and endCursor will surround the next string.
  *
- * @param {Cursor} startCursor The position to start searching for the
+ * @param {cvox.Cursor} startCursor The position to start searching for the
  *     previous string.  On exit, will point to the beginning of the
  *     string returned.
- * @param {Cursor} endCursor On exit, will point to the end of the
+ * @param {cvox.Cursor} endCursor On exit, will point to the end of the
  *     string returned.
- * @param {Array.<Node>} nodesCrossed Any HTML nodes crossed between the
- *     initial and final cursor position will be pushed onto this array.
- * @param {function(string, string, Array.<string>)} breakBefore
- *     Function that takes the string so far, the word to be added, and
- *     nodes crossed, and returns true if the string should be ended before
- *     adding this word.
+ * @param {Array.<Element>} elementsEntered Any HTML elements entered.
+ * @param {Array.<Element>} elementsLeft Any HTML elements left.
+ * @param {function(string, string, Array.<Element>, Array.<Element>)}
+ *     breakBefore Function that takes the string so far, the word to be
+ *     added, and nodes crossed, and returns true if the string should be
+ *     ended before adding this word.
  * @return {?string} The next string, or null if the top of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousString = function(
-    startCursor, endCursor, nodesCrossed, breakBefore) {
+    startCursor, endCursor, elementsEntered, elementsLeft, breakBefore) {
   // Get the first word and set the end cursor to the end of the
   // first word.
   var wordStartCursor = startCursor.clone();
   var wordEndCursor = startCursor.clone();
-  var newNodesCrossed = [];
+  var newEntered = [];
+  var newLeft = [];
   var str = '';
   var word = cvox.TraverseUtil.getPreviousWord(
-      wordStartCursor, wordEndCursor, newNodesCrossed);
+      wordStartCursor, wordEndCursor, newEntered, newLeft);
   if (word == null)
     return null;
   endCursor.copyFrom(wordEndCursor);
 
   // Always add the first word when the string is empty, and then keep
   // adding more words as long as breakBefore returns false
-  while (!str || !breakBefore(str, word, newNodesCrossed)) {
+  while (!str || !breakBefore(str, word, newEntered, newLeft)) {
     // Prepend this word, set the start cursor to the start of this word, and
     // update the returned list of nodes crossed to include ones we crossed
     // in reaching this word.
     if (str)
       str = ' ' + str;
     str = word + str;
-    nodesCrossed = nodesCrossed.concat(newNodesCrossed);
+    elementsEntered = elementsEntered.concat(newEntered);
+    elementsLeft = elementsLeft.concat(newLeft);
     startCursor.copyFrom(wordStartCursor);
 
     // Get the previous word and go back to the top of the loop.
-    newNodesCrossed = [];
+    newEntered = [];
+    newLeft = [];
     word = cvox.TraverseUtil.getPreviousWord(
-        wordStartCursor, wordEndCursor, newNodesCrossed);
+        wordStartCursor, wordEndCursor, newEntered, newLeft);
     if (word == null)
       return str;
   }
