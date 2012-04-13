@@ -138,10 +138,7 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
 
   // TODO (clchen): Make the sticky mode double tap key configurable.
   var currTime = new Date().getTime();
-  var stickyKeyCode = 45; // Insert for Linux and Windows
-  if (cvox.ChromeVox.isChromeOS || cvox.ChromeVox.isMac) {
-    stickyKeyCode = 91; // GUI key (Search/Cmd) for ChromeOs and Mac
-  }
+  var stickyKeyCode = cvox.KeyUtil.getStickyKeyCode();
   if (keyEvent.keyCode == stickyKeyCode) {
     // Only the modifier key was pressed. This is a sign that the user may
     // be toggling the sticky mode.
@@ -149,7 +146,9 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
     // TODO (chaitanyag,dmazzoni,clchen): Make double tap speed configurable
     // through ChromeVox setting?
     if (prevTime > 0 && currTime - prevTime < 300) {  // Double tap
-      return 'Cvox>Cvox+';
+      var stickyKeyName =
+          cvox.KeyUtil.getReadableNameForKeyCode(stickyKeyCode);
+      return stickyKeyName + '>' + stickyKeyName + '+';
     }
     util.modeKeyPressTime = currTime;
   } else {
@@ -304,6 +303,19 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
   } else if (keyCode >= 48 && keyCode <= 90) {
     return String.fromCharCode(keyCode);
   }
+};
+
+/**
+ * Get the platform specific sticky key keycode.
+ *
+ * @return {number} The platform specific sticky key keycode.
+ */
+cvox.KeyUtil.getStickyKeyCode = function() {
+  var stickyKeyCode = 45; // Insert for Linux and Windows
+  if (cvox.ChromeVox.isChromeOS || cvox.ChromeVox.isMac) {
+    stickyKeyCode = 91; // GUI key (Search/Cmd) for ChromeOs and Mac
+  }
+  return stickyKeyCode;
 };
 
 

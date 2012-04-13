@@ -120,6 +120,28 @@ msgs.MSG_CHROMEVOX_RIGHT =
 
 
 /**
+ * @desc The description of the skip backward key that functions only during
+ * continuous reading (when ChromeVox is speaking the entire page without
+ * pausing). The skip backward key allows the user to skip backward without
+ * pausing the continuous reading.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_SKIP_BACKWARD =
+    goog.getMsg('Skip backward during continuous reading');
+
+
+/**
+ * @desc The description of the skip forward key that functions only during
+ * continuous reading (when ChromeVox is speaking the entire page without
+ * pausing). The skip forward key allows the user to skip forward without
+ * pausing the continuous reading.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_SKIP_FORWARD =
+    goog.getMsg('Skip forward during continuous reading');
+
+
+/**
  * @desc The description of the previousGranularity key.
  * Displayed in the Options page.
  */
@@ -1262,6 +1284,13 @@ msgs.MSG_CHROMEVOX_DESCRIBE_TAB =
 
 
 /**
+ * @desc Describes a slider with name 'name' and value 'value'.
+ */
+msgs.MSG_CHROMEVOX_DESCRIBE_SLIDER =
+    goog.getMsg('{$value}, {$name}, slider', {'value': '$1', 'name': '$2'});
+
+
+/**
  * @desc Spoken through the a11y api after describing an element if it is
  * selected.
  */
@@ -1901,6 +1930,17 @@ msgs.MSG_CHROMEVOX_ARIA_ROLE_GRIDCELL = goog.getMsg('Cell');
 msgs.MSG_CHROMEVOX_ARIA_ROLE_LINK = goog.getMsg('Link');
 
 /**
+ * @desc Describes a single element with the ARIA role link with count.
+ */
+msgs.MSG_CHROMEVOX_ARIA_ROLE_LINK_SINGULAR = goog.getMsg('1 link');
+
+/**
+ * @desc Describes multiple elements with the ARIA role link.
+ */
+msgs.MSG_CHROMEVOX_ARIA_ROLE_LINK_PLURAL =
+    goog.getMsg('{$num} links', {'num': '$1'});
+
+/**
  * @desc Describes an element with the ARIA role listbox.
  */
 msgs.MSG_CHROMEVOX_ARIA_ROLE_LISTBOX = goog.getMsg('List box');
@@ -2066,6 +2106,17 @@ msgs.MSG_CHROMEVOX_ARIA_ROLE_DOCUMENT = goog.getMsg('Document');
  * @desc Describes an element with the ARIA role form.
  */
 msgs.MSG_CHROMEVOX_ARIA_ROLE_FORM = goog.getMsg('Form');
+
+/**
+ * @desc Describes a single element with the ARIA role form with count.
+ */
+msgs.MSG_CHROMEVOX_ARIA_ROLE_FORM_SINGULAR = goog.getMsg('1 form');
+
+/**
+ * @desc Describes multiple elements with the ARIA role form.
+ */
+msgs.MSG_CHROMEVOX_ARIA_ROLE_FORM_PLURAL =
+    goog.getMsg('{$num} forms', {'num': '$1'});
 
 /**
  * @desc Describes an element with the ARIA role group.
@@ -2505,6 +2556,36 @@ msgs.MSG_CHROMEVOX_RIGHT_KEY = goog.getMsg('Right');
 msgs.MSG_CHROMEVOX_DOWN_KEY = goog.getMsg('Down');
 
 /**
+ * @desc The description of the toggle filtering widget command hotkey.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_TOGGLE_FILTERING_WIDGET =
+    goog.getMsg('Toggle filtering widget.');
+
+
+/**
+ * @desc The description of the filter item command hotkey.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_FILTER_ITEM = goog.getMsg('Filter item.');
+
+/**
+ * @desc The spoken feedback when the filtering widget appears.
+ */
+msgs.MSG_CHROMEVOX_FILTERING_INTRO = goog.getMsg('Filtering list');
+
+/**
+ * @desc The spoken feedback when the filtering widget disappears.
+ */
+msgs.MSG_CHROMEVOX_FILTERING_OUTRO = goog.getMsg('Exiting filtering.');
+
+/**
+ * @desc The spoken help feedback for the filtering widget introduction.
+ */
+msgs.MSG_CHROMEVOX_FILTERING_INTRO_HELP =
+    goog.getMsg('Press up and down to select and delete to remove an item.');
+
+/**
  * @desc The spoken feedback after adding a filter.
  */
 msgs.MSG_CHROMEVOX_ADDED_FILTER = goog.getMsg('Added filter.');
@@ -2513,6 +2594,27 @@ msgs.MSG_CHROMEVOX_ADDED_FILTER = goog.getMsg('Added filter.');
  * @desc The spoken feedback after removing a filter.
  */
 msgs.MSG_CHROMEVOX_REMOVED_FILTER = goog.getMsg('removed filter.');
+
+/**
+ * @desc The spoken feedback describing a filter.
+ */
+msgs.MSG_CHROMEVOX_FILTER = goog.getMsg('{$num} filter', {'num': '$1'});
+
+/**
+ * @desc The spoken feedback describing a single filter.
+ */
+msgs.MSG_CHROMEVOX_FILTER_SINGULAR = goog.getMsg('1 filter');
+
+/**
+ * @desc The spoken feedback describing multiple filters.
+ */
+msgs.MSG_CHROMEVOX_FILTER_PLURAL =
+    goog.getMsg('{$num} filters', {'num': '$1'});
+
+/**
+ * @desc The spoken feedback spoken when the filtering widget has no filters.
+ */
+msgs.MSG_CHROMEVOX_FILTER_OPTIONAL_DEFAULT = goog.getMsg('No filters.');
 
 /**
  * @desc The spoken feedback for a set filtered item within the filter widget.
@@ -2525,11 +2627,41 @@ msgs.MSG_CHROMEVOX_SET_FILTERED = goog.getMsg('filtered.');
 msgs.MSG_CHROMEVOX_UNABLE_TO_FILTER = goog.getMsg('unable to filter.');
 
 /**
- * @desc The spoken feedback for the command to toggle ChromeVox between active and inactive states.
+ * @desc The spoken feedback for the command to toggle ChromeVox between
+ * active and inactive states.
  */
-msgs.MSG_CHROMEVOX_TOGGLE_CHROMEVOX_ACTIVE = goog.getMsg('Toggle ChromeVox active or inactive.');
+msgs.MSG_CHROMEVOX_TOGGLE_CHROMEVOX_ACTIVE =
+    goog.getMsg('Toggle ChromeVox active or inactive.');
 
 /**
  * @desc The spoken feedback when ChromeVox becomes inactive.
  */
-msgs.MSG_CHROMEVOX_CHROMEVOX_INACTIVE = goog.getMsg('ChromeVox is now inactive.');
+msgs.MSG_CHROMEVOX_CHROMEVOX_INACTIVE =
+    goog.getMsg('ChromeVox is now inactive.');
+
+/**
+ * @desc The indicator of a pause to tts.
+ */
+msgs.MSG_CHROMEVOX_PAUSE = goog.getMsg(', ');
+
+/**
+ * @desc The indicator of a end to tts.
+ */
+msgs.MSG_CHROMEVOX_END = goog.getMsg('. ');
+
+/**
+ * @desc Verbal indication of no more similar elements.
+ */
+msgs.MSG_CHROMEVOX_NO_MORE_SIMILAR_ELEMENTS =
+    goog.getMsg('No more similar elements.');
+
+/**
+ * @desc Verbal indication of no more different elements.
+ */
+msgs.MSG_CHROMEVOX_NO_MORE_DIFFERENT_ELEMENTS =
+    goog.getMsg('No more different elements.');
+
+/**
+ * @desc Describes an element with the ARIA role link.
+ */
+msgs.MSG_CHROMEVOX_INDEX_TOTAL = goog.getMsg('{$index} of {$total}', {'index': '$1', 'total': '$2'});

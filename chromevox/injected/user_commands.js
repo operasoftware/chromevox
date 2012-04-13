@@ -23,9 +23,11 @@ goog.provide('cvox.ChromeVoxUserCommands');
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.DomUtil');
+goog.require('cvox.SpokenMessages');
 
 
 /**
@@ -51,6 +53,11 @@ cvox.ChromeVoxUserCommands.powerkey = null;
  */
 cvox.ChromeVoxUserCommands.powerkeyActionCallback = null;
 
+/**
+ * @type {boolean}
+ * TODO (clchen, dmazzoni): Implement syncing on click to avoid needing this.
+ */
+cvox.ChromeVoxUserCommands.wasMouseClicked = false;
 
 /**
  * A nestable variable to keep track of whether or not we're inside of a
@@ -299,6 +306,28 @@ cvox.ChromeVoxUserCommands.commands['forward'] = function() {
 
 
 /**
+ * Skips forward to the next result while in "read from here" mode.
+ *
+ * @return {boolean} If we are in "read from here" mode, return false since
+ * we want to prevent the default action. Otherwise return true.
+ */
+cvox.ChromeVoxUserCommands.commands['skipForward'] = function() {
+  if (cvox.ChromeVoxUserCommands.keepReading) {
+    if (cvox.ChromeVox.host.hasTtsCallback()) {
+      cvox.ChromeVoxUserCommands.markInUserCommand();
+      cvox.ChromeVox.navigationManager.skipForward();
+      return false;
+    } else {
+      // Skimming does not work for TTS that don't have callbacks.
+      return false;
+    }
+  } else {
+    return true;
+  }
+};
+
+
+/**
  * Moves right and speaks the result.
  *
  * @return {boolean} Always return false since we want to prevent the default
@@ -324,6 +353,28 @@ cvox.ChromeVoxUserCommands.commands['backward'] = function() {
       cvox.ChromeVox.navigationManager.navigateBackward(true, true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
+};
+
+
+/**
+ * Skips backward to the previous result while in "read from here" mode.
+ *
+ * @return {boolean} If we are in "read from here" mode, return false since
+ * we want to prevent the default action. Otherwise return true.
+ */
+cvox.ChromeVoxUserCommands.commands['skipBackward'] = function() {
+  if (cvox.ChromeVoxUserCommands.keepReading) {
+    if (cvox.ChromeVox.host.hasTtsCallback()) {
+      cvox.ChromeVoxUserCommands.markInUserCommand();
+      cvox.ChromeVox.navigationManager.skipBackward();
+      return false;
+    } else {
+      // Skimming does not work for TTS that don't have callbacks
+      return false;
+    }
+  } else {
+    return true;
+  }
 };
 
 
@@ -417,12 +468,12 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
     cvox.ChromeVox.navigationManager.setFocus();
   }, 0);
 
-  var queueMode = 0;
+  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
 
   if (messagePrefixStr) {
     cvox.ChromeVox.tts.speak(
         messagePrefixStr, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    queueMode = 1;
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   }
 
   cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
@@ -432,8 +483,9 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
 
 /**
  * Find the next occurrence of an item defined by the given predicate.
- * @param {function(Array.<Node>)} predicate A function taking a node as a
- *     parameter and returning true if it's what to search for.
+ * @param {function(Array.<Node>)} predicate A function taking an array of
+ * unique ancestor nodes as a parameter and returning a desired node. It
+ * returns null if that node can't be found.
  * @param {string} errorStr A string to speak if the item couldn't be found.
  * @private
  */
@@ -461,8 +513,9 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
 
 /**
  * Find the next occurrence of an item defined by the given predicate.
- * @param {function(Array.<Node>)} predicate A function taking a node as a
- *     parameter and returning true if it's what to search for.
+ * @param {function(Array.<Node>)} predicate A function taking an array of
+ * unique ancestor nodes as a parameter and returning a desired node. It
+ * returns null if that node can't be found.
  * @param {string} errorStr A string to speak if the item couldn't be found.
  * @private
  */
@@ -526,6 +579,32 @@ cvox.ChromeVoxUserCommands.isInUserCommand = function() {
   return (cvox.ChromeVoxUserCommands.userCommandLevel_ > 0);
 };
 
+/**
+ * Finds the next node based on its similarity or difference from the current
+ *  node.
+ * @param {string} direction Way to search (backward, or forward).
+ * @param {boolean} isSimilar true to search for a similar node; false to search
+ * for a different node.
+ */
+cvox.ChromeVoxUserCommands.findBySimilarity = function(direction, isSimilar) {
+  var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+  var cssSelector = cvox.WalkerDecorator.filterForNode(currentNode);
+  var inclusion = cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive;
+  cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive = isSimilar;
+  cvox.ChromeVox.navigationManager.walkerDecorator.addFilter(cssSelector);
+  cvox.ChromeVoxUserCommands.commands[direction]();
+  cvox.ChromeVox.navigationManager.walkerDecorator.removeFilter(cssSelector);
+  cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive = inclusion;
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
+
+  if (!cvox.ChromeVox.navigationManager.getCurrentNode()) {
+    cvox.ChromeVox.navigationManager.syncToNode(currentNode);
+    var error = isSimilar ? 'no_more_similar_elements' :
+        'no_more_different_elements';
+    cvox.$m(error).speakFlush();
+  }
+};
+
 
 /**
  * Handles TAB navigation by putting focus at the user's position.
@@ -553,33 +632,44 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
     return true;
   }
 
-  // Try to find something reasonable to focus on in the current selection.
+  var anchorNode;
+  var focusNode;
+  // Try to find something reasonable to focus on.
+  // Use selection if it exists because it means that the user has probably
+  // clicked with their mouse and we should respect their position.
+  // If there is no selection, then use the last known position based on
+  // NavigationManager's currentNode.
   var sel = window.getSelection();
+  if (!cvox.ChromeVoxUserCommands.wasMouseClicked) {
+    sel = null;
+  } else {
+    cvox.ChromeVoxUserCommands.wasMouseClicked = false;
+  }
   if (sel == null || sel.anchorNode == null || sel.focusNode == null) {
+    anchorNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+    focusNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+  } else {
+    anchorNode = sel.anchorNode;
+    focusNode = sel.focusNode;
+  }
+  if (anchorNode == null || focusNode == null) {
     return true;
   }
-  if (sel.anchorNode.tagName &&
-      ((sel.anchorNode.tagName == tagName) ||
-      cvox.DomUtil.isControl(sel.anchorNode))) {
-    sel.anchorNode.focus();
+
+  if (cvox.DomUtil.isFocusable(anchorNode)) {
+    anchorNode.focus();
     return true;
   }
-  if (sel.focusNode.tagName &&
-      ((sel.focusNode.tagName == tagName) ||
-      cvox.DomUtil.isControl(sel.focusNode))) {
-    sel.focusNode.focus();
+  if (cvox.DomUtil.isFocusable(focusNode)) {
+    focusNode.focus();
     return true;
   }
-  if (sel.anchorNode.parentNode.tagName &&
-      ((sel.anchorNode.parentNode.tagName == tagName) ||
-      cvox.DomUtil.isControl(sel.anchorNode.parentNode))) {
-    sel.anchorNode.parentNode.focus();
+  if (cvox.DomUtil.isFocusable(anchorNode.parentNode)) {
+    anchorNode.parentNode.focus();
     return true;
   }
-  if (sel.focusNode.parentNode.tagName &&
-      ((sel.focusNode.parentNode.tagName == tagName) ||
-      cvox.DomUtil.isControl(sel.focusNode))) {
-    sel.focusNode.parentNode.focus();
+  if (cvox.DomUtil.isFocusable(focusNode.parentNode)) {
+    focusNode.parentNode.focus();
     return true;
   }
 
@@ -588,7 +678,7 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
   // user's current position as possible.
   var span = document.createElement('span');
   span.id = 'ChromeVoxTabDummySpan';
-  sel.anchorNode.parentNode.insertBefore(span, sel.anchorNode);
+  anchorNode.parentNode.insertBefore(span, anchorNode);
   span.tabIndex = -1;
   span.focus();
   return true;
@@ -606,6 +696,22 @@ cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
     cvox.ChromeVoxSearch.hide();
   } else {
     cvox.ChromeVoxSearch.show();
+  }
+  return false;
+};
+
+
+/**
+ * Toggles between filtering and browsing.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['toggleFilteringWidget'] = function() {
+  if (cvox.ChromeVoxFiltering.isActive()) {
+    cvox.ChromeVoxFiltering.hide();
+  } else {
+    cvox.ChromeVoxFiltering.show();
   }
   return false;
 };
@@ -811,11 +917,11 @@ cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
  * Starts reading the page contents from current location.
  */
 cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
+  cvox.ChromeVoxUserCommands.keepReading = true;
   if (cvox.ChromeVox.host.hasTtsCallback()) {
     cvox.ChromeVox.navigationManager.startReadingFromCurrentNode(
         cvox.AbstractTts.QUEUE_MODE_FLUSH);
   } else {
-    cvox.ChromeVoxUserCommands.keepReading = true;
     cvox.ChromeVoxUserCommands.commands['readUntilStopped']();
   }
 };
@@ -829,12 +935,14 @@ cvox.ChromeVoxUserCommands.commands['readUntilStopped'] = function() {
     return;
   }
   if (!cvox.ChromeVox.tts.isSpeaking()) {
-    var navSucceeded = cvox.ChromeVox.navigationManager.navigateForward(true, true);
+    var navSucceeded =
+        cvox.ChromeVox.navigationManager.navigateForward(true, true);
     if (navSucceeded) {
       cvox.ChromeVoxUserCommands.finishNavCommand('');
     }
   }
-  window.setTimeout(cvox.ChromeVoxUserCommands.commands['readUntilStopped'], 1000);
+  window.setTimeout(cvox.ChromeVoxUserCommands.commands['readUntilStopped'],
+                    1000);
 };
 
 
@@ -1813,6 +1921,53 @@ cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
 };
 
 
+
+/**
+ * Next different element.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['nextDifferentElement'] = function() {
+  cvox.ChromeVoxUserCommands.findBySimilarity('forward', false);
+  return false;
+};
+
+/**
+ * Previous different element.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['previousDifferentElement'] = function() {
+  cvox.ChromeVoxUserCommands.findBySimilarity('backward', false);
+  return false;
+};
+
+
+/**
+ * Next similar element.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['nextSimilarElement'] = function() {
+  cvox.ChromeVoxUserCommands.findBySimilarity('forward', true);
+  return false;
+};
+
+/**
+ * Previous similar element.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['previousSimilarElement'] = function() {
+  cvox.ChromeVoxUserCommands.findBySimilarity('backward', true);
+  return false;
+};
+
+
 /**
  * Attempts to do something reasonable given the current item that the user is
  * on.
@@ -2233,12 +2388,17 @@ cvox.ChromeVoxUserCommands.anchorPredicate_ = function(nodes) {
 /**
  * Table.
  * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a table.
+ * @return {?Node} Node in the array that is a data table.
  * @private
  */
 cvox.ChromeVoxUserCommands.tablePredicate_ = function(nodes) {
-  // TODO: support ARIA grid
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'TABLE');
+  var tableNode = cvox.DomUtil.findTableNodeInList(nodes);
+  if (tableNode && !cvox.DomUtil.isLayoutTable(tableNode)) {
+    return tableNode;
+  } else {
+    return null;
+  }
+
 };
 
 
@@ -2559,4 +2719,26 @@ cvox.ChromeVoxUserCommands.commands['fullyDescribe'] = function() {
 
   cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
     0, null);
+};
+
+/**
+ * Filters out items like the current one.
+ */
+cvox.ChromeVoxUserCommands.commands['filterLikeCurrentItem'] = function() {
+  // Compute the CSS selector based on the current node.
+  // Currently only use class, id, and type CSS selectors.
+  var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+  var cssSelector = cvox.WalkerDecorator.filterForNode(currentNode);
+  if (!cvox.DomUtil.hasContent(currentNode) || !cssSelector) {
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('unable_to_filter'),
+        0,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    return;
+  }
+
+  var walkerDecorator = cvox.ChromeVox.navigationManager.walkerDecorator;
+  walkerDecorator.addFilter(cssSelector);
+  cvox.$m('added_filter').speakFlush();
+  cvox.ChromeVox.navigationManager.navigateForward(true, true);
 };

@@ -192,6 +192,17 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     return true;
   }
 
+  // Ignore the left or right arrow key unless we are currently continuously
+  // reading.
+  if ((functionName == 'skipForward') || (functionName == 'skipBackward')) {
+    if (!cvox.ChromeVoxUserCommands.keepReading) {
+      return true;
+    }
+  } else if (functionName && cvox.ChromeVoxUserCommands.keepReading) {
+    // Turn off continuous reading otherwise.
+    cvox.ChromeVoxUserCommands.keepReading = false;
+  }
+
   // This is the key event handler return value - true if the event should
   // propagate and the default action should be performed, false if we eat
   // the key.

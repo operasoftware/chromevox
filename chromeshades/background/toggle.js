@@ -20,8 +20,33 @@
 
 goog.provide('cvox.ChromeShadesToggle');
 
-var chromeshades_on = true;
-var accesserrors_on = false;
+var chromeshades_on;
+var accesserrors_on;
+var silentcapture_on;
+
+if (localStorage['chromeshades_on'] == 'true' ||
+   localStorage['chromeshades_on'] == 'false') {
+  chromeshades_on = (localStorage['chromeshades_on'] == true);
+} else {
+  chromeshades_on = true;
+  localStorage['chromeshades_on'] = chromeshades_on;
+}
+
+if (localStorage['accesserrors_on'] == 'true' ||
+   localStorage['accesserrors_on'] == 'false') {
+  accesserrors_on = (localStorage['accesserrors_on'] == true);
+} else {
+  accesserrors_on = false;
+  localStorage['accesserrors_on'] = accesserrors_on;
+}
+
+if (localStorage['silentcapture_on'] == 'true' ||
+   localStorage['silentcapture_on'] == 'false') {
+  silentcapture_on = (localStorage['silentcapture_on'] == true);
+} else {
+  silentcapture_on = true;
+  localStorage['silentcapture_on'] = silentcapture_on;
+}
 
 /** onToggleRequest is triggered when a toggle request is received.
  * @param {Object} request caught by listener.
@@ -29,20 +54,57 @@ var accesserrors_on = false;
  * @param {function()} callback function after request is processed.
  */
 function onToggleRequest(request, sender, callback) {
-  if (request.toggle == 'chromeshades') {
-    if (chromeshades_on == true) {
-      chromeshades_on = false;
+  //  alert('toggling\n' + request.toggle + ' = ' + request.value);
+  if (request.toggle === 'chromeshades_on' ||
+     request.toggle === 'accesserrors_on' ||
+     request.toggle === 'silentcapture_on') {
+    eval(request.toggle + ' = ' + request.value);
+    localStorage[request.toggle] = request.value;
+    if (request.reload == true) {
       chrome.tabs.executeScript(null, {code: 'window.location.reload()'},
       function() {
-        alert('ChromeShades disabled.');
+   //     alert(request.toggle + ' = ' + request.value + ' now');
       });
     }
-    else {
-      chromeshades_on = true;
-      chrome.tabs.executeScript(null, {code: 'window.location.reload()'},
-      function() {
-        alert('ChromeShades enabled.');
-      });
+  }
+}
+
+/** sendFlag is triggered when a getFlag is received.
+ * @param {Object} request caught by listener.
+ * @param {MessageSender} sender of the request.
+ * @param {function(Object)} sendResponse function after request is processed.
+ */
+function sendFlag(request, sender, sendResponse) {
+  if (request.getFlag) {
+    sendResponse({value: eval(request.getFlag)});
+  }
+}
+
+/** sendErrors sends accessibility errors to the accesserrors AppEngine App.
+ * @param {Object} request caught by listener.
+ * @param {MessageSender} sender of the request.
+ * @param {function(Object)} sendResponse function after request is processed.
+ */
+
+function sendErrors(request, sender, sendResponse) {
+  if (request.sendErrors) {
+    var errors = request.sendErrors;
+    for (var i = 0; i < errors.length; i++) {
+      var http = new XMLHttpRequest();
+      var params = 'err_code=' + encodeURIComponent(errors[i]['err_code']) +
+          '&url=' + encodeURIComponent(errors[i]['url']) +
+          '&hostname=' + encodeURIComponent(errors[i]['hostname']) +
+          '&tag_name=' + encodeURIComponent(errors[i]['tag_name']) +
+          '&readable_path=' + encodeURIComponent(errors[i]['readable_path']) +
+          '&query_selector_text=' + encodeURIComponent(
+                                      errors[i]['query_selector_text']) +
+          '&outer_html=' + encodeURIComponent(errors[i]['outer_html']) +
+          '&msg=' + encodeURIComponent(errors[i]['msg']);
+
+      http.open('POST', 'https://accesserrors.googleplex.com/PutError', true);
+      http.setRequestHeader('Content-Type',
+                            'application/x-www-form-urlencoded');
+      http.send(params);
     }
   }
 }
@@ -50,11 +112,20 @@ function onToggleRequest(request, sender, callback) {
 /** injectStuff injects CSS/JavaScript based on the toggle settings
  */
 function injectStuff() {
+  var cssFiles = new Array();
+  var jsFiles = new Array();
+
+  if (accesserrors_on == true || silentcapture_on == true) {
+    jsFiles = ['/closure/closure_preinit.js',
+               '/closure/base.js',
+               '/closure/closure_stubs.js',
+               '/accesserrors/accesserrors.js',
+               '/chromeshades/injected/accesserrors_injected.js'];
+  }
 
   if (chromeshades_on == true) {
-
-    var cssFiles = ['/chromeshades/chromeshades.css'];
-    var jsFiles = ['/chromeShadesInjected.js',
+    cssFiles = ['/chromeshades/chromeshades.css'];
+    jsFiles = ['/chromeShadesInjected.js',
                    '/closure/closure_preinit.js',
                    '/closure/base.js',
                    '/closure/closure_stubs.js',
@@ -73,10 +144,13 @@ function injectStuff() {
   for (var i = 0; i < cssFiles.length; i++) {
     chrome.tabs.insertCSS(null, {file: cssFiles[i], allFrames: true});
   }
+
   for (var j = 0; j < jsFiles.length; j++) {
     chrome.tabs.executeScript(null, {file: jsFiles[j], allFrames: true});
   }
 }
 
-chrome.tabs.onUpdated.addListener(injectStuff);
 chrome.extension.onRequest.addListener(onToggleRequest);
+chrome.extension.onRequest.addListener(sendFlag);
+chrome.extension.onRequest.addListener(sendErrors);
+chrome.tabs.onUpdated.addListener(injectStuff);

@@ -12,15 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 /**
- * @fileoverview Defines the AndroidVox app.
- * @author deboer@google.com (James deBoer)
+ * @fileoverview A basic abstraction of messages.
+ *
+ * @author dtseng@google.com (David Tseng)
  */
 
-goog.require('androidvoxnav');
-goog.require('cvox.AndroidEarcons');
-goog.require('cvox.AndroidHost');
-goog.require('cvox.AndroidTts');
-goog.require('cvox.ChromeVoxInit');
-goog.require('cvox.TestMsgs');
+goog.provide('cvox.SpokenMessage');
+
+/**
+ * @constructor
+ */
+cvox.SpokenMessage = function() {
+  /** @type {?Number} */
+  this.count = null;
+
+  /** @type {?string} */
+  this.id = null;
+
+  /**
+   * A message that has been already localized and should be sent to tts raw.
+   * @type {?string}
+   */
+  this.raw = null;
+};

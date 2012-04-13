@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,6 +64,15 @@ cvox.Interframe.id;
 cvox.Interframe.listeners = [];
 
 /**
+ * Flag for unit testing. When false, skips over iframe.contentWindow check
+ * in sendMessageToIframe. This is needed because in the wild, ChromeVox may
+ * not have access to iframe.contentWindow due to the same-origin security
+ * policy. There is no reason to set this outside of a test.
+ * @type {boolean}
+ */
+cvox.Interframe.allowAccessToIframeContentWindow = true;
+
+/**
  * Initializes the cvox.Interframe module. (This is called automatically.)
  */
 cvox.Interframe.init = function() {
@@ -115,11 +124,13 @@ cvox.Interframe.sendMessageToWindow = function(message, window) {
 
 /**
  * Send a message to another iframe.
- * @param {Object} message The message to send.
+ * @param {Object} message The message to send. The message must have an 'id'
+ *     parameter in order to be sent.
  * @param {HTMLIFrameElement} iframe The iframe to send the message to.
  */
 cvox.Interframe.sendMessageToIFrame = function(message, iframe) {
-  if (iframe.contentWindow) {
+  if (cvox.Interframe.allowAccessToIframeContentWindow &&
+      iframe.contentWindow) {
     cvox.Interframe.sendMessageToWindow(message, iframe.contentWindow);
     return;
   }
@@ -131,6 +142,8 @@ cvox.Interframe.sendMessageToIFrame = function(message, iframe) {
   var script = document.createElement('script');
   script.type = 'text/javascript';
 
+  // TODO: Make this logic more like makeNodeReference_ inside api.js
+  // (line 126) so we can use an attribute instead of a classname
   if (iframe.hasAttribute('id') &&
       document.getElementById(iframe.id) == iframe) {
     // Ideally, try to send it based on the iframe's existing id.
@@ -174,6 +187,7 @@ cvox.Interframe.sendMessageToParentWindow = function(message) {
   message['sourceId'] = cvox.Interframe.id;
   if (window.parent) {
     cvox.Interframe.sendMessageToWindow(message, window.parent);
+    return;
   }
 
   // A content script can't access window.parent, but the page can, so

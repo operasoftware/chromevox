@@ -23,17 +23,13 @@ goog.provide('cvox.WalkerDecorator');
 goog.require('cvox.AbstractWalker');
 goog.require('cvox.ChromeVoxJSON');
 
+
 /**
  * @constructor
  */
 cvox.WalkerDecorator = function() {
-  // TODO(dtseng): Plumb local storage calls to background script's context.
-  if (!window.localStorage.getItem('chromeVox.WalkerDecorator')) {
-    this.filters = [];
-  } else {
-    this.filters = cvox.ChromeVoxJSON.parse(
-        window.localStorage.getItem('chromeVox.WalkerDecorator').toString());
-  }
+  this.filters = [];
+  this.filterMap = {};
   this.isInclusive = false;
 };
 
@@ -82,25 +78,26 @@ cvox.WalkerDecorator.prototype.filteredMove = function(walker, original) {
 cvox.WalkerDecorator.prototype.addFilter = function(filter) {
   if (this.filters.indexOf(filter) == -1) {
     this.filters.push(filter);
-    // TODO(dtseng): Plumb local storage calls to background script's context.
-    window.localStorage.setItem('chromeVox.WalkerDecorator',
-                                cvox.ChromeVoxJSON.stringify(this.filters));
+    this.saveToLocalStorage();
   }
 };
-
 
 /**
  * Removes a query selector to filter when walking.
  * @param {string} filter The selector to remove.
+ * @return {boolean} true if the filter was removed.
  */
 cvox.WalkerDecorator.prototype.removeFilter = function(filter) {
+  var success = false;
   for (var i = 0; i < this.filters.length; ++i) {
-    if (filter == this.filters[i])
-      delete this.filters[i];
+    if (filter == this.filters[i]) {
+      this.filters.splice(i, 1);
+      success = true;
+    }
   }
-  // TODO(dtseng): Plumb local storage calls to background script's context.
-  window.localStorage.setItem('chromeVox.WalkerDecorator',
-                              JSON.stringify(this.filters));
+  this.saveToLocalStorage();
+
+  return success;
 };
 
 /**
@@ -136,35 +133,85 @@ cvox.WalkerDecorator.prototype.hasFilter = function(filter) {
 };
 
 /**
+ * Saves filters to the background script's local storage context.
+ */
+cvox.WalkerDecorator.prototype.saveToLocalStorage = function() {
+  if (this.filters.length == 0)
+    return;
+
+  this.filterMap[window.location.href] = this.filters;
+
+  // TODO(dtseng): Send filters for only this page.
+  cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'filterMap',
+      'value': cvox.ChromeVoxJSON.stringify(this.filterMap)
+  });
+};
+
+/**
+ * Reinitializes filters on a new page load.
+ * @param {string} filterMap JSON href to filter mapping.
+ */
+cvox.WalkerDecorator.prototype.reinitialize = function(filterMap) {
+  if (filterMap) {
+    try {
+      this.filterMap = cvox.ChromeVoxJSON.parse(filterMap);
+    } catch(e) {
+      console.error('Unable to parse filters ' + filterMap);
+      this.filterMap = {};
+      return;
+    }
+
+    if (window.location.href && this.filterMap[window.location.href])
+      this.filters = this.filterMap[window.location.href];
+  }
+  if (!this.filterMap)
+    this.filterMap = {};
+  if (!this.filters)
+    this.filters = [];
+};
+
+/**
  * Calculates the selector corresponding to a node.
+* Preference is given towards class names. If there are multiple class names,
+* then use the most specific one.
+* As a last resort, use the id.
  * @param {Node} node The node to retrieve a filter for.
  * @return {?string} The filter for the node.
  */
 cvox.WalkerDecorator.filterForNode = function(node) {
-  if (!node.tagName)
+  if (!node || !cvox.DomUtil.hasContent(node))
     return null;
 
-  var selector = node.tagName;
+  while (!node.tagName)
+    node = node.parentNode;
 
-  // Progressively add constraints to identify this node.
-  if (node.id) {
-    var tempId = selector + '#' + node.id.trim();
-    try {
-      if (node.webkitMatchesSelector(tempId))
-        selector = tempId;
-    } catch (error) {
-      // webkitMatchesSelector throws syntax error exceptions.
-    }
-  }
   if (node.className) {
-    var tempClass = selector + '.' + node.className.trim();
+    var classes = node.className.trim().split(' ');
+    var finalClass = '.' + classes[classes.length - 1];
+
+    // Validation in cases where authors have badly formatted classnames.
     try {
-      if (node.webkitMatchesSelector(tempClass))
-        selector = tempClass;
-    } catch (error) {
-      // webkitMatchesSelector throws syntax error exceptions.
+      node.webkitMatchesSelector(finalClass);
+      return finalClass;
+    } catch(e) {
+      // Badly formated classname; continue below.
     }
   }
 
-  return selector;
+  if (node.id) {
+    var finalId = node.id.trim();
+
+    // Validation in cases where authors have badly formatted id's.
+    try {
+      node.webkitMatchesSelector(finalId);
+      return finalId;
+    } catch(e) {
+      // Badly formated id; continue below.
+    }
+  }
+
+  return null;
 };

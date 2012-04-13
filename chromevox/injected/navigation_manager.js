@@ -100,6 +100,9 @@ cvox.ChromeVoxNavigationManager.prototype.reset = function() {
   // PowerKey.
   this.choiceWidget = null;
 
+  // Keeps track of whether we have skipped while "reading from here"
+  this.skipped = false;
+
   this.currentTable_ = null;
   this.activeIndicator = new cvox.ActiveIndicator();
 };
@@ -130,6 +133,18 @@ cvox.ChromeVoxNavigationManager.prototype.navigateForward =
 
 
 /**
+ * Moves forward. Starts reading the page from that node.
+ * Uses QUEUE_MODE_FLUSH to flush any previous speech.
+ */
+cvox.ChromeVoxNavigationManager.prototype.skipForward = function() {
+  if (this.next(true, true)) {
+    this.skipped = true;
+    this.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_FLUSH);
+  }
+};
+
+
+/**
  * Moves backward. Stops any subnavigation. Depending on whether we are in
  * table mode, either moves backward using the current navigation strategy or
  * moves to the previous row inside the table.
@@ -149,6 +164,18 @@ cvox.ChromeVoxNavigationManager.prototype.navigateBackward =
       this.stopSubNavigating();
     }
     return this.previous(navigateIframes, opt_navigateTables);
+  }
+};
+
+
+/**
+ * Moves forward. Starts reading the page from that node.
+ * Uses QUEUE_MODE_FLUSH to flush any previous speech.
+ */
+cvox.ChromeVoxNavigationManager.prototype.skipBackward = function() {
+  if (this.previous(true, true)) {
+    this.skipped = true;
+    this.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_FLUSH);
   }
 };
 
@@ -1234,7 +1261,7 @@ cvox.ChromeVoxNavigationManager.prototype.startReadingFromCurrentNode =
   var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
   var self = this;
   this.speakDescriptionArray(currentDesc, queueMode, function() {
-    if (self.next()) {
+    if (self.next(true, true)) {
       self.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_QUEUE);
     }
   });
@@ -1268,6 +1295,13 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentDescription = function() {
             navDescriptions[0].pushEarcon(cvox.AbstractEarcons.WRAP);
           }
         }
+      }
+      if (this.skipped) {
+        // We have skipped and need an earcon here.
+        if (navDescriptions.length > 0) {
+          navDescriptions[0].pushEarcon(cvox.AbstractEarcons.PARAGRAPH_BREAK);
+        }
+        this.skipped = false;
       }
       return navDescriptions;
 
@@ -1619,7 +1653,8 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterExitIframe_ = function(
     'command': 'enterIframe',
     'forwards': forwards,
     'strategy': this.currentNavStrategy,
-    'granularity': this.selectionWalker.currentGranularity
+    'granularity': this.selectionWalker.currentGranularity,
+    'id': iframeId
   };
   cvox.Interframe.sendMessageToIFrame(message, iframeElement);
 

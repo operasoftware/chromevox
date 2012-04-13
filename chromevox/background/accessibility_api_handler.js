@@ -58,6 +58,34 @@ cvox.AccessibilityApiHandler.editableTextHandler = null;
 cvox.AccessibilityApiHandler.nextQueueMode = 0;
 
 /**
+ * The timeout id for the pending text changed event - the return
+ * value from window.setTimeout. We need to delay text events slightly
+ * and return only the last one because sometimes we get a rapid
+ * succession of related events that should all be considered one
+ * bulk change - in particular, autocomplete in the location bar comes
+ * as multiple events in a row.
+ * @type {?number}
+ */
+cvox.AccessibilityApiHandler.textChangeTimeout = null;
+
+/**
+ * Most controls have a "context" - the name of the window, dialog, toolbar,
+ * or menu they're contained in. We announce a context once, when you
+ * first enter it - and we don't announce it again when you move to something
+ * else within the same context. This variable keeps track of the most
+ * recent context.
+ * @type {?string}
+ */
+cvox.AccessibilityApiHandler.lastContext = null;
+
+/**
+ * Delay in ms between when a text event is received and when it's spoken.
+ * @type {number}
+ * @const
+ */
+cvox.AccessibilityApiHandler.TEXT_CHANGE_DELAY = 10;
+
+/**
  * Initialize the accessibility API Handler.
  * @param {Object} tts The TTS to use for speaking.
  * @param {Object} earcons The earcons object to use for playing
@@ -300,15 +328,39 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       return;
     }
 
-    if (cvox.AccessibilityApiHandler.editableTextHandler) {
-      cvox.AccessibilityApiHandler.trimWhitespace(ctl);
-      var textChangeEvent = new cvox.TextChangeEvent(
-          ctl.details.value,
-          ctl.details.selectionStart,
-          ctl.details.selectionEnd,
-          true);  // triggered by user
-      cvox.AccessibilityApiHandler.editableTextHandler.changed(textChangeEvent);
+    if (!cvox.AccessibilityApiHandler.editableTextHandler) {
+      return;
     }
+
+    cvox.AccessibilityApiHandler.trimWhitespace(ctl);
+    var start = ctl.details.selectionStart;
+    var end = ctl.details.selectionEnd;
+    if (start > end) {
+      start = ctl.details.selectionEnd;
+      end = ctl.details.selectionStart;
+    }
+
+    // Only send the most recent text changed event - throw away anything
+    // that was pending.
+    if (cvox.AccessibilityApiHandler.textChangeTimeout) {
+      window.clearTimeout(cvox.AccessibilityApiHandler.textChangeTimeout);
+    }
+
+    // Handle the text change event after a small delay, so multiple
+    // events in rapid succession are handled as a single change. This is
+    // specifically for the location bar with autocomplete - typing a
+    // character and getting the autocompleted text and getting that
+    // text selected may be three separate events.
+    cvox.AccessibilityApiHandler.textChangeTimeout = window.setTimeout(
+        function() {
+          var textChangeEvent = new cvox.TextChangeEvent(
+              ctl.details.value,
+              start,
+              end,
+              true);  // triggered by user
+          cvox.AccessibilityApiHandler.editableTextHandler.changed(
+              textChangeEvent);
+        }, cvox.AccessibilityApiHandler.TEXT_CHANGE_DELAY);
   });
 };
 
@@ -346,6 +398,13 @@ cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
   var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
   var s = '';
+
+  var context = control.context;
+  if (context && context != cvox.AccessibilityApiHandler.lastContext) {
+    s += context + ', ';
+    cvox.AccessibilityApiHandler.lastContext = context;
+  }
+
   var earcon = undefined;
   var name = control.name.replace(/[_&]+/g, '').replace('...', '');
   switch (control.type) {
@@ -410,12 +469,15 @@ cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
     case 'tab':
       s += msg('describe_tab', [name]);
       break;
+    case 'slider':
+      s += msg('describe_slider', [control.details.stringValue, name]);
+      break;
 
     default:
       s += name + ', ' + control.type;
   }
 
-  if (isSelect) {
+  if (isSelect && control.type != 'slider') {
     s += msg('describe_selected');
   }
   if (control.details && control.details.itemCount >= 0) {

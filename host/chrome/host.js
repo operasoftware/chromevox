@@ -91,6 +91,11 @@ cvox.ChromeHost.prototype.init = function() {
             prefs['siteSpecificScriptLoader'];
         cvox.ApiImplementation.siteSpecificScriptBase =
             prefs['siteSpecificScriptBase'];
+
+        if (prefs['filterMap']) {
+          cvox.ChromeVox.navigationManager.walkerDecorator.reinitialize(
+              prefs['filterMap']);
+        }
       }
     }, this));
 
@@ -124,10 +129,12 @@ cvox.ChromeHost.prototype.hidePageFromNativeScreenReaders = function() {
 
   if ((navigator.platform.indexOf('Win') == 0) ||
       (navigator.platform.indexOf('Mac') == 0)) {
-    document.body.setAttribute('aria-hidden', true);
+    if (!cvox.ChromeVox.entireDocumentIsHidden) {
+      document.body.setAttribute('aria-hidden', true);
+      document.body.setAttribute('chromevoxignoreariahidden', true);
+    }
     var originalRole = document.body.getAttribute('role');
     document.body.setAttribute('role', 'application');
-    document.body.setAttribute('chromevoxignoreariahidden', true);
     document.body.setAttribute('chromevoxoriginalrole', originalRole);
   }
 };
@@ -138,14 +145,16 @@ cvox.ChromeHost.prototype.hidePageFromNativeScreenReaders = function() {
 cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
   if ((navigator.platform.indexOf('Win') == 0) ||
       (navigator.platform.indexOf('Mac') == 0)) {
-    document.body.removeAttribute('aria-hidden');
     if (document.body.getAttribute('chromevoxoriginalrole') != '') {
       document.body.setAttribute(
           'role', document.body.getAttribute('chromevoxoriginalrole'));
     } else {
       document.body.removeAttribute('role');
     }
-    document.body.removeAttribute('chromevoxignoreariahidden');
+    if (!cvox.ChromeVox.entireDocumentIsHidden) {
+      document.body.removeAttribute('aria-hidden');
+      document.body.removeAttribute('chromevoxignoreariahidden');
+    }
     document.body.removeAttribute('chromevoxoriginalrole');
   }
 };
@@ -198,9 +207,9 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
   }
 
   if (active) {
-    this.unhidePageFromNativeScreenReaders();
-  } else {
     this.hidePageFromNativeScreenReaders();
+  } else {
+    this.unhidePageFromNativeScreenReaders();
   }
 };
 

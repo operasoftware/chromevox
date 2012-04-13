@@ -101,6 +101,7 @@ cvox.AbstractTts.prototype.propertyStep = {
  * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
  * @param {Object=} properties Speech properties to use for this utterance.
+ * @return {cvox.AbstractTts} A tts object useful for chaining speak calls.
  */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
   if (window['console']) {

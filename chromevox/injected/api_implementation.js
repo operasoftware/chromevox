@@ -20,6 +20,7 @@
 
 goog.provide('cvox.ApiImplementation');
 
+goog.require('cvox.BuildInfo');
 goog.require('cvox.ChromeVox');
 
 /**
@@ -283,7 +284,7 @@ cvox.ApiImplementation.getBuild = function(callbackId) {
   cvox.ApiImplementation.port.postMessage(JSON.stringify(
       {
         'id': callbackId,
-        'build': 'BUILD_TIMESTAMP_PLACEHOLDER'
+        'build': cvox.BuildInfo.build
       }));
 };
 

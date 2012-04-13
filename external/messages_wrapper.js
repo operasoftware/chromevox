@@ -1,8 +1,8 @@
 // Copyright 2011 Google Inc. All Rights Reserved.
 
 /**
- * @fileoverview A wrapper for i18n_messages.js to work in Rhino for
- * BUILD rules.
+ * @fileoverview A wrapper for the Javascript messages file
+ * to work in Rhino for BUILD rules.
  *
  * Copied from //quality/findy/google_chrome/i18n_messages_wrapper.js
  *

@@ -310,7 +310,7 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
       'keyup', cvox.ChromeVoxEventWatcher.keyUpEventWatcher, true);
 
   // If ChromeVox isn't active, skip all other event listeners.
-  if (!cvox.ChromeVox.isActive) {
+  if (!cvox.ChromeVox.isActive || cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
 
@@ -332,6 +332,8 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
       'mouseover', cvox.ChromeVoxEventWatcher.mouseOverEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'mouseout', cvox.ChromeVoxEventWatcher.mouseOutEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'click', cvox.ChromeVoxEventWatcher.mouseClickEventWatcher, true);
 };
 
 /**
@@ -372,6 +374,21 @@ cvox.ChromeVoxEventWatcher.getLastFocusedNode = function() {
   return cvox.ChromeVoxEventWatcher.lastFocusedNode;
 };
 
+/**
+ * Handles mouseclick events.
+ * Mouseclick events are only triggered if the user touches the mouse;
+ * we use it to determine whether or not we should bother trying to sync to a
+ * selection.
+ * TODO (clchen, dmazzoni): Change logic here to make it immediately sync and
+ * speak.
+ *
+ * @param {Event} evt The mouseclick event to process.
+ * @return {boolean} True if the default action should be performed.
+ */
+cvox.ChromeVoxEventWatcher.mouseClickEventWatcher = function(evt) {
+  cvox.ChromeVoxUserCommands.wasMouseClicked = true;
+  return true;
+};
 
 /**
  * Handles mouseover events.
@@ -528,7 +545,6 @@ cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
-  cvox.ChromeVoxUserCommands.keepReading = false;
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     cvox.ChromeVoxEventWatcher.previousTextHandlerState =
         cvox.ChromeVoxEventWatcher.currentTextHandler.saveState();

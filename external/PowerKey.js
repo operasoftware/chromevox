@@ -25,12 +25,14 @@ goog.provide('axsjax.common.PowerKey');
 // Also provide PowerKey, so we don't break closure apps that expect PowerKey.
 goog.provide('PowerKey');
 
+goog.require('axsjax.common.AxsJAX');
+
 /**
  * Javascript class for providing keyboard interface enhancements for
  * Web 2.0 applications.
  * @param {string} context The user specified string value, which is the
  *     starting context of the application. This can be changed later.
- * @param {AxsJAX} axsJAX The AxsJAX object provided by the user.
+ * @param {axsjax.common.AxsJAX} axsJAX The AxsJAX object provided by the user.
  * @constructor
  */
 var PowerKey = function(context, axsJAX) {
@@ -95,7 +97,7 @@ var PowerKey = function(context, axsJAX) {
 
   /**
    * AxsJAX object
-   * @type {AxsJAX?}
+   * @type {axsjax.common.AxsJAX?}
    * @private
    */
   this.axsJAX_ = null;

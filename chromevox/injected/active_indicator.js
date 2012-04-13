@@ -70,6 +70,13 @@ cvox.ActiveIndicator = function() {
    */
   this.visible_ = true;
 
+  /**
+   * An element used to measure the current zoom level.
+   * @type {?Element}
+   * @private
+   */
+  this.zoomMeasureElement_ = null;
+
   // Hide the indicator when the window doesn't have focus.
   window.addEventListener('focus', goog.bind(function() {
     if (this.container_) {
@@ -108,9 +115,10 @@ cvox.ActiveIndicator = function() {
 cvox.ActiveIndicator.STYLE =
     '.cvox_indicator_container {' +
     '  position: absolute !important;' +
-    '  left: 0;' +
-    '  top: 0;' +
-    '  z-index: 9999 !important;' +
+    '  left: 0 !important;' +
+    '  top: 0 !important;' +
+    '  z-index: 2147483647 !important;' +
+    '  pointer-events: none !important;' +
     '}' +
     '.cvox_indicator_window_not_focused {' +
     '  visibility: hidden !important;' +
@@ -120,7 +128,7 @@ cvox.ActiveIndicator.STYLE =
     '}' +
     '.cvox_indicator_pulsing {' +
     '  -webkit-animation: ' +
-    '      cvox_indicator_pulsing_animation 1s infinite alternate !important;' +
+    '      cvox_indicator_pulsing_animation 2s 2 alternate !important;' +
     '  -webkit-animation-timing-function: ease-in-out !important;' +
     '}' +
     '.cvox_indicator_region {' +
@@ -162,7 +170,8 @@ cvox.ActiveIndicator.STYLE =
     '}' +
     '@-webkit-keyframes cvox_indicator_pulsing_animation {' +
     '   0% {opacity: 1.0}' +
-    ' 100% {opacity: 0.5}' +
+    '  50% {opacity: 0.5}' +
+    ' 100% {opacity: 1.0}' +
     '}';
 
 /**
@@ -302,14 +311,19 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
     return;
   }
 
-  // Offset the rects by the scroll amount, while copying them into a
-  // new mutable array.
+  // Offset the rects by scroll offsets and webkit margins,
+  // while copying them into a new mutable array.
+  var offsetX = window.pageXOffset;
+  var offsetY = window.pageYOffset;
+  var bodyStyle = window.getComputedStyle(document.body, null);
+  if (bodyStyle['-webkit-margin-start']) {
+    offsetX -= parseInt(bodyStyle['-webkit-margin-start'], 10);
+  }
+
   var rects = [];
   for (var i = 0; i < n; i++) {
     rects.push(
-        this.inset_(immutableRects[i],
-                    window.pageXOffset, window.pageYOffset,
-                    -window.pageXOffset, -window.pageYOffset));
+        this.inset_(immutableRects[i], offsetX, offsetY, -offsetX, -offsetY));
   }
 
   // Create and attach the container if it doesn't exist or if it was detached.
@@ -814,17 +828,22 @@ cvox.ActiveIndicator.prototype.setElementRect_ = function(
  * @private
  */
 cvox.ActiveIndicator.prototype.computeZoomLevel_ = function() {
-  var div = document.createElement('div');
-  div.innerHTML = 'X';
-  div.setAttribute(
-      'style',
-      'font: 5000px/1em sans-serif !important;' +
-      ' -webkit-text-size-adjust:none !important;' +
-      ' visibility:hidden !important;' +
-      ' position:absolute !important;');
-  document.body.appendChild(div);
-  var zoomLevel = 5000 / div.clientHeight;
-  document.body.removeChild(div);
+  if (!this.zoomMeasureElement_ ||
+      this.zoomMeasureElement_.parentElement != document.body) {
+    this.zoomMeasureElement_ = document.createElement('div');
+    this.zoomMeasureElement_.innerHTML = 'X';
+    this.zoomMeasureElement_.setAttribute(
+        'style',
+        'font: 5000px/1em sans-serif !important;' +
+        ' -webkit-text-size-adjust:none !important;' +
+        ' visibility:hidden !important;' +
+        ' left: -10000px !important;' +
+        ' top: -10000px !important;' +
+        ' position:absolute !important;');
+    document.body.appendChild(this.zoomMeasureElement_);
+  }
+
+  var zoomLevel = 5000 / this.zoomMeasureElement_.clientHeight;
   var newZoom = Math.round(zoomLevel * 500) / 500;
   if (newZoom > 0.1 && newZoom < 10) {
     this.zoom_ = newZoom;

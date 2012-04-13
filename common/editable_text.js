@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -301,7 +301,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
   // TODO(deboer): Reconcile this function with this.getValue()
 
   if (this.isPassword) {
-    this.speak('*', evt.triggeredByUser);
+    this.speak('dot', evt.triggeredByUser);
     return;
   }
   if (evt.start == evt.end) {
@@ -381,7 +381,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
  */
 cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
   if (this.isPassword) {
-    this.speak('*', evt.triggeredByUser);
+    this.speak('dot', evt.triggeredByUser);
     return;
   }
 
@@ -623,7 +623,9 @@ cvox.ChromeVoxEditableHTMLInput = function(node, tts) {
   this.tts = tts;
 
   if (this.node.type == 'password') {
-    this.value = this.value.replace(/./g, '*');
+    this.isPassword = true;
+  } else {
+    this.isPassword = false;
   }
 };
 goog.inherits(cvox.ChromeVoxEditableHTMLInput,
@@ -637,9 +639,6 @@ goog.inherits(cvox.ChromeVoxEditableHTMLInput,
  */
 cvox.ChromeVoxEditableHTMLInput.prototype.update = function(triggeredByUser) {
   var newValue = this.node.value;
-  if (this.node.type == 'password') {
-    newValue = newValue.replace(/./g, '*');
-  }
 
   var textChangeEvent = new cvox.TextChangeEvent(newValue,
       this.node.selectionStart, this.node.selectionEnd, triggeredByUser);
@@ -651,9 +650,7 @@ cvox.ChromeVoxEditableHTMLInput.prototype.update = function(triggeredByUser) {
  */
 cvox.ChromeVoxEditableHTMLInput.prototype.needsUpdate = function() {
   var newValue = this.node.value;
-  if (this.node.type == 'password') {
-    newValue = newValue.replace(/./g, '*');
-  }
+
   return (this.value != newValue ||
           this.start != this.node.selectionStart ||
           this.end != this.node.selectionEnd);

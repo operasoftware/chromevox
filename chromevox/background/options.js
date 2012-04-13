@@ -161,6 +161,11 @@ cvox.OptionsPage.addKeys = function() {
           cvox.OptionsPage.KEYCODE_TO_TEXT);
     inputElem.value = displayedCombo;
 
+    // Don't allow the user to change the sticky mode key.
+    if (name == 'toggleStickyMode') {
+      inputElem.disabled = true;
+    }
+
     var labelElem = document.createElement('label');
     container.appendChild(labelElem);
     labelElem.appendChild(inputElem);

@@ -23,7 +23,7 @@ goog.provide('cvox.ChromeVoxPrefs');
 
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ExtensionBridge');
-
+goog.require('cvox.KeyUtil');
 
 
 /**
@@ -62,7 +62,8 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'siteSpecificScriptBase':
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
-      'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js'
+      'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
+  'filterMap': {}
 };
 
 
@@ -120,6 +121,12 @@ cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
   for (var key in currentKeyMap) {
     var command = currentKeyMap[key][0];
     currentReverseMap[command] = key;
+    // The sticky key is currently not configurable,
+    // so we should not read in any keys that are saved for it.
+    if (command == 'toggleStickyMode') {
+      delete currentKeyMap[key];
+      delete currentReverseMap[command];
+    }
   }
 
   // Now merge the default keyMap.
@@ -140,6 +147,7 @@ cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
 
   // Now set the keyMap and write it back to localStorage.
   this.keyMap = /** @type {Object.<Array.<string>>} */(currentKeyMap);
+
   this.saveKeyMap();
 };
 
@@ -157,8 +165,10 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
 
   keyMap['Ctrl+'] = ['stopSpeech', msg('stop_speech_key')]; // Cvox
 
-  // Double tap Modifier#1
-  keyMap[(mod1 + '>' + mod1 + '+')] =
+  // Double tap the sticky key to toggle sticky mode.
+  var stickyKeyName =
+      cvox.KeyUtil.getReadableNameForKeyCode(cvox.KeyUtil.getStickyKeyCode());
+  keyMap[(stickyKeyName + '>' + stickyKeyName + '+')] =
       ['toggleStickyMode', msg('toggle_sticky_mode')];
 
   // Turning on prefix key
@@ -175,6 +185,9 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
       ['left', msg('left')];
   keyMap[(mod1 + '+#39')] =
       ['right', msg('right')];
+
+  keyMap['#37'] = ['skipBackward', msg('skip_backward')];
+  keyMap['#39'] = ['skipForward', msg('skip_forward')];
 
   keyMap[(mod1 + '+#189')] =
       ['previousGranularity', msg('previous_granularity')]; // -
@@ -206,7 +219,9 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1)] =
       ['hidePowerKey', msg('hide_power_key')]; // modifier
   keyMap[(mod1 + '+H')] = ['help', msg('help')];
-  keyMap[(mod1 + '+#191')] =
+  keyMap[(mod1 + '+I>F')] =
+  ['toggleFilteringWidget', msg('toggle_filtering_widget')];
+      keyMap[(mod1 + '+#191')] =
       ['toggleSearchWidget', msg('toggle_search_widget')];    // '/'
   keyMap[(mod1 + '+O>W')] =
       ['showOptionsPage', msg('show_options_page')];
@@ -310,6 +325,10 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
       ['nextComboBox', msg('next_combo_box')];
   keyMap[(mod1 + '+P>C')] =
       ['previousComboBox', msg('previous_combo_box')];
+  keyMap[(mod1 + '+N>D')] =
+      ['nextDifferentElement', 'next different element'];
+  keyMap[(mod1 + '+P>D')] =
+      ['previousDifferentElement', 'previous different element'];
   keyMap[(mod1 + '+N>E')] =
       ['nextEditText', msg('next_edit_text')];
   keyMap[(mod1 + '+P>E')] =
@@ -341,9 +360,9 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+N>R')] = ['nextRadio', msg('next_radio')];
   keyMap[(mod1 + '+P>R')] =
       ['previousRadio', msg('previous_radio')];
-  keyMap[(mod1 + '+N>S')] = ['nextSlider', msg('next_slider')];
+  keyMap[(mod1 + '+N>S')] = ['nextSimilarElement', 'nextSimilarElement'];
   keyMap[(mod1 + '+P>S')] =
-      ['previousSlider', msg('previous_slider')];
+      ['previousSimilarElement', msg('previous_slider')];
   keyMap[(mod1 + '+N>T')] = ['nextTable', msg('next_table')];
   keyMap[(mod1 + '+P>T')] =
       ['previousTable', msg('previous_table')];
@@ -358,6 +377,9 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+P>#186')] =
       ['previousLandmark', msg('previous_landmark')];  // ';'
   keyMap[(mod1 + '+B>B')] = ['benchmark', msg('benchmark')];
+
+  // Filtering commands.
+  keyMap[(mod1 + '+I>I')] = ['filterLikeCurrentItem', msg('filter_item')];
 
   return keyMap;
 };

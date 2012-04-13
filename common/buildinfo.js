@@ -14,13 +14,18 @@
 
 
 /**
- * @fileoverview Defines the AndroidVox app.
+ * @fileoverview Build info for ChromeVox.
+ *
+ * This file may be replaced in package.py for dev builds.
+ * For releases, it is updated by hand with meaningful values.
+ *
  * @author deboer@google.com (James deBoer)
  */
 
-goog.require('androidvoxnav');
-goog.require('cvox.AndroidEarcons');
-goog.require('cvox.AndroidHost');
-goog.require('cvox.AndroidTts');
-goog.require('cvox.ChromeVoxInit');
-goog.require('cvox.TestMsgs');
+goog.provide('cvox.BuildInfo');
+
+/**
+ * An identified for this build.
+ * @type {string}
+ */
+cvox.BuildInfo.build='1334334963';

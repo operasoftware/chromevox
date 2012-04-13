@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @fileoverview An object that represents a dimension in cvox.CssSpace.
+ * @author dtseng@google.com (David Tseng)
+ */
+goog.provide('cvox.CssDimension');
 
 /**
- * @fileoverview Defines the AndroidVox app.
- * @author deboer@google.com (James deBoer)
+ * @typedef {Object}
  */
+cvox.CssDimension = {
+  /** @type {?string} */
+  name: null,
 
-goog.require('androidvoxnav');
-goog.require('cvox.AndroidEarcons');
-goog.require('cvox.AndroidHost');
-goog.require('cvox.AndroidTts');
-goog.require('cvox.ChromeVoxInit');
-goog.require('cvox.TestMsgs');
+  /** @type {?number} */
+  threshold: null
+};

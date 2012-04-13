@@ -262,20 +262,6 @@ cvox.DomUtil.collapseWhitespace = function(str) {
 
 
 /**
- * Unescape HTML text(such as converting &#39; to ').
- * Escaped text can happen when retrieving text from attributes
- * such as title, alt, etc.
- * @param {string} str The input string.
- * @return {string} The string with all the text unescaped.
- */
-cvox.DomUtil.unescape = function(str) {
-  var node = document.createElement('span');
-  node.innerHTML = str;
-  return node.textContent;
-};
-
-
-/**
  * Get the name of a node: this includes all static text content and any
  * HTML-author-specified label, title, alt text, aria-label, etc. - but
  * does not include:
@@ -320,11 +306,11 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
       }
     }
   } else if (node.hasAttribute && node.hasAttribute('aria-label')) {
-    label = cvox.DomUtil.unescape(node.getAttribute('aria-label'));
+    label = node.getAttribute('aria-label');
   } else if (node.constructor == HTMLImageElement) {
-    label = cvox.DomUtil.unescape(cvox.DomUtil.getImageTitle(node));
+    label = cvox.DomUtil.getImageTitle(node);
   } else if (node.hasAttribute && node.hasAttribute('title')) {
-    label = cvox.DomUtil.unescape(node.getAttribute('title'));
+    label = node.getAttribute('title');
   } else if (node.tagName == 'FIELDSET') {
     // Other labels will trump fieldset legend with this implementation.
     // Depending on how this works out on the web, we may later switch this
@@ -545,7 +531,7 @@ cvox.DomUtil.getValue = function(node) {
       case 'radio':
         return '';
       case 'password':
-        return node.value.replace(/./g, '*');
+        return node.value.replace(/./g, 'dot ');
       default:
         return node.value;
     }
@@ -613,6 +599,13 @@ cvox.DomUtil.hasContent = function(node) {
 
   // Exclude noscript nodes
   if (cvox.DomUtil.isDescendantOf(node, 'NOSCRIPT')) {
+    return false;
+  }
+
+  // Exclude noembed nodes since NOEMBED is deprecated. We treat
+  // noembed as having not content rather than try to get its content since
+  // Chrome will return raw HTML content rather than a valid DOM subtree.
+  if (cvox.DomUtil.isDescendantOf(node, 'NOEMBED')) {
     return false;
   }
 
@@ -1491,7 +1484,8 @@ cvox.DomUtil.getLinkURL = function(node) {
     } else {
       return '';
     }
-  } else if (cvox.AriaUtil.getRoleName(node) == 'Link') {
+  } else if (cvox.AriaUtil.getRoleName(node) ==
+             cvox.ChromeVox.msgs.getMsg('aria_role_link')) {
     return 'Unknown link';
   }
 
@@ -1510,17 +1504,27 @@ cvox.DomUtil.getContainingTable = function(node) {
   if (node.constructor != Text && node.tagName == 'CAPTION') {
     return null;
   }
+  return cvox.DomUtil.findTableNodeInList(ancestors);
+};
+
+
+/**
+ * Extracts a table node from a list of nodes.
+ * @param {Array.<Node>} nodes The list of nodes.
+ * @return {Node} The table node if the list of nodes contains a table node.
+ * Null if it does not.
+ */
+cvox.DomUtil.findTableNodeInList = function(nodes) {
   // Don't include the caption node because it is actually rendered outside
   // of the table.
-  for (var i = ancestors.length - 1, ancestor;
-       ancestor = ancestors[i]; i--) {
-    if (ancestor.constructor != Text) {
-      if (ancestor.tagName == 'CAPTION') {
+  for (var i = nodes.length - 1, node; node = nodes[i]; i--) {
+    if (node.constructor != Text) {
+      if (node.tagName == 'CAPTION') {
         return null;
       }
-      if ((ancestor.tagName == 'TABLE') ||
-          cvox.AriaUtil.isGrid(ancestor)) {
-          return ancestor;
+      if ((node.tagName == 'TABLE') ||
+          cvox.AriaUtil.isGrid(node)) {
+          return node;
       }
     }
   }

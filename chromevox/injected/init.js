@@ -22,13 +22,17 @@ goog.provide('cvox.ChromeVoxInit');
 
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.CssSpace');
 goog.require('cvox.ChromeVoxEventWatcher');
+goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.HostFactory');
 goog.require('cvox.LiveRegions');
+goog.require('cvox.SpokenMessages');
+
 
 // INJECTED_AFTER_LOAD is set true by ChromeVox itself or ChromeOS when this
 // script is injected after page load (i.e. when manually enabling ChromeVox).
@@ -53,9 +57,18 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
   // If we're the top-level frame, speak the title of the page +
   // the active element if it is a user control.
   if (window.top == window) {
-    var message = document.title;
-    if (message && !disableSpeak) {
-      cvox.ChromeVox.tts.speak(message, queueMode, null);
+    if (document.title && !disableSpeak) {
+      cvox.ChromeVox.tts.speak(document.title, 0);
+
+      // The introductory page summary chain.
+      cvox.$m('aria_role_link')
+          .withCount(document.links.length)
+          .andPause()
+          .andMessage('aria_role_form')
+          .withCount(document.forms.length)
+          .andEnd()
+          .speakQueued();
+
       queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
     }
   } else {
@@ -109,6 +122,7 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVox.host.init();
 
   // Initialize common components
+  cvox.ChromeVoxFiltering.init();
   cvox.ChromeVoxSearch.init();
 
   // Start the event watchers
