@@ -1,0 +1,3 @@
+#!/bin/sh
+
+java -classpath third_party/js.jar org.mozilla.javascript.tools.shell.Main $@

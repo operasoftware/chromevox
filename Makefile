@@ -5,17 +5,12 @@
 #
 
 
-CLOSURE_ROOT=/usr/local/lib/closure
+CLOSURE_ROOT=third_party
 
-# On Debian, rhino is available through apt-get.
-RHINO=rhino
+RHINO=$(CLOSURE_ROOT)/rhino
 
-
-# The closure compiler is available at http://code.google.com/closure/compiler/
 CLOSURE_COMPILER=java -jar $(CLOSURE_ROOT)/compiler.jar --manage_closure_dependencies
 
-# The closure DepsWriter, available at
-#     http://code.google.com/closure/library/docs/depswriter.html
 DEPSWRITER=python $(CLOSURE_ROOT)/depswriter.py
 
 #######################################
@@ -237,33 +232,33 @@ CHROMEVOX_MESSAGES_i18n_messages_messages_jslib_DEPS = $(call uniq, $(CHROMEVOX_
 CHROMEVOX_MESSAGES_i18n_messages_messages_jslib_FILES = $(CHROMEVOX_MESSAGES_i18n_messages_messages_jslib_DEPS)
 
 CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS = $(CHROMEVOX_MESSAGES_i18n_messages_messages_jslib_FILES)
-CHROMEVOX_MESSAGES_i18n_messages_localized__en_FILES = $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS)
-chromevox/messages/i18n_messages_localized__en.js: $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_FILES)
+chromevox/messages/i18n_messages_localized__en.js_FILES = chromevox/messages/i18n_messages_localized__en.js
+chromevox/messages/i18n_messages_localized__en.js: $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS)
 	@echo Building Javascript binary chromevox/messages/i18n_messages_localized__en.js
-	@$(CLOSURE_COMPILER) --js $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_FILES) --js_output_file chromevox/messages/i18n_messages_localized__en.js
+	@$(CLOSURE_COMPILER) --js $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS) --js_output_file chromevox/messages/i18n_messages_localized__en.js
 
 
-CHROMEVOX_MESSAGES_messages_en.json_SRCS = chromevox/messages/i18n_messages_localized__en.js
+CHROMEVOX_MESSAGES_i18n_messages_localized__en.js_FILES = chromevox/messages/i18n_messages_localized__en.js
+CHROMEVOX_MESSAGES_messages_en.json_SRCS = $(CHROMEVOX_MESSAGES_i18n_messages_localized__en.js_FILES)
 CHROMEVOX_MESSAGES_messages_en.json_FILES = chromevox/messages/_locales/en/messages.json
 chromevox/messages/_locales/en/messages.json: $(CHROMEVOX_MESSAGES_messages_en.json_SRCS)
 	@echo Generating file chromevox/messages/_locales/en/messages.json
-	@mkdir -p chromevox/messages/_locales/en
+	@mkdir -p $(dir chromevox/messages/_locales/en/messages.json)
 	@$(RHINO) $(CHROMEVOX_MESSAGES_messages_en.json_SRCS) > $(CHROMEVOX_MESSAGES_messages_en.json_FILES)
 
 
-chromevox/messages/messages_en.json: chromevox/messages/_locales/en/messages.json
-	@cp chromevox/messages/_locales/en/messages.json chromevox/messages/messages_en.json
-
-HOST_TESTING_test_messages_SRCS = $(call uniq, host/testing/test_messages.jsfragment chromevox/messages/messages_en.json)
+CHROMEVOX_MESSAGES_messages_en.json_FILES = chromevox/messages/_locales/en/messages.json
+HOST_TESTING_test_messages_SRCS = $(call uniq, host/testing/test_messages.jsfragment $(CHROMEVOX_MESSAGES_messages_en.json_FILES))
 HOST_TESTING_test_messages_FILES = host/testing/test_messages.js
 host/testing/test_messages.js: $(HOST_TESTING_test_messages_SRCS)
 	@echo Generating file host/testing/test_messages.js
-	@mkdir -p host/testing
+	@mkdir -p $(dir host/testing/test_messages.js)
 	@cat $(HOST_TESTING_test_messages_SRCS) >$(HOST_TESTING_test_messages_FILES)
 
 
+HOST_TESTING_test_messages.js_FILES = $(HOST_TESTING_test_messages_FILES)
 HOST_TESTING_test_messages_lib_DEPS = $(CLOSURE_base_FILES)
-HOST_TESTING_test_messages_lib_SRCS = host/testing/test_messages.js
+HOST_TESTING_test_messages_lib_SRCS = $(HOST_TESTING_test_messages.js_FILES)
 HOST_TESTING_test_messages_lib_FILES = $(HOST_TESTING_test_messages_lib_DEPS) $(HOST_TESTING_test_messages_lib_SRCS)
 
 HOST_TESTING_msgs_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_msgs_FILES) $(HOST_INTERFACE_host_factory_FILES) $(HOST_TESTING_test_messages_lib_FILES))
@@ -335,13 +330,13 @@ ANDROID_INJECTED_loader_SRCS = android/injected/loader.js
 ANDROID_INJECTED_loader_FILES = $(ANDROID_INJECTED_loader_DEPS) $(ANDROID_INJECTED_loader_SRCS)
 
 androidVoxDev_DEPS = $(ANDROID_INJECTED_loader_FILES)
-androidVoxDev_FILES = $(androidVoxDev_DEPS)
-androidVoxDev.js: $(androidVoxDev_FILES)
+androidVoxDev.js_FILES = androidVoxDev.js
+androidVoxDev.js: $(androidVoxDev_DEPS)
 	@echo Building Javascript binary androidVoxDev.js
-	@$(CLOSURE_COMPILER) --js $(androidVoxDev_FILES) --js_output_file androidVoxDev.js
+	@$(CLOSURE_COMPILER) --js $(androidVoxDev_DEPS) --js_output_file androidVoxDev.js
 
 
-
+androidVoxDev_FILES = androidVoxDev.js
 HOST_CHROME_extension_bridge_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_json_FILES))
 HOST_CHROME_extension_bridge_SRCS = host/chrome/extension_bridge.js
 HOST_CHROME_extension_bridge_FILES = $(HOST_CHROME_extension_bridge_DEPS) $(HOST_CHROME_extension_bridge_SRCS)
@@ -371,13 +366,13 @@ CHROMEVOX_INJECTED_loader_SRCS = chromevox/injected/loader.js
 CHROMEVOX_INJECTED_loader_FILES = $(CHROMEVOX_INJECTED_loader_DEPS) $(CHROMEVOX_INJECTED_loader_SRCS)
 
 chromeVoxChromePageScript_DEPS = $(CHROMEVOX_INJECTED_loader_FILES)
-chromeVoxChromePageScript_FILES = $(chromeVoxChromePageScript_DEPS)
-chromeVoxChromePageScript.js: $(chromeVoxChromePageScript_FILES)
+chromeVoxChromePageScript.js_FILES = chromeVoxChromePageScript.js
+chromeVoxChromePageScript.js: $(chromeVoxChromePageScript_DEPS)
 	@echo Building Javascript binary chromeVoxChromePageScript.js
-	@$(CLOSURE_COMPILER) --js $(chromeVoxChromePageScript_FILES) --js_output_file chromeVoxChromePageScript.js
+	@$(CLOSURE_COMPILER) --js $(chromeVoxChromePageScript_DEPS) --js_output_file chromeVoxChromePageScript.js
 
 
-
+chromeVoxChromePageScript_FILES = chromeVoxChromePageScript.js
 HOST_CHROME_earcons_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_earcons_FILES))
 HOST_CHROME_earcons_background_SRCS = host/chrome/earcons_background.js
 HOST_CHROME_earcons_background_FILES = $(HOST_CHROME_earcons_background_DEPS) $(HOST_CHROME_earcons_background_SRCS)
@@ -403,73 +398,51 @@ CHROMEVOX_BACKGROUND_loader_SRCS = chromevox/background/loader.js
 CHROMEVOX_BACKGROUND_loader_FILES = $(CHROMEVOX_BACKGROUND_loader_DEPS) $(CHROMEVOX_BACKGROUND_loader_SRCS)
 
 chromeVoxChromeBackgroundScript_DEPS = $(CHROMEVOX_BACKGROUND_loader_FILES)
-chromeVoxChromeBackgroundScript_FILES = $(chromeVoxChromeBackgroundScript_DEPS)
-chromeVoxChromeBackgroundScript.js: $(chromeVoxChromeBackgroundScript_FILES)
+chromeVoxChromeBackgroundScript.js_FILES = chromeVoxChromeBackgroundScript.js
+chromeVoxChromeBackgroundScript.js: $(chromeVoxChromeBackgroundScript_DEPS)
 	@echo Building Javascript binary chromeVoxChromeBackgroundScript.js
-	@$(CLOSURE_COMPILER) --js $(chromeVoxChromeBackgroundScript_FILES) --js_output_file chromeVoxChromeBackgroundScript.js
+	@$(CLOSURE_COMPILER) --js $(chromeVoxChromeBackgroundScript_DEPS) --js_output_file chromeVoxChromeBackgroundScript.js
 
 
-
+chromeVoxChromeBackgroundScript_FILES = chromeVoxChromeBackgroundScript.js
 CHROMEVOX_BACKGROUND_options_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(HOST_CHROME_earcons_FILES) $(HOST_CHROME_extension_bridge_FILES) $(HOST_CHROME_host_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_BACKGROUND_prefs_FILES))
 CHROMEVOX_BACKGROUND_options_SRCS = chromevox/background/options.js
 CHROMEVOX_BACKGROUND_options_FILES = $(CHROMEVOX_BACKGROUND_options_DEPS) $(CHROMEVOX_BACKGROUND_options_SRCS)
 
 chromeVoxChromeOptionsScript_DEPS = $(CHROMEVOX_BACKGROUND_options_FILES)
-chromeVoxChromeOptionsScript_FILES = $(chromeVoxChromeOptionsScript_DEPS)
-chromeVoxChromeOptionsScript.js: $(chromeVoxChromeOptionsScript_FILES)
+chromeVoxChromeOptionsScript.js_FILES = chromeVoxChromeOptionsScript.js
+chromeVoxChromeOptionsScript.js: $(chromeVoxChromeOptionsScript_DEPS)
 	@echo Building Javascript binary chromeVoxChromeOptionsScript.js
-	@$(CLOSURE_COMPILER) --js $(chromeVoxChromeOptionsScript_FILES) --js_output_file chromeVoxChromeOptionsScript.js
+	@$(CLOSURE_COMPILER) --js $(chromeVoxChromeOptionsScript_DEPS) --js_output_file chromeVoxChromeOptionsScript.js
 
 
-
+chromeVoxChromeOptionsScript_FILES = chromeVoxChromeOptionsScript.js
 CHROMEVOX_BACKGROUND_kbexplorer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_key_util_FILES))
 CHROMEVOX_BACKGROUND_kbexplorer_SRCS = chromevox/background/kbexplorer.js
 CHROMEVOX_BACKGROUND_kbexplorer_FILES = $(CHROMEVOX_BACKGROUND_kbexplorer_DEPS) $(CHROMEVOX_BACKGROUND_kbexplorer_SRCS)
 
 chromeVoxKbExplorerScript_DEPS = $(CHROMEVOX_BACKGROUND_kbexplorer_FILES)
-chromeVoxKbExplorerScript_FILES = $(chromeVoxKbExplorerScript_DEPS)
-chromeVoxKbExplorerScript.js: $(chromeVoxKbExplorerScript_FILES)
+chromeVoxKbExplorerScript.js_FILES = chromeVoxKbExplorerScript.js
+chromeVoxKbExplorerScript.js: $(chromeVoxKbExplorerScript_DEPS)
 	@echo Building Javascript binary chromeVoxKbExplorerScript.js
-	@$(CLOSURE_COMPILER) --js $(chromeVoxKbExplorerScript_FILES) --js_output_file chromeVoxKbExplorerScript.js
+	@$(CLOSURE_COMPILER) --js $(chromeVoxKbExplorerScript_DEPS) --js_output_file chromeVoxKbExplorerScript.js
 
 
-
-CHROMESHADES_INJECTED_base_modifier_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES) $(COMMON_interframe_FILES) $(HOST_CHROME_extension_bridge_FILES))
-CHROMESHADES_INJECTED_base_modifier_SRCS = chromeshades/injected/base_modifier.js
-CHROMESHADES_INJECTED_base_modifier_FILES = $(CHROMESHADES_INJECTED_base_modifier_DEPS) $(CHROMESHADES_INJECTED_base_modifier_SRCS)
-
-CHROMESHADES_INJECTED_shades_modifier_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_xpath_util_FILES))
-CHROMESHADES_INJECTED_shades_modifier_SRCS = chromeshades/injected/shades_modifier.js
-CHROMESHADES_INJECTED_shades_modifier_FILES = $(CHROMESHADES_INJECTED_shades_modifier_DEPS) $(CHROMESHADES_INJECTED_shades_modifier_SRCS)
-
-CHROMESHADES_INJECTED_init_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_CHROME_extension_bridge_FILES) $(CHROMESHADES_INJECTED_base_modifier_FILES) $(CHROMESHADES_INJECTED_shades_modifier_FILES))
-CHROMESHADES_INJECTED_init_SRCS = chromeshades/injected/init.js
-CHROMESHADES_INJECTED_init_FILES = $(CHROMESHADES_INJECTED_init_DEPS) $(CHROMESHADES_INJECTED_init_SRCS)
-
-chromeShadesInjected_DEPS = $(CHROMESHADES_INJECTED_init_FILES)
-chromeShadesInjected_FILES = $(chromeShadesInjected_DEPS)
-chromeShadesInjected.js: $(chromeShadesInjected_FILES)
-	@echo Building Javascript binary chromeShadesInjected.js
-	@$(CLOSURE_COMPILER) --js $(chromeShadesInjected_FILES) --js_output_file chromeShadesInjected.js
+chromeVoxKbExplorerScript_FILES = chromeVoxKbExplorerScript.js
+chromeshades/background/binary.js_FILES = chromeshades/background/binary.js
+chromeshades/background/binary.js: 
+	@echo Building Javascript binary chromeshades/background/binary.js
+	@$(CLOSURE_COMPILER) --js  --js_output_file chromeshades/background/binary.js
 
 
-
-CHROMESHADES_BACKGROUND_toggle_DEPS = $(CLOSURE_base_FILES)
-CHROMESHADES_BACKGROUND_toggle_SRCS = chromeshades/background/toggle.js
-CHROMESHADES_BACKGROUND_toggle_FILES = $(CHROMESHADES_BACKGROUND_toggle_DEPS) $(CHROMESHADES_BACKGROUND_toggle_SRCS)
-
-CHROMESHADES_BACKGROUND_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_CHROME_extension_bridge_FILES) $(CHROMESHADES_BACKGROUND_toggle_FILES))
-CHROMESHADES_BACKGROUND_background_SRCS = chromeshades/background/background.js
-CHROMESHADES_BACKGROUND_background_FILES = $(CHROMESHADES_BACKGROUND_background_DEPS) $(CHROMESHADES_BACKGROUND_background_SRCS)
-
-chromeShadesBackground_DEPS = $(CHROMESHADES_BACKGROUND_background_FILES)
-chromeShadesBackground_FILES = $(chromeShadesBackground_DEPS)
-chromeShadesBackground.js: $(chromeShadesBackground_FILES)
-	@echo Building Javascript binary chromeShadesBackground.js
-	@$(CLOSURE_COMPILER) --js $(chromeShadesBackground_FILES) --js_output_file chromeShadesBackground.js
+CHROMESHADES_BACKGROUND_binary_FILES = chromeshades/background/binary.js
+chromeshades/injected/binary.js_FILES = chromeshades/injected/binary.js
+chromeshades/injected/binary.js: 
+	@echo Building Javascript binary chromeshades/injected/binary.js
+	@$(CLOSURE_COMPILER) --js  --js_output_file chromeshades/injected/binary.js
 
 
-
+CHROMESHADES_INJECTED_binary_FILES = chromeshades/injected/binary.js
 COMMON_focus_util_DEPS = $(CLOSURE_base_FILES)
 COMMON_focus_util_SRCS = common/focus_util.js
 COMMON_focus_util_FILES = $(COMMON_focus_util_DEPS) $(COMMON_focus_util_SRCS)
@@ -486,15 +459,22 @@ CHROMEVIS_INJECTED_loader_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_CHROM
 CHROMEVIS_INJECTED_loader_SRCS = chromevis/injected/loader.js
 CHROMEVIS_INJECTED_loader_FILES = $(CHROMEVIS_INJECTED_loader_DEPS) $(CHROMEVIS_INJECTED_loader_SRCS)
 
-CHROMEVIS_chromevisCompiled_DEPS = $(CHROMEVIS_INJECTED_loader_FILES)
-CHROMEVIS_chromevisCompiled_FILES = $(CHROMEVIS_chromevisCompiled_DEPS)
-chromevis/chromevisCompiled.js: $(CHROMEVIS_chromevisCompiled_FILES)
-	@echo Building Javascript binary chromevis/chromevisCompiled.js
-	@$(CLOSURE_COMPILER) --js $(CHROMEVIS_chromevisCompiled_FILES) --js_output_file chromevis/chromevisCompiled.js
+CHROMEVIS_INJECTED_binary_DEPS = $(CHROMEVIS_INJECTED_loader_FILES)
+chromevis/injected/binary.js_FILES = chromevis/injected/binary.js
+chromevis/injected/binary.js: $(CHROMEVIS_INJECTED_binary_DEPS)
+	@echo Building Javascript binary chromevis/injected/binary.js
+	@$(CLOSURE_COMPILER) --js $(CHROMEVIS_INJECTED_binary_DEPS) --js_output_file chromevis/injected/binary.js
 
 
+CHROMEVIS_INJECTED_binary_FILES = chromevis/injected/binary.js
+chromevis/background/background.js_FILES = chromevis/background/background.js
+chromevis/background/background.js: 
+	@echo Building Javascript binary chromevis/background/background.js
+	@$(CLOSURE_COMPILER) --js  --js_output_file chromevis/background/background.js
 
-deps_SRCS = $(call uniq, $(androidVoxDev_FILES) $(chromeVoxChromePageScript_FILES) $(chromeVoxChromeBackgroundScript_FILES) $(chromeVoxChromeOptionsScript_FILES) $(chromeVoxKbExplorerScript_FILES) $(chromeShadesInjected_FILES) $(chromeShadesBackground_FILES) $(CHROMEVIS_chromevisCompiled_FILES))
+
+CHROMEVIS_BACKGROUND_background_FILES = chromevis/background/background.js
+deps_SRCS = $(androidVoxDev_SRCS) $(chromeVoxChromePageScript_SRCS) $(chromeVoxChromeBackgroundScript_SRCS) $(chromeVoxChromeOptionsScript_SRCS) $(chromeVoxKbExplorerScript_SRCS) $(CHROMESHADES_BACKGROUND_binary_SRCS) $(CHROMESHADES_INJECTED_binary_SRCS) $(CHROMEVIS_INJECTED_binary_SRCS) $(CHROMEVIS_BACKGROUND_background_SRCS) $(androidVoxDev_DEPS) $(chromeVoxChromePageScript_DEPS) $(chromeVoxChromeBackgroundScript_DEPS) $(chromeVoxChromeOptionsScript_DEPS) $(chromeVoxKbExplorerScript_DEPS) $(CHROMESHADES_BACKGROUND_binary_DEPS) $(CHROMESHADES_INJECTED_binary_DEPS) $(CHROMEVIS_INJECTED_binary_DEPS) $(CHROMEVIS_BACKGROUND_background_DEPS)
 deps.js: $(deps_SRCS)
 	@echo Building Javascript dependencies deps.js
 	@$(DEPSWRITER) --root_with_prefix=". ../" >deps.js
@@ -504,19 +484,22 @@ CHROMEVOX_manifest_cleanmanifest_gen_SRCS = chromevox/manifest.json
 CHROMEVOX_manifest_cleanmanifest_gen_FILES = chromevox/manifest_clean_compiled_manifest/manifest.json
 chromevox/manifest_clean_compiled_manifest/manifest.json: $(CHROMEVOX_manifest_cleanmanifest_gen_SRCS)
 	@echo Generating file chromevox/manifest_clean_compiled_manifest/manifest.json
-	@mkdir -p chromevox/manifest_clean_compiled_manifest
+	@mkdir -p $(dir chromevox/manifest_clean_compiled_manifest/manifest.json)
 	@cat $< | sed -e 's/loader.js/LOADER.JS/' | grep -vE '^ *"[^ ]*.js"' | sed -e 's/LOADER.JS/binary.js/' >$@
 
 
-CHROMEVOX_manifest_SRCS = chromevox/manifest_clean_compiled_manifest/manifest.json
+CHROMEVOX_manifest_clean_compiled_manifest/manifest.json_FILES = $(CHROMEVOX_manifest_cleanmanifest_gen_FILES)
+CHROMEVOX_manifest_SRCS = $(CHROMEVOX_manifest_clean_compiled_manifest/manifest.json_FILES)
 CHROMEVOX_manifest_FILES = chromevox/manifest_compiled_manifest/manifest.json
 chromevox/manifest_compiled_manifest/manifest.json: $(CHROMEVOX_manifest_SRCS)
 	@echo Generating file chromevox/manifest_compiled_manifest/manifest.json
-	@mkdir -p chromevox/manifest_compiled_manifest
+	@mkdir -p $(dir chromevox/manifest_compiled_manifest/manifest.json)
 	@cat $< | sed -e 's/chromevox\/injected\/binary.js/chromeVoxChromePageScript.js/' >$@
 
 
-CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES = chromevox/messages/_locales/en/messages.json
+CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES = $(CHROMEVOX_manifest_FILES)
+CHROMEVOX_MESSAGES__locales/en/messages.json_FILES = $(CHROMEVOX_MESSAGES_messages_en.json_FILES)
+CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES = $(CHROMEVOX_MESSAGES__locales/en/messages.json_FILES)
 CHROMEVOX_MESSAGES_i18n_messages_filegroup: $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES)
 
 CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES = $(wildcard chromevox/background/earcons/*.ogg)
@@ -528,18 +511,18 @@ CHROMEVOX_BACKGROUND_html_files: $(CHROMEVOX_BACKGROUND_html_files_FILES)
 CHROMEVOX_png_files_FILES = $(wildcard chromevox/*.png)
 CHROMEVOX_png_files: $(CHROMEVOX_png_files_FILES)
 
-chromevox_deploy_fs_SRCS = $(call uniq, chromevox/manifest_compiled_manifest/manifest.json $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js closure/closure_preinit.js $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox/injected/api.js $(CHROMEVOX_BACKGROUND_html_files_FILES) $(CHROMEVOX_png_files_FILES))
-chromevox_deploy_fs_FILES = chromevox_deploy_fs_out
-chromevox_deploy_fs_out: $(chromevox_deploy_fs_SRCS)
+chromevox_deploy_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) $(chromeVoxChromeBackgroundScript.js_FILES) $(chromeVoxChromeOptionsScript.js_FILES) $(chromeVoxChromePageScript.js_FILES) $(chromeVoxKbExplorerScript.js_FILES) closure/closure_preinit.js $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox/injected/api.js $(CHROMEVOX_BACKGROUND_html_files_FILES) $(CHROMEVOX_png_files_FILES))
+chromevox_deploy_fs_out_FILES = chromevox_deploy_fs_out
+chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@echo Building Fileset chromevox_deploy_fs_out
-	@mkdir -p chromevox_deploy_fs_out
-	@cp chromevox/manifest_compiled_manifest/manifest.json chromevox_deploy_fs_out/
+	@mkdir -p $(chromevox_deploy_fs_out_FILES)
+	@cp $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) chromevox_deploy_fs_out/
 	@mkdir -p chromevox_deploy_fs_out/_locales/en
 	@cp $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) chromevox_deploy_fs_out/_locales/en
-	@cp chromeVoxChromeBackgroundScript.js chromevox_deploy_fs_out/
-	@cp chromeVoxChromeOptionsScript.js chromevox_deploy_fs_out/
-	@cp chromeVoxChromePageScript.js chromevox_deploy_fs_out/
-	@cp chromeVoxKbExplorerScript.js chromevox_deploy_fs_out/
+	@cp $(chromeVoxChromeBackgroundScript.js_FILES) chromevox_deploy_fs_out/
+	@cp $(chromeVoxChromeOptionsScript.js_FILES) chromevox_deploy_fs_out/
+	@cp $(chromeVoxChromePageScript.js_FILES) chromevox_deploy_fs_out/
+	@cp $(chromeVoxKbExplorerScript.js_FILES) chromevox_deploy_fs_out/
 	@cp closure/closure_preinit.js chromevox_deploy_fs_out/
 	@mkdir -p chromevox_deploy_fs_out/chromevox/background/earcons
 	@cp $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox_deploy_fs_out/chromevox/background/earcons
@@ -551,14 +534,48 @@ chromevox_deploy_fs_out: $(chromevox_deploy_fs_SRCS)
 	@cp $(CHROMEVOX_png_files_FILES) chromevox_deploy_fs_out/chromevox
 
 chromevox_deploy_fs: chromevox_deploy_fs_out
-
+chromevox_deploy_fs_FILES = $(chromevox_deploy_fs_out_FILES)
 chromevox_deploy_crx_SRCS = $(call uniq, $(chromevox_deploy_fs_FILES) private_keys/chromevox.pem external/package.sh)
-chromevox_deploy_crx_FILES = $(chromevox_deploy.crx_FILES)
+chromevox_deploy_crx_FILES = chromevox_deploy.crx
 chromevox_deploy.crx: $(chromevox_deploy_crx_SRCS)
 	@echo Generating file chromevox_deploy.crx
 	@external/package.sh --key private_keys/chromevox.pem --src $(chromevox_deploy_fs_FILES) --crx $@
 
 
-clean:
-	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json chromevox/messages/messages_en.json CHROMEVOX_MESSAGES_i18n_messages_filegroup host/testing/test_messages.js chromeVoxChromePageScript.js CHROMEVOX_BACKGROUND_html_files chromeVoxKbExplorerScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js chromeShadesInjected.js chromeShadesBackground.js chromevis/chromevisCompiled.js deps.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js chromeShadesInjected.js chromeShadesBackground.js deps.js CHROMEVOX_BACKGROUND_EARCONS_ogg_files CHROMEVOX_png_files chromevox/manifest_clean_compiled_manifest/manifest.json chromevox/manifest_compiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy.crx
+CHROMEVOX_manifest_clean_uncompiled_manifest_gen_SRCS = chromevox/manifest.json
+CHROMEVOX_manifest_clean_uncompiled_manifest_gen_FILES = chromevox/manifest_clean_uncompiled_manifest/manifest.json
+chromevox/manifest_clean_uncompiled_manifest/manifest.json: $(CHROMEVOX_manifest_clean_uncompiled_manifest_gen_SRCS)
+	@echo Generating file chromevox/manifest_clean_uncompiled_manifest/manifest.json
+	@mkdir -p $(dir chromevox/manifest_clean_uncompiled_manifest/manifest.json)
+	@cat $< >$@
 
+
+CHROMEVOX_manifest_clean_uncompiled_manifest/manifest.json_FILES = $(CHROMEVOX_manifest_clean_uncompiled_manifest_gen_FILES)
+CHROMEVOX_manifest_uncompiled_SRCS = $(CHROMEVOX_manifest_clean_uncompiled_manifest/manifest.json_FILES)
+CHROMEVOX_manifest_uncompiled_FILES = chromevox/manifest_uncompiled_manifest/manifest.json
+chromevox/manifest_uncompiled_manifest/manifest.json: $(CHROMEVOX_manifest_uncompiled_SRCS)
+	@echo Generating file chromevox/manifest_uncompiled_manifest/manifest.json
+	@mkdir -p $(dir chromevox/manifest_uncompiled_manifest/manifest.json)
+	@cat $< >$@
+
+
+CHROMEVOX_manifest_uncompiled_manifest/manifest.json_FILES = $(CHROMEVOX_manifest_uncompiled_FILES)
+chromevox_deploy_uncompiled_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_uncompiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES))
+chromevox_deploy_uncompiled_fs_out_FILES = chromevox_deploy_uncompiled_fs_out
+chromevox_deploy_uncompiled_fs_out: $(chromevox_deploy_uncompiled_fs_out_SRCS)
+	@echo Building Fileset chromevox_deploy_uncompiled_fs_out
+	@mkdir -p $(chromevox_deploy_uncompiled_fs_out_FILES)
+	@cp $(CHROMEVOX_manifest_uncompiled_manifest/manifest.json_FILES) chromevox_deploy_uncompiled_fs_out/
+	@mkdir -p chromevox_deploy_uncompiled_fs_out/_locales/en
+	@cp $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) chromevox_deploy_uncompiled_fs_out/_locales/en
+
+chromevox_deploy_uncompiled_fs: chromevox_deploy_uncompiled_fs_out
+chromevox_deploy_uncompiled_fs_FILES = $(chromevox_deploy_uncompiled_fs_out_FILES)
+chromevox: deps.js chromevox_deploy_uncompiled_fs
+	@echo Building unpacked Chrome extension for chromevox
+	@cp -a chromevox_deploy_uncompiled_fs_out/* .
+
+clean:
+	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json host/testing/test_messages.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js chromeshades/injected/binary.js chromeshades/background/binary.js chromevis/injected/binary.js chromevis/background/background.js deps.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js deps.js chromevox/manifest_clean_compiled_manifest/manifest.json chromevox/manifest_clean_uncompiled_manifest/manifest.json chromevox/manifest_compiled_manifest/manifest.json chromevox/manifest_uncompiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx
+
+all: chromevox deps.js androidVoxDev.js chromevox_deploy.crx

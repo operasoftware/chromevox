@@ -1,0 +1,17 @@
+The files in this directory are not part of the ChromeVox source tree.
+
+js.jar: Part of Rhino, downloaded from
+    ftp://ftp.mozilla.org/pub/mozilla.org/js/rhino1_7R3.zip
+    Rhino's licence is in COPYING.rhino
+
+compiler.jar: The Closure Compiler, downloaded from
+    http://closure-compiler.googlecode.com/files/compiler-latest.zip
+    The Closure Compiler's licence is in COPYING.compiler
+
+depswriter.py: The Closure Library Deps writer, downloaded from
+    http://closure-library.googlecode.com/svn/trunk/
+    The Closure Library's licence is in COPYING.closure
+
+
+
+
