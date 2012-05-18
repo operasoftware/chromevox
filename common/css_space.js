@@ -20,17 +20,24 @@
 
 goog.provide('cvox.CssSpace');
 
+goog.require('cvox.ActiveIndicator');
 goog.require('cvox.CssDimension');
 goog.require('cvox.DomUtil');
+goog.require('cvox.SpokenMessages');
 
 /**
- * CSS declarations of relevance.
- * Each additional declaration adds a new dimension to our space.
- * @type {Array.<cvox.CssDimension>}
+ * The group being explored.
+ * @type {number}
+ * @private
  */
-cvox.CssSpace.dimensions = [
-    {name:'font-size', threshold: 2}
-                            ];
+cvox.CssSpace.currentGroup_ = 0;
+
+/**
+ * The item within the current group.
+ * @type {number}
+ *   @private
+ */
+cvox.CssSpace.currentGroupItem_ = 0;
 
 /**
  * A collection of groups derived from the partitioning of points in CSS space.
@@ -39,9 +46,48 @@ cvox.CssSpace.dimensions = [
 cvox.CssSpace.groups = [];
 
 /**
- * Called to set-up our CSS vector space.
+ * A regular rxpression pattern for rgb and rgba strings obtained from
+ * style.getPropertyValue for background-color.
+ * @type {RegExp}
  */
-cvox.CssSpace.initializeSpace = function() {
+cvox.CssSpace.rgbPattern = /^rgb[a]?\((\d+),\s*(\d+),\s*(\d+),?\s?(\d+)?/;
+
+/**
+ * Called to set-up our CSS vector space.
+ * @param {Array.<cvox.CssDimension>} opt_dimensions Optional dimensions to
+ * override defaults.
+ */
+cvox.CssSpace.initializeSpace = function(opt_dimensions) {
+  // No need to initialize.
+  if (cvox.CssSpace.groups.length > 0)
+    return;
+
+  /**
+   * Default cSS declarations of relevance.
+   * Each additional declaration adds a new dimension to our space.
+   * @type {Array.<cvox.CssDimension>}
+   */
+  cvox.CssSpace.dimensions = opt_dimensions ||
+      [
+        /** A measure of horizontal distance between two client rectangles. */
+        {name: 'deltaX', threshold: 50, distance: cvox.CssSpace.getDeltaX},
+
+        /** A measure of vertical distance between two client rectangles. */
+        {name: 'deltaY', threshold: 20, distance: cvox.CssSpace.getDeltaY},
+
+        /** A measure of common ancestry between two nodes. The threshold is the
+         * percentage of levels to search (from one node to the root).
+         */
+        {name: 'commonAncestry',
+         threshold: .5,
+         distance: cvox.CssSpace.getCommonAncestry},
+
+        /** A measure of the difference in background color. */
+        {name: 'backgroundColor',
+         threshold: 10,
+         distance: cvox.CssSpace.getBackgroundColorDelta}
+       ];
+
   // Preprocessing stage: Flatten the DOM into an array excluding non-content
   // nodes.
   var flat = [];
@@ -61,16 +107,23 @@ cvox.CssSpace.initializeSpace = function() {
       if (cvox.CssSpace.getDistance(start, end) == -1)
         continue;
 
+      // Assuming we get nodes in document order, we should not encounter this
+      // case. We may want to merge the two groups for this case in the future.
+      if (start['cvox-group'] && end['cvox-group'])
+        continue;
+
       if (start['cvox-group'] && start['cvox-group'].indexOf(end) == -1) {
         // |Start| has been previously grouped, add |end| to the preexisting
         // group.
         start['cvox-group'].push(end);
         end['cvox-group'] = start['cvox-group'];
+        end['cvox-runtime-id'] = j;
       } else if (end['cvox-group'] && end['cvox-group'].indexOf(start) == -1) {
         // |end| has been previously grouped, add |start| to the preexisting
         // group.
         end['cvox-group'].push(start);
         start['cvox-group'] = end['cvox-group'];
+        start['cvox-runtime-id'] = i;
       } else if (!start['cvox-group'] && !end['cvox-group']) {
         // If neither node has been grouped, add them to one.
         var group = [];
@@ -80,11 +133,30 @@ cvox.CssSpace.initializeSpace = function() {
         // Also, add back references.
         start['cvox-group'] = group;
         end['cvox-group'] = group;
+        start['cvox-runtime-id'] = i;
+        end['cvox-runtime-id'] = j;
 
         cvox.CssSpace.groups.push(group);
       }
     }
   }
+
+  // Post processing: sort each group in document order.
+  // TODO(dtseng): Consider sorting the groups themselves.
+  for (var g = 0; g < cvox.CssSpace.groups.length; ++g) {
+    cvox.CssSpace.groups[g].sort(function (node1, node2) {
+        return node1['cvox-runtime-id'] - node2['cvox-runtime-id'];
+      });
+  }
+};
+
+/**
+ * Uninitialize this space.
+ */
+cvox.CssSpace.uninitializeSpace = function() {
+  cvox.CssSpace.groups = [];
+  cvox.CssSpace.currentGroup_ = 0;
+  cvox.CssSpace.currentGroupItem_ = 0;
 };
 
 /**
@@ -94,7 +166,9 @@ cvox.CssSpace.initializeSpace = function() {
  * @param {Array} collection The receiver of the flattened tree.
  */
 cvox.CssSpace.getFlattenedSubtree = function(startingNode, collection) {
-  if (cvox.DomUtil.hasContent(startingNode)) {
+  // Exclude container nodes.
+  if (startingNode.childElementCount == 0 &&
+      cvox.DomUtil.hasContent(startingNode)) {
     collection.push(startingNode);
   }
 
@@ -105,38 +179,21 @@ cvox.CssSpace.getFlattenedSubtree = function(startingNode, collection) {
 
 /**
  * Calculates Euclidean distance based on the CSS location of the input nodes.
- * @param {Element} startingNode A start position.
- * @param {Element} endingNode An end position.
+ * @param {Element} node1 A start position.
+ * @param {Element} node2 An end position.
  * @return {number} The distance between startingNode and endingNode; -1
  * if  any dimension does not fall within its dimensional threshold.
  */
-cvox.CssSpace.getDistance = function(startingNode, endingNode) {
-  var startStyle = cvox.CssSpace.getCachedComputedStyle(startingNode);
-  var endStyle = cvox.CssSpace.getCachedComputedStyle(endingNode);
-
+cvox.CssSpace.getDistance = function(node1, node2) {
   // The difference between the start and end vectors in our
   // cvox.CssSpace.dimensions.length space.
   var differenceTuple = [];
   for (var dim = 0; dim < cvox.CssSpace.dimensions.length; ++dim) {
     var current = cvox.CssSpace.dimensions[dim];
-
-    var startSize = startStyle.getPropertyValue(current.name);
-    var endSize = endStyle.getPropertyValue(current.name);
-
-    // The property does not exist.
-    if (startSize == null || endSize == null)
-      return -1;
-
-    // TODO(dtseng): This needs to go into its own class "Metrics" that
-    // understands CSS declarations and units. Start this off with a hard coded
-    // calculation of font-size which seems always to be returned in "%dpx"
-    // format/unit
-    var measure = startSize.slice(0, -2) -
-        endSize.slice(0, -2);
-    measure = Math.abs(measure);
+    var measure = current.distance(node1, node2);
 
     // Return -1 if we are not within our threshold for this dimension.
-    if (measure > current.threshold)
+    if (measure > current.threshold || measure < 0)
       return -1;
 
     differenceTuple.push(measure);
@@ -151,20 +208,266 @@ cvox.CssSpace.getDistance = function(startingNode, endingNode) {
 };
 
 /**
- * Uninitialize this space.
+ * Provides the horizontal distance between two rectangles.
+ * @param {!Node} node1 A node whose rectangle to use.
+ * @param {!Node} node2 Another node whose rectangle to use.
+ * @return {number} The horizontal distance.
  */
-cvox.CssSpace.uninitializeSpace = function() {
-  cvox.CssSpace.groups = [];
+cvox.CssSpace.getDeltaX = function(node1, node2) {
+  var rect1 = node1.getBoundingClientRect();
+  var rect2 = node2.getBoundingClientRect();
+
+  var measure1 = Math.abs(rect1.right - rect2.left);
+  var measure2 = Math.abs(rect2.right - rect1.left);
+  var measure3 = Math.abs(rect1.left - rect2.left);
+  var measure4 = Math.abs(rect1.right - rect2.right);
+  return Math.min(measure1, measure2, measure3, measure4);
+};
+
+/**
+ * Provides the vertical distance between two rectangles.
+ * @param {!Node} node1 A node whose rectangle to use.
+ * @param {!Node} node2 Another node whose rectangle to use.
+ * @return {number} The vertical distance.
+ */
+cvox.CssSpace.getDeltaY = function(node1, node2) {
+  var rect1 = node1.getBoundingClientRect();
+  var rect2 = node2.getBoundingClientRect();
+
+  var measure1 = Math.abs(rect1.bottom - rect2.top);
+  var measure2 = Math.abs(rect2.bottom - rect1.top);
+  var measure3 = Math.abs(rect1.top - rect2.top);
+  var measure4 = Math.abs(rect1.bottom - rect2.bottom);
+  return Math.min(measure1, measure2, measure3, measure4);
+};
+
+/**
+ * The minimum levels of parentage for which two nodes have a common parent.
+ * @param {!Node} node1 A node whose parentage to use.
+ * @param {!Node} node2 Another node whose parentage to use.
+ * @return {number} The distance.
+ */
+cvox.CssSpace.getCommonAncestry = function(node1, node2) {
+  // Mark the parent chain.
+  var walker1 = node1;
+  var totalDepth = 0;
+  while (walker1 != document.documentElement) {
+    walker1['cvox-mark'] = true;
+    ++totalDepth;
+    walker1 = walker1.parentNode;
+  }
+
+  // Now, find the common ancestor.
+  var walker2 = node2;
+  var depth = 0;
+  var maxCommonAncestor = -1;
+
+  while (walker2 != document.documentElement && depth <= totalDepth) {
+    if (walker2['cvox-mark']) {
+      maxCommonAncestor = depth;
+      break;
+    }
+
+    ++depth;
+    walker2 = walker2.parentNode;
+  }
+
+  // Unmark previous parent chain.
+  while (walker1) {
+    walker1['cvox-mark'] = false;
+    walker1 = walker1.parentNode;
+  }
+
+  return maxCommonAncestor / totalDepth;
+};
+
+/**
+ * The difference in rgb value between two nodes.
+ * @param {Node} node1 A node whose background color to use.
+ * @param {Node} node2 A node whose background color to use.
+ * @return {number} The distance.
+ */
+cvox.CssSpace.getBackgroundColorDelta = function(node1, node2) {
+  var size1 = null, size2 = null;
+  var pattern = cvox.CssSpace.rgbPattern;
+
+  // Unfortunately, transparent backgrounds are useless so we have to go
+  // up the parent chain. Use the alpha component to detect this case.
+  var alpha = 0;
+  while (node1) {
+    var style1 = cvox.CssSpace.getCachedComputedStyle(node1);
+    if (!style1)
+      break;
+
+    size1 = pattern.exec(style1.getPropertyValue('background-color'));
+    alpha = size1.length == 5 ? size1[4] : -1;
+    if (alpha != 0)
+      break;
+
+    node1 = node1.parentNode;
+  }
+
+  while (node2) {
+    var style2 = cvox.CssSpace.getCachedComputedStyle(node2);
+    if (!style2)
+      break;
+
+    size2 = pattern.exec(style2.getPropertyValue('background-color'));
+    alpha = size2.length == 5 ? size2[4] : -1;
+    if (alpha != 0)
+      break;
+
+    node2 = node2.parentNode;
+  }
+
+  if (size1 && size2 && size1.length >= 4 && size2.length >= 4) {
+    var r = 0, g = 0, b = 0;
+    r = Math.abs(parseInt(size1[1], 10) - parseInt(size2[1], 10));
+    g = Math.abs(parseInt(size1[2], 10) - parseInt(size2[2], 10));
+    b = Math.abs(parseInt(size1[3], 10) - parseInt(size2[3], 10));
+    return r + g + b;
+  }
+  return -1;
+};
+
+/**
+ * Difference in font-size between two nodes.
+ * @param {!Node} node1 A node whose font size to use.
+ * @param {!Node} node2 A node whose font size to use.
+ * @return {number} The distance.
+ */
+cvox.CssSpace.getFontSizeDelta = function(node1, node2) {
+  var startStyle = cvox.CssSpace.getCachedComputedStyle(node1);
+  var endStyle = cvox.CssSpace.getCachedComputedStyle(node2);
+
+  var startSize = startStyle.getPropertyValue('font-size');
+  var endSize = endStyle.getPropertyValue('font-size');
+
+  if (startSize != null && endSize != null) {
+    return Math.abs(startSize.slice(0, -2) - endSize.slice(0, -2));
+  }
+  return -1;
 };
 
 /**
  * Gets a cached style object.
- * @param {?Element} node The node to retrieve  style.
+ * @param {!Node} node The node to retrieve  style.
  * @return {CSSStyleDeclaration} |node|'s final style.
  */
 cvox.CssSpace.getCachedComputedStyle = function(node) {
-  if (!node['cvox-cache-style'])
+  if (!node['cvox-cache-style']) {
+    node = /** @type {!Element} */ node;
     node['cvox-cached-style'] = window.getComputedStyle(node, '');
+  }
 
   return node['cvox-cached-style'];
+};
+
+/**
+ * Enters group exploration.
+ */
+cvox.CssSpace.enterExploration = function() {
+  cvox.$m('enter_group_exploration').speakFlush();
+  window.addEventListener(
+      'keydown', cvox.CssSpace.handleGroupExploration, true);
+};
+
+/**
+ * Exits group exploration.
+ */
+cvox.CssSpace.exitExploration = function() {
+  window.removeEventListener(
+      'keydown', cvox.CssSpace.handleGroupExploration, true);
+};
+
+/**
+ * Handles keyboard events while group exploration is enabled.
+ * @param {Event} evt The event.
+ * @return {boolean} Whether or not the event was handled.
+ */
+cvox.CssSpace.handleGroupExploration = function(evt) {
+  var speakGroup = false;
+  var speakItem = false;
+  var groups = cvox.CssSpace.groups;
+
+  if (groups.length == 0)
+    return true;
+
+  switch (evt.keyCode) {
+    case 13: // enter
+      cvox.ChromeVox.syncToNode(
+          groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_],
+              true);
+      speakGroup = false;
+      cvox.CssSpace.exitExploration();
+      evt.preventDefault();
+      evt.stopPropagation();
+      return true;
+    case 37: // left
+      speakGroup = true;
+      cvox.CssSpace.currentGroupItem_ = 0;
+      cvox.CssSpace.currentGroup_ =
+          cvox.CssSpace.currentGroup_ > 0 ? cvox.CssSpace.currentGroup_ - 1 : 0;
+      break;
+    case 38: // up
+      speakItem = true;
+      cvox.CssSpace.currentGroupItem_ = cvox.CssSpace.currentGroupItem_ ?
+          cvox.CssSpace.currentGroupItem_ - 1 : 0;
+      break;
+    case 39: // right
+      speakGroup = true;
+      cvox.CssSpace.currentGroupItem_ = 0;
+      cvox.CssSpace.currentGroup_ =
+          cvox.CssSpace.currentGroup_ < groups.length - 1 ?
+              cvox.CssSpace.currentGroup_ + 1 : groups.length - 1;
+      break;
+    case 40: // down
+      speakItem = true;
+      cvox.CssSpace.currentGroupItem_ =
+          cvox.CssSpace.currentGroupItem_ ==
+              groups[cvox.CssSpace.currentGroup_].length - 1 ?
+                  cvox.CssSpace.currentGroupItem_ :
+                      cvox.CssSpace.currentGroupItem_ + 1;
+      break;
+    default:
+      speakGroup = false;
+  }
+
+  if (speakGroup) {
+    var MAX_SPOKEN_NODES = 20;
+    var indicateNodes = [];
+    var spokenSet = {};
+    for (var i = 0;
+         i < groups[cvox.CssSpace.currentGroup_].length && i < MAX_SPOKEN_NODES;
+         ++i) {
+      indicateNodes.push(groups[cvox.CssSpace.currentGroup_][i]);
+
+      var description = '';
+      if (groups[cvox.CssSpace.currentGroup_][i])
+        description =
+            cvox.DomUtil.getName(groups[cvox.CssSpace.currentGroup_][i]);
+
+      // Do not speak identical or empty sounding items.
+      if (description && !spokenSet[description]) {
+        cvox.ChromeVox.tts.speak(description, i == 0 ? 0 : 1);
+        spokenSet[description] = true;
+      }
+    }
+
+    cvox.ChromeVox.navigationManager.activeIndicator.syncToNodes(
+        groups[cvox.CssSpace.currentGroup_]);
+
+    cvox.SpokenMessages
+        .andIndexTotal(cvox.CssSpace.currentGroup_ + 1,
+                       cvox.CssSpace.groups.length)
+        .speakQueued();
+
+    evt.preventDefault();
+    evt.stopPropagation();
+  } else if (speakItem) {
+    cvox.DomUtil.getControlDescription(
+        groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_])
+            .speak(cvox.AbstractTts.QUEUE_MODE_FLUSH);
+  }
+  return false;
 };

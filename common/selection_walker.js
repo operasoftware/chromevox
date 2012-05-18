@@ -119,10 +119,21 @@ cvox.SelectionWalker.prototype.previous = function() {
 
 /**
  * Returns the current granularity setting.
- * @return {string} The granularity setting.
+ * @return {string} The granularity setting in the current locale.
  */
-cvox.SelectionWalker.prototype.getGranularity = function() {
-  return cvox.SelectionWalker.GRANULARITY_LEVELS[this.currentGranularity];
+cvox.SelectionWalker.prototype.getGranularityMsg = function() {
+  var msgs = cvox.ChromeVox.msgs;
+  /**
+   * An array of messages for each granularity level.  Same order
+   * as cvox.SelectionWalker.GRANULARITY_LEVELS
+   * @type {Array.<string>}
+   */
+  var GRANULARITY_MSGS = [
+    msgs.getMsg('sentence_granularity'),
+    msgs.getMsg('word_granularity'),
+    msgs.getMsg('character_granularity')
+  ];
+  return GRANULARITY_MSGS[this.currentGranularity];
 };
 
 /**

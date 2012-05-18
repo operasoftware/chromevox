@@ -59,6 +59,16 @@ cvox.AbstractHost.prototype.getFileSrc = function(path) {
   return '';
 };
 
+/**
+ * @return {boolean} True if the host has a Tts callback.
+ */
 cvox.AbstractHost.prototype.hasTtsCallback = function() {
   return true;
+};
+
+/**
+ * @return {boolean} True if the host supports a lens.
+ */
+cvox.AbstractHost.prototype.canShowLens = function() {
+  return false;
 };

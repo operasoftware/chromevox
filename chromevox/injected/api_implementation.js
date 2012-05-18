@@ -20,8 +20,12 @@
 
 goog.provide('cvox.ApiImplementation');
 
+goog.require('cvox.AriaUtil');
 goog.require('cvox.BuildInfo');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxJSON');
+goog.require('cvox.DomUtil');
+goog.require('cvox.ScriptInstaller');
 
 /**
  * @constructor
@@ -47,32 +51,19 @@ cvox.ApiImplementation.siteSpecificScriptBase;
 cvox.ApiImplementation.init = function() {
   window.addEventListener('message', cvox.ApiImplementation.portSetup, true);
 
-  if (document.querySelector('script[cvoxapi]')) {
+  var apiScript = cvox.ScriptInstaller.installScript(
+      cvox.ChromeVox.host.getApiSrc(), 'cvoxapi',
+      function() {
+        cvox.ScriptInstaller.installScript(
+            cvox.ApiImplementation.siteSpecificScriptLoader,
+            'chromevoxScriptLoader')
+          .setAttribute('chromevoxScriptBase',
+              cvox.ApiImplementation.siteSpecificScriptBase);
+      });
+  if (!apiScript) {
     // If the API script is already installed, just re-enable it.
     window.location.href = 'javascript:cvox.Api.internalEnable();';
-    return;
   }
-
-  var forceRedownload = '?' + new Date().getTime();
-  var apiScript = document.createElement('script');
-  apiScript.type = 'text/javascript';
-  apiScript.setAttribute('cvoxapi', '1');
-  apiScript.src = cvox.ChromeVox.host.getApiSrc() + forceRedownload;
-  document.head.appendChild(apiScript);
-
-  apiScript.onload = function() {
-    // Load the enhancement script loader next.
-    if (!document.querySelector('script[chromevoxScriptLoader]')) {
-      var enhancementLoaderScript = document.createElement('script');
-      enhancementLoaderScript.type = 'text/javascript';
-      enhancementLoaderScript.src =
-          cvox.ApiImplementation.siteSpecificScriptLoader;
-      enhancementLoaderScript.setAttribute('chromevoxScriptLoader', '1');
-      enhancementLoaderScript.setAttribute('chromevoxScriptBase',
-          cvox.ApiImplementation.siteSpecificScriptBase);
-      document.head.appendChild(enhancementLoaderScript);
-    }
-  };
 };
 
 /**
@@ -258,8 +249,25 @@ cvox.ApiImplementation.syncToNode = function(
     speakNode = false;
   }
 
+  // Don't speak anything if the node is hidden or invisible.
+  if (cvox.AriaUtil.isHiddenRecursive(targetNode)) {
+    speakNode = false;
+  }
+
   if (speakNode) {
-    var currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
+    var currentDesc;
+    if (targetNode.hasAttribute('cvoxnodedesc')) {
+      var predefinedNodeDescArray =
+          cvox.ChromeVoxJSON.parse(targetNode.getAttribute('cvoxnodedesc'));
+      currentDesc = new Array();
+      for (var i = 0, inDesc; inDesc = predefinedNodeDescArray[i]; i++) {
+        var desc = new cvox.NavDescription(inDesc.context, inDesc.text,
+            inDesc.userValue, inDesc.annotation, null, null);
+        currentDesc.push(desc);
+      }
+    } else {
+      currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
+    }
     cvox.ChromeVox.navigationManager.speakDescriptionArray(
         currentDesc, opt_queueMode, null);
   }
@@ -281,7 +289,7 @@ cvox.ApiImplementation.clickNodeRef = function(nodeRef, shiftKey) {
  * @param {number} callbackId The callback Id.
  */
 cvox.ApiImplementation.getBuild = function(callbackId) {
-  cvox.ApiImplementation.port.postMessage(JSON.stringify(
+  cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
       {
         'id': callbackId,
         'build': cvox.BuildInfo.build
@@ -300,7 +308,7 @@ cvox.ApiImplementation.getVersion = function(callbackId) {
     }, 1000);
     return;
   }
-  cvox.ApiImplementation.port.postMessage(JSON.stringify(
+  cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
       {
         'id': callbackId,
         'version': version

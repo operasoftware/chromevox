@@ -21,13 +21,16 @@
 goog.provide('cvox.Lens');
 
 goog.require('cvox.AbstractLens');
+goog.require('cvox.AbstractTts');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TraverseUtil');
+goog.require('cvox.TtsInterface');
 
 /**
  * Constructor for CSS lens. Initializes the lens settings.
  * @constructor
  * @extends {cvox.AbstractLens}
+ * @implements {cvox.TtsInterface}
  */
 cvox.Lens = function() {
 
@@ -106,6 +109,13 @@ cvox.Lens = function() {
    * @type {Element}
    */
   this.lens = cvox.Lens.activeDoc.createElement('span');
+
+  /**
+   * The lens element used by the speak() function.
+   * @type {Element}
+   * @private
+   */
+  this.lensContent_ = document.createElement('div');
 
   this.initializeLens_();
 };
@@ -248,7 +258,6 @@ cvox.Lens.prototype.initializeLens_ = function() {
 /**
  * Respond to an event fired from the background page requesting the lens
  * to update.
- * @private
  */
 cvox.Lens.prototype.handleBackgroundMessage = function(message) {
   switch (message.data) {
@@ -789,3 +798,43 @@ cvox.Lens.prototype.setTextColor = function() {
     this.lens.firstChild.style.color = this.textColor;
   }
 };
+
+/** @override */
+cvox.Lens.prototype.speak = function(textString, queueMode, properties) {
+  if (!properties)
+    properties = {};
+
+  properties['lang'] = cvox.ChromeVox.msgs.getLocale();
+
+  if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
+    var line = document.createElement('hr');
+    this.lensContent_.appendChild(line);
+  }
+  // Remove elements if exceed maxHistory. Multiply by 2 to accont for <hr>.
+  while (this.lensContent_.childNodes.length > this.maxHistory * 2) {
+    var temp = this.lensContent_.childNodes[0];
+    this.lensContent_.removeChild(temp);
+  }
+  var lensElem = document.createElement('span');
+  lensElem.innerText = textString;
+  lensElem.style.marginLeft = '0.5em !important';
+  if (properties && properties[cvox.AbstractTts.COLOR]) {
+    lensElem.style.color = properties[cvox.AbstractTts.COLOR] + ' !important';
+  }
+  if (properties && properties[cvox.AbstractTts.FONT_WEIGHT]) {
+    lensElem.style.fontWeight =
+        properties[cvox.AbstractTts.FONT_WEIGHT] + ' !important';
+  }
+  this.lensContent_.appendChild(lensElem);
+  this.setLensContent(this.lensContent_);
+};
+
+/** @override */
+cvox.Lens.prototype.isSpeaking = function() { return false; };
+
+/** @override */
+cvox.Lens.prototype.stop = function() { };
+
+/** @override */
+cvox.Lens.prototype.increaseOrDecreaseProperty = function() { };
+

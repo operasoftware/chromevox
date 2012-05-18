@@ -105,6 +105,8 @@ gestures.DragState.prototype.registerDragEvent_ = function(touchEvent) {
 
 /**
  * Create and register a gesture event indicating that dragging has ended.
+ * @param {gestures.GestureTouchEvent} touchEvent The touch event that caused
+ *     the gesture to occur.
  * @private
  */
 gestures.DragState.prototype.registerEndEvent_ = function(touchEvent) {

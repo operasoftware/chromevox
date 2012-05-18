@@ -24,6 +24,7 @@ goog.provide('cvox.DomUtil');
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxEventSuspender');
 goog.require('cvox.NavDescription');
 goog.require('cvox.XpathUtil');
 
@@ -81,7 +82,16 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
   'OL' : 'tag_ol',
   'SELECT' : 'tag_select',
   'TEXTAREA' : 'tag_textarea',
-  'UL' : 'tag_ul'
+  'UL' : 'tag_ul',
+  'SECTION' : 'tag_section',
+  'NAV' : 'tag_nav',
+  'ARTICLE' : 'tag_article',
+  'ASIDE' : 'tag_aside',
+  'HGROUP' : 'tag_hgroup',
+  'HEADER' : 'tag_header',
+  'FOOTER' : 'tag_footer',
+  'TIME' : 'tag_time',
+  'MARK' : 'tag_mark'
 };
 
 /**
@@ -138,62 +148,76 @@ cvox.DomUtil.isDisabled = function(node) {
 
 
 /**
+ * Determines whether a node is an HTML5 semantic element
+ *
+ * @param {Node} node The node to be checked.
+ * @return {boolean} True if the node is an HTML5 semantic element.
+ */
+cvox.DomUtil.isSemanticElt = function(node) {
+  if (node.tagName) {
+    var tag = node.tagName;
+    if ((tag == 'SECTION') || (tag == 'NAV') || (tag == 'ARTICLE') ||
+        (tag == 'ASIDE') || (tag == 'HGROUP') || (tag == 'HEADER') ||
+        (tag == 'FOOTER') || (tag == 'TIME') || (tag == 'MARK')) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
+/**
  * Determines whether or not a node is a leaf node.
  *
  * @param {Node} node The node to be checked.
  * @return {boolean} True if the node is a leaf node.
  */
 cvox.DomUtil.isLeafNode = function(node) {
-  // Think of hidden nodes as spacer nodes; leaf node with no content.
-  if (node.nodeType == 1) { // nodeType:1 == ELEMENT_NODE
-    var style = document.defaultView.getComputedStyle(node, null);
-    if (cvox.DomUtil.isInvisibleStyle(style)) {
-      return true;
-    }
+  // If it's not an Element, then it's a leaf if it has no first child.
+  if (!(node instanceof Element)) {
+    return (node.firstChild == null);
   }
-  if (cvox.AriaUtil.isHidden(node)) {
+
+  // Now we know for sure it's an element.
+  var element = /** @type {Element} */(node);
+
+  var style = document.defaultView.getComputedStyle(element, null);
+  if (cvox.DomUtil.isInvisibleStyle(style)) {
     return true;
   }
-  if (cvox.AriaUtil.isLeafNode(node)) {
+  if (cvox.AriaUtil.isHidden(element)) {
     return true;
   }
-  if (node.tagName) {
-    if (node.tagName == 'OBJECT') {
+  if (cvox.AriaUtil.isLeafElement(element)) {
+    return true;
+  }
+  switch (element.tagName) {
+    case 'OBJECT':
+    case 'EMBED':
+    case 'VIDEO':
+    case 'AUDIO':
+    case 'IFRAME':
+    case 'FRAME':
       return true;
-    }
-    if (node.tagName == 'EMBED') {
-      return true;
-    }
-    if (node.tagName == 'VIDEO') {
-      return true;
-    }
-    if (node.tagName == 'AUDIO') {
-      return true;
-    }
-    if (node.tagName == 'IFRAME') {
-      return true;
-    }
-    if (node.tagName == 'FRAME') {
-      return true;
-    }
-    if (node.tagName == 'A' && node.getAttribute('href')) {
-      var children = node.childNodes;
-      var noChildrenWithContent = true;
-      for (var i = 0; i < children.length; i++) {
-        if (cvox.DomUtil.hasContent(children[i])) {
-          noChildrenWithContent = false;
-          break;
-        }
-      }
-      if (noChildrenWithContent) {
-        return true;
+  }
+
+  if (element.tagName == 'A' && element.getAttribute('href')) {
+    var children = element.childNodes;
+    var noChildrenWithContent = true;
+    for (var i = 0; i < children.length; i++) {
+      if (cvox.DomUtil.hasContent(children[i])) {
+        noChildrenWithContent = false;
+        break;
       }
     }
+    if (noChildrenWithContent) {
+      return true;
+    }
   }
-  if (cvox.DomUtil.isControl(node)) {
+  if (cvox.DomUtil.isLeafLevelControl(element)) {
     return true;
   }
-  if (!node.firstChild) {
+  if (!element.firstChild) {
     return true;
   }
   return false;
@@ -284,7 +308,7 @@ cvox.DomUtil.collapseWhitespace = function(str) {
  *     be used; true by default.
  * @param {boolean=} includeControls Whether or not controls in the subtree
  *     should be included; true by default.
- * @return {string} The name of the node, with whitespace collapsed.
+ * @return {string} The name of the node.
  */
 cvox.DomUtil.getName = function(node, recursive, includeControls) {
   if (typeof(recursive) === 'undefined') {
@@ -296,37 +320,38 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
   }
 
   var label = '';
-  if (node.hasAttribute && node.hasAttribute('aria-labelledby')) {
-    var labelNodeIds = node.getAttribute('aria-labelledby').split(' ');
-    for (var labelNodeId, i = 0; labelNodeId = labelNodeIds[i]; i++) {
-      var labelNode = document.getElementById(labelNodeId);
-      if (labelNode) {
-        label += ' ' + cvox.DomUtil.getName(
-            labelNode, recursive, includeControls);
+  if (node.hasAttribute) {
+    if (node.hasAttribute('aria-labelledby')) {
+      var labelNodeIds = node.getAttribute('aria-labelledby').split(' ');
+      for (var labelNodeId, i = 0; labelNodeId = labelNodeIds[i]; i++) {
+        var labelNode = document.getElementById(labelNodeId);
+        if (labelNode) {
+          label += ' ' + cvox.DomUtil.getName(
+              labelNode, recursive, includeControls);
+        }
+      }
+    } else if (node.hasAttribute('aria-label')) {
+      label = node.getAttribute('aria-label');
+    } else if (node.constructor == HTMLImageElement) {
+      label = cvox.DomUtil.getImageTitle(node);
+    } else if (node.hasAttribute('title')) {
+      label = node.getAttribute('title');
+    } else if (node.tagName == 'FIELDSET') {
+      // Other labels will trump fieldset legend with this implementation.
+      // Depending on how this works out on the web, we may later switch this
+      // to appending the fieldset legend to any existing label.
+      var legends = node.getElementsByTagName('LEGEND');
+      label = '';
+      for (var legend, i = 0; legend = legends[i]; i++) {
+        label += ' ' + cvox.DomUtil.getName(legend, true, includeControls);
       }
     }
-  } else if (node.hasAttribute && node.hasAttribute('aria-label')) {
-    label = node.getAttribute('aria-label');
-  } else if (node.constructor == HTMLImageElement) {
-    label = cvox.DomUtil.getImageTitle(node);
-  } else if (node.hasAttribute && node.hasAttribute('title')) {
-    label = node.getAttribute('title');
-  } else if (node.tagName == 'FIELDSET') {
-    // Other labels will trump fieldset legend with this implementation.
-    // Depending on how this works out on the web, we may later switch this
-    // to appending the fieldset legend to any existing label.
-    var legends = node.getElementsByTagName('LEGEND');
-    label = '';
-    for (var legend, i = 0; legend = legends[i]; i++) {
-      label += ' ' + cvox.DomUtil.getName(legend, true, includeControls);
-    }
-  }
 
-  if (label.length == 0 && node && node.id) {
-    var labels = cvox.XpathUtil.evalXPath('//label[@for="' +
-        node.id + '"]', document.body);
-    if (labels.length > 0) {
-      label = cvox.DomUtil.getName(labels[0], recursive, includeControls);
+    if (label.length == 0 && node && node.id) {
+      var labelFor = document.querySelector('label[for="' + node.id + '"]');
+      if (labelFor) {
+        label = cvox.DomUtil.getName(labelFor, recursive, includeControls);
+      }
     }
   }
 
@@ -345,14 +370,14 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
     if (node.type == 'image') {
       label = cvox.DomUtil.getImageTitle(node);
     } else if (node.type == 'submit') {
-      if (node.hasAttribute && node.hasAttribute('value')) {
-        label = cvox.DomUtil.collapseWhitespace(node.getAttribute('value'));
+      if (node.hasAttribute('value')) {
+        label = node.getAttribute('value');
       } else {
         label = 'Submit';
       }
     } else if (node.type == 'reset') {
-      if (node.hasAttribute && node.hasAttribute('value')) {
-        label = cvox.DomUtil.collapseWhitespace(node.getAttribute('value'));
+      if (node.hasAttribute('value')) {
+        label = node.getAttribute('value');
       } else {
         label = 'Reset';
       }
@@ -361,8 +386,7 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
 
   label = cvox.DomUtil.collapseWhitespace(label);
   if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
-    var placeholder = cvox.DomUtil.collapseWhitespace(
-        node.getAttribute('placeholder'));
+    var placeholder = node.getAttribute('placeholder');
     if (label.length > 0) {
       return label + ' with hint ' + placeholder;
     } else {
@@ -389,26 +413,37 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
     getTextFromSubtree = false;
   }
   if (getTextFromSubtree) {
-    var name = '';
-    for (var i = 0; i < node.childNodes.length; i++) {
-      var child = node.childNodes[i];
-      if (!includeControls && cvox.DomUtil.isControl(child)) {
-        continue;
-      }
-      var childStyle = window.getComputedStyle(child, null);
-      if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
-          !cvox.AriaUtil.isHidden(child)) {
-        name += ' ' + cvox.DomUtil.getName(child, recursive, includeControls);
-      }
-    }
-
-    name = cvox.DomUtil.collapseWhitespace(name);
-    if (name.length > 0) {
-      return name;
-    }
+    return cvox.DomUtil.getNameFromChildren(node, includeControls);
   }
   return '';
 };
+
+
+/**
+ * Get the name from the children of a node, not including the node itself.
+ *
+ * @param {Node} node The node to get the name from.
+ * @param {boolean=} includeControls Whether or not controls in the subtree
+ *     should be included; true by default.
+ * @return {string} The concatenated text of all child nodes.
+ */
+cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
+  var name = '';
+  for (var i = 0; i < node.childNodes.length; i++) {
+    var child = node.childNodes[i];
+    if (!includeControls && cvox.DomUtil.isControl(child)) {
+      continue;
+    }
+    var childStyle = window.getComputedStyle(child, null);
+    if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+        !cvox.AriaUtil.isHidden(child)) {
+      name += ' ' + cvox.DomUtil.getName(child, true, includeControls);
+    }
+  }
+
+  return name;
+};
+
 
 /**
  * Use heuristics to guess at the label of a control, to be used if one
@@ -537,6 +572,10 @@ cvox.DomUtil.getValue = function(node) {
     }
   }
 
+  if (node.isContentEditable) {
+    return cvox.DomUtil.getNameFromChildren(node, true);
+  }
+
   return '';
 };
 
@@ -547,7 +586,7 @@ cvox.DomUtil.getValue = function(node) {
  * attribute. If neither of those are available, it attempts to construct
  * a title from the filename, and if all else fails returns the word Image.
  * @param {Node} node The image node.
- * @return {string} The title of the image, with whitespace collapsed.
+ * @return {string} The title of the image.
  */
 cvox.DomUtil.getImageTitle = function(node) {
   var text;
@@ -571,7 +610,7 @@ cvox.DomUtil.getImageTitle = function(node) {
       text = 'Image';
     }
   }
-  return cvox.DomUtil.collapseWhitespace(text);
+  return text;
 };
 
 
@@ -710,9 +749,8 @@ cvox.DomUtil.hasContent = function(node) {
   }
 
   var text = cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node);
-  text = cvox.DomUtil.collapseWhitespace(text);
   var state = cvox.DomUtil.getState(node, true);
-  if (text === '' && state === '') {
+  if (text.match(/^\s+$/) && state === '') {
     // Text only contains whitespace
     return false;
   }
@@ -831,6 +869,8 @@ cvox.DomUtil.getRole = function(targetNode, verbosity) {
     } else if (targetNode.tagName == 'A' &&
         targetNode.getAttribute('name')) {
       info = ''; // Don't want to add any role to anchors.
+    } else if (targetNode.isContentEditable) {
+      info = cvox.ChromeVox.msgs.getMsg('input_type_text');
     } else {
       if (verbosity == cvox.VERBOSITY_BRIEF) {
         var msg =
@@ -1000,6 +1040,9 @@ cvox.DomUtil.getPersonalityForNode = function(node) {
     case 'H6':
       return cvox.AbstractTts.PERSONALITY_H6;
   }
+  if (cvox.DomUtil.isSemanticElt(node)) {
+    return cvox.AbstractTts.PERSONALITY_ANNOTATION;
+  }
   return null;
 };
 
@@ -1108,10 +1151,32 @@ cvox.DomUtil.isFocusable = function(targetNode) {
 
 
 /**
+ * Find a focusable descendant of a given node. This includes nodes whose
+ * tabindex attribute is set to "-1" explicitly - these nodes are not in the
+ * tab order, but they should still be focused if the user navigates to them
+ * using linear or smart DOM navigation.
+ *
+ * @param {Node} targetNode The node whose descendants to check if focusable.
+ * @return {Node} The focusable descendant node. Null if no descendant node
+ * was found.
+ */
+cvox.DomUtil.findFocusableDescendant = function(targetNode) {
+  // Search down the descendants chain until a focusable node is found
+  if (targetNode) {
+    var focusableNode =
+        cvox.DomUtil.findNode(targetNode, cvox.DomUtil.isFocusable);
+    if (focusableNode) {
+      return focusableNode;
+    }
+  }
+  return null;
+};
+
+/**
  * Sets the browser focus to the targetNode or its closest ancestor that is
  * focusable.
  *
- * @param {Object} targetNode The node to move the browser focus to.
+ * @param {Node} targetNode The node to move the browser focus to.
  * @param {boolean=} opt_focusDescendants Whether or not we check descendants
  * of the target node to see if they are focusable. If true, sets focus on the
  * first focusable descendant. If false, only sets focus on the targetNode or
@@ -1124,22 +1189,16 @@ cvox.DomUtil.setFocus = function(targetNode, opt_focusDescendants) {
   if (sel.rangeCount > 0) {
     range = sel.getRangeAt(0);
   }
-
-  // Blur the currently-focused element if the target node is not a
-  // descendant.
+  // Blur the currently-focused element if the target node is not a descendant.
   if (document.activeElement &&
       !cvox.DomUtil.isDescendantOfNode(targetNode, document.activeElement)) {
     document.activeElement.blur();
   }
 
-  if (opt_focusDescendants) {
-    // Search down the descendants chain until a focusable node is found
-    if (targetNode && !cvox.DomUtil.isFocusable(targetNode)) {
-      var focusableNode =
-          this.findNode(targetNode, cvox.DomUtil.isFocusable);
-      if (focusableNode) {
-        targetNode = focusableNode;
-      }
+  if (opt_focusDescendants && !cvox.DomUtil.isFocusable(targetNode)) {
+    var focusableDescendant = cvox.DomUtil.findFocusableDescendant(targetNode);
+    if (focusableDescendant) {
+      targetNode = focusableDescendant;
     }
   } else {
     // Search up the parent chain until a focusable node is found.x
@@ -1150,7 +1209,28 @@ cvox.DomUtil.setFocus = function(targetNode, opt_focusDescendants) {
 
   // If we found something focusable, focus it - otherwise, blur it.
   if (cvox.DomUtil.isFocusable(targetNode)) {
-    targetNode.focus();
+    // Don't let the instance of ChromeVox in the parent focus iframe children
+    // - instead, let the instance of ChromeVox in the iframe focus itself to
+    // avoid getting trapped in iframes that have no ChromeVox in them.
+    // This self focusing is performed by calling window.focus() in
+    // cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_
+    if (targetNode.tagName != 'IFRAME') {
+      // setTimeout must be used because there's a bug (in Chrome, I think)
+      // with .focus() which causes the page to be redrawn incorrectly if
+      // not in setTimeout.
+      if (cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
+        cvox.ChromeVoxEventSuspender.enterSuspendEvents();
+        window.setTimeout(function() {
+          targetNode.focus();
+          cvox.ChromeVoxEventSuspender.exitSuspendEvents();
+        }, 0);
+      }
+      else {
+        window.setTimeout(function() {
+            targetNode.focus();
+        }, 0);
+      }
+    }
   } else if (document.activeElement &&
              document.activeElement.tagName != 'BODY') {
     document.activeElement.blur();
@@ -1286,9 +1366,10 @@ cvox.DomUtil.isInputTypeText = function(node) {
 
 
 /**
- * Given a node, returns true if it's a control.
- * Note that controls are all leaf level widgets; they
- * are NOT containers.
+ * Given a node, returns true if it's a control. Controls are *not necessarily*
+ * leaf-level given that some composite controls may have focusable children
+ * if they are managing focus with tabindex:
+ * ( http://www.w3.org/TR/2010/WD-wai-aria-practices-20100916/#visualfocus ).
  *
  * @param {Node} node The node to check.
  * @return {boolean} True if the node is a control.
@@ -1310,6 +1391,24 @@ cvox.DomUtil.isControl = function(node) {
   }
   if (node.isContentEditable) {
     return true;
+  }
+  return false;
+};
+
+
+/**
+ * Given a node, returns true if it's a leaf-level control. This includes
+ * composite controls thare are managing focus for children with
+ * activedescendant, but not composite controls with focusable children:
+ * ( http://www.w3.org/TR/2010/WD-wai-aria-practices-20100916/#visualfocus ).
+ *
+ * @param {Node} node The node to check.
+ * @return {boolean} True if the node is a leaf-level control.
+ */
+cvox.DomUtil.isLeafLevelControl = function(node) {
+  if (cvox.DomUtil.isControl(node)) {
+    return !(cvox.AriaUtil.isCompositeControl(node) &&
+             cvox.DomUtil.findFocusableDescendant(node));
   }
   return false;
 };

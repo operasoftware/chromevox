@@ -17,6 +17,7 @@ goog.provide('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.ChromeVoxUserCommands');
+goog.require('cvox.History');
 goog.require('cvox.KeyUtil');
 
 /**
@@ -215,8 +216,12 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
       cvox.ChromeVoxSearch.hide();
       cvox.ChromeVox.navigationManager.syncToSelection();
     }
+    var history = cvox.History.getInstance();
+    history.enterUserCommand(functionName);
     returnValue = func();
-  } else if (keyStr.indexOf(cvox.ChromeVox.modKeyStr) == 0) {
+    history.exitUserCommand(functionName);
+  } else if ((keyStr.indexOf(cvox.ChromeVox.modKeyStr) == 0) ||
+      (keyStr.indexOf('Cvox') == 0)){
     if (cvox.ChromeVoxUserCommands.powerkey &&
         cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
       // if PowerKey is visible, hide it, since modifier keys have no use when
@@ -224,7 +229,7 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
       cvox.ChromeVoxUserCommands.hidePowerKey();
       returnValue = false;
     }
-    // Modifier keys are active -- prevent default action
+    // Modifier/prefix is active -- prevent default action
     returnValue = false;
   }
 
@@ -233,6 +238,5 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   if (cvox.ChromeVox.entireDocumentIsHidden) {
     returnValue = true;
   }
-
   return returnValue;
 };

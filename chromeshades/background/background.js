@@ -18,6 +18,9 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
+goog.provide('cvox.CacheItem');
+goog.provide('cvox.ChromeShadesBackground');
+
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.ChromeShadesToggle');
 
@@ -237,6 +240,3 @@ cvox.ChromeShadesBackground.prototype.clearStaleItemsFromCache = function() {
     }
   }
 };
-
-var background = new cvox.ChromeShadesBackground();
-background.init();

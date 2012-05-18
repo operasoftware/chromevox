@@ -1,12 +1,11 @@
 {
   "name": "__MSG_CHROMEVOX_NAME__",
-  "version": "1.0",
-  "description": "__MSG_CHROMEVOX_DESCRIPTION__.",
+  "version": "1.20.0",
+  "description": "__MSG_CHROMEVOX_DESCRIPTION__",
   "background_page": "chromevox/background/background.html",
   "permissions": [
     "bookmarks",
     "tabs",
-    "experimental",
     "tts",
     "<all_urls>"
   ],

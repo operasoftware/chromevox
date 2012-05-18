@@ -24,33 +24,20 @@ goog.require('cvox.ApiImplementation');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
+goog.require('cvox.ChromeVoxEventSuspender');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.DomUtil');
+goog.require('cvox.History');
 goog.require('cvox.LiveRegions');
+// Find a better place for these..
+goog.require('cvox.MacroWriter');
 
 /**
  * @constructor
  */
 cvox.ChromeVoxEventWatcher = function() {
 };
-
-/**
- * The delay before the timer function is first called to check on a
- * focused text control, to see if it's been modified without an event
- * being generated.
- * @const
- * @type {number}
- */
-cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS = 10;
-
-/**
- * The delay between subsequent calls to the timer function to check
- * focused text controls.
- * @const
- * @type {number}
- */
-cvox.ChromeVoxEventWatcher.TEXT_TIMER_DELAY_MS = 250;
 
 /**
  * The maximum amount of time to wait before processing events.
@@ -224,6 +211,14 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
    * @private
    */
   cvox.ChromeVoxEventWatcher.searchKeyHeld_ = false;
+
+  /**
+   * The mutation observer that listens for chagnes to text controls
+   * that might not send other events.
+   * @type {WebKitMutationObserver}
+   * @private
+   */
+  cvox.ChromeVoxEventWatcher.textMutationObserver_ = null;
 
   cvox.ChromeVoxEventWatcher.addEventListeners_(doc);
 
@@ -434,7 +429,7 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
         }
 
         var target = /** @type {Node} */(evt.target);
-        cvox.DomUtil.setFocus(evt.target);
+        cvox.DomUtil.setFocus(target);
         cvox.ApiImplementation.syncToNode(target, true,
             cvox.AbstractTts.QUEUE_MODE_FLUSH);
         cvox.ChromeVoxEventWatcher.announcedMouseOverNode = target;
@@ -469,7 +464,7 @@ cvox.ChromeVoxEventWatcher.mouseOutEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
-  if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+  if (!cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
     cvox.ChromeVoxEventWatcher.addEvent(evt);
   }
   return true;
@@ -729,6 +724,10 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
           'input', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
       cvox.ChromeVoxEventWatcher.currentTextControl.removeEventListener(
           'click', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
+      if (cvox.ChromeVoxEventWatcher.textMutationObserver_) {
+        cvox.ChromeVoxEventWatcher.textMutationObserver_.disconnect();
+        cvox.ChromeVoxEventWatcher.textMutationObserver_ = null;
+      }
     }
     cvox.ChromeVoxEventWatcher.currentTextControl = null;
     cvox.ChromeVoxEventWatcher.currentTextHandler = null;
@@ -756,13 +755,23 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
 
     if (cvox.ChromeVoxEventWatcher.currentTextControl) {
       cvox.ChromeVoxEventWatcher.currentTextControl.addEventListener(
-        'input', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
+          'input', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
       cvox.ChromeVoxEventWatcher.currentTextControl.addEventListener(
-        'click', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
-
-      window.setTimeout(cvox.ChromeVoxEventWatcher.textTimer,
-                        cvox.ChromeVoxEventWatcher.TEXT_TIMER_INITIAL_DELAY_MS);
-      if (!cvox.ChromeVoxUserCommands.isInUserCommand()) {
+          'click', cvox.ChromeVoxEventWatcher.changeEventWatcher, false);
+      if (window.WebKitMutationObserver) {
+        cvox.ChromeVoxEventWatcher.textMutationObserver_ =
+            new WebKitMutationObserver(
+                cvox.ChromeVoxEventWatcher.onTextMutation);
+        cvox.ChromeVoxEventWatcher.textMutationObserver_.observe(
+            cvox.ChromeVoxEventWatcher.currentTextControl,
+            { childList: true,
+              attributes: true,
+              subtree: true,
+              attributeOldValue: false,
+              characterDataOldValue: false
+            });
+      }
+      if (!cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
         cvox.ChromeVox.navigationManager.syncToNode(
             cvox.ChromeVoxEventWatcher.currentTextControl);
       }
@@ -779,20 +788,16 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
 };
 
 /**
- * Called repeatedly while a text box has focus, because many changes
+ * Called when an editable text control has focus, because many changes
  * to a text box don't ever generate events - e.g. if the page's javascript
- * changes the contents of the text box after some delay.
+ * changes the contents of the text box after some delay, or if it's
+ * contentEditable or a generic div with role="textbox".
  */
-cvox.ChromeVoxEventWatcher.textTimer = function() {
-  if (!cvox.ChromeVoxEventWatcher.hasPendingEvents_() &&
-      cvox.ChromeVoxEventWatcher.currentTextHandler &&
-      cvox.ChromeVoxEventWatcher.currentTextHandler.needsUpdate()) {
-    cvox.ChromeVoxEventWatcher.handleTextChanged(false);
-  }
-
-  if (cvox.ChromeVoxEventWatcher.currentTextControl) {
-    window.setTimeout(cvox.ChromeVoxEventWatcher.textTimer,
-                      cvox.ChromeVoxEventWatcher.TEXT_TIMER_DELAY_MS);
+cvox.ChromeVoxEventWatcher.onTextMutation = function() {
+  if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
+    window.setTimeout(function() {
+      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+    }, cvox.ChromeVoxEventWatcher.MAX_WAIT_TIME_MS_);
   }
 };
 
@@ -851,7 +856,17 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
     announceChange = true;
   }
 
-  if (announceChange && !cvox.ChromeVoxUserCommands.isInUserCommand()) {
+  if ((parentControl != null) && (parentControl != control) &&
+      (document.activeElement == control)) {
+    // If focus has been set on a child of the parent control, we need to
+    // sync to that node so that ChromeVox navigation will be in sync with
+    // focus navigation.
+    cvox.ApiImplementation.syncToNode(control, true,
+                                      cvox.AbstractTts.QUEUE_MODE_FLUSH);
+    announceChange = false;
+  }
+
+  if (announceChange && !cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
     cvox.ChromeVox.tts.speak(newValue, 0, null);
   }
 };

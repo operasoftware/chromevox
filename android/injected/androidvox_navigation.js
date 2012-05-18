@@ -6,16 +6,19 @@
 
 goog.provide('androidvoxnav');
 
+goog.require('androidvoxnav.TouchExploreInputTranslator');
+goog.require('androidvoxnav.constants');
 goog.require('cvox.DomNavigator');
 goog.require('navigation.gesturenav');
 
 /**
  * Begins gesture navigation using ChromeVox to navigate.
  */
-function start() {
+androidvoxnav.start = function() {
+  androidvoxnav.constants.init();
   var domNavigator = new cvox.DomNavigator();
-  navigation.gesturenav.start(domNavigator, document);
-}
+  var eventTranslator = new androidvoxnav.TouchExploreInputTranslator(document);
+  navigation.gesturenav.start(domNavigator, eventTranslator);
+};
 
-start();
-
+androidvoxnav.start();

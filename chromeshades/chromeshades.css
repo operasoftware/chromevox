@@ -1,0 +1,252 @@
+/* Hide the body and show "Loading..." while the page is loading. */
+
+body:not([chromeshades_show]) {
+  background: #fff !important;
+  text-align: center !important;
+  margin: 40px 0px 0px 0px !important;
+  padding: 0px !important;
+}
+
+body:not([chromeshades_show]) * {
+  display: none !important;
+}
+
+body:not([chromeshades_show]):after {
+  color: #000 !important;
+  font-size: 14pt !important;
+  content: "Loading..." !important;
+}
+
+body[chromeshades_show="1"] {
+  position: absolute;
+  left: 9999px;
+  overflow: hidden !important;
+}
+
+/* Base style for all elements. */
+
+* {
+  -webkit-box-shadow: none !important;
+  -webkit-transform: none !important;
+  -webkit-transition: none !important;
+  background-clip: none !important;
+  background: none !important;
+  border-color: #000 !important;
+  border-width: 0px !important;
+  color: #000 !important;
+  font-family: arial, helvetica !important;
+  font-size: 10pt !important;
+  height: auto !important;
+  letter-spacing: normal !important;
+  margin: 0px !important;
+  padding: 0px !important;
+  position: static !important;
+  text-decoration: none !important;
+  transform: none !important;
+  transition: none !important;
+  white-space: normal !important;
+  width: auto !important;
+  word-wrap: break-word !important;
+  z-index: 0 !important;
+}
+
+/* Style overrides for form controls. */
+
+input,
+select,
+textarea,
+*[contenteditable="true"],
+*[role="button"],
+*[role="checkbox"],
+*[role="combobox"],
+*[role="listbox"],
+*[role="radio"],
+*[role="slider"],
+*[role="textbox"] {
+  color: #090 !important;
+  border: 1px solid #0b0 !important;
+  margin: 0.2em 1px 0.2em 1px !important;
+  padding: 0.2em !important;
+  background: #fff !important;
+  cursor: pointer !important;
+}
+
+*[role="dialog"],
+*[role="alertdialog"] {
+  border: 1px double #0b0 !important;
+  margin: 0.5em !important;
+  padding: 0.5em !important;
+}
+
+button,
+*[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  border: 1px solid #0b0 !important;
+  margin: 1px !important;
+  -webkit-border-radius: 6px !important;
+  padding: 0.5em !important;
+  background: #f6fff6 !important;
+}
+
+input::-webkit-input-placeholder,
+isindex::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  color: #6b6 !important;
+}
+
+*:disabled,
+*[role="button"][aria-disabled="true"],
+*[role="checkbox"][aria-disabled="true"],
+*[role="combobox"][aria-disabled="true"],
+*[role="listbox"][aria-disabled="true"],
+*[role="radio"][aria-disabled="true"],
+*[role="textbox"][aria-disabled="true"] {
+  border: 1px solid #ccc !important;
+  background: #f6f6f6 !important;
+  color: #6b6 !important;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1em !important;
+  height: 1em !important;
+}
+
+*[role="checkbox"],
+*[role="radio"] {
+  width: 0.5em !important;
+  height: 0.5em !important;
+}
+
+input[type="checkbox"],
+*[role="checkbox"] {
+  -webkit-appearance: none !important;
+  text-align: center !important;
+  vertical-align: text-top !important;
+  margin: 0px 0.2em 0px 0.2em !important;
+
+  display: inline-block;
+}
+
+input[type="radio"],
+*[role="radio"] {
+  -webkit-appearance: none !important;
+  -webkit-border-radius: 1em !important;
+  text-align: center !important;
+  vertical-align: text-top !important;
+  margin: 0px 0.2em 0px 0.2em !important;
+
+  display: inline-block;
+}
+
+input[type="checkbox"]:checked,
+input[type="radio"]:checked,
+*[role="checkbox"][aria-checked="true"],
+*[role="radio"][aria-checked="true"] {
+  background: #6b6 !important;
+}
+
+/* Style overrides for specific elements. */
+
+a:before {
+  padding-right: 100%; content: attr(forceNewline) !important;
+}
+
+a,
+a *,
+*[role="link"],
+*[role="link"] * {
+  color: #11c !important;
+  cursor: pointer !important;
+  text-decoration: underline !important;
+}
+
+a:visited,
+a:visited * {
+  color: #880088 !important;
+}
+
+body {
+  background-color: #fff !important;
+  padding: 1em !important;
+  overflow: auto !important;
+}
+
+center {
+  text-align: left !important;
+}
+
+embed {
+  width: 1px !important;
+  height: 1px !important;
+}
+
+fieldset {
+  border: 0px !important;
+  margin: 0px !important;
+  padding: 0px !important;
+}
+
+h1,h2,h3,h4,h5,h6,
+*[role="heading"] {
+  color: #900 !important;
+  margin: 0.5em 0px 0.5em 0px !important;
+  padding: 0px !important;
+  font-weight: bold !important;
+}
+
+iframe {
+  border: 1px solid #dd7 !important;
+  border-left: 0px !important;
+  border-right: 0px !important;
+  margin: 0px -1em 0px -1em !important;
+}
+
+img[alt=""],
+input[type="image"][alt=""] {
+  display:none !important;
+}
+
+li,
+*[role="listitem"] {
+  margin-left: 0.5em !important;
+}
+
+pre,xmp {
+  font-family: courier new, monospace !important;
+  white-space: pre !important;
+}
+
+nobr {
+  white-space: normal !important;
+}
+
+table {
+  border-collapse: collapse !important;
+  margin: 0.5em 1px 0.5em 1px !important;
+}
+
+td,th {
+}
+
+tr {
+  border: 0px !important;
+  margin: 0px !important;
+  padding: 0px !important;
+}
+
+ul,
+ol,
+*[role="list"] {
+  margin-left: 1em !important;
+}
+
+/* Style overrides for focused state. */
+
+*:focus { 
+  outline: auto 3px #ef0 !important;
+  outline-offset: 3px !important;
+  background: #ffc !important;
+}

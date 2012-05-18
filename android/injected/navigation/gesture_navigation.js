@@ -7,12 +7,16 @@
  *   - Drag with two fingers to pan.
  *   - Swipe down to navigate forward.
  *   - Swipe up to navigate backward.
- *   - Swipe right to jump to next jump item.
- *   - Swipe left to jump to previous jump item.
- *   - Swipe down or up and move right to increase granularity.
- *   - Swipe down or up and move left to decrease granularity.
- *   - Swipe right or left and move up to change to the previous jump item.
- *   - Swipe right or left and move down to change the next jump item.
+ *   - Swipe right to increase granularity.
+ *   - Swipe left to decrease granularity.
+ *   - Swipe down then up to jump to next jump item.
+ *   - Swipe up then down to jump to previous jump item.
+ *   - Swipe right then left to cycle to the next jump item.
+ *   - Swipe left then right to cycle to the previous jump item.
+ *   - Swipe right then up or up then right to jump to the top of the page.
+ *   - Swipe right then down or down then right to navigate forward in history.
+ *   - Swipe left then down or down then left to navigate backward in history.
+ *   - Swipe left then up or up then left to stop speech.
  *
  * @author sugarman@google.com (Noah Sugarman)
  */
@@ -29,38 +33,31 @@ goog.require('gestures.utils.math');
  * @enum {number}
  */
 navigation.gesturenav.JUMP_LEVELS = {
-  TEXT: 0,
-  JUMP_POINT: 1,
-  LINK: 2
+  HEADING: 0,
+  LINK: 1,
+  BUTTON: 2,
+  TEXT: 3
 };
 
 /**
  * The number of available jump levels.
  * @type {number}
  */
-navigation.gesturenav.NUM_JUMP_LEVELS = 3;
+navigation.gesturenav.NUM_JUMP_LEVELS = 4;
 
 /**
  * Begin gesture navigation.
  * @param {!navigation.DomNavigator} domNavigator The DOM navigator to use.
- * @param {!Document} source The source that is listened for touch/mouse events.
+ * @param {!gestures.utils.EventTarget} source The source that is
+ *     listened to for touch/mouse events.
  */
 navigation.gesturenav.start = function(domNavigator, source) {
   this.source_ = source;
-  this.tapEnabled_ = false;
+  this.tapClicksCurrentFocus_ = false;
   this.domNavigator_ = domNavigator;
   this.jumpLevel_ = 1;
-  this.initGestureDetector_();
-  this.addGestureListeners_();
-};
-
-/**
- * Create a new gesture detector that detects swipe turns, swipes, drags and
- * taps.
- * @private
- */
-navigation.gesturenav.initGestureDetector_ = function() {
   this.gestureDetector_ = new gestures.GestureDetector(this.source_);
+  this.addGestureListeners_();
 };
 
 /**
@@ -70,10 +67,10 @@ navigation.gesturenav.initGestureDetector_ = function() {
 navigation.gesturenav.addGestureListeners_ = function() {
   var Type = gestures.GestureEvent.Type;
   this.addListener_(Type.SWIPE, this.handleSwipe_);
-  this.addListener_(Type.SWIPE_TURN, this.setLevel_);
-  this.addListener_(Type.DRAG_START, this.startExploreByTouch_);
-  this.addListener_(Type.DRAG_END, this.stopExploreByTouch_);
-  this.addListener_(Type.TAP, this.handleTapEvent_);
+  this.addListener_(Type.SWIPE_TURN, this.handleSwipeTurn_);
+  this.addListener_(Type.DRAG_START, this.handleDragStart_);
+  this.addListener_(Type.DRAG_END, this.handleDragEnd_);
+  this.addListener_(Type.TAP, this.handleTap_);
 };
 
 /**
@@ -87,87 +84,76 @@ navigation.gesturenav.addListener_ = function(type, listener) {
 };
 
 /**
- * @param {gestures.GestureEvent} e The swipe turn event that changes the
- *     jump or detail level. If the first direction is vertical it sets
- *     granularity, horizontal sets jump level.
- * @private
- */
-navigation.gesturenav.setLevel_ = function(e) {
-  if (e.firstDirection == 'south' || e.firstDirection == 'north') {
-    this.adjustGranularity_(e.secondDirection);
-  } else { // direction is east or west
-    this.adjustJumpLevel_(e.secondDirection);
-  }
-};
-
-/**
- * Move to the next or previous granularity.
- * @param {gestures.GestureEvent.Direction} direction The direction
- *     determines if granularity is increased or decreased. East is next, west
- *     is previous.
- * @private
- */
-navigation.gesturenav.adjustGranularity_ = function(direction) {
-  if (direction == 'east') {
-    this.domNavigator_.nextGranularity();
-  } else if (direction == 'west') {
-    this.domNavigator_.previousGranularity();
-  }
-};
-
-/**
- * Move to the next or previous jump level.
- * @param {gestures.GestureEvent.Direction} direction The direction
- *     determines which jump level is set. North is next, South is previous.
- * @private
- */
-navigation.gesturenav.adjustJumpLevel_ = function(direction) {
-  if (direction == 'south') {
-    this.jumpLevel_++;
-    if (this.jumpLevel_ >= navigation.gesturenav.NUM_JUMP_LEVELS) {
-      this.jumpLevel_ = 0;
-    }
-  } else if (direction == 'north') {
-    this.jumpLevel_--;
-    if (this.jumpLevel_ < 0) {
-      this.jumpLevel_ = navigation.gesturenav.NUM_JUMP_LEVELS - 1;
-    }
-  } else {
-    return; // no change has been made
-  }
-  this.speakJumpLevel_();
-};
-
-/**
- * Speak the current jump level.
- * @private
- */
-navigation.gesturenav.speakJumpLevel_ = function() {
-  // TODO: internationalize raw strings
-  if (this.jumpLevel_ == navigation.gesturenav.JUMP_LEVELS.LINK) {
-    this.domNavigator_.speakJumpLevel('link');
-  } else if (this.jumpLevel_ == navigation.gesturenav.JUMP_LEVELS.JUMP_POINT) {
-    this.domNavigator_.speakJumpLevel('jump point');
-  } else {
-    this.domNavigator_.speakJumpLevel('editable text');
-  }
-};
-
-/**
  * Handle a swipe, which can be in one of four directions.
  * @param {gestures.GestureEvent} e The swipe gesture event.
  * @private
  */
 navigation.gesturenav.handleSwipe_ = function(e) {
-  this.tapEnabled_ = true;
+  this.tapClicksCurrentFocus_ = true;
   if (e.direction == gestures.GestureEvent.Direction.EAST) {
-    this.jumpToNext_();
+    this.domNavigator_.nextGranularity();
   } else if (e.direction == gestures.GestureEvent.Direction.WEST) {
-    this.jumpToPrevious_();
+    this.domNavigator_.previousGranularity();
   } else if (e.direction == gestures.GestureEvent.Direction.SOUTH) {
     this.domNavigator_.forward();
-  } else { // swipe in north direction
+  } else { // direction == NORTH
     this.domNavigator_.backward();
+  }
+};
+
+/**
+ * Handle a swipe turn.
+ * @param {gestures.GestureEvent} e The swipe turn gesture event.
+ * @private
+ */
+navigation.gesturenav.handleSwipeTurn_ = function(e) {
+  var seq = e.firstDirection + '-' + e.secondDirection;
+  if (seq == 'south-north') {
+    this.jumpToNext_();
+  } else if (seq == 'north-south') {
+    this.jumpToPrevious_();
+  } else if (seq == 'east-west') {
+    this.nextJumpLevel_();
+  } else if (seq == 'west-east') {
+    this.previousJumpLevel_();
+
+  } else if (seq == 'east-north' || seq == 'north-east') {
+    this.domNavigator_.jumpToTop();
+  } else if (seq == 'east-south' || seq == 'south-east') {
+    this.domNavigator_.forwardInHistory();
+  } else if (seq == 'west-south' || seq == 'south-west') {
+    this.domNavigator_.backwardInHistory();
+  } else if (seq == 'west-north' || seq == 'north-west') {
+    this.domNavigator_.stopSpeech();
+  }
+};
+
+/**
+ * @param {gestures.GestureEvent} e The drag start gesture event.
+ * @private
+ */
+navigation.gesturenav.handleDragStart_ = function(e) {
+  this.tapClicksCurrentFocus_ = false;
+  this.domNavigator_.startExploreByTouch();
+};
+
+/**
+ * @param {gestures.GestureEvent} e The drag end gesture event.
+ * @private
+ */
+navigation.gesturenav.handleDragEnd_ = function(e) {
+  this.domNavigator_.stopExploreByTouch();
+};
+
+/**
+ * @param {gestures.GestureEvent} e The tap gesture event.
+ * @private
+ */
+navigation.gesturenav.handleTap_ = function(e) {
+  if (this.tapClicksCurrentFocus_) {
+    this.domNavigator_.clickCurrentFocus();
+  } else {
+    this.domNavigator_.announceTarget(e.baseEvent);
   }
 };
 
@@ -194,43 +180,80 @@ navigation.gesturenav.jumpToPrevious_ = function() {
  *     previous item.
  */
 navigation.gesturenav.jumpToLevel_ = function(next) {
-  if (this.jumpLevel_ == navigation.gesturenav.JUMP_LEVELS.LINK) {
-    if (next) this.domNavigator_.nextLink();
-    else this.domNavigator_.previousLink();
-  } else if (this.jumpLevel_ == navigation.gesturenav.JUMP_LEVELS.JUMP_POINT) {
-    if (next) this.domNavigator_.nextJumpPoint();
-    else this.domNavigator_.previousJumpPoint();
-  } else {
-    if (next) this.domNavigator_.nextEditText();
-    else this.domNavigator_.previousEditText();
+  this.tapClicksCurrentFocus_ = true;
+  switch (this.jumpLevel_) {
+    case navigation.gesturenav.JUMP_LEVELS.LINK:
+      if (next) this.domNavigator_.nextLink();
+      else this.domNavigator_.previousLink();
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.HEADING:
+      if (next) this.domNavigator_.nextHeading();
+      else this.domNavigator_.previousHeading();
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.BUTTON:
+      if (next) this.domNavigator_.nextEditText();
+      else this.domNavigator_.previousEditText();
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.TEXT:
+      if (next) this.domNavigator_.nextEditText();
+      else this.domNavigator_.previousEditText();
   }
 };
 
 /**
- * @param {gestures.GestureEvent} e The drag start gesture event.
+ * Cycle to the next jump level.
  * @private
  */
-navigation.gesturenav.startExploreByTouch_ = function(e) {
-  this.tapEnabled_ = false;
-  this.domNavigator_.startExploreByTouch();
+navigation.gesturenav.nextJumpLevel_ = function() {
+  this.changeJumpLevel_(true);
 };
 
 /**
- * @param {gestures.GestureEvent} e The drag end gesture event.
+ * Cycle to the previous jump level.
  * @private
  */
-navigation.gesturenav.stopExploreByTouch_ = function(e) {
-  this.domNavigator_.stopExploreByTouch();
+navigation.gesturenav.previousJumpLevel_ = function() {
+  this.changeJumpLevel_(false);
 };
 
 /**
- * @param {gestures.GestureEvent} e The tap gesture event.
+ * Cycle to the next or previous jump level.
+ * @param {boolean} next Cycle to the next jump level if true, cycle to the
+ *     previous jump level if false.
  * @private
  */
-navigation.gesturenav.handleTapEvent_ = function(e) {
-  if (this.tapEnabled_) {
-    this.domNavigator_.clickCurrentFocus();
+navigation.gesturenav.changeJumpLevel_ = function(next) {
+  if (next) {
+    this.jumpLevel_++;
+    if (this.jumpLevel_ >= navigation.gesturenav.NUM_JUMP_LEVELS) {
+      this.jumpLevel_ = 0;
+    }
   } else {
-    this.domNavigator_.announceTarget(e.baseEvent);
+    this.jumpLevel_--;
+    if (this.jumpLevel_ < 0) {
+      this.jumpLevel_ = navigation.gesturenav.NUM_JUMP_LEVELS - 1;
+    }
+  }
+  this.speakJumpLevel_();
+};
+
+/**
+ * Speak the current jump level.
+ * @private
+ */
+navigation.gesturenav.speakJumpLevel_ = function() {
+  // TODO: internationalize raw strings
+  switch (this.jumpLevel_) {
+    case navigation.gesturenav.JUMP_LEVELS.LINK:
+      this.domNavigator_.speakJumpLevel('link');
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.HEADING:
+      this.domNavigator_.speakJumpLevel('heading');
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.BUTTON:
+      this.domNavigator_.speakJumpLevel('button');
+      break;
+    case navigation.gesturenav.JUMP_LEVELS.TEXT:
+      this.domNavigator_.speakJumpLevel('editable text');
   }
 };

@@ -27,6 +27,7 @@ goog.provide('cvox.EditableTextAreaShadow');
 cvox.EditableTextAreaShadow = function() {
   /**
    * @type {Element}
+   * @private
    */
   this.shadowElement_ = document.createElement('div');
 
@@ -34,12 +35,14 @@ cvox.EditableTextAreaShadow = function() {
    * Map from line index to a data structure containing the start
    * and end index within the line.
    * @type {Object.<number, {startIndex: number, endIndex: number}>}
+   * @private
    */
   this.lines_ = {};
 
   /**
    * Map from 0-based character index to 0-based line index.
    * @type {Array.<number>}
+   * @private
    */
   this.characterToLineMap_ = [];
 };
@@ -160,7 +163,7 @@ cvox.EditableTextAreaShadow.prototype.update = function(element) {
   var characterToLineMap = [];
   for (var i = 0; i <= lineIndex; i++) {
     for (var j = lines[i].startIndex; j <= lines[i].endIndex; j++) {
-      characterToLineMap.push(i);
+      characterToLineMap[j] = i;
     }
   }
 

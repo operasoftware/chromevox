@@ -24,7 +24,7 @@ goog.provide('cvox.ChromeVox');
 goog.require('cvox.AbstractHost');
 goog.require('cvox.AbstractLens');
 goog.require('cvox.AbstractMsgs');
-goog.require('cvox.AbstractTts');
+goog.require('cvox.TtsInterface');
 
 // Constants
 /**
@@ -51,9 +51,9 @@ cvox.ChromeVox = function() {};
  */
 cvox.ChromeVox.host = null;
 /**
- * @type {cvox.AbstractTts}
+ * @type {cvox.TtsInterface}
  */
-cvox.ChromeVox.tts = null;
+cvox.ChromeVox.tts;
 /**
  * @type {cvox.AbstractMsgs}
  */

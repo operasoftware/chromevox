@@ -205,6 +205,10 @@ cvox.ActiveIndicator.prototype.removeFromDom = function() {
   if (this.container_ && this.container_.parentElement) {
     this.container_.parentElement.removeChild(this.container_);
   }
+  if (this.zoomMeasureElement_ && this.zoomMeasureElement_.parentElement) {
+    this.zoomMeasureElement_.parentElement.removeChild(
+        this.zoomMeasureElement_);
+  }
 };
 
 /**
@@ -300,12 +304,20 @@ cvox.ActiveIndicator.prototype.setVisible = function(visible) {
  * is designed to handle the slightly non-rectangular shape of a typical
  * text paragraph, but not anything more complicated than that.
  *
- * @param {Array.<ClientRect>} immutableRects The object rectangles.
+ * @param {ClientRectList|Array.<ClientRect>} immutableRects The object rectangles.
  * @param {number} margin Margin in pixels.
  * @private
  */
 cvox.ActiveIndicator.prototype.moveIndicator_ = function(
     immutableRects, margin) {
+  // Never put the active indicator into the DOM when the whole page is
+  // contentEditable; it will end up part of content that the user may
+  // be trying to edit.
+  if (document.body.isContentEditable) {
+    this.removeFromDom();
+    return;
+  }
+
   var n = immutableRects.length;
   if (n == 0) {
     return;

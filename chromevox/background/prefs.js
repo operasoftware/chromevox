@@ -63,7 +63,7 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
       'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
-  'filterMap': {}
+  'filterMap': '{}'
 };
 
 
@@ -377,8 +377,19 @@ cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
   keyMap[(mod1 + '+P>#186')] =
       ['previousLandmark', msg('previous_landmark')];  // ';'
   keyMap[(mod1 + '+B>B')] = ['benchmark', msg('benchmark')];
+  keyMap[(mod1 + '+B>F')] = ['readMacroFromHtml', 'Read macro from HTML'];
+
+  // TODO(deboer): Better keys and i18n.
+  keyMap[(mod1 + '+B>G')] = ['addMacroWriter', 'Add the macro writer to the page'];
+  keyMap[(mod1 + '+B>H')] = ['startHistoryRecording', 'Start history recording'];
+  keyMap[(mod1 + '+B>U')] = ['stopHistoryRecording', 'Stop history recording'];
+  keyMap[(mod1 + '+B>T')] = ['runTests',
+      'Run some basic tests using the current page'];
+  keyMap[(mod1 + '+B>C')] = ['enableConsoleTts',
+      'Write debugging TTS output to window.console'];
 
   // Filtering commands.
+  keyMap[(mod1 + '+G')] = ['enterCssSpace', msg('enter_css_space')];
   keyMap[(mod1 + '+I>I')] = ['filterLikeCurrentItem', msg('filter_item')];
 
   return keyMap;

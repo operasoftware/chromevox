@@ -166,18 +166,39 @@ cvox.AriaUtil.ATTRIBUTE_VALUE_TO_STATUS = [
  * Checks if a node should be treated as a hidden node because of its ARIA
  * markup.
  *
- * @param {Object} targetNode The node to check.
+ * @param {Node} targetNode The node to check.
+ * @return {boolean} True if the targetNode should be treated as hidden.
+ */
+cvox.AriaUtil.isHiddenRecursive = function(targetNode) {
+  if (cvox.AriaUtil.isHidden(targetNode)) {
+    return true;
+  }
+  var parent = targetNode.parentElement;
+  while (parent) {
+    if ((parent.getAttribute('aria-hidden') == 'true') &&
+        (parent.getAttribute('chromevoxignoreariahidden') != 'true')) {
+      return true;
+    }
+    parent = parent.parentElement;
+  }
+  return false;
+};
+
+
+/**
+ * Checks if a node should be treated as a hidden node because of its ARIA
+ * markup. Does not check parents, so if you need to know if this is a
+ * descendant of a hidden node, call isHiddenRecursive.
+ *
+ * @param {Node} targetNode The node to check.
  * @return {boolean} True if the targetNode should be treated as hidden.
  */
 cvox.AriaUtil.isHidden = function(targetNode) {
-  while (targetNode) {
-    if (targetNode.getAttribute) {
-      if ((targetNode.getAttribute('aria-hidden') == 'true') &&
-          (targetNode.getAttribute('chromevoxignoreariahidden') != 'true')) {
-        return true;
-      }
+  if (targetNode.getAttribute) {
+    if ((targetNode.getAttribute('aria-hidden') == 'true') &&
+        (targetNode.getAttribute('chromevoxignoreariahidden') != 'true')) {
+      return true;
     }
-    targetNode = targetNode.parentNode;
   }
   return false;
 };
@@ -185,23 +206,14 @@ cvox.AriaUtil.isHidden = function(targetNode) {
 
 /**
  * Checks if a node should be treated as a leaf node because of its ARIA
- * markup.
+ * markup. Does not check recursively, and does not check isControlWidget.
  *
- * @param {Object} targetNode The node to check.
+ * @param {Element} targetElement The node to check.
  * @return {boolean} True if the targetNode should be treated as a leaf node.
  */
-cvox.AriaUtil.isLeafNode = function(targetNode) {
-  while (targetNode) {
-    if (targetNode.getAttribute) {
-      var role = cvox.AriaUtil.getRoleAttribute(targetNode);
-      if (role == 'img' ||
-          role == 'progressbar') {
-        return true;
-      }
-    }
-    targetNode = targetNode.parentNode;
-  }
-  return false;
+cvox.AriaUtil.isLeafElement = function(targetElement) {
+  var role = targetElement.getAttribute('role');
+  return (role == 'img' || role == 'progressbar');
 };
 
 

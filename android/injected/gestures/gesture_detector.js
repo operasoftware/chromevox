@@ -28,21 +28,21 @@ goog.require('gestures.GestureTouchEvent');
 goog.require('gestures.SwipeState');
 goog.require('gestures.SwipeTurnState');
 goog.require('gestures.TapState');
-goog.require('gestures.utils.EventTarget');
+goog.require('gestures.utils.EventTranslator');
 
 /**
  * Constructs a new GestureDetector and start detecting gestures.
- * @param {!Document} source The source that is listened for touch/mouse events.
+ * @param {!gestures.utils.EventTarget} source The source that is
+ *     listened to for touch/mouse events.
  * @constructor
- * @extends {gestures.utils.EventTarget}
+ * @extends {gestures.utils.EventTranslator}
  */
 gestures.GestureDetector = function(source) {
-  goog.base(this);
-  this.source_ = source;
-  this.addListeners_();
+  goog.base(this, source);
+  this.listenFor('touchstart', 'touchmove', 'touchend');
   this.startDetecting();
 };
-goog.inherits(gestures.GestureDetector, gestures.utils.EventTarget);
+goog.inherits(gestures.GestureDetector, gestures.utils.EventTranslator);
 
 /**
  * Initialize gesture detection variables.
@@ -56,27 +56,15 @@ gestures.GestureDetector.prototype.init_ = function() {
 };
 
 /**
- * Add listeners for touch events or mouse events if touch is not supported.
- * @private
- */
-gestures.GestureDetector.prototype.addListeners_ = function() {
-  var handleEvent = goog.bind(this.handleEvent, this);
-  this.source_.addEventListener('touchstart', handleEvent, true);
-  this.source_.addEventListener('touchmove', handleEvent, true);
-  this.source_.addEventListener('touchend', handleEvent, true);
-  this.source_.addEventListener('mousemove', handleEvent, true);
-};
-
-/**
  * Start detecting tap, swipe, swipe turn and drag gestures. This is called
  * automatically when the gesture detector is constructed.
  */
 gestures.GestureDetector.prototype.startDetecting = function() {
   this.init_();
+  this.detectInPriorityOrder(new gestures.TapState());
   this.detectInPriorityOrder(new gestures.SwipeTurnState());
   this.detectInPriorityOrder(new gestures.SwipeState());
   this.detectInPriorityOrder(new gestures.DragState());
-  this.detectInPriorityOrder(new gestures.TapState());
 };
 
 /**
@@ -93,31 +81,21 @@ gestures.GestureDetector.prototype.stopDetecting = function() {
  * @param {gestures.GestureState} state The state to add to the gesture
  *     detection state machine.
  */
-gestures.GestureDetector.prototype.detectInPriorityOrder = function(
-    state) {
+gestures.GestureDetector.prototype.detectInPriorityOrder = function(state) {
   state.registerGesture = goog.bind(this.registerGesture_, this);
   this.gestureStates_.push(state);
 };
 
 /**
  * Analyzes touch events to see if a gesture has occurred.
- * @param {TouchEvent|MouseEvent} event The event to handle.
+ * @param {Event|gestures.utils.Event} event The event to handle.
+ * @override
  */
 gestures.GestureDetector.prototype.handleEvent = function(event) {
-  this.event_ = this.getGestureTouchEvent_(event);
+  this.event_ = event;
   this.tryToEndActiveState_();
   this.tryToUpdateActiveState_();
   this.tryToStartInactiveState_();
-};
-
-/**
- * Wraps a touch event in a gesture touch event.
- * @private
- * @param {TouchEvent|MouseEvent} e Event to wrap.
- * @return {gestures.GestureTouchEvent} Wrapped event.
- */
-gestures.GestureDetector.prototype.getGestureTouchEvent_ = function(e) {
-  return new gestures.GestureTouchEvent(e, this.event_);
 };
 
 /**
@@ -140,6 +118,10 @@ gestures.GestureDetector.prototype.tryToEndActiveState_ = function() {
   }
 };
 
+/**
+ * End the active state.
+ * @private
+ */
 gestures.GestureDetector.prototype.endActiveState_ = function() {
   this.activeState_.end(this.event_);
   this.hasActiveState_ = false;
@@ -166,12 +148,13 @@ gestures.GestureDetector.prototype.tryToStartInactiveState_ = function() {
 
 /**
  * @private
- * @param {gestures.GestureState} gesture The new active gesture.
+ * @param {gestures.GestureState} gesture The new active gesture state.
  */
 gestures.GestureDetector.prototype.startActiveState_ = function(gesture) {
-  this.activeState_.end();
+  this.endActiveState_(); // preemt the current active state
   this.activeState_ = gesture;
   this.hasActiveState_ = true;
+  this.lastActiveState_ = gestures.GestureState.getNullState();
   this.activeState_.start(this.event_);
 };
 

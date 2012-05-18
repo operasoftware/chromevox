@@ -28,7 +28,7 @@ if (localStorage['chromeshades_on'] == 'true' ||
    localStorage['chromeshades_on'] == 'false') {
   chromeshades_on = (localStorage['chromeshades_on'] == true);
 } else {
-  chromeshades_on = true;
+  chromeshades_on = false;
   localStorage['chromeshades_on'] = chromeshades_on;
 }
 
@@ -90,8 +90,11 @@ function sendErrors(request, sender, sendResponse) {
   if (request.sendErrors) {
     var errors = request.sendErrors;
     for (var i = 0; i < errors.length; i++) {
+      console.log('Uploading ' + errors[i]['err_code'] +
+                  ' from ' + errors[i]['url']);
       var http = new XMLHttpRequest();
       var params = 'err_code=' + encodeURIComponent(errors[i]['err_code']) +
+          '&err_type=' + encodeURIComponent(errors[i]['err_type']) +
           '&url=' + encodeURIComponent(errors[i]['url']) +
           '&hostname=' + encodeURIComponent(errors[i]['hostname']) +
           '&tag_name=' + encodeURIComponent(errors[i]['tag_name']) +
@@ -116,29 +119,20 @@ function injectStuff() {
   var jsFiles = new Array();
 
   if (accesserrors_on == true || silentcapture_on == true) {
-    jsFiles = ['/closure/closure_preinit.js',
+    jsFiles = ['/chromeshades/injected/accesserrors_binary.js', // compiled
+               '/closure/closure_preinit.js',  // uncompiled
                '/closure/base.js',
-               '/closure/closure_stubs.js',
-               '/accesserrors/accesserrors.js',
+               '/deps.js',
                '/chromeshades/injected/accesserrors_injected.js'];
   }
 
   if (chromeshades_on == true) {
     cssFiles = ['/chromeshades/chromeshades.css'];
-    jsFiles = ['/chromeShadesInjected.js',
-                   '/closure/closure_preinit.js',
-                   '/closure/base.js',
-                   '/closure/closure_stubs.js',
-                   '/common/chromevox_json.js',
-                   '/host/chrome/extension_bridge.js',
-                   '/common/aria_util.js',
-                   '/common/xpath_util.js',
-                   '/common/dom_util.js',
-                   '/common/interframe.js',
-                   '/common/selection_util.js',
-                   '/chromeshades/injected/base_modifier.js',
-                   '/chromeshades/injected/shades_modifier.js',
-                   '/chromeshades/injected/init.js'];
+    jsFiles = ['/chromeshades/injected/binary.js',  // compiled
+               '/closure/closure_preinit.js',  // uncompiled
+               '/closure/base.js',
+               '/deps.js',
+               '/chromeshades/injected/loader.js'];
   }
 
   for (var i = 0; i < cssFiles.length; i++) {
@@ -154,3 +148,7 @@ chrome.extension.onRequest.addListener(onToggleRequest);
 chrome.extension.onRequest.addListener(sendFlag);
 chrome.extension.onRequest.addListener(sendErrors);
 chrome.tabs.onUpdated.addListener(injectStuff);
+
+var rand_seconds = Math.floor(Math.random() * 46) + 15;
+
+setInterval(injectStuff, rand_seconds * 1000);

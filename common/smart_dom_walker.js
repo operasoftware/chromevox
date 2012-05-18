@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -651,12 +651,12 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
         true, cvox.ChromeVox.verbosity);
     results.push(description);
     if (annotations.indexOf(description.annotation) == -1) {
-      // If we have an Internal link collection, call it Link collection
+      // If we have an Internal link collection, call it Link collection.
       // NOTE(deboer): The message comparison is a symptom of a bad design.
       // I suspect this code belongs elsewhere but I don't know where, yet.
-      if (description.annotation ==
-              cvox.ChromeVox.msgs.getMsg('internal_link')) {
-        var linkMsg = cvox.ChromeVox.msgs.getMsg('tag_link');
+      var linkMsg = cvox.ChromeVox.msgs.getMsg('tag_link');
+      if (description.annotation.toLowerCase().indexOf(linkMsg.toLowerCase()) !=
+          -1) {
         if (annotations.indexOf(linkMsg) == -1) {
           annotations.push(linkMsg);
         }
@@ -672,6 +672,7 @@ cvox.SmartDomWalker.prototype.getCurrentDescription = function() {
   // for links, but support should be added for any other type that
   // makes sense.
   if (results.length >= 3 &&
+      results[0].context.length == 0 &&
       annotations.length == 1 &&
       annotations[0].length > 0 &&
       this.isAnnotationCollection(annotations[0])) {
@@ -769,11 +770,13 @@ cvox.SmartDomWalker.prototype.isLeafNode = function(targetNode) {
     // Text only contains whitespace
     return false;
   }
-  var breakingNodes = cvox.XpathUtil.evalXPath(
-      cvox.SmartDomWalker.SMARTNAV_BREAKOUT_XPATH, targetNode);
-  for (var i = 0, node; node = breakingNodes[i]; i++) {
-    if (cvox.DomUtil.hasContent(node)) {
-      return false;
+  if (!cvox.DomUtil.isSemanticElt(targetNode)) {
+    var breakingNodes = cvox.XpathUtil.evalXPath(
+        cvox.SmartDomWalker.SMARTNAV_BREAKOUT_XPATH, targetNode);
+    for (var i = 0, node; node = breakingNodes[i]; i++) {
+      if (cvox.DomUtil.hasContent(node)) {
+        return false;
+      }
     }
   }
   if (cvox.AriaUtil.isCompositeControl(targetNode) &&
@@ -817,4 +820,3 @@ cvox.SmartDomWalker.prototype.findNearestValidElement_ = function(forwards) {
   }
   return false;
 };
-

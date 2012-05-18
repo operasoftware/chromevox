@@ -18,6 +18,7 @@ goog.provide('cvox.ChromeVoxEditableTextArea');
 goog.provide('cvox.ChromeVoxEditableTextBase');
 goog.provide('cvox.TextChangeEvent');
 
+goog.require('cvox.ContentEditableExtractor');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EditableTextAreaShadow');
 
@@ -252,18 +253,6 @@ cvox.ChromeVoxEditableTextBase.prototype.restoreState = function(state) {
   this.value = state.value;
   this.start = state.start;
   this.end = state.end;
-};
-
-/**
- * Check if the underlying text control has changed and an update is needed.
- * The default implementation always returns false, but subclasses that
- * track an INPUT or TEXTAREA element will return true if the underlying
- * element has changed.
- *
- * @return {boolean} True if the object needs to be updated.
- */
-cvox.ChromeVoxEditableTextBase.prototype.needsUpdate = function() {
-  return false;
 };
 
 /**
@@ -645,17 +634,6 @@ cvox.ChromeVoxEditableHTMLInput.prototype.update = function(triggeredByUser) {
   this.changed(textChangeEvent);
 };
 
-/**
- * @return {boolean} True if the object needs to be updated.
- */
-cvox.ChromeVoxEditableHTMLInput.prototype.needsUpdate = function() {
-  var newValue = this.node.value;
-
-  return (this.value != newValue ||
-          this.start != this.node.selectionStart ||
-          this.end != this.node.selectionEnd);
-};
-
 /******************************************/
 
 /**
@@ -673,8 +651,6 @@ cvox.ChromeVoxEditableTextArea = function(node, tts) {
   this.tts = tts;
   this.multiline = true;
   this.shadowIsCurrent = false;
-  this.characterToLineMap = {};
-  this.lines = {};
 };
 goog.inherits(cvox.ChromeVoxEditableTextArea,
     cvox.ChromeVoxEditableElement);
@@ -698,15 +674,6 @@ cvox.ChromeVoxEditableTextArea.prototype.update = function(triggeredByUser) {
   var textChangeEvent = new cvox.TextChangeEvent(this.node.value,
       this.node.selectionStart, this.node.selectionEnd, triggeredByUser);
   this.changed(textChangeEvent);
-};
-
-/**
- * @return {boolean} True if the object needs to be updated.
- */
-cvox.ChromeVoxEditableTextArea.prototype.needsUpdate = function() {
-  return (this.value != this.node.value ||
-          this.start != this.node.selectionStart ||
-          this.end != this.node.selectionEnd);
 };
 
 /**
@@ -758,36 +725,32 @@ cvox.ChromeVoxEditableTextArea.prototype.getShadow = function() {
 
 /**
  * A subclass of ChromeVoxEditableElement for elements that are contentEditable.
- * @param {Element} node The contentEditable node.
+ * This is also used for a region of HTML with the ARIA role of "textbox",
+ * so that an author can create a pure-JavaScript editable text object - this
+ * will work the same as contentEditable as long as the DOM selection is
+ * updated properly within the textbox when it has focus.
+ * @param {Element} node The root contentEditable node.
  * @param {Object} tts A TTS object implementing speak() and stop() methods.
  * @extends {cvox.ChromeVoxEditableElement}
  * @constructor
  */
 cvox.ChromeVoxEditableContentEditable = function(node, tts) {
   this.node = node;
-  this.value = node.textContent;
-
-  // TODO (clchen): This ignores the case of the selection going across more
-  // than one child node.
-  var sel = window.getSelection();
-  this.currentChildNode = sel.anchorNode;
-  this.start = 0;
-  this.end = 0;
-
+  this.value = this.getExtractor().getText();
+  this.start = this.getExtractor().getStartIndex();
+  this.end = this.getExtractor().getEndIndex();
   this.tts = tts;
   this.multiline = true;
-  this.shadowIsCurrent = false;
-  this.characterToLineMap = {};
-  this.lines = {};
+  this.extractorIsCurrent = false;
 };
 goog.inherits(cvox.ChromeVoxEditableContentEditable,
     cvox.ChromeVoxEditableElement);
 
 /**
- * An offscreen div used to compute the line numbers. A single div is
+ * A helper used to compute the line numbers. A single object is
  * shared by all instances of the class.
  */
-cvox.ChromeVoxEditableContentEditable.shadow;
+cvox.ChromeVoxEditableContentEditable.extractor;
 
 /**
  * Update the state of the text and selection and describe any changes as
@@ -797,63 +760,13 @@ cvox.ChromeVoxEditableContentEditable.shadow;
  */
 cvox.ChromeVoxEditableContentEditable.prototype.update =
     function(triggeredByUser) {
-  var sel = window.getSelection();
-  var cursorNode = sel.anchorNode;
-
-  if (cursorNode == null) {
-    // The update was called as the user was leaving the contentEditable area.
-    // There is nothing to describe, so return without doing anything.
-    return;
-  }
-
-  if (this.currentChildNode != cursorNode) {
-    this.currentChildNode = cursorNode;
-    this.start = 0;
-    this.end = 0;
-  }
-
-  var cursorOffset = sel.anchorOffset;
-
-  var updatedValue = cursorNode.textContent;
-  var updatedSelectionStart = sel.anchorOffset;
-  var updatedSelectionEnd = sel.focusOffset;
-  var goingBackwards = false;
-
-  // This can be backwards if the user is navigating in reverse. Flip it around.
-  if (updatedSelectionStart > updatedSelectionEnd) {
-    updatedSelectionEnd = sel.anchorOffset;
-    updatedSelectionStart = sel.focusOffset;
-    goingBackwards = true;
-  }
-
-  // TODO (clchen): Fix this! The shadow updating method is basically stubbed
-  // out so that things work, but it should be carefully re-examined.
-  if (updatedValue != this.value) {
-    this.shadowIsCurrent = false;
-  }
-
-  var textChangeEvent = new cvox.TextChangeEvent(updatedValue,
-      updatedSelectionStart, updatedSelectionEnd, triggeredByUser);
+  this.extractorIsCurrent = false;
+  var textChangeEvent = new cvox.TextChangeEvent(
+      this.getExtractor().getText(),
+      this.getExtractor().getStartIndex(),
+      this.getExtractor().getEndIndex(),
+      triggeredByUser);
   this.changed(textChangeEvent);
-
-  // Move the start pointer after the change has been processed.
-  if (goingBackwards) {
-    this.start = updatedSelectionStart;
-  } else {
-    this.start = updatedSelectionEnd;
-  }
-};
-
-/**
- * @return {boolean} True if the object needs to be updated.
- */
-cvox.ChromeVoxEditableContentEditable.prototype.needsUpdate = function() {
-  // TODO: Fix this! Make it agree with the window selection.
-  return (this.value != this.node.textContent ||
-      (this.start && this.node.selectionStart &&
-      (this.start != this.node.selectionStart)) ||
-      (this.end && this.node.selectionEnd &&
-      (this.end != this.node.selectionEnd)));
 };
 
 /**
@@ -862,14 +775,7 @@ cvox.ChromeVoxEditableContentEditable.prototype.needsUpdate = function() {
  * @return {number} The 0-based line number corresponding to that character.
  */
 cvox.ChromeVoxEditableContentEditable.prototype.getLineIndex = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-
-  // TODO: Change this back to using the characterToLineMap once updateShadow
-  // is fixed. Returning 0 all the time is a hack and is not always correct.
-  //return this.characterToLineMap[index];
-  return 0;
+  return this.getExtractor().getLineIndex(index);
 };
 
 /**
@@ -878,10 +784,7 @@ cvox.ChromeVoxEditableContentEditable.prototype.getLineIndex = function(index) {
  * @return {number} The 0-based index of the first character in this line.
  */
 cvox.ChromeVoxEditableContentEditable.prototype.getLineStart = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-  return this.lines[index].startIndex;
+  return this.getExtractor().getLineStart(index);
 };
 
 /**
@@ -890,86 +793,23 @@ cvox.ChromeVoxEditableContentEditable.prototype.getLineStart = function(index) {
  * @return {number} The 0-based index of the end of this line.
  */
 cvox.ChromeVoxEditableContentEditable.prototype.getLineEnd = function(index) {
-  if (!this.shadowIsCurrent) {
-    this.updateShadow();
-  }
-
-  return this.lines[index].endIndex;
+  return this.getExtractor().getLineEnd(index);
 };
 
 /**
- * Update the shadow object, an offscreen div used to compute line numbers.
- * TODO (clchen): Go through this code and make it work for contentEditable.
- * Currently, it is just a clone of what was there for textArea and it does
- * is not giving the right results.
+ * Update the extractor object, an offscreen div used to compute line numbers.
+ * @return {cvox.ContentEditableExtractor} The extractor object.
  */
-cvox.ChromeVoxEditableContentEditable.prototype.updateShadow = function() {
-  var shadow = cvox.ChromeVoxEditableContentEditable.shadow;
-  if (!shadow) {
-    shadow = document.createElement('div');
-    cvox.ChromeVoxEditableContentEditable.shadow = shadow;
-  }
-  document.body.appendChild(shadow);
-
-  while (shadow.childNodes.length) {
-    shadow.removeChild(shadow.childNodes[0]);
-  }
-
-  shadow.style.cssText = window.getComputedStyle(this.node, null).cssText;
-  shadow.style.visibility = 'hidden';
-  shadow.style.position = 'absolute';
-  shadow.style.top = -9999;
-  shadow.style.left = -9999;
-
-  var shadowWrap = document.createElement('div');
-  shadow.appendChild(shadowWrap);
-
-  var text = this.node.value;
-  if (!text) {
-    text = this.node.textContent;
-  }
-  var outputHtml = '';
-  var lastWasWhitespace = false;
-  var currentSpan = null;
-  for (var i = 0; i < text.length; i++) {
-    var ch = text[i];
-    var isWhitespace = this.isWhitespaceChar(ch);
-    if ((isWhitespace != lastWasWhitespace) || i == 0) {
-      currentSpan = document.createElement('span');
-      currentSpan.startIndex = i;
-      shadowWrap.appendChild(currentSpan);
+cvox.ChromeVoxEditableContentEditable.prototype.getExtractor = function() {
+  var extractor = cvox.ChromeVoxEditableContentEditable.extractor;
+  if (!this.extractorIsCurrent) {
+    if (!extractor) {
+      extractor = cvox.ChromeVoxEditableContentEditable.extractor =
+          new cvox.ContentEditableExtractor();
     }
-    currentSpan.innerText += ch;
-    currentSpan.endIndex = i;
-    lastWasWhitespace = isWhitespace;
-  }
-  if (currentSpan) {
-    currentSpan.endIndex = text.length;
-  } else {
-    currentSpan = document.createElement('span');
-    currentSpan.startIndex = 0;
-    currentSpan.endIndex = 0;
-    shadowWrap.appendChild(currentSpan);
-  }
+    extractor.update(this.node);
 
-  this.characterToLineMap = {};
-  this.lines = {};
-  var firstSpan = shadowWrap.childNodes[0];
-  var lineIndex = -1;
-  var lineOffset = -1;
-  for (var n = firstSpan; n; n = n.nextSibling) {
-    if (n.offsetTop > lineOffset) {
-      lineIndex++;
-      this.lines[lineIndex] = {};
-      this.lines[lineIndex].startIndex = n.startIndex;
-      lineOffset = n.offsetTop;
-    }
-    this.lines[lineIndex].endIndex = n.endIndex;
-    for (var j = n.startIndex; j <= n.endIndex; j++) {
-      this.characterToLineMap[j] = lineIndex;
-    }
+    this.extractorIsCurrent = true;
   }
-
-  this.shadowIsCurrent = true;
-  document.body.removeChild(shadow);
+  return extractor;
 };

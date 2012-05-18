@@ -25,20 +25,19 @@ goog.inherits(gestures.SwipeState, gestures.GestureState);
 /**
  * The squared min average speed of a swipe across all touch move events for it
  * to be considered a swipe and not a drag. The units are pixels^2 per
- * millisecond^2.
+ * millisecond^2 at mdpi.
  * @const
  * @type {number} 1.5^2
  */
-// TODO: make DPI independent
 gestures.SwipeState.SQUARED_MIN_AVG_SPEED = 2.25;
 
 /**
- * The number of events that are not checked for speed. These events are for
- * accelerating into a swipe.
+ * Events within this many pixels from the touch start event are not checked for
+ * speed. This acts as a runway to accelerate into the swipe.
  * @const
- * @type {number}
+ * @type {number} 80^2
  */
-gestures.SwipeState.ACCELERATION_EVENTS = 2;
+gestures.SwipeState.SQUARED_ACCELERATION_RADIUS = 6400;
 
 /**
  * A swipe gesture starts from quick movement in one direction across the
@@ -53,7 +52,7 @@ gestures.SwipeState.prototype.meetsStartCondition = function(
   var NONE = gestures.GestureEvent.Direction.NONE;
   return !touchEvent.isMultitouch &&
       touchEvent.type == 'touchmove' &&
-      touchEvent.prev.type == 'touchstart' &&
+      previousState instanceof gestures.TapState &&
       touchEvent.getCardinalDirection() != NONE;
 };
 
@@ -65,6 +64,7 @@ gestures.SwipeState.prototype.meetsStartCondition = function(
 gestures.SwipeState.prototype.start = function(touchEvent) {
   this.numEvents_ = 1;
   this.speed_ = touchEvent.getSquaredSpeed();
+  this.startingEvent_ = touchEvent;
   this.maxSpeed = this.speed_;
 };
 
@@ -78,15 +78,28 @@ gestures.SwipeState.prototype.start = function(touchEvent) {
  */
 gestures.SwipeState.prototype.meetsEndCondition = function(touchEvent) {
   if (touchEvent.type == 'touchend') {
-    this.registerEvent_(touchEvent.prev);
     return true;
   }
 
   this.calculateSpeed_(touchEvent);
 
-  return (this.numEvents_ > gestures.SwipeState.ACCELERATION_EVENTS &&
+  var distanceFromStart = gestures.GestureTouchEvent.squaredDistance(
+      this.startingEvent_, touchEvent);
+  return (distanceFromStart > gestures.SwipeState.SQUARED_ACCELERATION_RADIUS &&
       this.speed_ < gestures.SwipeState.SQUARED_MIN_AVG_SPEED) ||
       this.directionChanged_(touchEvent);
+};
+
+/**
+ * Exit the state.
+ * @param {gestures.GestureTouchEvent} touchEvent The last touch event.
+ * @override
+ */
+gestures.SwipeState.prototype.end = function(touchEvent) {
+  if (touchEvent.type == 'touchend' &&
+      this.speed_ > gestures.SwipeState.SQUARED_MIN_AVG_SPEED) {
+    this.registerEvent_(touchEvent.prev);
+  }
 };
 
 /**

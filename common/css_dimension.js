@@ -22,9 +22,19 @@ goog.provide('cvox.CssDimension');
  * @typedef {Object}
  */
 cvox.CssDimension = {
-  /** @type {?string} */
+  /**
+   * Name of the dimension.
+   * @type {?string} */
   name: null,
 
-  /** @type {?number} */
-  threshold: null
+  /**
+   * Distance when nodes are no longer related.
+   * @type {?number} */
+  threshold: null,
+
+  /**
+   * The name of the function that provides distance.
+   * @type {?function(!Node, !Node): number}
+   */
+  distance: null
 };

@@ -23,11 +23,11 @@ goog.provide('cvox.ChromeHost');
 
 goog.require('cvox.AbstractHost');
 goog.require('cvox.ApiImplementation');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
-goog.require('cvox.Lens');
 
 /**
  * @constructor
@@ -105,12 +105,6 @@ cvox.ChromeHost.prototype.init = function() {
     });
 
   this.hidePageFromNativeScreenReaders();
-
-  if (window.top == window) {
-    cvox.ChromeVox.lens = new cvox.Lens();
-    cvox.ChromeVox.lens.setMultiplier(2.25);
-    cvox.ChromeVox.tts.setLens(cvox.ChromeVox.lens);
-  }
 };
 
 cvox.ChromeHost.prototype.reinit = function() {
@@ -211,6 +205,13 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
   } else {
     this.unhidePageFromNativeScreenReaders();
   }
+};
+
+/**
+ * @override
+ */
+cvox.ChromeHost.prototype.canShowLens = function() {
+  return window.top == window;
 };
 
 cvox.HostFactory.hostConstructor = cvox.ChromeHost;

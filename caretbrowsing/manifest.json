@@ -1,0 +1,34 @@
+{
+  "name": "Caret Browsing",
+  "version": "0.1",
+  "description": "Browse the text of webpages using arrow keys.",
+  "permissions": [
+    "<all_urls>",
+    "tabs"
+  ],
+
+  "background_page": "caretbrowsing/background/background.html",
+  "browser_action": {
+    "default_icon": "caretbrowsing/caret_19.png",
+    "default_title": "Turn On Caret Browsing (F7)"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "all_frames": true,
+      "js": [
+        "closure/closure_preinit.js",
+        "closure/base.js",
+        "deps.js",
+        "caretbrowsing/injected/loader.js"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "caretbrowsing/caret_16.png",
+    "48": "caretbrowsing/caret_48.png",
+    "128": "caretbrowsing/caret_128.png"
+  }
+}

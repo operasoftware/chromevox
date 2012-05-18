@@ -40,14 +40,16 @@ goog.inherits(cvox.AndroidTts, cvox.AbstractTts);
 /**
  * Speaks the given string using the specified queueMode and properties.
  * @param {string} textString The string of text to be spoken.
- * @param {number} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
+ * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
  *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object?} properties Speech properties to use for this utterance.
+ * @param {Object?=} properties Speech properties to use for this utterance.
+ * @return {cvox.AndroidTts} this For chaining.
  */
 cvox.AndroidTts.prototype.speak = function(textString, queueMode, properties) {
   cvox.AndroidTts.superClass_.speak.call(this, textString, queueMode, properties);
   var mergedProperties = this.mergeProperties(properties);
   accessibility.speak(textString, queueMode, mergedProperties);
+  return this;
 };
 
 /**

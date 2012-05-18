@@ -60,7 +60,9 @@ cvox.TestMsgs.prototype.getMsg = function(message_id, opt_subs) {
   }
   var message = cvox.TestMessages['chromevox_' + message_id];
   if (message == undefined) {
-    return 'missing-msg: ' + message_id;
+    var e = new Error();
+    e.message = 'missing-msg: ' + message_id;
+    throw e;
   }
 
   var messageString = message.message;

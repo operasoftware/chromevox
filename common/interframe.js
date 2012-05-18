@@ -77,7 +77,8 @@ cvox.Interframe.allowAccessToIframeContentWindow = true;
  */
 cvox.Interframe.init = function() {
   cvox.Interframe.messageListener = function(event) {
-    if (event.data.indexOf(cvox.Interframe.IF_MSG_PREFIX) == 0) {
+    if (typeof event.data === 'string' &&
+        event.data.indexOf(cvox.Interframe.IF_MSG_PREFIX) == 0) {
       var suffix = event.data.substr(cvox.Interframe.IF_MSG_PREFIX.length);
       var message = /** @type {Object} */ (
           cvox.ChromeVoxJSON.parse(suffix));

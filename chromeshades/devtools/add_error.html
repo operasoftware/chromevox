@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript">
+function add() {
+  addform = document.addform;
+  var error_obj = { err_code: addform.err_code.value,
+                    url: addform.url.value,
+                    hostname: addform.hostname.value,
+                    tag_name: addform.tag_name.value,
+                    readable_path: addform.readable_path.value,
+                    query_selector_text: addform.query_selector_text.value,
+                    outer_html: addform.outer_html.value,
+                    msg: addform.msg.value };
+
+  // Sends a request to the background page to process and post the error
+  var errors = new Array(error_obj);
+  chrome.extension.sendRequest({ sendErrors: errors });
+
+  document.getElementById('message').innerHTML = 'Successfully added!';
+}
+</script>
+</head>
+<body>
+<div id="message"></div>
+<form name="addform">
+  Error code: <input type="text" aria-label="Error Code" name="err_code" />
+  <br />
+  Error type: <input type="text" aria-label="Error Type" name="err_type" />
+  <br />
+  URL: <input type="text" aria-label="URL" name="url" />
+  <br />
+  Hostname: <input type="text" aria-label="Hostname" name="hostname" />
+  <br />
+  Tag Name: <input type="text" aria-label="Tag Name" name="tag_name" />
+  <br />
+  DOM Path: <input type="text" aria-label="DOM Path" name="readable_path" />
+  <br />
+  querySelector Text: <input type="text"
+                             aria-label="querySelector Text"
+                             name="query_selector_text" />
+  <br />
+  outerHTML: <input type="text" aria-label="outerHTML" name="outer_html" />
+  <br />
+  Message: <input type="text" aria-label="Message" name="msg" />
+  <br />
+  <input type="button" value="Add to AccessErrors" onclick="add()" />
+</form>
+</body>
+</html>

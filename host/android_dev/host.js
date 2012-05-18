@@ -56,10 +56,9 @@ cvox.AndroidHost.prototype.reinit = function() {
 };
 
 cvox.AndroidHost.prototype.onPageLoad = function() {
-  // Remove the mouseover delay and force focusFollowsMouse to enable
-  // touch exploration on Android.
+  // Remove the mouseover delay. The gesture detector will enable
+  // focusFollowsMouse when a drag gesture is detected.
   cvox.ChromeVoxEventWatcher.mouseoverDelayMs = 0;
-  cvox.ChromeVoxEventWatcher.focusFollowsMouse = true;
 };
 
 /**

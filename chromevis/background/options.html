@@ -1,0 +1,294 @@
+<!-- Copyright 2010 Google Inc.
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License. -->
+
+<head>
+<title>ChromeVis Options</title>
+<link rel="stylesheet" type="text/css" href="options.css">
+<script type="text/javascript">
+
+// TODO: text magnification
+// TODO: text font
+
+// Saves options to localStorage.
+function save_options() {
+  localStorage["TextKeyCombo1"] = document.getElementById("TextKeyCombo1").color.toString();
+  localStorage["BGKeyCombo1"] = document.getElementById("BGKeyCombo1").color.toString();
+
+  localStorage["TextKeyCombo2"] = document.getElementById("TextKeyCombo2").color.toString();
+  localStorage["BGKeyCombo2"] = document.getElementById("BGKeyCombo2").color.toString();
+
+  localStorage["TextKeyCombo3"] = document.getElementById("TextKeyCombo3").color.toString();
+  localStorage["BGKeyCombo3"] = document.getElementById("BGKeyCombo3").color.toString();
+
+  localStorage["TextKeyCombo4"] = document.getElementById("TextKeyCombo4").color.toString();
+  localStorage["BGKeyCombo4"] = document.getElementById("BGKeyCombo4").color.toString();
+
+  localStorage["TextKeyCombo5"] = document.getElementById("TextKeyCombo5").color.toString();
+  localStorage["BGKeyCombo5"] = document.getElementById("BGKeyCombo5").color.toString();
+
+  localStorage["TextKeyCombo6"] = document.getElementById("TextKeyCombo6").color.toString();
+  localStorage["BGKeyCombo6"] = document.getElementById("BGKeyCombo6").color.toString();
+
+  localStorage["keyCombo1"] = document.getElementById("keyCombo1").value;
+  localStorage["keyCombo2"] = document.getElementById("keyCombo2").value;
+  localStorage["keyCombo3"] = document.getElementById("keyCombo3").value;
+  localStorage["keyCombo4"] = document.getElementById("keyCombo4").value;
+  localStorage["keyCombo5"] = document.getElementById("keyCombo5").value;
+  localStorage["keyCombo6"] = document.getElementById("keyCombo6").value;
+
+  localStorage["keyShowHideLens"] = document.getElementById("keyShowHideLens").value;
+
+  localStorage["keyStyleLens"] = document.getElementById("keyStyleLens").value;
+  localStorage["keyCenterLens"] = document.getElementById("keyCenterLens").value;
+
+  localStorage["keyIncreaseMag"] = document.getElementById("keyIncreaseMag").value;
+  localStorage["keyDecreaseMag"] = document.getElementById("keyDecreaseMag").value;
+
+  localStorage["keyForwardSentence"] = document.getElementById("keyForwardSentence").value;
+  localStorage["keyBackwardSentence"] = document.getElementById("keyBackwardSentence").value;
+
+  localStorage["keyForwardWord"] = document.getElementById("keyForwardWord").value;
+  localStorage["keyBackwardWord"] = document.getElementById("keyBackwardWord").value;
+
+  localStorage["keyForwardCharacter"] = document.getElementById("keyForwardCharacter").value;
+  localStorage["keyBackwardCharacter"] = document.getElementById("keyBackwardCharacter").value;
+
+  localStorage["keyForwardParagraph"] = document.getElementById("keyForwardParagraph").value;
+  localStorage["keyBackwardParagraph"] = document.getElementById("keyBackwardParagraph").value;
+
+}
+
+// Restores default options
+function restore_defaults() {
+  document.getElementById("TextKeyCombo1").color.fromString("FFFFFF");
+  document.getElementById("BGKeyCombo1").color.fromString("000000");
+
+  document.getElementById("TextKeyCombo2").color.fromString("000000");
+  document.getElementById("BGKeyCombo2").color.fromString("FFFFFF");
+
+  document.getElementById("TextKeyCombo3").color.fromString("FFFFFF");
+  document.getElementById("BGKeyCombo3").color.fromString("4C4C4C");
+
+  document.getElementById("TextKeyCombo4").color.fromString("000000");
+  document.getElementById("BGKeyCombo4").color.fromString("B4B4B4");
+
+  document.getElementById("TextKeyCombo5").color.fromString("FFD700");
+  document.getElementById("BGKeyCombo5").color.fromString("000000");
+
+  document.getElementById("TextKeyCombo6").color.fromString("008000");
+  document.getElementById("BGKeyCombo6").color.fromString("000000");
+
+  document.getElementById("keyCombo1").value = "1";
+  document.getElementById("keyCombo2").value = "2";
+  document.getElementById("keyCombo3").value = "3";
+  document.getElementById("keyCombo4").value = "4";
+  document.getElementById("keyCombo5").value = "5";
+  document.getElementById("keyCombo6").value = "6";
+
+  document.getElementById("keyShowHideLens").value = "0";
+
+  document.getElementById("keyStyleLens").value = "9";
+  document.getElementById("keyCenterLens").value = "8";
+
+  document.getElementById("keyIncreaseMag").value = "=";
+  document.getElementById("keyDecreaseMag").value = "-";
+
+  document.getElementById("keyForwardSentence").value = "Shift+s";
+  document.getElementById("keyBackwardSentence").value = "Shift+a";
+
+  document.getElementById("keyForwardWord").value = "Shift+w";
+  document.getElementById("keyBackwardWord").value = "Shift+q";
+
+  document.getElementById("keyForwardCharacter").value = "Shift+c";
+  document.getElementById("keyBackwardCharacter").value = "Shift+x";
+
+  document.getElementById("keyForwardParagraph").value = "Shift+p";
+  document.getElementById("keyBackwardParagraph").value = "Shift+o";
+}
+
+// Restores select box state to saved value from localStorage.
+function restore_options() {
+  if (!localStorage["keyCombo1"]) {
+    restore_defaults();
+    save_options();
+  }
+
+  document.getElementById("TextKeyCombo1").color.fromString(localStorage["TextKeyCombo1"]);
+  document.getElementById("BGKeyCombo1").color.fromString(localStorage["BGKeyCombo1"]);
+
+  document.getElementById("TextKeyCombo2").color.fromString(localStorage["TextKeyCombo2"]);
+  document.getElementById("BGKeyCombo2").color.fromString(localStorage["BGKeyCombo2"]);
+
+  document.getElementById("TextKeyCombo3").color.fromString(localStorage["TextKeyCombo3"]);
+  document.getElementById("BGKeyCombo3").color.fromString(localStorage["BGKeyCombo3"]);
+
+  document.getElementById("TextKeyCombo4").color.fromString(localStorage["TextKeyCombo4"]);
+  document.getElementById("BGKeyCombo4").color.fromString(localStorage["BGKeyCombo4"]);
+
+  document.getElementById("TextKeyCombo5").color.fromString(localStorage["TextKeyCombo5"]);
+  document.getElementById("BGKeyCombo5").color.fromString(localStorage["BGKeyCombo5"]);
+
+  document.getElementById("TextKeyCombo6").color.fromString(localStorage["TextKeyCombo6"]);
+  document.getElementById("BGKeyCombo6").color.fromString(localStorage["BGKeyCombo6"]);
+
+  document.getElementById("keyCombo1").value =  localStorage["keyCombo1"];
+  document.getElementById("keyCombo2").value =  localStorage["keyCombo2"];
+  document.getElementById("keyCombo3").value =  localStorage["keyCombo3"];
+  document.getElementById("keyCombo4").value =  localStorage["keyCombo4"];
+  document.getElementById("keyCombo5").value =  localStorage["keyCombo5"];
+  document.getElementById("keyCombo6").value =  localStorage["keyCombo6"];
+
+  document.getElementById("keyShowHideLens").value = localStorage["keyShowHideLens"];
+
+  document.getElementById("keyStyleLens").value = localStorage["keyStyleLens"];
+  document.getElementById("keyCenterLens").value = localStorage["keyCenterLens"];
+
+  document.getElementById("keyIncreaseMag").value = localStorage["keyIncreaseMag"];
+  document.getElementById("keyDecreaseMag").value = localStorage["keyDecreaseMag"];
+
+  document.getElementById("keyForwardSentence").value = localStorage["keyForwardSentence"];
+  document.getElementById("keyBackwardSentence").value = localStorage["keyBackwardSentence"];
+
+  document.getElementById("keyForwardWord").value = localStorage["keyForwardWord"];
+  document.getElementById("keyBackwardWord").value = localStorage["keyBackwardWord"];
+
+  document.getElementById("keyForwardCharacter").value = localStorage["keyForwardCharacter"];
+  document.getElementById("keyBackwardCharacter").value = localStorage["keyBackwardCharacter"];
+
+  document.getElementById("keyForwardParagraph").value = localStorage["keyForwardParagraph"];
+  document.getElementById("keyBackwardParagraph").value = localStorage["keyBackwardParagraph"];
+
+  // Strings for i18n
+  document.getElementById("title").innerText = chrome.i18n.getMessage("chromevis_title_text");
+  document.getElementById("format").innerText = chrome.i18n.getMessage("chromevis_format_text");
+  document.getElementById("capitals").innerText = chrome.i18n.getMessage("chromevis_capitals_text");
+
+  var textColorLabels = document.getElementsByClassName("textColor");
+  for (i = 0 ; i < textColorLabels.length ; i++) {
+    textColorLabels[i].innerText = chrome.i18n.getMessage("chromevis_textcolor_label");
+  }
+  var backgroundColorLabels = document.getElementsByClassName("backgroundColor");
+  for (i = 0 ; i < backgroundColorLabels.length ; i++) {
+    backgroundColorLabels[i].innerText = chrome.i18n.getMessage("chromevis_backgroundcolor_label");
+  }
+
+  document.getElementById("keyShowHideLensLabel").innerText = chrome.i18n.getMessage("chromevis_showhidelens_label");
+
+  document.getElementById("keyStyleLensLabel").innerText = chrome.i18n.getMessage("chromevis_stylelens_label");
+  document.getElementById("keyCenterLensLabel").innerText = chrome.i18n.getMessage("chromevis_centerlens_label");
+
+  document.getElementById("keyIncreaseMagLabel").innerText = chrome.i18n.getMessage("chromevis_increasemag_label");
+  document.getElementById("keyDecreaseMagLabel").innerText = chrome.i18n.getMessage("chromevis_decreasemag_label");
+
+  document.getElementById("keyForwardSentenceLabel").innerText = chrome.i18n.getMessage("chromevis_forwardsentence_label");
+  document.getElementById("keyBackwardSentenceLabel").innerText = chrome.i18n.getMessage("chromevis_backwardsentence_label");
+
+  document.getElementById("keyForwardWordLabel").innerText = chrome.i18n.getMessage("chromevis_forwardword_label");
+  document.getElementById("keyBackwardWordLabel").innerText = chrome.i18n.getMessage("chromevis_backwardword_label");
+
+  document.getElementById("keyForwardCharacterLabel").innerText = chrome.i18n.getMessage("chromevis_forwardchar_label");
+  document.getElementById("keyBackwardCharacterLabel").innerText = chrome.i18n.getMessage("chromevis_backwardchar_label");
+
+  document.getElementById("keyForwardParagraphLabel").innerText = chrome.i18n.getMessage("chromevis_forwardpar_label");
+  document.getElementById("keyBackwardParagraphLabel").innerText = chrome.i18n.getMessage("chromevis_backwardpar_label");
+
+  document.getElementById("saveButton").innerText = chrome.i18n.getMessage("chromevis_savebutton_label");
+  document.getElementById("restoreButton").innerText = chrome.i18n.getMessage("chromevis_restorebutton_label");
+}
+
+</script>
+<script type="text/javascript" src="../../jscolor.js"></script>
+</head>
+<html>
+<body onload="restore_options()">
+
+<h2 id="title"></h2>
+<h3>
+<div id="format"></div>
+<div id="capitals"></div>
+</h3>
+<div id="options">
+<div id="first_option">
+<label for="keyShowHideLens" id="keyShowHideLensLabel"></label>
+<input id="keyShowHideLens" type="text"><br />
+</div>
+<br />
+
+<label for "keyCombo1">
+<input id="TextKeyCombo1" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo1" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo1" type="text"><br />
+
+<label for "keyCombo2">
+<input id="TextKeyCombo2" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo2" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo2" type="text"><br />
+
+<label for "keyCombo3">
+<input id="TextKeyCombo3" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo3" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo3" type="text"><br />
+
+<label for "keyCombo4">
+<input id="TextKeyCombo4" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo4" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo4" type="text"><br />
+
+<label for "keyCombo5">
+<input id="TextKeyCombo5" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo5" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo5" type="text"><br />
+
+<label for "keyCombo6">
+<input id="TextKeyCombo6" class="color {hash:true}"><span class="textColor"></span><input id="BGKeyCombo6" class="color {hash:true}"><span class="backgroundColor"></span>
+</label>
+<input id="keyCombo6" type="text"><br />
+
+<br />
+<label for="keyStyleLens" id="keyStyleLensLabel"></label>
+<input id="keyStyleLens" type="text"><br />
+<label for="keyCenterLens" id="keyCenterLensLabel"></label>
+<input id="keyCenterLens" type="text"><br />
+<br />
+<label for="keyIncreaseMag" id="keyIncreaseMagLabel"></label>
+<input id="keyIncreaseMag" type="text"><br />
+<label for="keyDecreaseMag" id="keyDecreaseMagLabel"></label>
+<input id="keyDecreaseMag" type="text"><br />
+<br />
+<label for="keyForwardSentence" id="keyForwardSentenceLabel"></label>
+<input id="keyForwardSentence" type="text"><br />
+<label for="keyBackwardSentence" id="keyBackwardSentenceLabel"></label>
+<input id="keyBackwardSentence" type="text"><br />
+<br />
+<label for="keyForwardWord" id="keyForwardWordLabel"></label>
+<input id="keyForwardWord" type="text"><br />
+<label for="keyBackwardWord" id="keyBackwardWordLabel"></label>
+<input id="keyBackwardWord" type="text"><br />
+<br />
+<label for="keyForwardCharacter" id="keyForwardCharacterLabel"></label>
+<input id="keyForwardCharacter" type="text" style><br />
+<label for="keyBackwardCharacter" id="keyBackwardCharacterLabel"></label>
+<input id="keyBackwardCharacter" type="text"><br />
+<br />
+<label for="keyForwardParagraph" id="keyForwardParagraphLabel"></label>
+<input id="keyForwardParagraph" type="text"><br />
+<label for="keyBackwardParagraph" id="keyBackwardParagraphLabel"></label>
+<input id="keyBackwardParagraph" type="text"><br />
+<br />
+
+<button id="saveButton" onclick="save_options()"></button>
+<button id="restoreButton" onclick="restore_defaults()"></button>
+</div>
+
+</body>
+</html>

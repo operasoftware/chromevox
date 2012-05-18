@@ -13,23 +13,25 @@
 // limitations under the License.
 
 /**
- * @fileoverview Base class for Text-To-Speech-Engines.
+ * @fileoverview Base class for Text-to-Speech engines that actually transform
+ * text to speech.
  *
  * @author svetoslavganov@google.com (Svetoslav Ganov)
  */
 
 goog.provide('cvox.AbstractTts');
 
-goog.require('cvox.AbstractLens');
+goog.require('cvox.TtsInterface');
 
 /**
  * Creates a new instance.
  * @constructor
+ * @implements {cvox.TtsInterface}
  */
 cvox.AbstractTts = function() {
   this.ttsProperties = new Object();
 
-  if (cvox.AbstractTts.pronunciationDictionaryRegexp == undefined) {
+  if (cvox.AbstractTts.pronunciationDictionaryRegexp_ == undefined) {
     // Create an expression that matches all words in the pronunciation
     // dictionary on word boundaries, ignoring case.
     var words = [];
@@ -37,10 +39,10 @@ cvox.AbstractTts = function() {
       words.push(word);
     }
     var expr = '\\b(' + words.join('|') + ')\\b';
-    cvox.AbstractTts.pronunciationDictionaryRegexp = new RegExp(expr, 'ig');
+    cvox.AbstractTts.pronunciationDictionaryRegexp_ = new RegExp(expr, 'ig');
   }
 
-  if (cvox.AbstractTts.substitutionDictionaryRegexp == undefined) {
+  if (cvox.AbstractTts.substitutionDictionaryRegexp_ == undefined) {
     // Create an expression that matches all words in the substitution
     // dictionary.
     var symbols = [];
@@ -48,7 +50,7 @@ cvox.AbstractTts = function() {
       symbols.push(symbol);
     }
     var expr = '(' + symbols.join('|') + ')';
-    cvox.AbstractTts.substitutionDictionaryRegexp = new RegExp(expr, 'ig');
+    cvox.AbstractTts.substitutionDictionaryRegexp_ = new RegExp(expr, 'ig');
   }
 };
 
@@ -104,16 +106,7 @@ cvox.AbstractTts.prototype.propertyStep = {
  * @return {cvox.AbstractTts} A tts object useful for chaining speak calls.
  */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
-  if (window['console']) {
-    var logStr = 'Speak';
-    if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
-      logStr += ' (I)';
-    } else {
-      logStr += ' (Q)';
-    }
-    logStr += ' "' + textString + '"';
-    window['console']['log'](logStr);
-  }
+  return this;
 };
 
 
@@ -130,25 +123,6 @@ cvox.AbstractTts.prototype.isSpeaking = function() {
  * Stops speech.
  */
 cvox.AbstractTts.prototype.stop = function() {
-  window['console']['log']('Stop');
-};
-
-
-/**
- * Retrieves the default TTS properties for this TTS engine.
- * @return {Object} Default TTS properties.
- */
-cvox.AbstractTts.prototype.getDefaultTtsProperties = function() {
-  return this.ttsProperties;
-};
-
-
-/**
- * Sets the default TTS properties for this TTS engine.
- * @param {Object} ttsProperties Default TTS properties.
- */
-cvox.AbstractTts.prototype.setDefaultTtsProperties = function(ttsProperties) {
-  this.ttsProperties = ttsProperties;
 };
 
 
@@ -175,6 +149,7 @@ cvox.AbstractTts.prototype.increaseOrDecreaseProperty =
  * without worrying that you're modifying an object used elsewhere.
  * @param {Object=} properties The properties to merge with the default.
  * @return {Object} The merged properties.
+ * @protected
  */
 cvox.AbstractTts.prototype.mergeProperties = function(properties) {
   var mergedProperties = new Object();
@@ -221,16 +196,6 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 
 
 /**
- * Set a lens to display any messages spoken via speak().
- * This is an abstract method, meant to be implemented by some subclasses
- * only.
- * @param {cvox.AbstractLens} lens The lens.
- */
-cvox.AbstractTts.prototype.setLens = function(lens) {
-};
-
-
-/**
  * Static method to preprocess text to be spoken properly by a speech
  * engine.
  *
@@ -242,13 +207,14 @@ cvox.AbstractTts.prototype.setLens = function(lens) {
  * @param {string} text A text string to be spoken.
  * @return {string} The text formatted in a way that will sound better by
  *     most speech engines.
+ * @private
  */
-cvox.AbstractTts.preprocess = function(text) {
+cvox.AbstractTts.preprocess_ = function(text) {
   // Substitute all symbols in the substitution dictionary. This is pretty
   // efficient because we use a single regexp that matches all symbols
   // simultaneously.
   text = text.replace(
-      cvox.AbstractTts.substitutionDictionaryRegexp,
+      cvox.AbstractTts.substitutionDictionaryRegexp_,
       function(symbol) {
         return ' ' + cvox.AbstractTts.SUBSTITUTION_DICTIONARY[symbol] + ' ';
       });
@@ -301,7 +267,7 @@ cvox.AbstractTts.preprocess = function(text) {
   // simultaneously, and it calls a function with each match, which we can
   // use to look up the replacement in our dictionary.
   text = text.replace(
-      cvox.AbstractTts.pronunciationDictionaryRegexp,
+      cvox.AbstractTts.pronunciationDictionaryRegexp_,
       function(word) {
         return cvox.AbstractTts.PRONUNCIATION_DICTIONARY[word.toLowerCase()];
       });
@@ -353,13 +319,14 @@ cvox.AbstractTts.preprocess = function(text) {
  *     string.
  * @return {string} The text formatted in a way that will sound better by
  *     most speech engines.
+ * @protected
  */
 cvox.AbstractTts.preprocessWithProperties = function(text, properties) {
   if (text.length == 1 && text >= 'A' && text <= 'Z') {
     for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
       properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
   }
-  return cvox.AbstractTts.preprocess(text);
+  return cvox.AbstractTts.preprocess_(text);
 };
 
 
@@ -599,12 +566,14 @@ cvox.AbstractTts.SUBSTITUTION_DICTIONARY = {
 /**
  * Pronunciation dictionary regexp.
  * @type {RegExp};
+ * @private
  */
-cvox.AbstractTts.pronunciationDictionaryRegexp;
+cvox.AbstractTts.pronunciationDictionaryRegexp_;
 
 
 /**
  * Substitution dictionary regexp.
  * @type {RegExp};
+ * @private
  */
-cvox.AbstractTts.substitutionDictionaryRegexp;
+cvox.AbstractTts.substitutionDictionaryRegexp_;

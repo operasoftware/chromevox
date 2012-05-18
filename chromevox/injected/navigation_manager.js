@@ -60,13 +60,6 @@ cvox.ChromeVoxNavigationManager.STRATEGIES =
 
 
 /**
- * @type {Array.<string>}
- */
-cvox.ChromeVoxNavigationManager.STRATEGY_NAMES =
-    ['SELECTION', 'OBJECT', 'GROUP', 'CUSTOM'];
-
-
-/**
  * Resets the navigation manager to the top of the page.
  */
 cvox.ChromeVoxNavigationManager.prototype.reset = function() {
@@ -655,7 +648,6 @@ cvox.ChromeVoxNavigationManager.prototype.down = function() {
       this.currentNavStrategy =
           cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION;
       this.syncDown(false);
-      this.selectionWalker.next();
       break;
 
     case cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION:
@@ -1095,14 +1087,23 @@ cvox.ChromeVoxNavigationManager.prototype.findPrevious = function(predicate) {
 };
 
 
+
 /**
  * Returns the current navigation strategy.
  *
- * @return {string} The strategy that is being used.
+ * @return {string} The name of the strategy used.
  */
 cvox.ChromeVoxNavigationManager.prototype.getStrategy = function() {
-  return cvox.ChromeVoxNavigationManager.STRATEGY_NAMES[
-      this.currentNavStrategy];
+  /**
+   * @type {Array.<string>}
+   */
+  var STRATEGY_NAMES = [
+    undefined,  // selection strategy is announced differently.
+    cvox.ChromeVox.msgs.getMsg('object_strategy'),
+    cvox.ChromeVox.msgs.getMsg('group_strategy'),
+    cvox.ChromeVox.msgs.getMsg('custom_strategy')];
+
+  return STRATEGY_NAMES[this.currentNavStrategy];
 };
 
 
@@ -1110,8 +1111,8 @@ cvox.ChromeVoxNavigationManager.prototype.getStrategy = function() {
  * Returns the current selection granularity.
  * @return {string} The selection granularity that is being used.
  */
-cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
-  return this.selectionWalker.getGranularity();
+cvox.ChromeVoxNavigationManager.prototype.getGranularityMsg = function() {
+  return this.selectionWalker.getGranularityMsg();
 };
 
 
@@ -1591,9 +1592,9 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
 
     // Move by one element.
     if (message['forwards']) {
-      self.next(false);
+      self.next(true);
     } else {
-      self.previous(false);
+      self.previous(true);
     }
 
     // Switch to the same strategy & granularity as before the iframe jump.

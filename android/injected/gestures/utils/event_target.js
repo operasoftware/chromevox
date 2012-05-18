@@ -53,7 +53,7 @@ gestures.utils.EventTarget.prototype.removeEventListener = function(
 };
 
 /**
- * @param {gestures.utils.Event} event The event to be dispatched.
+ * @param {gestures.utils.Event|Event} event The event to be dispatched.
  * @return {boolean} Returns false if at least one of the event handlers called
  *     preventDefault.
  */

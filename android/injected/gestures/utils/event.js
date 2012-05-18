@@ -15,6 +15,16 @@ gestures.utils.Event = function(type) {
   this.defaultPrevented = false;
 };
 
-gestures.utils.Event.preventDefault = function() {
+/**
+ * Prevents the default behavior of the event from occurring.
+ */
+gestures.utils.Event.prototype.preventDefault = function() {
   this.defaultPrevented = true;
+};
+
+/**
+ * Provides a default toString method for events.
+ */
+gestures.utils.Event.prototype.toString = function() {
+  return this.type;
 };

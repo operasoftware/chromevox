@@ -27,12 +27,10 @@ gestures.SwipeTurnState = function() {
 goog.inherits(gestures.SwipeTurnState, gestures.GestureState);
 
 /**
- * After a swipe is completed, the user has a 25 pixels to re-accelerate into
- * the second swipe.
+ * The number of pixels squared to move before the second swipe starts.
  * @type {number} 25^2
  */
-// TODO: make DPI independent
-gestures.SwipeTurnState.SQUARED_REACCELERATION_DISTANCE = 625;
+gestures.SwipeTurnState.SQUARED_SWIPE_TRANSITION_RADIUS = 625;
 
 /**
  * A swipe turn gesture starts when a swipe that has reached its max speed ends.
@@ -58,9 +56,8 @@ gestures.SwipeTurnState.prototype.meetsStartCondition = function(
 gestures.SwipeTurnState.prototype.start = function(touchEvent) {
   this.willEnd_ = false;
   this.started_ = false;
-  this.firstDirection = touchEvent.prev.getCardinalDirection();
-  this.startingX_ = touchEvent.x;
-  this.startingY_ = touchEvent.y;
+  this.firstDirection_ = touchEvent.prev.getCardinalDirection();
+  this.startingEvent_ = touchEvent;
 };
 
 /**
@@ -70,23 +67,17 @@ gestures.SwipeTurnState.prototype.start = function(touchEvent) {
  * @override
  */
 gestures.SwipeTurnState.prototype.update = function(touchEvent) {
-  if (this.started_) return;
-  if (this.getSquaredDistanceFromStart_(touchEvent) >
-      gestures.SwipeTurnState.SQUARED_REACCELERATION_DISTANCE) {
-    this.secondSwipe_.start(touchEvent);
-    this.started_ = true;
+  if (this.started_) {
+    this.secondSwipe_.update(touchEvent);
+  } else {
+    var distanceFromStart = gestures.GestureTouchEvent.squaredDistance(
+        this.startingEvent_, touchEvent);
+    if (distanceFromStart >
+        gestures.SwipeTurnState.SQUARED_SWIPE_TRANSITION_RADIUS) {
+      this.secondSwipe_.start(touchEvent);
+      this.started_ = true;
+    }
   }
-};
-
-/**
- * @private
- * @return {number} The number of pixels squared from the starting touch event.
- */
-gestures.SwipeTurnState.prototype.getSquaredDistanceFromStart_ = function(
-    touchEvent) {
-  var dx = this.startingX_ - touchEvent.x;
-  var dy = this.startingY_ - touchEvent.y;
-  return dx * dx + dy * dy;
 };
 
 /**
@@ -105,6 +96,17 @@ gestures.SwipeTurnState.prototype.meetsEndCondition = function(touchEvent) {
 };
 
 /**
+ * Exit the state.
+ * @param {gestures.GestureTouchEvent} touchEvent The last touch event.
+ * @override
+ */
+gestures.SwipeTurnState.prototype.end = function(touchEvent) {
+  if (this.started_) {
+    this.secondSwipe_.end(touchEvent);
+  }
+};
+
+/**
  * Register that a swipe turn event has occurred.
  * @private
  * @param {gestures.GestureEvent} swipeEvent
@@ -112,7 +114,7 @@ gestures.SwipeTurnState.prototype.meetsEndCondition = function(touchEvent) {
 gestures.SwipeTurnState.prototype.registerEvent_ = function(swipeEvent) {
   var gestureEvent = new gestures.GestureEvent(
       gestures.GestureEvent.Type.SWIPE_TURN);
-  gestureEvent.firstDirection = this.firstDirection;
+  gestureEvent.firstDirection = this.firstDirection_;
   gestureEvent.secondDirection = swipeEvent.direction;
   gestureEvent.baseEvent = swipeEvent.baseEvent;
   this.registerGesture(gestureEvent);

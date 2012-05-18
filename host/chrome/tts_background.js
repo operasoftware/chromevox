@@ -55,6 +55,8 @@ cvox.TtsBackground = function() {
 
   this.propertyMin['rate'] = 0.2;
   this.propertyMax['rate'] = 5.0;
+
+  this.lastEventType = 'end';
 };
 goog.inherits(cvox.TtsBackground, cvox.AbstractTts);
 
@@ -69,12 +71,13 @@ cvox.TtsBackground.prototype.speak = function(
     textString, queueMode, properties) {
   cvox.TtsBackground.superClass_.speak.call(this, textString,
       queueMode, properties);
+
   var mergedProperties = this.mergeProperties(properties);
   mergedProperties['enqueue'] =
       (queueMode === cvox.AbstractTts.QUEUE_MODE_QUEUE);
-  mergedProperties['onEvent'] = function(event) {
+  mergedProperties['onEvent'] = goog.bind(function(event) {
+    this.lastEventType = event['type'];
     if (event['type'] == 'end' && properties && properties['endCallback']) {
-      console.log('end');
       properties['endCallback']();
     }
     if (event['type'] == 'start' &&
@@ -82,9 +85,15 @@ cvox.TtsBackground.prototype.speak = function(
         properties['startCallback']) {
       properties['startCallback']();
     }
-  };
+  }, this);
 
-  chrome.tts.speak(textString, mergedProperties);
+  chrome.tts.isSpeaking(goog.bind(function(state) {
+    // Check to see that either no one is speaking or only we are.
+    if (!state ||
+        (this.lastEventType != 'end' && this.lastEventType != 'cancelled')) {
+      chrome.tts.speak(textString, mergedProperties);
+    }
+  }, this));
 };
 
 /**
@@ -106,10 +115,7 @@ cvox.TtsBackground.prototype.increaseOrDecreaseProperty =
  */
 cvox.TtsBackground.prototype.isSpeaking = function() {
   cvox.TtsBackground.superClass_.isSpeaking.call(this);
-  // TODO(dmazzoni): Replace this with something that actually works!
-  // This is not using the API correctly; the API is asynchronous, and
-  // can't be used like this.
-  return false;
+  return this.lastEventType != 'end';
 };
 
 /**

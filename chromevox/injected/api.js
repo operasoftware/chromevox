@@ -326,6 +326,22 @@
    };
 
    /**
+    * Specifies how the targetNode should be spoken using an array of
+    * NodeDescriptions.
+    *
+    * @param {Node} targetNode The node that the NodeDescriptions should be
+    * spoken using the given NodeDescriptions.
+    * @param {Array.<cvox.NodeDescription>} nodeDescriptions The Array of
+    * NodeDescriptions for the given node.
+    */
+   cvox.Api.setSpeechForNode = function(targetNode, nodeDescriptions) {
+     if (!cvox.Api.isChromeVoxActive() || !targetNode || !nodeDescriptions) {
+       return;
+     }
+     targetNode.setAttribute('cvoxnodedesc', JSON.stringify(nodeDescriptions));
+   };
+
+   /**
     * Simulate a click on an element.
     *
     * @param {Element} targetElement The element that should be clicked.
@@ -401,5 +417,31 @@
        results.push(xpathNode);
      }
      return results;
+   };
+
+   /**
+    * NodeDescription
+    * Data structure for holding information on how to speak a particular node.
+    * NodeDescriptions will be converted into NavDescriptions for ChromeVox.
+    *
+    * The string data is separated into context, text, userValue, and annotation
+    * to enable ChromeVox to speak each of these with the voice settings that
+    * are consistent with how ChromeVox normally presents information about
+    * nodes to users.
+    *
+    * @param {string} context Contextual information that the user should
+    * hear first which is not part of main content itself. For example,
+    * the user/date of a given post.
+    * @param {string} text The main content of the node.
+    * @param {string} userValue Anything that the user has entered.
+    * @param {string} annotation The role and state of the object.
+    */
+   // TODO (clchen, deboer): Put NodeDescription into externs for developers
+   // building ChromeVox extensions.
+   cvox.NodeDescription = function(context, text, userValue, annotation) {
+     this.context = context ? context : '';
+     this.text = text ? text : '';
+     this.userValue = userValue ? userValue : '';
+     this.annotation = annotation ? annotation : '';
    };
 })();

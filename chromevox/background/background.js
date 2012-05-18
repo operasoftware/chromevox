@@ -29,6 +29,8 @@ goog.require('cvox.EarconsBackground');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.TtsBackground');
+goog.require('cvox.ConsoleTts');
+goog.require('cvox.CompositeTts');
 
 
 
@@ -50,7 +52,15 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   this.prefs = new cvox.ChromeVoxPrefs();
   this.readPrefs();
 
-  this.tts = new cvox.TtsBackground();
+  var consoleTts = cvox.ConsoleTts.getInstance();
+  consoleTts.setEnabled(true);
+
+  /**
+   * @type {cvox.TtsInterface}
+   */
+  this.tts = new cvox.CompositeTts()
+      .add(new cvox.TtsBackground())
+      .add(consoleTts);
   this.earcons = new cvox.EarconsBackground();
   this.addBridgeListener();
   this.addStorageListener();

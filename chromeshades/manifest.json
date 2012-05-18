@@ -1,0 +1,26 @@
+{
+  "name": "ChromeShades (Google-internal)",
+  "version": "1.9.0",
+  "description": "ChromeShades Google-internal version - find accessibility problems and experience the web without sight.",
+  "background_page": "chromeshades/background/background.html",
+
+  "browser_action": {
+    "default_icon": "chromeshades/chromeshades_19.png",
+    "popup": "chromeshades/background/selector.html"
+  },
+
+  "permissions": [
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+
+  "icons": {
+    "16": "chromeshades/chromeshades_16.png",
+    "48": "chromeshades/chromeshades_48.png",
+    "128": "chromeshades/chromeshades_128.png"
+  },
+
+  "x_minimum_chrome_version": "18",
+  "x_devtools_page": "chromeshades/devtools/devtools.html"
+}

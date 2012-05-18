@@ -28,6 +28,14 @@ navigation.DomNavigator.prototype.nextLink = function() {};
 
 navigation.DomNavigator.prototype.previousLink = function() {};
 
+navigation.DomNavigator.prototype.nextButton = function() {};
+
+navigation.DomNavigator.prototype.previousButton = function() {};
+
+navigation.DomNavigator.prototype.nextHeading = function() {};
+
+navigation.DomNavigator.prototype.previousHeading = function() {};
+
 navigation.DomNavigator.prototype.nextEditText = function() {};
 
 navigation.DomNavigator.prototype.previousEditText = function() {};
@@ -50,3 +58,11 @@ navigation.DomNavigator.prototype.stopSpeaking = function() {};
  * @param {string} jumpLevel The jump level to speak.
  */
 navigation.DomNavigator.prototype.speakJumpLevel = function(jumpLevel) {};
+
+navigation.DomNavigator.prototype.jumpToTop = function() {};
+
+navigation.DomNavigator.prototype.stopSpeech = function() {};
+
+navigation.DomNavigator.prototype.forwardInHistory = function() {};
+
+navigation.DomNavigator.prototype.backwardInHistory = function() {};

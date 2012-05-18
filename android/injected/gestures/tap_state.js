@@ -30,11 +30,12 @@ goog.inherits(gestures.TapState, gestures.GestureState);
 gestures.TapState.MIN_TIME = 40;
 
 /**
- * The min distance squared allowed between the touchstart and touchend events.
- * @type {number} The distance allowed in pixels. 20^2.
+ * The min distance in pixels squared allowed between the touchstart and
+ * touchend events.
+ * @type {number} 15^2
  * @const
  */
-gestures.TapState.SQUARED_MIN_DISTANCE = 400;
+gestures.TapState.SQUARED_MIN_DISTANCE = 225;
 
 /**
  * A tap gesture starts from a quick tap on the screen with one or more finger
@@ -45,7 +46,16 @@ gestures.TapState.SQUARED_MIN_DISTANCE = 400;
  */
 gestures.TapState.prototype.meetsStartCondition = function(
     touchEvent, previousState) {
-  return touchEvent.type == 'touchstart' && !touchEvent.isMultitouch;
+  return touchEvent.type == 'touchstart';
+};
+
+/**
+ * Enter the state.
+ * @param {gestures.GestureTouchEvent} touchEvent The first touch event.
+ * @override
+ */
+gestures.TapState.prototype.start = function(touchEvent) {
+  this.startingEvent_ = touchEvent;
 };
 
 /**
@@ -56,7 +66,10 @@ gestures.TapState.prototype.meetsStartCondition = function(
  * @return {boolean} Returns true if a tap gesture should start.
  */
 gestures.TapState.prototype.meetsEndCondition = function(touchEvent) {
-  return touchEvent.type != 'touchstart' || touchEvent.isMultitouch;
+  if (touchEvent.type == 'touchend') return true;
+  if (touchEvent.type == 'touchstart') return false;
+  return !this.meetsDistanceConstraint_(touchEvent) ||
+      !this.meetsTimeConstraint_(touchEvent);
 };
 
 /**
@@ -65,11 +78,8 @@ gestures.TapState.prototype.meetsEndCondition = function(touchEvent) {
  * @override
  */
 gestures.TapState.prototype.end = function(touchEvent) {
-  if (touchEvent.type == 'touchend' &&
-      !touchEvent.isMultitouch &&
-      this.meetsTimeConstraint_(touchEvent) &&
-      this.meetsDistanceConstraint_(touchEvent)) {
-    this.registerTapEvent_(touchEvent.prev);
+  if (touchEvent.type == 'touchend') {
+    this.registerTapEvent_();
   }
 };
 
@@ -77,37 +87,39 @@ gestures.TapState.prototype.end = function(touchEvent) {
  * Determines if the touchend event occurred within a certain time from the
  * touchstart event.
  * @private
- * @return {boolean}
+ * @param {gestures.GestureTouchEvent} touchEvent The touch event to analyze.
+ * @return {boolean} Returns true if the event meets the time constraint.
  */
 gestures.TapState.prototype.meetsTimeConstraint_ = function(touchEvent) {
-    return touchEvent.getElapsedTime() <= gestures.TapState.MIN_TIME;
+  var timeSinceStart = touchEvent.baseEvent.timeStamp -
+      this.startingEvent_.baseEvent.timeStamp;
+  return timeSinceStart <= gestures.TapState.MIN_TIME;
 };
 
 /**
  * Determines if the touchend event occurred within a certain distance from the
  * touchstart event.
  * @private
- * @return {boolean}
+ * @param {gestures.GestureTouchEvent} touchEvent The touch event to analyze.
+ * @return {boolean} Returns true if the event meets the distance constraint.
  */
 gestures.TapState.prototype.meetsDistanceConstraint_ = function(touchEvent) {
-    return !touchEvent.hasLocation ||
-        touchEvent.getSquaredDistance() <=
-        gestures.TapState.SQUARED_MIN_DISTANCE;
+  var distanceFromStart = gestures.GestureTouchEvent.squaredDistance(
+      this.startingEvent_, touchEvent);
+  return distanceFromStart <= gestures.TapState.SQUARED_MIN_DISTANCE;
 };
 
 /**
  * Create and register a gesture event indicating that a tap has occurred.
  * @private
- * @param {gestures.GestureTouchEvent} touchEvent The touch event that caused
- *     the gesture to occur.
  */
-gestures.TapState.prototype.registerTapEvent_ = function(touchEvent) {
+gestures.TapState.prototype.registerTapEvent_ = function() {
   var gestureEvent = new gestures.GestureEvent(
       gestures.GestureEvent.Type.TAP);
-  gestureEvent.x = touchEvent.x;
-  gestureEvent.y = touchEvent.y;
-  gestureEvent.numTouches = touchEvent.numTouches;
-  gestureEvent.baseEvent = touchEvent.baseEvent;
+  gestureEvent.x = this.startingEvent_.x;
+  gestureEvent.y = this.startingEvent_.y;
+  gestureEvent.numTouches = this.startingEvent_.numTouches;
+  gestureEvent.baseEvent = this.startingEvent_.baseEvent;
   this.registerGesture(gestureEvent);
 };
 

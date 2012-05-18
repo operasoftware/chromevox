@@ -1,0 +1,41 @@
+{
+  "name": "__MSG_chromevis_name__",
+  "version": "2.4.4",
+
+  "description": "__MSG_chromevis_description__",
+
+  "icons": {
+    "48": "chromevis/cvis_48.png",
+    "128": "chromevis/cvis_128.png"
+  },
+
+  "browser_action": {
+    "default_icon": "chromevis/cvis_19.png"
+  },
+
+  "background_page": "chromevis/background/background.html",
+
+  "permissions": [
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+
+  "content_scripts": [
+     {
+       "matches": ["http://*/*", "https://*/*"],
+       "js": [
+         "closure/closure_preinit.js",
+         "closure/base.js",
+         "deps.js",
+         "keycode.js",
+         "chromevis/injected/loader.js"
+       ],
+       "all_frames": true
+     }
+   ],
+
+  "options_page": "chromevis/background/options.html",
+
+  "default_locale": "en"
+}

@@ -58,6 +58,22 @@ cvox.DomNavigator.prototype.previousLink = function() {
   cvox.ChromeVoxUserCommands.commands['previousLink']();
 };
 
+cvox.DomNavigator.prototype.nextButton = function() {
+  cvox.ChromeVoxUserCommands.commands['nextButton']();
+};
+
+cvox.DomNavigator.prototype.previousButton = function() {
+  cvox.ChromeVoxUserCommands.commands['previousButton']();
+};
+
+cvox.DomNavigator.prototype.nextHeading = function() {
+  cvox.ChromeVoxUserCommands.commands['nextHeading']();
+};
+
+cvox.DomNavigator.prototype.previousHeading = function() {
+  cvox.ChromeVoxUserCommands.commands['previousHeading']();
+};
+
 cvox.DomNavigator.prototype.nextEditText = function() {
   cvox.ChromeVoxUserCommands.commands['nextEditText']();
 };
@@ -88,4 +104,20 @@ cvox.DomNavigator.prototype.forward = function() {
 
 cvox.DomNavigator.prototype.backward = function() {
   cvox.ChromeVoxUserCommands.commands['backward']();
+};
+
+cvox.DomNavigator.prototype.jumpToTop = function() {
+  cvox.ChromeVoxUserCommands.commands['jumpToTop']();
+};
+
+cvox.DomNavigator.prototype.stopSpeech = function() {
+  cvox.ChromeVoxUserCommands.commands['stopSpeech']();
+};
+
+cvox.DomNavigator.prototype.forwardInHistory = function() {
+    history.go(1);
+};
+
+cvox.DomNavigator.prototype.backwardInHistory = function() {
+    history.go(-1);
 };

@@ -1,0 +1,45 @@
+<html>
+  <head>
+    <script src="/chromeshades/background/selector.js"></script>
+    <style type="text/css">
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial;
+        padding: 0px;
+        margin: 0px;
+      }
+
+      a:link, a:active, a:visited {
+        width: 300px;
+        display: block;
+        text-decoration: none;
+        color: #000000;
+        padding: 5px;
+        text-align: center;
+      }
+
+      a:hover {
+        background-color: #00933B;
+        color: #ffffff;
+      }
+    </style>
+  </head>
+<body>
+<a href="#"
+onclick="toggle('chromeshades_on', reverseBool('chromeshades_on'), true);"
+id="chromeshades_on_html">
+ChromeShades
+</a>
+
+<a href="#"
+onclick="toggle('accesserrors_on', reverseBool('accesserrors_on'), true);"
+id="accesserrors_on_html">
+Error Highlighting
+</a>
+
+<a href="#"
+onclick="toggle('silentcapture_on', reverseBool('silentcapture_on'), true);"
+id="silentcapture_on_html">
+Silent Capture
+</a>
+</body>
+</html>

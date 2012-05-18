@@ -44,7 +44,7 @@ cvox.HostFactory.getHost = function() {
 
 /**
  * Returns the TTS interface.
- * @return {cvox.AbstractTts}
+ * @return {cvox.TtsInterface} The TTS engine.
  */
 cvox.HostFactory.getTts = function() {
   return new cvox.HostFactory.ttsConstructor;
@@ -72,7 +72,7 @@ cvox.HostFactory.getEarcons = function() {
 cvox.HostFactory.hostConstructor;
 
 /**
- * @type {function (new:cvox.AbstractTts)}
+ * @type {function (new:cvox.TtsInterface)}
  */
 cvox.HostFactory.ttsConstructor;
 

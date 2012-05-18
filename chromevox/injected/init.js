@@ -22,16 +22,19 @@ goog.provide('cvox.ChromeVoxInit');
 
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.CssSpace');
 goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
+goog.require('cvox.CompositeTts');
+goog.require('cvox.ConsoleTts');
 goog.require('cvox.HostFactory');
+goog.require('cvox.Lens');
 goog.require('cvox.LiveRegions');
 goog.require('cvox.SpokenMessages');
+goog.require('cvox.TtsHistory');
 
 
 // INJECTED_AFTER_LOAD is set true by ChromeVox itself or ChromeOS when this
@@ -59,16 +62,6 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
   if (window.top == window) {
     if (document.title && !disableSpeak) {
       cvox.ChromeVox.tts.speak(document.title, 0);
-
-      // The introductory page summary chain.
-      cvox.$m('aria_role_link')
-          .withCount(document.links.length)
-          .andPause()
-          .andMessage('aria_role_form')
-          .withCount(document.forms.length)
-          .andEnd()
-          .speakQueued();
-
       queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
     }
   } else {
@@ -102,14 +95,23 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
  */
 cvox.ChromeVox.init = function() {
   // Setup globals
-  cvox.ChromeVox.tts = cvox.HostFactory.getTts();
+  cvox.ChromeVox.host = cvox.HostFactory.getHost();
+
+  cvox.ChromeVox.tts = new cvox.CompositeTts()
+      .add(cvox.HostFactory.getTts())
+      .add(new cvox.TtsHistory())
+      .add(cvox.ConsoleTts.getInstance());
+  if (cvox.ChromeVox.host.canShowLens()) {
+    var lens = new cvox.Lens();
+    lens.setMultiplier(2.25);
+    cvox.ChromeVox.tts.add(lens);
+    cvox.ChromeVox.lens = lens;
+  }
   cvox.ChromeVox.earcons = cvox.HostFactory.getEarcons();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   cvox.ChromeVox.isActive = true;
   cvox.ChromeVox.navigationManager =
       new cvox.ChromeVoxNavigationManager();
-  cvox.ChromeVox.markInUserCommand =
-      cvox.ChromeVoxUserCommands.markInUserCommand;
   cvox.ChromeVox.syncToNode =
       cvox.ApiImplementation.syncToNode;
   cvox.ChromeVox.processEmbeddedPdfs =
@@ -118,7 +120,6 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVox.speakInitialMessages = cvox.ChromeVox.speakInitialPageLoad;
 
   // Do platform specific initialization here.
-  cvox.ChromeVox.host = cvox.HostFactory.getHost();
   cvox.ChromeVox.host.init();
 
   // Initialize common components
@@ -152,6 +153,10 @@ cvox.ChromeVox.reinit = function() {
  * accessibility hook.
  */
 cvox.ChromeVoxInit.processEmbeddedPdfs = function() {
+  if (window.location.hash == '#original') {
+    return;
+  }
+
   var es = document.querySelectorAll('embed[type="application/pdf"]');
   // We check if it is a built-in PDF by the lack of a <head> and
   // the embed's name being "plugin"
@@ -176,6 +181,19 @@ cvox.ChromeVoxInit.processEmbeddedPdfs = function() {
       }
 
       var div = document.createElement('DIV');
+
+      var headerDiv = document.createElement('DIV');
+      headerDiv.style.position = 'relative';
+      headerDiv.style.background = 'white';
+      headerDiv.style.margin = '20pt';
+      headerDiv.style.padding = '20pt';
+      headerDiv.style.border = '1px solid #000';
+      var filename = e.src.substr(e.src.lastIndexOf('/') + 1);
+      document.title = filename;
+      var html = cvox.ChromeVox.msgs.getMsg('pdf_header', filename);
+      html = html.replace('%URL%', '"' + e.src + '#original' + '"');
+      headerDiv.innerHTML = html;
+      div.appendChild(headerDiv);
 
       // Document Styles
       div.style.position = 'relative';
@@ -214,7 +232,7 @@ cvox.ChromeVoxInit.processEmbeddedPdfs = function() {
           textSpan.style.position = 'absolute';
           textSpan.style.left = text.left + 'pt';
           textSpan.style.top = text.top + 'pt';
-          textSpan.style.fontSize = text.fontSize + 'pt';
+          textSpan.style.fontSize = (0.8 * text.height) + 'pt';
 
           // Text Content
           for (var k = 0; k < text['textNodes'].length; k++) {

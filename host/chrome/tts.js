@@ -31,9 +31,6 @@ goog.require('cvox.HostFactory');
 cvox.ChromeTts = function() {
   cvox.AbstractTts.call(this);
 
-  this.lens_ = null;
-  this.lensContent_ = document.createElement('div');
-
   this.addBridgeListener();
 };
 goog.inherits(cvox.ChromeTts, cvox.AbstractTts);
@@ -68,30 +65,6 @@ cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
 
   cvox.ChromeTts.superClass_.speak.call(this, textString, queueMode, properties);
 
-  if (this.lens_) {
-    if (queueMode == cvox.AbstractTts.QUEUE_MODE_FLUSH) {
-      var line = document.createElement('hr');
-      this.lensContent_.appendChild(line);
-    }
-    // Remove elements if exceed maxHistory. Multiply by 2 to accont for <hr>.
-    while (this.lensContent_.childNodes.length > this.lens_.maxHistory * 2) {
-      var temp = this.lensContent_.childNodes[0];
-      this.lensContent_.removeChild(temp);
-    }
-    var lensElem = document.createElement('span');
-    lensElem.innerText = textString;
-    lensElem.style.marginLeft = '0.5em !important';
-    if (properties && properties[cvox.AbstractTts.COLOR]) {
-      lensElem.style.color = properties[cvox.AbstractTts.COLOR] + ' !important';
-    }
-    if (properties && properties[cvox.AbstractTts.FONT_WEIGHT]) {
-      lensElem.style.fontWeight =
-          properties[cvox.AbstractTts.FONT_WEIGHT] + ' !important';
-    }
-    this.lensContent_.appendChild(lensElem);
-    this.lens_.setLensContent(this.lensContent_);
-  }
-
   var message = {'target': 'TTS',
                  'action': 'speak',
                  'text': textString,
@@ -99,29 +72,17 @@ cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
                  'properties': properties};
 
   if (properties && properties['startCallback'] != undefined) {
-    console.log('  using startCallback');
-
     cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
         properties['startCallback'];
     message['startCallbackId'] = cvox.ChromeTts.callId++;
   }
   if (properties && properties['endCallback'] != undefined) {
-    console.log('  using endCallback');
-
     cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
         properties['endCallback'];
     message['endCallbackId'] = cvox.ChromeTts.callId++;
   }
 
   cvox.ExtensionBridge.send(message);
-};
-
-/**
- * Set a cvox.Lens to display any messages spoken via speak().
- * @param {cvox.AbstractLens} lens The lens.
- */
-cvox.ChromeTts.prototype.setLens = function(lens) {
-  this.lens_ = lens;
 };
 
 /**

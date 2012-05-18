@@ -43,13 +43,21 @@ cvox.TraverseContent = function(domObj) {
     this.currentDomObj = document.body;
   }
   var range = document.createRange();
-  range.selectNode(this.currentDomObj);
-  this.startCursor_ = new cvox.Cursor(
-      range.startContainer, range.startOffset,
-      cvox.TraverseUtil.getNodeText(range.startContainer));
-  this.endCursor_ = new cvox.Cursor(
-      range.endContainer, range.endOffset,
-      cvox.TraverseUtil.getNodeText(range.endContainer));
+  // TODO (dmazzoni): Switch this to avoid using range methods. Range methods
+  // can cause exceptions (such as if the node is not attached to the DOM).
+  try {
+    range.selectNode(this.currentDomObj);
+    this.startCursor_ = new cvox.Cursor(
+        range.startContainer, range.startOffset,
+        cvox.TraverseUtil.getNodeText(range.startContainer));
+    this.endCursor_ = new cvox.Cursor(
+        range.endContainer, range.endOffset,
+        cvox.TraverseUtil.getNodeText(range.endContainer));
+  } catch (e) {
+    // Ignoring this error so that it will not break everything else.
+    window.console.log('Error: Unselectable node:');
+    window.console.log(domObj);
+  }
 };
 
 /**

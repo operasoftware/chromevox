@@ -28,9 +28,22 @@ goog.require('cvox.ChromeVoxJSON');
  * @constructor
  */
 cvox.WalkerDecorator = function() {
+  /**
+   * @type {!Array.<string>}
+   */
   this.filters = [];
-  this.filterMap = {};
-  this.isInclusive = false;
+
+  /**
+   * @type {!Object.<string, !Array.<string>>}
+   * @private
+   */
+  this.filterMap_ = {};
+
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.isInclusive_ = false;
 };
 
 /**
@@ -40,21 +53,21 @@ cvox.WalkerDecorator = function() {
  * @return {boolean} true if inclusive filtering.
  */
 cvox.WalkerDecorator.prototype.getIsInclusive = function() {
-  return this.isInclusive;
+  return this.isInclusive_;
 };
 
 /**
  * Decorates the walker with filtering previous and next.
- * @param {cvox.AbstractWalker} walker The walker to decorate.
+ * @param {!cvox.AbstractWalker} walker The walker to decorate.
  */
 cvox.WalkerDecorator.prototype.decorate = function(walker) {
-  walker['next'] = this.filteredMove(walker, walker.next);
-  walker['previous'] = this.filteredMove(walker, walker.previous);
+  walker.next = this.filteredMove(walker, walker.next);
+  walker.previous = this.filteredMove(walker, walker.previous);
 };
 
 /**
  * Decorates the walker's movement with filtering.
- * @param {cvox.AbstractWalker} walker The walker owning movement.
+ * @param {!cvox.AbstractWalker} walker The walker owning movement.
  * @param {function(): Node} original The walker's original method.
  * @return {function(): Node} Filter enhanced method.
  */
@@ -139,14 +152,14 @@ cvox.WalkerDecorator.prototype.saveToLocalStorage = function() {
   if (this.filters.length == 0)
     return;
 
-  this.filterMap[window.location.href] = this.filters;
+  this.filterMap_[window.location.href] = this.filters;
 
   // TODO(dtseng): Send filters for only this page.
   cvox.ChromeVox.host.sendToBackgroundPage({
       'target': 'Prefs',
       'action': 'setPref',
       'pref': 'filterMap',
-      'value': cvox.ChromeVoxJSON.stringify(this.filterMap)
+      'value': cvox.ChromeVoxJSON.stringify(this.filterMap_)
   });
 };
 
@@ -155,29 +168,28 @@ cvox.WalkerDecorator.prototype.saveToLocalStorage = function() {
  * @param {string} filterMap JSON href to filter mapping.
  */
 cvox.WalkerDecorator.prototype.reinitialize = function(filterMap) {
+  this.filterMap_ = {};
+  this.filters = [];
+
   if (filterMap) {
     try {
-      this.filterMap = cvox.ChromeVoxJSON.parse(filterMap);
-    } catch(e) {
-      console.error('Unable to parse filters ' + filterMap);
-      this.filterMap = {};
+      this.filterMap_ = /** @type {!Object.<string, !Array.<string>>} */
+          cvox.ChromeVoxJSON.parse(filterMap);
+      if (window.location.href && this.filterMap_[window.location.href])
+        this.filters = this.filterMap_[window.location.href];
+    } catch (e) {
+      window.console.error('Unable to parse filters ' + filterMap);
+      this.filterMap_ = {};
       return;
     }
-
-    if (window.location.href && this.filterMap[window.location.href])
-      this.filters = this.filterMap[window.location.href];
   }
-  if (!this.filterMap)
-    this.filterMap = {};
-  if (!this.filters)
-    this.filters = [];
 };
 
 /**
  * Calculates the selector corresponding to a node.
-* Preference is given towards class names. If there are multiple class names,
-* then use the most specific one.
-* As a last resort, use the id.
+ * Preference is given towards class names. If there are multiple class names,
+ * then use the most specific one.
+ * As a last resort, use the id.
  * @param {Node} node The node to retrieve a filter for.
  * @return {?string} The filter for the node.
  */
@@ -196,7 +208,7 @@ cvox.WalkerDecorator.filterForNode = function(node) {
     try {
       node.webkitMatchesSelector(finalClass);
       return finalClass;
-    } catch(e) {
+    } catch (e) {
       // Badly formated classname; continue below.
     }
   }
@@ -208,7 +220,7 @@ cvox.WalkerDecorator.filterForNode = function(node) {
     try {
       node.webkitMatchesSelector(finalId);
       return finalId;
-    } catch(e) {
+    } catch (e) {
       // Badly formated id; continue below.
     }
   }

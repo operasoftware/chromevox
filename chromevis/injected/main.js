@@ -50,11 +50,14 @@ var keyHandler = function(evt) {
     return true;
   }
 
-  var k = window.KeyCode;
+  // NOTE(deboer): KeyCode is not a Closure component, we must use strings
+  // to access its properties.
+
+  var k = window['KeyCode'];
   // The keycode library takes a keydown event and returns a string that
   // represents the keys that were pressed. But, it returns only uppercase
   // letters.
-  var keyString = k.hot_key(k.translate_event(evt));
+  var keyString = k['hot_key'](k['translate_event'](evt));
 
   console.log('keyHandler 3: ' + keyString);
 

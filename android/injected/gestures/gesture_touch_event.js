@@ -1,5 +1,5 @@
 /**
- * @fileoverview A wrapper around a touch and mouse event. It provides useful
+ * @fileoverview A touch event that is part of a gesture. It provides useful
  *     methods for getting distance and angles between events as well as caching
  *     results.
  *
@@ -8,130 +8,75 @@
 
 goog.provide('gestures.GestureTouchEvent');
 
+goog.require('androidvoxnav.constants');
 goog.require('gestures.GestureEvent.Direction');
+goog.require('gestures.utils.Event');
 goog.require('gestures.utils.math');
 
 /**
- * @param {TouchEvent|MouseEvent} event The base event to wrap.
- * @param {gestures.GestureTouchEvent=} opt_prevEvent The previous event.
+ * Constructs a gesture touch event.
+ * @param {string} type The event type.
  * @constructor
+ * @extends {gestures.utils.Event}
  */
-gestures.GestureTouchEvent = function(event, opt_prevEvent) {
-  this.baseEvent = event;
-  if (opt_prevEvent) {
-    this.prevBaseEvent = opt_prevEvent.baseEvent;
-    if (opt_prevEvent.type != 'touchend') {
-      this.prev = opt_prevEvent;
-    }
-  }
-  if (this.isTouchEvent_(event)) {
-    this.initFromTouchEvent_();
-  } else {
-    this.initFromMouseEvent_();
-  }
-  this.isMultitouch = this.numTouches > 1;
+gestures.GestureTouchEvent = function(type) {
+  goog.base(this, type);
+  this.hasLocation = type != 'touchend';
+  this.setNumTouches(1);
+};
+goog.inherits(gestures.GestureTouchEvent, gestures.utils.Event);
+
+/**
+ * Set the event type.
+ * @param {gestures.utils.Event|Event} baseEvent The base event to wrap.
+ */
+gestures.GestureTouchEvent.prototype.setBaseEvent = function(baseEvent) {
+  this.baseEvent = baseEvent;
 };
 
 /**
- * The number of pixels off an angle can be in either direction.
+ * Set the event type.
+ * @param {string} type The event type.
+ */
+gestures.GestureTouchEvent.prototype.setType = function(type) {
+  this.type = type;
+  this.hasLocation = type != 'touchend';
+};
+
+/**
+ * Set the previous event.
+ * @param {gestures.GestureTouchEvent=} prev The previous event in the gesture.
+ */
+gestures.GestureTouchEvent.prototype.setPrev = function(prev) {
+  this.prev = prev;
+  this.hasPrev = this.prev && this.prev.type != 'touchend';
+};
+
+/**
+ * Set the number of touches.
+ * @param {number} numTouches The number of touches corresponding to the event.
+ */
+gestures.GestureTouchEvent.prototype.setNumTouches = function(numTouches) {
+  this.numTouches = numTouches;
+  this.isMultitouch = numTouches > 1;
+};
+
+/**
+ * Set the event location.
+ * @param {number} x The x coordinate in pixels.
+ * @param {number} y The y coordinate in pixels.
+ */
+gestures.GestureTouchEvent.prototype.setLocation = function(x, y) {
+  this.x = x;
+  this.y = y;
+};
+
+/**
+ * The number of degrees off an angle can be in either direction.
  * @const
  * @type {number}
  */
 gestures.GestureTouchEvent.ANGLE_FORGIVENESS = 35;
-
-/**
- * The double mousemove event that signals a touchend is not fired if the user
- * lifts their finger within this many pixels from where the event started.
- * @const
- * @type {number} 160^2
- */
-// TODO: make DPI independent
-gestures.GestureTouchEvent.SQUARED_NO_TOUCHEND_RADIUS = 25600;
-
-/**
- * @private
- * @param {Event} event Event to check.
- * @return {boolean} Returns true if given event is a touch event.
- */
-gestures.GestureTouchEvent.prototype.isTouchEvent_ = function(event) {
-  return event.type.indexOf('touch') != -1;
-};
-
-/**
- * @private
- */
-gestures.GestureTouchEvent.prototype.initFromMouseEvent_ = function() {
-  this.fromMouseEvent = true;
-  this.numTouches = 1;
-  this.x = this.baseEvent.screenX;
-  this.y = this.baseEvent.screenY;
-  this.hasLocation = true;
-  this.determineMouseEventType_();
-};
-
-/**
- * Infer if the user has just touched the screen, is moving on the screen or has
- * just lost contact with the screen by looking at what events have taken place.
- * @private
- */
-gestures.GestureTouchEvent.prototype.determineMouseEventType_ = function() {
-  if (this.prev && this.prev.fromTouchEvent) {
-    this.type = 'touchstart';
-  } else if (this.hasSameLocationAsPrevMousemove_()) {
-    this.type = 'touchend';
-  } else if (!this.prev) {
-    this.type = 'touchstart';
-  } else if (this.isCloseToTouchStart_()) {
-    this.type = 'touchend';
-  } else {
-    this.type = 'touchmove';
-  }
-};
-
-/**
- * A touchend is signaled by a mousemove event in the same location as a
- * previous event.
- * @private
- * @return {boolean} Returns true if the event is a mousemove event in the
- * same location as the previous event.
- */
-gestures.GestureTouchEvent.prototype.hasSameLocationAsPrevMousemove_ =
-    function() {
-  return !!this.prevBaseEvent && this.prevBaseEvent.screenX == this.x &&
-      this.prevBaseEvent.screenY == this.y;
-};
-
-/**
- * A touchend is signaled from a mousemove event occurring within a certain
- * number of pixels from a mousestart event.
- * @private
- * @return {boolean} Returns true if the event occurred within a certain radius
- *     of the touchstart event.
- */
-gestures.GestureTouchEvent.prototype.isCloseToTouchStart_ = function() {
-  return this.prev.type == 'touchstart' &&
-      this.getSquaredDistance() <=
-      gestures.GestureTouchEvent.SQUARED_NO_TOUCHEND_RADIUS;
-};
-
-/**
- * Pull information from a touch event with the number of touches increased by
- * one to offset Explore By Touch.
- * @private
- */
-gestures.GestureTouchEvent.prototype.initFromTouchEvent_ = function() {
-  this.fromTouchEvent = true;
-  this.type = this.baseEvent.type;
-  this.hasLocation = this.type != 'touchend';
-
-  if (this.hasLocation) {
-    this.x = this.baseEvent.touches[0].screenX;
-    this.y = this.baseEvent.touches[0].screenY;
-    this.numTouches = this.baseEvent.touches.length + 1;
-  } else {
-    this.numTouches = 2;
-  }
-};
 
 /**
  * Returns the angle between this event and the previous event.
@@ -139,7 +84,7 @@ gestures.GestureTouchEvent.prototype.initFromTouchEvent_ = function() {
  */
 gestures.GestureTouchEvent.prototype.getAngle = function() {
   if (goog.isDef(this.angle_)) return this.angle_;
-  if (!this.hasLocation || !this.prev || !this.prev.hasLocation) {
+  if (!this.hasLocation || !this.hasPrev) {
     this.angle_ = 0;
   } else {
     this.angle_ = gestures.utils.math.angle(
@@ -149,17 +94,15 @@ gestures.GestureTouchEvent.prototype.getAngle = function() {
 };
 
 /**
- * Get the squared distance between the location of this and the previous event.
+ * Get the squared distance from the previous event.
  * @return {number} Returns the distance in pixels.
  */
 gestures.GestureTouchEvent.prototype.getSquaredDistance = function() {
   if (goog.isDef(this.squaredDistance_)) return this.squaredDistance_;
-  if (!this.hasLocation || !this.prev || !this.prev.hasLocation) {
+  if (!this.hasLocation || !this.hasPrev) {
     this.squaredDistance_ = 0;
   } else {
-    var dx = this.x - this.prev.x;
-    var dy = this.y - this.prev.y;
-    this.squaredDistance_ = dx * dx + dy * dy;
+    return gestures.GestureTouchEvent.squaredDistance(this, this.prev);
   }
   return this.squaredDistance_;
 };
@@ -169,7 +112,7 @@ gestures.GestureTouchEvent.prototype.getSquaredDistance = function() {
  * @return {number} Returns the elapsed time in milliseconds.
  */
 gestures.GestureTouchEvent.prototype.getElapsedTime = function() {
-  if (!this.prev) return 0;
+  if (!this.hasPrev) return 0;
   return this.baseEvent.timeStamp - this.prev.baseEvent.timeStamp;
 };
 
@@ -192,7 +135,7 @@ gestures.GestureTouchEvent.prototype.getSquaredSpeed = function() {
  */
 gestures.GestureTouchEvent.prototype.getCardinalDirection = function() {
   if (goog.isDef(this.direction_)) return this.direction_;
-  if (!this.hasLocation || !this.prev || !this.prev.hasLocation) {
+  if (!this.hasLocation || !this.hasPrev) {
     this.direction_ = gestures.GestureEvent.Direction.NONE;
     return this.direction_;
   }
@@ -221,4 +164,17 @@ gestures.GestureTouchEvent.prototype.getCardinalDirection = function() {
 gestures.GestureTouchEvent.prototype.absAngleDifference_ = function(
     angle1, angle2) {
   return Math.abs(gestures.utils.math.angleDifference(angle1, angle2));
+};
+
+/**
+ * Calculates the squared distance in pixels between two touch events. The
+ * distance is scaled based on the device density.
+ * @param {gestures.GestureTouchEvent} event1
+ * @param {gestures.GestureTouchEvent} event2
+ * @return {number} Returns the squared distance in pixels.
+ */
+gestures.GestureTouchEvent.squaredDistance = function(event1, event2) {
+  var dx = event1.x - event2.x;
+  var dy = event1.y - event2.y;
+  return (dx * dx + dy * dy) / androidvoxnav.constants.devicePixelRatio;
 };

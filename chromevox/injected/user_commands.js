@@ -26,6 +26,8 @@ goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxSearch');
+goog.require('cvox.ConsoleTts');
+goog.require('cvox.CssSpace');
 goog.require('cvox.DomUtil');
 goog.require('cvox.SpokenMessages');
 
@@ -58,24 +60,6 @@ cvox.ChromeVoxUserCommands.powerkeyActionCallback = null;
  * TODO (clchen, dmazzoni): Implement syncing on click to avoid needing this.
  */
 cvox.ChromeVoxUserCommands.wasMouseClicked = false;
-
-/**
- * A nestable variable to keep track of whether or not we're inside of a
- * user command, so that some event triggers don't respond. For example,
- * we don't want to speak twice when the user navigates to a focusable
- * element, once for the navigation and once for the focus event handler.
- *
- * Calling markInUserCommand() increments this level by one and then
- * decrements it after a delay. Incrementing / decrementing rather than
- * setting it to true/false makes it safe to call this twice or nest calls.
- *
- * Code should call isInUserCommand() to find out whether we're in the
- * middle of handling a command or not.
- *
- * @type {number}
- * @private
- */
-cvox.ChromeVoxUserCommands.userCommandLevel_ = 0;
 
 /**
  * A variable to hold the most recent anchor to prevent the code from getting
@@ -296,13 +280,13 @@ cvox.ChromeVoxUserCommands.commands['toggleKeyPrefix'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['forward'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand();
+cvox.ChromeVoxUserCommands.commands['forward'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   var navSucceeded =
       cvox.ChromeVox.navigationManager.navigateForward(true, true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
-};
+});
 
 
 /**
@@ -311,10 +295,10 @@ cvox.ChromeVoxUserCommands.commands['forward'] = function() {
  * @return {boolean} If we are in "read from here" mode, return false since
  * we want to prevent the default action. Otherwise return true.
  */
-cvox.ChromeVoxUserCommands.commands['skipForward'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipForward'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVoxUserCommands.keepReading) {
     if (cvox.ChromeVox.host.hasTtsCallback()) {
-      cvox.ChromeVoxUserCommands.markInUserCommand();
       cvox.ChromeVox.navigationManager.skipForward();
       return false;
     } else {
@@ -324,7 +308,7 @@ cvox.ChromeVoxUserCommands.commands['skipForward'] = function() {
   } else {
     return true;
   }
-};
+});
 
 
 /**
@@ -333,12 +317,12 @@ cvox.ChromeVoxUserCommands.commands['skipForward'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['right'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand();
+cvox.ChromeVoxUserCommands.commands['right'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   var navSucceeded = cvox.ChromeVox.navigationManager.navigateRight(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
-};
+});
 
 
 /**
@@ -347,13 +331,13 @@ cvox.ChromeVoxUserCommands.commands['right'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['backward'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand();
+cvox.ChromeVoxUserCommands.commands['backward'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   var navSucceeded =
       cvox.ChromeVox.navigationManager.navigateBackward(true, true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
-};
+});
 
 
 /**
@@ -362,10 +346,10 @@ cvox.ChromeVoxUserCommands.commands['backward'] = function() {
  * @return {boolean} If we are in "read from here" mode, return false since
  * we want to prevent the default action. Otherwise return true.
  */
-cvox.ChromeVoxUserCommands.commands['skipBackward'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipBackward'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVoxUserCommands.keepReading) {
     if (cvox.ChromeVox.host.hasTtsCallback()) {
-      cvox.ChromeVoxUserCommands.markInUserCommand();
       cvox.ChromeVox.navigationManager.skipBackward();
       return false;
     } else {
@@ -375,7 +359,7 @@ cvox.ChromeVoxUserCommands.commands['skipBackward'] = function() {
   } else {
     return true;
   }
-};
+});
 
 
 /**
@@ -384,12 +368,12 @@ cvox.ChromeVoxUserCommands.commands['skipBackward'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['left'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand();
+cvox.ChromeVoxUserCommands.commands['left'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   var navSucceeded = cvox.ChromeVox.navigationManager.navigateLeft(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
-};
+});
 
 
 /**
@@ -399,15 +383,17 @@ cvox.ChromeVoxUserCommands.commands['left'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['previousGranularity'] = function() {
+cvox.ChromeVoxUserCommands.commands['previousGranularity'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   cvox.ChromeVox.navigationManager.up();
   var strategy = cvox.ChromeVox.navigationManager.getStrategy();
-  if (strategy == 'SELECTION') {
-    strategy = cvox.ChromeVox.navigationManager.getGranularity();
+  if (cvox.ChromeVox.navigationManager.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION) {
+    strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
   }
   cvox.ChromeVoxUserCommands.finishNavCommand(strategy + ' ');
   return false;
-};
+});
 
 
 /**
@@ -417,15 +403,17 @@ cvox.ChromeVoxUserCommands.commands['previousGranularity'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['nextGranularity'] = function() {
+cvox.ChromeVoxUserCommands.commands['nextGranularity'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   cvox.ChromeVox.navigationManager.down();
   var strategy = cvox.ChromeVox.navigationManager.getStrategy();
-  if (strategy == 'SELECTION') {
-    strategy = cvox.ChromeVox.navigationManager.getGranularity();
+  if (cvox.ChromeVox.navigationManager.currentNavStrategy ==
+      cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION) {
+    strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
   }
   cvox.ChromeVoxUserCommands.finishNavCommand(strategy + ' ');
   return false;
-};
+});
 
 
 /**
@@ -433,10 +421,11 @@ cvox.ChromeVoxUserCommands.commands['nextGranularity'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['speakCurrentPosition'] = function() {
+cvox.ChromeVoxUserCommands.commands['speakCurrentPosition'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return false;
-};
+});
 
 
 /**
@@ -464,9 +453,7 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   var descriptionArray =
       cvox.ChromeVox.navigationManager.getCurrentDescription();
 
-  setTimeout(function() {
-    cvox.ChromeVox.navigationManager.setFocus();
-  }, 0);
+  cvox.ChromeVox.navigationManager.setFocus();
 
   var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
 
@@ -489,15 +476,15 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
  * @param {string} errorStr A string to speak if the item couldn't be found.
  * @private
  */
-cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
-    errorStr) {
+cvox.ChromeVoxUserCommands.findNextAndSpeak_ =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(predicate,
+                                                              errorStr) {
   // Don't do any navigational commands if the document is hidden from
   // screen readers.
   if (cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
 
-  cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
     cvox.ChromeVox.tts.speak(
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -508,7 +495,7 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
   // the user just navigated there.
   cvox.ChromeVox.navigationManager.previous(true);
   cvox.ChromeVoxUserCommands.commands['forward']();
-};
+});
 
 
 /**
@@ -519,15 +506,15 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate,
  * @param {string} errorStr A string to speak if the item couldn't be found.
  * @private
  */
-cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
-    errorStr) {
+cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(predicate,
+                                                              errorStr) {
   // Don't do any navigational commands if the document is hidden from
   // screen readers.
   if (cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
 
-  cvox.ChromeVoxUserCommands.markInUserCommand();
   if (!cvox.ChromeVox.navigationManager.findPrevious(predicate)) {
     cvox.ChromeVox.tts.speak(
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -538,7 +525,7 @@ cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ = function(predicate,
   // the user just navigated there.
   cvox.ChromeVox.navigationManager.previous(true);
   cvox.ChromeVoxUserCommands.commands['forward']();
-};
+});
 
 
 /**
@@ -555,28 +542,6 @@ cvox.ChromeVoxUserCommands.containsTagName_ = function(arr, tagName) {
     }
   }
   return null;
-};
-
-
-/**
- * Mark that we're handling a user command now, to temporarily silence
- * event watchers, then automatically un-silence them after a short delay.
- * This prevents us from speaking that something has focused when the
- * focusing was a result of a ChromeVox action.
- */
-cvox.ChromeVoxUserCommands.markInUserCommand = function() {
-  cvox.ChromeVoxUserCommands.userCommandLevel_ += 1;
-  setTimeout(function() {
-    cvox.ChromeVoxUserCommands.userCommandLevel_ -= 1;
-  }, 100);
-};
-
-
-/**
- * @return {boolean} True if we're handling a user command now.
- */
-cvox.ChromeVoxUserCommands.isInUserCommand = function() {
-  return (cvox.ChromeVoxUserCommands.userCommandLevel_ > 0);
 };
 
 /**
@@ -930,7 +895,8 @@ cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
  * Continously reads the page. Note that this is only used if callbacks are
  * not available.
  */
-cvox.ChromeVoxUserCommands.commands['readUntilStopped'] = function() {
+cvox.ChromeVoxUserCommands.commands['readUntilStopped'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (!cvox.ChromeVoxUserCommands.keepReading) {
     return;
   }
@@ -943,7 +909,7 @@ cvox.ChromeVoxUserCommands.commands['readUntilStopped'] = function() {
   }
   window.setTimeout(cvox.ChromeVoxUserCommands.commands['readUntilStopped'],
                     1000);
-};
+});
 
 
 /**
@@ -952,12 +918,12 @@ cvox.ChromeVoxUserCommands.commands['readUntilStopped'] = function() {
  * @return {boolean} Always return false since we want to prevent the default
  * action.
  */
-cvox.ChromeVoxUserCommands.commands['jumpToTop'] = function() {
-  cvox.ChromeVoxUserCommands.markInUserCommand();
+cvox.ChromeVoxUserCommands.commands['jumpToTop'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   cvox.ChromeVox.navigationManager.reset();
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return false;
-};
+});
 
 //
 // Mode commands - change modes
@@ -966,7 +932,8 @@ cvox.ChromeVoxUserCommands.commands['jumpToTop'] = function() {
 /**
  * Toggle table navigation on and off.
  */
-cvox.ChromeVoxUserCommands.commands['toggleTable'] = function() {
+cvox.ChromeVoxUserCommands.commands['toggleTable'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.inTableMode()) {
     // Currently in table mode, so leave table mode.
     var wasGrid = cvox.ChromeVox.navigationManager.insideGrid();
@@ -988,7 +955,7 @@ cvox.ChromeVoxUserCommands.commands['toggleTable'] = function() {
       cvox.ChromeVoxUserCommands.finishNavCommand('');
     }
   }
-};
+});
 
 
 /**
@@ -1113,7 +1080,8 @@ cvox.ChromeVoxUserCommands.commands['guessColHeader'] = function() {
 /**
  * Skip to the first cell of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToBeginning'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToBeginning'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1121,13 +1089,14 @@ cvox.ChromeVoxUserCommands.commands['skipToBeginning'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 /**
  * Skip to the last cell of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToEnd'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToEnd'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1135,13 +1104,14 @@ cvox.ChromeVoxUserCommands.commands['skipToEnd'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 /**
  * Skip to the first cell of the current row of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToRowBeginning'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToRowBeginning'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToRowFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1149,13 +1119,14 @@ cvox.ChromeVoxUserCommands.commands['skipToRowBeginning'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 /**
  * Skip to the last cell of the current row of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToRowEnd'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToRowEnd'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToRowLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1163,13 +1134,14 @@ cvox.ChromeVoxUserCommands.commands['skipToRowEnd'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 /**
  * Skip to the first cell of the current column of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToColBeginning'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToColBeginning'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToColFirstCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1177,13 +1149,14 @@ cvox.ChromeVoxUserCommands.commands['skipToColBeginning'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 /**
  * Skip to the last cell of the current column of a table.
  */
-cvox.ChromeVoxUserCommands.commands['skipToColEnd'] = function() {
+cvox.ChromeVoxUserCommands.commands['skipToColEnd'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
   if (cvox.ChromeVox.navigationManager.goToColLastCell()) {
     cvox.ChromeVoxUserCommands.finishNavCommand('');
   } else {
@@ -1191,7 +1164,7 @@ cvox.ChromeVoxUserCommands.commands['skipToColEnd'] = function() {
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
   }
-};
+});
 
 
 //
@@ -2741,4 +2714,22 @@ cvox.ChromeVoxUserCommands.commands['filterLikeCurrentItem'] = function() {
   walkerDecorator.addFilter(cssSelector);
   cvox.$m('added_filter').speakFlush();
   cvox.ChromeVox.navigationManager.navigateForward(true, true);
+};
+
+// Commands for starting and stopping event recording.
+cvox.ChromeVoxUserCommands.commands['startHistoryRecording'] = function() {
+  cvox.History.getInstance().startRecording();
+};
+
+cvox.ChromeVoxUserCommands.commands['stopHistoryRecording'] = function() {
+  cvox.History.getInstance().stopRecording();
+};
+cvox.ChromeVoxUserCommands.commands['enterCssSpace'] = function() {
+  cvox.CssSpace.initializeSpace();
+  cvox.CssSpace.enterExploration();
+};
+
+// Console TTS.
+cvox.ChromeVoxUserCommands.commands['enableConsoleTts'] = function() {
+  cvox.ConsoleTts.getInstance().setEnabled(true);
 };

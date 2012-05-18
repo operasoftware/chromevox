@@ -1,0 +1,89 @@
+/* Copyright 2010 Google Inc.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License. */
+
+body {
+    background-color: white;
+    color: black;
+    font-size: 18px;
+    line-height: 150%;
+    font-family: Verdana, Helvetica,sans-serif;
+    letter-spacing: 1px;
+}
+
+h2 {
+    margin: auto;
+    width: 600px;
+    text-align: left;
+}
+
+h3 {
+    margin: auto;
+    width: 600px;
+    text-align: left;
+    font-size:14px;
+    margin-top: 5px;
+    margin-bottom: -10px;
+    line-height: 150%;
+    font-weight: 700;
+}
+
+#options {
+    margin: 10px auto auto;
+    padding: 5px;
+    width: 600px;
+    background-color: #F0F0F0;
+    border-radius: 10px;
+}
+
+#first_option {
+    margin-top: 10px;
+    margin-bottom: -5px;
+}
+
+.textColor {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.backgroundColor {
+    padding-left: 10px;
+}
+
+br {
+    background-color: blue;
+}
+
+label {
+    float: left;
+    width: 425px;
+    text-align: right;
+    margin-right: 20px;
+    margin-left: 40px;
+}
+
+input {
+    border: 1px solid #B4B4B4;
+    padding: 1px 2px;
+    border-radius: 2px;
+    max-width: 90px;
+    font-size: 18px;
+    text-align: center;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+button {
+    font-size: 25px;
+    font-weight: bold;
+    margin-top: 20px;
+}

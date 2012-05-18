@@ -2375,6 +2375,60 @@ msgs.MSG_CHROMEVOX_TAG_UL =
     goog.getMsg('List');
 
 /**
+ * @desc Spoken to describe a <section> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_SECTION =
+    goog.getMsg('Section');
+
+/**
+ * @desc Spoken to describe a <nav> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_NAV =
+    goog.getMsg('Navigation');
+
+/**
+ * @desc Spoken to describe a <article> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_ARTICLE =
+    goog.getMsg('Article');
+
+/**
+ * @desc Spoken to describe a <aside> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_ASIDE =
+    goog.getMsg('Aside');
+
+/**
+ * @desc Spoken to describe a <hgroup> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_HGROUP =
+    goog.getMsg('Heading group');
+
+/**
+ * @desc Spoken to describe a <header> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_HEADER =
+    goog.getMsg('Header');
+
+/**
+ * @desc Spoken to describe a <footer> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_FOOTER =
+    goog.getMsg('Footer');
+
+/**
+ * @desc Spoken to describe a <time> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_TIME =
+    goog.getMsg('Time');
+
+/**
+ * @desc Spoken to describe a <mark> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_MARK =
+    goog.getMsg('Mark');
+
+/**
  * @desc Describes an <input> element with type=button.
  */
 msgs.MSG_CHROMEVOX_INPUT_TYPE_BUTTON = goog.getMsg('Button');
@@ -2665,3 +2719,57 @@ msgs.MSG_CHROMEVOX_NO_MORE_DIFFERENT_ELEMENTS =
  * @desc Describes an element with the ARIA role link.
  */
 msgs.MSG_CHROMEVOX_INDEX_TOTAL = goog.getMsg('{$index} of {$total}', {'index': '$1', 'total': '$2'});
+
+/**
+ * @desc Description of the enter group exploration user command.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_ENTER_CSS_SPACE = goog.getMsg('Enter group exploration');
+
+/**
+ * @desc Spoken when entering group exploration.
+ */
+msgs.MSG_CHROMEVOX_ENTER_GROUP_EXPLORATION = goog.getMsg('Exploring groups');
+
+/**
+ * @desc A message displayed at the top of PDF files where text has
+ * been automatically extracted for accessibility. Please leave %URL%
+ * alone, it will be substituted.
+ */
+msgs.MSG_CHROMEVOX_PDF_HEADER = goog.getMsg('This page contains the text automatically extracted from the PDF file <b>{$filename}</b>. <a href=%URL%>Click here for the original.</a>', {'filename': '$1'});
+
+/**
+ * @desc A message spoken when the user switches to the object granularity,
+ * which allows users to navigate the page by objects.
+ */
+msgs.MSG_CHROMEVOX_OBJECT_STRATEGY = goog.getMsg('Object');
+
+/**
+ * @desc A message spoken when the user switches to the group granularity,
+ * which allows users to navigate the page by groups.
+ */
+msgs.MSG_CHROMEVOX_GROUP_STRATEGY = goog.getMsg('Group');
+
+/**
+ * @desc A message spoken when the user switches to a custom granularity,
+ * which allows users to navigate in a yet-to-be-defined manner.
+ */
+msgs.MSG_CHROMEVOX_CUSTOM_STRATEGY = goog.getMsg('Custom');
+
+/**
+ * @desc A message spoken when the user switches to the sentence granularity,
+ * which allows users to navigate the page one sentence at a time.
+ */
+msgs.MSG_CHROMEVOX_SENTENCE_GRANULARITY = goog.getMsg('Sentence');
+
+/**
+ * @desc A message spoken when the user switches to the word granularity,
+ * which allows users to navigate the page one word at a time.
+ */
+msgs.MSG_CHROMEVOX_WORD_GRANULARITY = goog.getMsg('Word');
+
+/**
+ * @desc A message spoken when the user switches to the character granularity,
+ * which allows users to navigate the page one character at a time.
+ */
+msgs.MSG_CHROMEVOX_CHARACTER_GRANULARITY = goog.getMsg('Character');
