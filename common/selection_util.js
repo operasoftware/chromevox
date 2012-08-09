@@ -215,38 +215,22 @@ cvox.SelectionUtil.isRangeValid = function(range) {
 };
 
 /**
- * Computes either scrollTop or scrollLeft.
- * For simplicity, this function used vertical language, but works in both
- * directions.
- * @param {number} focusTop The top of focusNode's bounding rect.
- * @param {number} focusBottom The bottom of focusNode's bounding rect.
- * @param {number} parentScrollTop The scrollTop value of parent.
- * @param {number} parentTop The top of the parent's bounding rect.
- * @param {number} parentBottom The bottom of the parent's bounding rect.
- * @return {number} A new value for the paren't scrollTop.
+ * Returns absolute top and left positions of an element.
+ *
+ * @param {!Node} node The element for which to compute the position.
+ * @return {Array.<number>} Index 0 is the left; index 1 is the top.
+ * @private
  */
-cvox.SelectionUtil.computeScrollTop = function(
-    focusTop, focusBottom,
-    parentScrollTop, parentTop, parentBottom) {
-  var isTopAboveParent = focusTop < parentTop;
-  var isBottomBelowParent = focusBottom > parentBottom;
-
-  var focusHeight = focusBottom - focusTop;
-  var parentHeight = parentBottom - parentTop;
-
-  // Four cases.
-
-  if (isTopAboveParent && !isBottomBelowParent) {
-    // 1. The top is above. Move the top down to the parent's top.
-    return parentScrollTop + focusTop - parentTop;
-  } else if (!isTopAboveParent && isBottomBelowParent) {
-    // 2. The bottom is below.  Move the bottom up to the parent's bottom.
-    return parentScrollTop + focusBottom - parentBottom;
+cvox.SelectionUtil.findPos_ = function(node) {
+  var curLeft = 0;
+  var curTop = 0;
+  if (node.offsetParent) {
+    do {
+      curLeft += node.offsetLeft;
+      curTop += node.offsetTop;
+    } while (node = node.offsetParent);
   }
-  // Two cases where we do nothing:
-  // 3. The parentNode is focused on and smaller than the focus.
-  // 4. The focus is entired contained in the parentNode.
-  return parentScrollTop;
+  return [curLeft, curTop];
 };
 
 /**
@@ -262,31 +246,20 @@ cvox.SelectionUtil.scrollElementsToView = function(focusNode) {
     return;
   }
 
-  var focusBoundingRect = focusNode.getBoundingClientRect();
-
-  // Walk up the DOM, adjusting the parentNode each time.
+  // Walk up the DOM, ensuring each element is visible inside its parent.
   var node = focusNode;
   var parentNode = node.parentElement;
   while (node != document.body && parentNode) {
-    var parentBoundingRect = parentNode.getBoundingClientRect();
-
-    parentNode.scrollTop = cvox.SelectionUtil.computeScrollTop(
-        focusBoundingRect.top,
-        focusBoundingRect.bottom,
-        parentNode.scrollTop,
-        parentBoundingRect.top,
-        parentBoundingRect.bottom);
-
-    parentNode.scrollLeft = cvox.SelectionUtil.computeScrollTop(
-        focusBoundingRect.left,
-        focusBoundingRect.right,
-        parentNode.scrollLeft,
-        parentBoundingRect.left,
-        parentBoundingRect.right);
-
+    node.scrollTop = node.offsetTop;
+    node.scrollLeft = node.offsetLeft;
     node = parentNode;
     parentNode = node.parentElement;
   }
+
+  // Center the active element on the page once we know it's visible.
+  var pos = cvox.SelectionUtil.findPos_(focusNode);
+  window.scrollTo(pos[0] - window.innerWidth / 2,
+                  pos[1] - window.innerHeight / 2);
 };
 
 /**

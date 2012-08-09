@@ -23,6 +23,7 @@ goog.provide('cvox.LiveRegions');
 
 goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
 goog.require('cvox.NavDescription');
 
@@ -170,9 +171,9 @@ cvox.LiveRegions.updateLiveRegion = function(region, queueMode, disableSpeak) {
   // and just speak any additions (which includes changed nodes).
   var messages = [];
   if (additions.length == 0 && removals.length > 0) {
-    messages = [new cvox.NavDescription(
-        cvox.ChromeVox.msgs.getMsg('live_regions_removed'),
-        '', '', '', [])].concat(removals);
+    messages = [new cvox.NavDescription({
+      context: cvox.ChromeVox.msgs.getMsg('live_regions_removed')
+    })].concat(removals);
   } else {
     messages = additions;
   }
@@ -213,8 +214,8 @@ cvox.LiveRegions.updateLiveRegion = function(region, queueMode, disableSpeak) {
 cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   if (cvox.AriaUtil.getAriaAtomic(node) ||
       cvox.DomUtil.isLeafNode(node)) {
-    var description = cvox.DomUtil.getDescriptionFromAncestors([node], true,
-        cvox.ChromeVox.verbosity);
+    var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
+        [node], true, cvox.ChromeVox.verbosity);
     if (!description.isEmpty()) {
       return [description];
     } else {
@@ -225,8 +226,8 @@ cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   var result = [];
 
   // Start with the description of this node.
-  var description = cvox.DomUtil.getDescriptionFromAncestors([node], false,
-      cvox.ChromeVox.verbosity);
+  var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
+      [node], false, cvox.ChromeVox.verbosity);
   if (!description.isEmpty()) {
     result.push(description);
   }

@@ -21,10 +21,40 @@
 
 goog.provide('cvox.ChromeVox');
 
-goog.require('cvox.AbstractHost');
-goog.require('cvox.AbstractLens');
-goog.require('cvox.AbstractMsgs');
-goog.require('cvox.TtsInterface');
+// Forward declarations.
+// TODO (stoarca): Put these in a separate file and pass that
+// into the build system instead of having it here. This will allow
+// us to group all of the forward declarations for each file without
+// having them overwrite the mapping in deps.js
+goog.addDependency(
+    '../host/interface/abstract_host.js',
+    ['cvox.AbstractHost'],
+    []);
+
+goog.addDependency(
+    '../host/interface/tts_interface.js',
+    ['cvox.TtsInterface'],
+    []);
+
+goog.addDependency(
+    '../host/interface/abstract_msgs.js',
+    ['cvox.AbstractMsgs'],
+    []);
+
+goog.addDependency(
+    '../host/interface/abstract_lens.js',
+    ['cvox.AbstractLens'],
+    []);
+
+goog.addDependency(
+    '../host/interface/abstract_earcons.js',
+    ['cvox.AbstractEarcons'],
+    []);
+
+goog.addDependency(
+    '../chromevox/injected/navigation_manager.js',
+    ['cvox.ChromeVoxNavigationManager'],
+    []);
 
 // Constants
 /**
@@ -71,11 +101,11 @@ cvox.ChromeVox.isActive = true;
  */
 cvox.ChromeVox.version = null;
 /**
- * @type {Object}
+ * @type {cvox.AbstractEarcons}
  */
 cvox.ChromeVox.earcons = null;
 /**
- * @type {Object}
+ * @type {cvox.ChromeVoxNavigationManager}
  */
 cvox.ChromeVox.navigationManager = null;
 /**
@@ -137,12 +167,6 @@ cvox.ChromeVox.markInUserCommand = function() {};
  */
 cvox.ChromeVox.syncToNode = function(
     targetNode, speakNode, opt_queueMode) {};
-
-/**
- * Process PDFs created with Chrome's built-in PDF plug-in, which has an
- * accessibility hook.
- */
-cvox.ChromeVox.processEmbeddedPdfs = function() {};
 
 /**
  * Provide a way for modules that can't depend on cvox.ChromeVoxUserCommands

@@ -20,7 +20,6 @@
 
 goog.provide('cvox.WalkerDecorator');
 
-goog.require('cvox.AbstractWalker');
 goog.require('cvox.ChromeVoxJSON');
 
 
@@ -57,38 +56,43 @@ cvox.WalkerDecorator.prototype.getIsInclusive = function() {
 };
 
 /**
- * Decorates the walker with filtering previous and next.
- * @param {!cvox.AbstractWalker} walker The walker to decorate.
+ * Decorates a walker's movement with filtering.
+ * @param {!cvox.AbstractWalker} walker The walker.
  */
 cvox.WalkerDecorator.prototype.decorate = function(walker) {
-  walker.next = this.filteredMove(walker, walker.next);
-  walker.previous = this.filteredMove(walker, walker.previous);
+  walker.next = this.filteredMove_(walker, walker.next);
 };
 
 /**
- * Decorates the walker's movement with filtering.
+ * Returns a method that decorates the original method with filtering.
  * @param {!cvox.AbstractWalker} walker The walker owning movement.
- * @param {function(): Node} original The walker's original method.
- * @return {function(): Node} Filter enhanced method.
+ * @param {function(!cvox.CursorSelection): cvox.CursorSelection} original
+ * The walker's original method.
+ * @return {function(!cvox.CursorSelection): cvox.CursorSelection} Filter
+ * enhanced method.
+ * @private
  */
-cvox.WalkerDecorator.prototype.filteredMove = function(walker, original) {
-  var context = this;
-  var newFunction = function() {
-    var newNode = original.call(walker);
-    while (newNode &&
-        context.matchesFilter(walker.currentNode) != context.getIsInclusive()) {
-      newNode = original.call(walker);
+cvox.WalkerDecorator.prototype.filteredMove_ =
+    function(walker, original) {
+  return goog.bind(function(sel) {
+    var ret = original.call(walker, sel);
+    while (ret &&
+           ret != sel &&
+           this.matchesFilter(ret.start.node) != this.getIsInclusive()) {
+      ret = original.call(walker, ret);
     }
-    return newNode;
-  };
-  return newFunction;
+    return ret;
+  }, this);
 };
 
 /**
  * Adds a query selector to filter when walking.
- * @param {string} filter The selector to add.
+ * @param {?string} filter The selector to add.
  */
 cvox.WalkerDecorator.prototype.addFilter = function(filter) {
+  if (filter == null) {
+    return;
+  }
   if (this.filters.indexOf(filter) == -1) {
     this.filters.push(filter);
     this.saveToLocalStorage();
@@ -97,10 +101,13 @@ cvox.WalkerDecorator.prototype.addFilter = function(filter) {
 
 /**
  * Removes a query selector to filter when walking.
- * @param {string} filter The selector to remove.
+ * @param {?string} filter The selector to remove.
  * @return {boolean} true if the filter was removed.
  */
 cvox.WalkerDecorator.prototype.removeFilter = function(filter) {
+  if (filter == null) {
+    return false;
+  }
   var success = false;
   for (var i = 0; i < this.filters.length; ++i) {
     if (filter == this.filters[i]) {
@@ -194,11 +201,13 @@ cvox.WalkerDecorator.prototype.reinitialize = function(filterMap) {
  * @return {?string} The filter for the node.
  */
 cvox.WalkerDecorator.filterForNode = function(node) {
-  if (!node || !cvox.DomUtil.hasContent(node))
+  if (!node || !cvox.DomUtil.hasContent(node)) {
     return null;
+  }
 
-  while (!node.tagName)
+  while (!node.tagName) {
     node = node.parentNode;
+  }
 
   if (node.className) {
     var classes = node.className.trim().split(' ');

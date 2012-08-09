@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,16 @@
 // limitations under the License.
 
 /**
+ * TODO(stoarca): This class has become obsolete except for the shadow table.
+ * Chop most of it away.
  * @fileoverview A DOM traversal interface for navigating data in tables.
  * @author rshearer@google.com (Rachel Shearer)
  */
 
 goog.provide('cvox.TraverseTable');
 
+goog.require('cvox.DomPredicates');
+goog.require('cvox.DomUtil');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TableUtil');
 goog.require('cvox.TraverseUtil');
@@ -217,11 +221,18 @@ cvox.TraverseTable.prototype.tableRowHeaders = null;
 cvox.TraverseTable.prototype.tableColHeaders = null;
 
 
+// TODO (stoarca): tighten up interface to {!Node}
 /**
  * Initializes the class member variables.
  * @param {Node} tableNode The table to be traversed.
  */
 cvox.TraverseTable.prototype.initialize = function(tableNode) {
+  if (!tableNode) {
+    return;
+  }
+  if (tableNode == this.activeTable_) {
+    return;
+  }
   this.activeTable_ = tableNode;
   this.currentCellCursor = null;
 
@@ -235,25 +246,66 @@ cvox.TraverseTable.prototype.initialize = function(tableNode) {
 
   this.findHeaderCells_();
 
-  var self = this;
   // Listen for changes to the active table. If the active table changes,
   // rebuild the shadow table.
+  // TODO (stoarca): Is this safe? When this object goes away, doesn't the
+  // eventListener stay on the node? Someone with better knowledge of js
+  // please confirm. If so, this is a leak.
   this.activeTable_.addEventListener('DOMSubtreeModified',
-      function() {
-        self.buildShadowTable_();
-        self.colCount = self.shadowColCount_();
-        self.rowCount = self.countRows_();
+      goog.bind(function() {
+        this.buildShadowTable_();
+        this.colCount = this.shadowColCount_();
+        this.rowCount = this.countRows_();
 
-        self.tableRowHeaders = [];
-        self.tableColHeaders = [];
-        self.findHeaderCells_();
+        this.tableRowHeaders = [];
+        this.tableColHeaders = [];
+        this.findHeaderCells_();
 
-        if (self.getCell(self.currentCellCursor) == null) {
-          self.attachCursorToNearestCell_();
+        if (this.getCell(this.currentCellCursor) == null) {
+          this.attachCursorToNearestCell_();
         }
-      }, false);
+      }, this), false);
 };
 
+
+/**
+ * Finds the cell cursor containing the specified node within the table.
+ * Returns null if there is no close cell.
+ * @param {!Node} node The node for which to find the cursor.
+ * @return {Array.<number>} The table index for the node.
+ */
+cvox.TraverseTable.prototype.findNearestCursor = function(node) {
+  // TODO (stoarca): The current structure for representing the
+  // shadow table is not optimal for this query, but it's not urgent
+  // since this only gets executed at most once per user action.
+
+  // In case node is in a table but above any individual cell, we go down as
+  // deep as we can, being careful to avoid going into nested tables.
+  var n = node;
+
+  while (n.firstElementChild &&
+         !(n.firstElementChild.tagName == 'TABLE' ||
+           cvox.AriaUtil.isGrid(n.firstElementChild))) {
+    n = n.firstElementChild;
+  }
+  while (!cvox.DomPredicates.cellPredicate(cvox.DomUtil.getAncestors(n))) {
+    n = cvox.DomUtil.directedNextLeafNode(n);
+    if (!cvox.DomUtil.getContainingTable(n)) {
+      return null;
+    }
+  }
+  for (var i = 0; i < this.rowCount; ++i) {
+    for (var j = 0; j < this.colCount; ++j) {
+      if (this.shadowTable_[i][j]) {
+        if (cvox.DomUtil.isDescendantOfNode(
+            n, this.shadowTable_[i][j].activeCell)) {
+          return [i, j];
+        }
+      }
+    }
+  }
+  return null;
+};
 
 /**
  * Finds the valid cell nearest to the current cell cursor and moves the cell

@@ -28,6 +28,7 @@ goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
+goog.require('cvox.PdfProcessor');
 
 /**
  * @constructor
@@ -47,7 +48,10 @@ cvox.ChromeHost.prototype.init = function() {
   // TODO(deboer): This pattern is relatively painful since it
   // must be duplicated in all host.js files. It also causes odd
   // dependencies.
-  cvox.ExtensionBridge.addMessageListener(goog.bind(function(message) {
+  // TODO (stoarca): Not using goog.bind because for some reason it gets
+  // compiled to native code and not possible to debug.
+  var self = this;
+  var listener = function(message) {
       if (message['keyBindings']) {
         cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message['keyBindings']);
       }
@@ -60,11 +64,11 @@ cvox.ChromeHost.prototype.init = function() {
 
         cvox.ChromeVox.version = prefs['version'];
 
-        this.activateOrDeactivateChromeVox(prefs['active'] == 'true');
-        if (!this.gotPrefsAtLeastOnce_) {
+        self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
+        if (!self.gotPrefsAtLeastOnce_) {
           cvox.ChromeVox.speakInitialMessages();
         }
-        this.gotPrefsAtLeastOnce_ = true;
+        self.gotPrefsAtLeastOnce_ = true;
 
         if (cvox.ChromeVox.lens) {
           if (prefs['lensVisible'] == 'true' &&
@@ -87,17 +91,35 @@ cvox.ChromeHost.prototype.init = function() {
           cvox.ChromeVox.modKeyStr = prefs['cvoxKey'];
         }
 
+        var apiPrefsChanged = (
+            prefs['siteSpecificScriptLoader'] !=
+                cvox.ApiImplementation.siteSpecificScriptLoader ||
+            prefs['siteSpecificScriptBase'] !=
+                cvox.ApiImplementation.siteSpecificScriptBase);
         cvox.ApiImplementation.siteSpecificScriptLoader =
             prefs['siteSpecificScriptLoader'];
         cvox.ApiImplementation.siteSpecificScriptBase =
             prefs['siteSpecificScriptBase'];
+        if (apiPrefsChanged) {
+          cvox.ApiImplementation.init();
+        }
 
         if (prefs['filterMap']) {
-          cvox.ChromeVox.navigationManager.walkerDecorator.reinitialize(
+          cvox.ChromeVox.navigationManager.getFilteredWalker().reinitialize(
               prefs['filterMap']);
         }
       }
-    }, this));
+  };
+  cvox.ExtensionBridge.addMessageListener(listener);
+
+  cvox.ExtensionBridge.addMessageListener(function(msg, port) {
+    var message = msg['message'];
+    if (message == 'USER_COMMAND') {
+      var cmd = msg['command'];
+      // TODO(stoarca): Should whitelist commands.
+      cvox.ChromeVoxUserCommands.commands[cmd]();
+    }
+  });
 
   cvox.ExtensionBridge.send({
       'target': 'Prefs',
@@ -154,7 +176,7 @@ cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
 };
 
 cvox.ChromeHost.prototype.onPageLoad = function() {
-  cvox.ChromeVox.processEmbeddedPdfs();
+  cvox.PdfProcessor.processEmbeddedPdfs();
 
   cvox.ExtensionBridge.addDisconnectListener(goog.bind(function() {
     cvox.ChromeVox.isActive = false;
@@ -168,7 +190,7 @@ cvox.ChromeHost.prototype.sendToBackgroundPage = function(message) {
   cvox.ExtensionBridge.send(message);
 };
 
-cvox.ChromeHost.prototype.getApiSrc = function(message) {
+cvox.ChromeHost.prototype.getApiSrc = function() {
   return this.getFileSrc('chromevox/injected/api.js');
 };
 

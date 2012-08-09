@@ -21,7 +21,9 @@
 goog.provide('cvox.CssSpace');
 
 goog.require('cvox.ActiveIndicator');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.CssDimension');
+goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
 goog.require('cvox.SpokenMessages');
 
@@ -53,6 +55,12 @@ cvox.CssSpace.groups = [];
 cvox.CssSpace.rgbPattern = /^rgb[a]?\((\d+),\s*(\d+),\s*(\d+),?\s?(\d+)?/;
 
 /**
+ * @const
+*/
+cvox.CssSpace.HEADER_TAG_LIST =
+    ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+
+/**
  * Called to set-up our CSS vector space.
  * @param {Array.<cvox.CssDimension>} opt_dimensions Optional dimensions to
  * override defaults.
@@ -73,7 +81,7 @@ cvox.CssSpace.initializeSpace = function(opt_dimensions) {
         {name: 'deltaX', threshold: 50, distance: cvox.CssSpace.getDeltaX},
 
         /** A measure of vertical distance between two client rectangles. */
-        {name: 'deltaY', threshold: 20, distance: cvox.CssSpace.getDeltaY},
+        {name: 'deltaY', threshold: 10, distance: cvox.CssSpace.getDeltaY},
 
         /** A measure of common ancestry between two nodes. The threshold is the
          * percentage of levels to search (from one node to the root).
@@ -82,10 +90,10 @@ cvox.CssSpace.initializeSpace = function(opt_dimensions) {
          threshold: .5,
          distance: cvox.CssSpace.getCommonAncestry},
 
-        /** A measure of the difference in background color. */
-        {name: 'backgroundColor',
-         threshold: 10,
-         distance: cvox.CssSpace.getBackgroundColorDelta}
+        /** A boolean measure of breaking tags. */
+        {name: 'breakingTags',
+         threshold: 1,
+         distance: cvox.CssSpace.getBreakingTags}
        ];
 
   // Preprocessing stage: Flatten the DOM into an array excluding non-content
@@ -94,59 +102,81 @@ cvox.CssSpace.initializeSpace = function(opt_dimensions) {
   cvox.CssSpace.getFlattenedSubtree(document.body, flat);
 
   // Metrics and grouping stage: calculate distances and group.
-  // There is implicitly a flat.length by flat.length matrix that gets populated
-  // with distances between the node at (i, j).
-  // Only visit the upper triangular entries of the matrix as the matrix is
-  // symmetric.
   for (var i = 0; i < flat.length; ++i) {
-    for (var j = i + 1; j < flat.length; ++j) {
-      var start = flat[i];
-      var end = flat[j];
+    flat[i]['cvox-runtime-id'] = i;
 
-      // Nodes that exceed threshold on some dimension get skipped.
-      if (cvox.CssSpace.getDistance(start, end) == -1)
-        continue;
+    var start = flat[i];
+    var end = flat[i + 1];
 
-      // Assuming we get nodes in document order, we should not encounter this
-      // case. We may want to merge the two groups for this case in the future.
-      if (start['cvox-group'] && end['cvox-group'])
-        continue;
+    if (!end) {
+      end = start;
+      start = flat[i - 1];
+    }
 
-      if (start['cvox-group'] && start['cvox-group'].indexOf(end) == -1) {
-        // |Start| has been previously grouped, add |end| to the preexisting
-        // group.
-        start['cvox-group'].push(end);
-        end['cvox-group'] = start['cvox-group'];
-        end['cvox-runtime-id'] = j;
-      } else if (end['cvox-group'] && end['cvox-group'].indexOf(start) == -1) {
-        // |end| has been previously grouped, add |start| to the preexisting
-        // group.
-        end['cvox-group'].push(start);
-        start['cvox-group'] = end['cvox-group'];
-        start['cvox-runtime-id'] = i;
-      } else if (!start['cvox-group'] && !end['cvox-group']) {
-        // If neither node has been grouped, add them to one.
-        var group = [];
-        group.push(start);
-        group.push(end);
-
-        // Also, add back references.
-        start['cvox-group'] = group;
-        end['cvox-group'] = group;
-        start['cvox-runtime-id'] = i;
-        end['cvox-runtime-id'] = j;
-
-        cvox.CssSpace.groups.push(group);
+    // Nodes that exceed threshold on some dimension get skipped.
+    if (cvox.CssSpace.getDistance(start, end, true) == -1) {
+      if (!start['cvox-group']) {
+        var newGroup = [start];
+        start['cvox-group'] = newGroup;
+        cvox.CssSpace.groups.push(newGroup);
       }
+      if (!end['cvox-group']) {
+        var newGroup = [end];
+        end['cvox-group'] = newGroup;
+        cvox.CssSpace.groups.push(newGroup);
+      }
+      continue;
+    }
+
+    // Assuming we get nodes in document order, we should not encounter this
+    // case.
+    if (start['cvox-group'] && end['cvox-group'])
+      continue;
+
+    if (start['cvox-group']) {
+      // |Start| has been previously grouped, add |end| to the preexisting
+      // group.
+      start['cvox-group'].push(end);
+      end['cvox-group'] = start['cvox-group'];
+    } else if (!start['cvox-group'] && !end['cvox-group']) {
+      // If neither node has been grouped, add them to one.
+      var group = [];
+      group.push(start);
+      group.push(end);
+
+      // Also, add back references.
+      start['cvox-group'] = group;
+      end['cvox-group'] = group;
+
+      cvox.CssSpace.groups.push(group);
     }
   }
 
-  // Post processing: sort each group in document order.
-  // TODO(dtseng): Consider sorting the groups themselves.
+  // Don't try regrouping for small number of groups.
+  if (cvox.CssSpace.groups.length <= 10)
+    return;
+
+  // If there are lots of small groups, relax thresholds and re-initialize.
+  var sizeList = [];
   for (var g = 0; g < cvox.CssSpace.groups.length; ++g) {
-    cvox.CssSpace.groups[g].sort(function (node1, node2) {
-        return node1['cvox-runtime-id'] - node2['cvox-runtime-id'];
-      });
+    sizeList.push(cvox.CssSpace.groups[g].length);
+  }
+  sizeList.sort(function(n1, n2) {
+    return n1 - n2;
+  });
+
+  var len = sizeList.length;
+  var medianIndex = Math.floor(len / 2);
+  if (cvox.CssSpace.groups.length == 0 || sizeList[medianIndex] <= 1) {
+    cvox.CssSpace.uninitializeSpace();
+
+    // Zoom out by increasing our thresholds.
+    for (var dim = 0; dim < 2; ++dim) {
+      cvox.CssSpace.dimensions[dim].threshold +=
+        4 * cvox.CssSpace.dimensions[dim].threshold;
+    }
+
+    cvox.CssSpace.initializeSpace(cvox.CssSpace.dimensions);
   }
 };
 
@@ -154,6 +184,11 @@ cvox.CssSpace.initializeSpace = function(opt_dimensions) {
  * Uninitialize this space.
  */
 cvox.CssSpace.uninitializeSpace = function() {
+  for (var g = 0; g < cvox.CssSpace.groups.length; ++g) {
+    for (var i = 0; i < cvox.CssSpace.groups[g].length; ++i)
+      delete cvox.CssSpace.groups[g][i]['cvox-group'];
+  }
+
   cvox.CssSpace.groups = [];
   cvox.CssSpace.currentGroup_ = 0;
   cvox.CssSpace.currentGroupItem_ = 0;
@@ -162,18 +197,36 @@ cvox.CssSpace.uninitializeSpace = function() {
 /**
  * Flattens a tree structure.
  * TODO(dtseng): Probably belongs in dom_util.js.
- * @param {Element} startingNode The root of the tree to flatten.
+ * @param {Element} node The root of the tree to flatten.
  * @param {Array} collection The receiver of the flattened tree.
  */
-cvox.CssSpace.getFlattenedSubtree = function(startingNode, collection) {
-  // Exclude container nodes.
-  if (startingNode.childElementCount == 0 &&
-      cvox.DomUtil.hasContent(startingNode)) {
-    collection.push(startingNode);
+cvox.CssSpace.getFlattenedSubtree = function(node, collection) {
+  if (node.getBoundingClientRect().left < 0 ||
+      node.getBoundingClientRect().top < 0) {
+    return;
   }
 
-  for (var i = 0; i < startingNode.children.length; ++i) {
-    cvox.CssSpace.getFlattenedSubtree(startingNode.children[i], collection);
+  // Always add these nodes and skip their descendants. The idea is to gather
+  // nodes that have a good bounding box; leverage existing smart groups for
+  // this.
+  // TODO (stoarca): cyclic dependency! This is not the right way to reuse code!
+  if ((node.tagName == 'P' ||
+      cvox.ChromeVox.navigationManager.navShifter_.
+          groupWalker_.stopNodeDescent(node)) &&
+      cvox.DomUtil.hasContent(node)) {
+    collection.push(node);
+    return;
+  }
+
+  // Exclude container nodes.
+  if (node.childElementCount == 0 &&
+      cvox.DomUtil.hasContent(node)) {
+    collection.push(node);
+    return;
+  }
+
+  for (var i = 0; i < node.children.length; ++i) {
+    cvox.CssSpace.getFlattenedSubtree(node.children[i], collection);
   }
 };
 
@@ -181,10 +234,11 @@ cvox.CssSpace.getFlattenedSubtree = function(startingNode, collection) {
  * Calculates Euclidean distance based on the CSS location of the input nodes.
  * @param {Element} node1 A start position.
  * @param {Element} node2 An end position.
+ * @param {boolean} opt_strict Returns -1 when not meeting threshold.
  * @return {number} The distance between startingNode and endingNode; -1
  * if  any dimension does not fall within its dimensional threshold.
  */
-cvox.CssSpace.getDistance = function(node1, node2) {
+cvox.CssSpace.getDistance = function(node1, node2, opt_strict) {
   // The difference between the start and end vectors in our
   // cvox.CssSpace.dimensions.length space.
   var differenceTuple = [];
@@ -193,7 +247,7 @@ cvox.CssSpace.getDistance = function(node1, node2) {
     var measure = current.distance(node1, node2);
 
     // Return -1 if we are not within our threshold for this dimension.
-    if (measure > current.threshold || measure < 0)
+    if ((measure > current.threshold || measure < 0) && opt_strict)
       return -1;
 
     differenceTuple.push(measure);
@@ -238,6 +292,15 @@ cvox.CssSpace.getDeltaY = function(node1, node2) {
   var measure2 = Math.abs(rect2.bottom - rect1.top);
   var measure3 = Math.abs(rect1.top - rect2.top);
   var measure4 = Math.abs(rect1.bottom - rect2.bottom);
+
+  // Give headings an advantage when grouping.
+  if (cvox.CssSpace.HEADER_TAG_LIST.indexOf(node1.tagName) != -1) {
+    measure1 /= 5;
+    measure2 /= 5;
+    measure3 /= 5;
+    measure4 /= 5;
+  }
+
   return Math.min(measure1, measure2, measure3, measure4);
 };
 
@@ -331,6 +394,33 @@ cvox.CssSpace.getBackgroundColorDelta = function(node1, node2) {
 };
 
 /**
+ * A boolean measure of if two elements are close based on tagName.
+ * @param {Node} start A node earlier in doc order.
+ * @param {Node} end A node later in doc order.
+ * @return {number} The distance (-1 or 0).
+ */
+cvox.CssSpace.getBreakingTags = function(start, end) {
+  // End is the target of the break.
+  return cvox.CssSpace.isBreakingTag(end) &&
+      !cvox.CssSpace.isBreakingTag(start) ? -1 : 0;
+};
+
+/**
+ * Given a linearization of the DOM, these node tags signify the start of a new
+ * grouping.
+ * @param {Node} node The node to check.
+ * @return {boolean} Whether the node is a breaking tag.
+ */
+cvox.CssSpace.isBreakingTag = function(node) {
+  if (cvox.CssSpace.HEADER_TAG_LIST.indexOf(node.tagName) != -1 ||
+      node.tagName == 'TR') {
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * Difference in font-size between two nodes.
  * @param {!Node} node1 A node whose font size to use.
  * @param {!Node} node2 A node whose font size to use.
@@ -364,6 +454,90 @@ cvox.CssSpace.getCachedComputedStyle = function(node) {
 };
 
 /**
+ * Post processing to cluster orphaned nodes into groups.
+ * @param {Array.<Element>} flat The entire flattened DOM obtained from
+ * getFlattenedSubtree.
+ */
+cvox.CssSpace.postProcessOrphans = function(flat) {
+  // Cluster orphans by document order.
+  var currentGroup = 0;
+  for (var k = 0; k < flat.length; ++k) {
+    if (!flat[k]['cvox-group']) {
+      // Move forward (if possible) on breaking tags.
+      if (cvox.CssSpace.isBreakingTag(flat[k])) {
+        currentGroup =
+            currentGroup < cvox.CssSpace.groups.length - 1 ?
+                currentGroup + 1 : currentGroup;
+      }
+
+      // Pick either the current or the next group.
+      var nextGroup = currentGroup < cvox.CssSpace.groups.length - 1 ?
+          currentGroup + 1 : currentGroup;
+      var sample1 = cvox.CssSpace.groups[currentGroup][0];
+      var sample2 = cvox.CssSpace.groups[nextGroup][0];
+      if (cvox.CssSpace.getDistance(flat[k], sample1, false) >
+          cvox.CssSpace.getDistance(flat[k], sample2, false)) {
+        currentGroup = nextGroup;
+      }
+
+      cvox.CssSpace.groups[currentGroup].push(flat[k]);
+      flat[k]['cvox-group'] = cvox.CssSpace.groups[currentGroup];
+    } else {
+      currentGroup = cvox.CssSpace.groups.indexOf(flat[k]['cvox-group']);
+    }
+  }
+};
+
+/**
+ * Post processing to flatten container elements.
+ */
+cvox.CssSpace.postProcessUnpackGroups = function() {
+  for (var g = 0; g < cvox.CssSpace.groups.length; ++g) {
+    cvox.CssSpace.unpackGroup_(cvox.CssSpace.groups[g]);
+  }
+};
+
+/**
+ * Unpacks a group by replacing its container elements with leaf children.
+ *
+ * @param {Array.<!Element>} group The group to unpack.
+ * @private
+ */
+cvox.CssSpace.unpackGroup_ = function(group) {
+  for (var item = 0; item < group.length; ++item) {
+    var unpacked = [];
+    cvox.CssSpace.unpack_(group[item], unpacked);
+    if (unpacked.length > 0) {
+      Array.prototype.splice.apply(group, [item, 1].concat(unpacked));
+    }
+  }
+};
+
+/**
+ * Unpacks a container node by replacing it with it's children.
+ *
+ * @param {!Element} item The item to unpack.
+ * @param {Array.<!Element>} unpacked The collection of items that have been
+ * unpacked.
+ * @private
+ */
+cvox.CssSpace.unpack_ = function(item, unpacked) {
+  if (cvox.DomUtil.isLeafNode(item) ||
+      item.tagName == 'TH' ||
+      item.tagName == 'TR' ||
+      item.tagName == 'LI' ||
+      item.tagName == 'A' ||
+      item.tagName == 'P') {
+    unpacked.push(item);
+    return;
+  }
+
+  for (var i = 0; i < item.children.length; ++i) {
+    cvox.CssSpace.unpack_(item.children[i], unpacked);
+  }
+};
+
+/**
  * Enters group exploration.
  */
 cvox.CssSpace.enterExploration = function() {
@@ -394,63 +568,56 @@ cvox.CssSpace.handleGroupExploration = function(evt) {
     return true;
 
   switch (evt.keyCode) {
-    case 13: // enter
-      cvox.ChromeVox.syncToNode(
-          groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_],
-              true);
-      speakGroup = false;
-      cvox.CssSpace.exitExploration();
-      evt.preventDefault();
-      evt.stopPropagation();
-      return true;
-    case 37: // left
+    case 38: // up
       speakGroup = true;
       cvox.CssSpace.currentGroupItem_ = 0;
       cvox.CssSpace.currentGroup_ =
           cvox.CssSpace.currentGroup_ > 0 ? cvox.CssSpace.currentGroup_ - 1 : 0;
       break;
-    case 38: // up
+    case 37: // left
       speakItem = true;
       cvox.CssSpace.currentGroupItem_ = cvox.CssSpace.currentGroupItem_ ?
           cvox.CssSpace.currentGroupItem_ - 1 : 0;
+      speakGroup = false;
       break;
-    case 39: // right
+    case 40: // down
       speakGroup = true;
       cvox.CssSpace.currentGroupItem_ = 0;
       cvox.CssSpace.currentGroup_ =
           cvox.CssSpace.currentGroup_ < groups.length - 1 ?
               cvox.CssSpace.currentGroup_ + 1 : groups.length - 1;
       break;
-    case 40: // down
+    case 39: // right
       speakItem = true;
       cvox.CssSpace.currentGroupItem_ =
           cvox.CssSpace.currentGroupItem_ ==
               groups[cvox.CssSpace.currentGroup_].length - 1 ?
                   cvox.CssSpace.currentGroupItem_ :
                       cvox.CssSpace.currentGroupItem_ + 1;
+      speakGroup = false;
       break;
     default:
-      speakGroup = false;
+      cvox.CssSpace.exitExploration();
+      return true;
   }
 
+  cvox.ChromeVox.syncToNode(
+      groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_],
+      false);
+
   if (speakGroup) {
+    cvox.ChromeVox.tts.stop();
     var MAX_SPOKEN_NODES = 20;
     var indicateNodes = [];
-    var spokenSet = {};
     for (var i = 0;
          i < groups[cvox.CssSpace.currentGroup_].length && i < MAX_SPOKEN_NODES;
          ++i) {
       indicateNodes.push(groups[cvox.CssSpace.currentGroup_][i]);
 
-      var description = '';
-      if (groups[cvox.CssSpace.currentGroup_][i])
-        description =
-            cvox.DomUtil.getName(groups[cvox.CssSpace.currentGroup_][i]);
-
-      // Do not speak identical or empty sounding items.
-      if (description && !spokenSet[description]) {
-        cvox.ChromeVox.tts.speak(description, i == 0 ? 0 : 1);
-        spokenSet[description] = true;
+      if (groups[cvox.CssSpace.currentGroup_][i]) {
+        cvox.DescriptionUtil.getControlDescription(
+            groups[cvox.CssSpace.currentGroup_][i])
+            .speak(cvox.AbstractTts.QUEUE_MODE_QUEUE);
       }
     }
 
@@ -465,9 +632,13 @@ cvox.CssSpace.handleGroupExploration = function(evt) {
     evt.preventDefault();
     evt.stopPropagation();
   } else if (speakItem) {
-    cvox.DomUtil.getControlDescription(
-        groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_])
-            .speak(cvox.AbstractTts.QUEUE_MODE_FLUSH);
+    var currentItem =
+        groups[cvox.CssSpace.currentGroup_][cvox.CssSpace.currentGroupItem_];
+
+    cvox.ChromeVox.tts.stop();
+    cvox.DescriptionUtil.getControlDescription(currentItem)
+    .speak(cvox.AbstractTts.QUEUE_MODE_FLUSH);
   }
+
   return false;
 };

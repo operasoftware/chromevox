@@ -23,6 +23,7 @@ goog.provide('cvox.ChromeVoxPrefs');
 
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ExtensionBridge');
+goog.require('cvox.KeyMap');
 goog.require('cvox.KeyUtil');
 
 
@@ -38,10 +39,19 @@ cvox.ChromeVoxPrefs = function() {
     lastRunVersion = '1.16.0';
   }
   var loadExistingSettings = true;
+  // TODO(dtseng): Logic below needs clarification. Perhaps needs a
+  // 'lastIncompatibleVersion' member.
   if (lastRunVersion == '1.16.0') {
     loadExistingSettings = false;
   }
   localStorage['lastRunVersion'] = chrome.app.getDetails().version;
+
+  /**
+   * The current mapping from keys to command.
+   * @type {!cvox.KeyMap}
+   * @private
+   */
+  this.keyMap_ = cvox.KeyMap.fromLocalStorage() || cvox.KeyMap.fromDefaults();
   this.init(loadExistingSettings);
 };
 
@@ -63,22 +73,12 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
       'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
-  'filterMap': '{}'
+  'filterMap': '{}',
+  // TODO(dtseng): Leaking state about multiple key maps here until we have a
+  // class to manage multiple key maps. Also, this doesn't belong as a pref;
+  // should just store in local storage.
+  'currentKeyMap' : cvox.KeyMap.DEFAULT_KEYMAP
 };
-
-
-/**
- * The current mapping from keys to an array of [command, description].
- * @type {Object.<Array.<string>>}
- */
-cvox.ChromeVoxPrefs.prototype.keyMap;
-
-
-/**
- * A reverse mapping from command to key binding.
- * @type {Object.<string,string>}
- */
-cvox.ChromeVoxPrefs.prototype.nameToKeyMap;
 
 
 /**
@@ -88,324 +88,30 @@ cvox.ChromeVoxPrefs.prototype.nameToKeyMap;
  * storage. True if we want to respect changes the user has already made
  * to prefs, false if we want to overwrite them. Set false if we've made
  * changes to keyboard shortcuts and need to make sure they aren't
- * overridden by the keymap in local storage.
+ * overridden by the old keymap in local storage.
  */
 cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
   // Set the default value of any pref that isn't already in localStorage.
-  for (var key in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
-    if (localStorage[key] === undefined) {
-      localStorage[key] = cvox.ChromeVoxPrefs.DEFAULT_PREFS[key];
+  for (var pref in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
+    if (localStorage[pref] === undefined) {
+      localStorage[pref] = cvox.ChromeVoxPrefs.DEFAULT_PREFS[pref];
     }
   }
-  // Set the default modifier key if isn't already in localStorage.
-  if (localStorage['cvoxKey'].length < 1) {
-    this.resetModifier_();
-  }
-
-  // Try to intelligently merge the key maps; any new command that isn't
-  // already in the key map should get added, unless there's a key conflict.
-  // If we're pulling from local storage, get the current key map from
-  // localStorage.
-  if (pullFromLocalStorage) {
-    try {
-      var currentKeyMap = JSON.parse(localStorage['keyBindings']);
-    } catch (e) {
-      var currentKeyMap = {};
-    }
-  } else {
-    var currentKeyMap = {};
-  }
-
-  // Create a reverse map, from command to key.
-  var currentReverseMap = {};  // Map from command to key
-  for (var key in currentKeyMap) {
-    var command = currentKeyMap[key][0];
-    currentReverseMap[command] = key;
-    // The sticky key is currently not configurable,
-    // so we should not read in any keys that are saved for it.
-    if (command == 'toggleStickyMode') {
-      delete currentKeyMap[key];
-      delete currentReverseMap[command];
-    }
-  }
-
-  // Now merge the default keyMap.
-  var defaultKeyMap = this.createDefaultKeyMap();
-  for (var key in defaultKeyMap) {
-    var command = defaultKeyMap[key][0];
-    if (currentReverseMap[command] === undefined &&
-        currentKeyMap[key] === undefined) {
-      currentKeyMap[key] = defaultKeyMap[key];
-    } else if (currentReverseMap[command] === undefined) {
-      var undefinedIndex = 1;
-      while (currentKeyMap['Undefined' + undefinedIndex] !== undefined) {
-        undefinedIndex++;
-      }
-      currentKeyMap['Undefined' + undefinedIndex] = defaultKeyMap[key];
-    }
-  }
-
-  // Now set the keyMap and write it back to localStorage.
-  this.keyMap = /** @type {Object.<Array.<string>>} */(currentKeyMap);
-
-  this.saveKeyMap();
 };
 
-
 /**
- * Create and return the default key map.
- * @return {Object.<Array.<string>>} The default key map.
- */
-cvox.ChromeVoxPrefs.prototype.createDefaultKeyMap = function() {
-  var mod1 = 'Cvox';
-  /** Alias getMsg as msg. */
-  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
-
-  var keyMap = {};
-
-  keyMap['Ctrl+'] = ['stopSpeech', msg('stop_speech_key')]; // Cvox
-
-  // Double tap the sticky key to toggle sticky mode.
-  var stickyKeyName =
-      cvox.KeyUtil.getReadableNameForKeyCode(cvox.KeyUtil.getStickyKeyCode());
-  keyMap[(stickyKeyName + '>' + stickyKeyName + '+')] =
-      ['toggleStickyMode', msg('toggle_sticky_mode')];
-
-  // Turning on prefix key
-  keyMap[('Ctrl+Z')] = ['toggleKeyPrefix', msg('toggle_key_prefix')];
-
-  // TAB/Shift+TAB
-  keyMap['#9'] = ['handleTab', msg('handle_tab_next')]; // Tab
-  keyMap['Shift+#9'] = ['handleTab', msg('handle_tab_prev')];
-
-  // Basic navigation
-  keyMap[(mod1 + '+#38')] = ['backward', msg('backward')];
-  keyMap[(mod1 + '+#40')] = ['forward', msg('forward')];
-  keyMap[(mod1 + '+#37')] =
-      ['left', msg('left')];
-  keyMap[(mod1 + '+#39')] =
-      ['right', msg('right')];
-
-  keyMap['#37'] = ['skipBackward', msg('skip_backward')];
-  keyMap['#39'] = ['skipForward', msg('skip_forward')];
-
-  keyMap[(mod1 + '+#189')] =
-      ['previousGranularity', msg('previous_granularity')]; // -
-  keyMap[(mod1 + '+#187')] =
-      ['nextGranularity', msg('next_granularity')]; //+
-
-  keyMap[(mod1 + '+#32')] =
-      ['forceClickOnCurrentItem',
-      msg('force_click_on_current_item')]; // SPACE
-  // Read the URL
-  keyMap[(mod1 + '+U')] = ['readLinkURL', msg('read_link_url')];
-  // Read current page title
-  keyMap[(mod1 + '+C>T')] =
-      ['readCurrentTitle', msg('read_current_title')];
-  // Read current page URL
-  keyMap[(mod1 + '+C>U')] =
-      ['readCurrentURL', msg('read_current_url')];
-  // Start reading from current location
-  keyMap[(mod1 + '+R')] =
-      ['readFromHere', msg('read_from_here')];
-  // Announce the current position
-  keyMap[(mod1 + '+J')] = ['announcePosition', msg('announce_position')];
-  // Announce the current position with full path
-  keyMap[(mod1 + '+K')] = ['fullyDescribe', msg('fully_describe')];
-
-  // General commands
-  keyMap[(mod1 + '+#190')] =
-      ['showPowerKey', msg('show_power_key')]; // '.'
-  keyMap[(mod1)] =
-      ['hidePowerKey', msg('hide_power_key')]; // modifier
-  keyMap[(mod1 + '+H')] = ['help', msg('help')];
-  keyMap[(mod1 + '+I>F')] =
-  ['toggleFilteringWidget', msg('toggle_filtering_widget')];
-      keyMap[(mod1 + '+#191')] =
-      ['toggleSearchWidget', msg('toggle_search_widget')];    // '/'
-  keyMap[(mod1 + '+O>W')] =
-      ['showOptionsPage', msg('show_options_page')];
-  keyMap[(mod1 + '+O>K')] =
-      ['showKbExplorerPage', msg('show_kb_explorer_page')];
-  keyMap[(mod1 + '+A>A')] = ['toggleChromeVox', msg('toggle_chromevox_active')];
-
-  // TODO Assign a different shortcut when nextTtsEngine works.
-  //keyMap[(mod1 + '+N>A')] = ['nextTtsEngine', 'Switch to next TTS engine'];
-
-  keyMap[(mod1 + '+#186')] =
-      ['decreaseTtsPitch', msg('decrease_tts_pitch')]; // ';'
-  keyMap[(mod1 + '+#222')] =
-      ['increaseTtsPitch', msg('increase_tts_pitch')]; // '''
-
-  keyMap[(mod1 + '+#219')] =
-      ['decreaseTtsRate', msg('decrease_tts_rate')]; // '['
-  keyMap[(mod1 + '+#221')] =
-      ['increaseTtsRate', msg('increase_tts_rate')]; // ']'
-
-  // Lens
-  keyMap[(mod1 + '+M>E')] =
-      ['showLens', msg('show_lens')]; //'M' > 'E'
-  keyMap[(mod1 + '+M>#8')] =
-      ['hideLens', msg('hide_lens')]; // 'M' > 'Backspace'
-  keyMap[(mod1 + '+M>M')] =
-      ['toggleLens', msg('toggle_lens')]; // 'M' > 'M'
-  keyMap[(mod1 + '+M>A')] =
-      ['anchorLens', msg('anchor_lens')]; //'M' > 'A'
-  keyMap[(mod1 + '+M>F')] =
-      ['floatLens', msg('float_lens')]; // 'M' > 'F'
-
-  // List commands
-  keyMap[(mod1 + '+L>F')] =
-      ['showFormsList', msg('show_forms_list')]; //'L' > 'F'
-  keyMap[(mod1 + '+L>H')] =
-      ['showHeadingsList', msg('show_headings_list')]; //'L' > 'H'
-  keyMap[(mod1 + '+L>J')] =
-      ['showJumpsList', msg('show_jumps_list')]; //'L' > 'J'
-  keyMap[(mod1 + '+L>L')] =
-      ['showLinksList', msg('show_links_list')]; //'L' > 'L'
-  keyMap[(mod1 + '+L>T')] =
-      ['showTablesList', msg('show_tables_list')]; //'L' > 'T'
-  keyMap[(mod1 + '+L>#186')] =
-      ['showLandmarksList',
-      msg('show_landmarks_list')]; //'L' > ';'
-
-  // Mode commands
-  keyMap[(mod1 + '+T>E')] =
-      ['toggleTable', msg('toggle_table')]; //'T' > 'E'
-
-  keyMap[(mod1 + '+T>H')] =
-      ['announceHeaders', msg('announce_headers')]; // T > H
-  keyMap[(mod1 + '+T>L')] =
-      ['speakTableLocation', msg('speak_table_location')]; // T > L
-
-  keyMap[(mod1 + '+T>R')] =
-      ['guessRowHeader', msg('guess_row_header')];
-  // T > R
-  keyMap[(mod1 + '+T>C')] =
-      ['guessColHeader', msg('guess_col_header')]; // T > L
-
-  keyMap[(mod1 + '+T>#219')] =
-      ['skipToBeginning', msg('skip_to_beginning')]; // 'T' > '['
-  keyMap[(mod1 + '+T>#221')] =
-      ['skipToEnd', msg('skip_to_end')]; // 'T' > ']'
-
-  keyMap[(mod1 + '+T>#186')] =
-      ['skipToRowBeginning', msg('skip_to_row_beginning')]; // 'T' > ';'
-  keyMap[(mod1 + '+T>#222')] =
-      ['skipToRowEnd', msg('skip_to_row_end')]; // 'T' > '''
-
-  keyMap[(mod1 + '+T>#188')] =
-      ['skipToColBeginning', msg('skip_to_col_beginning')];
-  keyMap[(mod1 + '+T>#190')] =
-      ['skipToColEnd', msg('skip_to_col_end')]; // 'T' > '.'
-
-  // Jump commands
-  keyMap[(mod1 + '+N>1')] = ['nextHeading1', msg('next_heading1')];
-  keyMap[(mod1 + '+P>1')] =
-      ['previousHeading1', msg('previous_heading1')];
-  keyMap[(mod1 + '+N>2')] = ['nextHeading2', msg('next_heading2')];
-  keyMap[(mod1 + '+P>2')] =
-      ['previousHeading2', msg('previous_heading2')];
-  keyMap[(mod1 + '+N>3')] = ['nextHeading3', msg('next_heading3')];
-  keyMap[(mod1 + '+P>3')] =
-      ['previousHeading3', msg('previous_heading3')];
-  keyMap[(mod1 + '+N>4')] = ['nextHeading4', msg('next_heading4')];
-  keyMap[(mod1 + '+P>4')] =
-      ['previousHeading4', msg('previous_heading4')];
-  keyMap[(mod1 + '+N>5')] = ['nextHeading5', msg('next_heading5')];
-  keyMap[(mod1 + '+P>5')] =
-      ['previousHeading5', msg('previous_heading5')];
-  keyMap[(mod1 + '+N>6')] = ['nextHeading6', msg('next_heading6')];
-  keyMap[(mod1 + '+P>6')] =
-      ['previousHeading6', msg('previous_heading6')];
-  keyMap[(mod1 + '+N>A')] = ['nextAnchor', msg('next_anchor')];
-  keyMap[(mod1 + '+P>A')] =
-      ['previousAnchor', msg('previous_anchor')];
-  keyMap[(mod1 + '+N>C')] =
-      ['nextComboBox', msg('next_combo_box')];
-  keyMap[(mod1 + '+P>C')] =
-      ['previousComboBox', msg('previous_combo_box')];
-  keyMap[(mod1 + '+N>D')] =
-      ['nextDifferentElement', 'next different element'];
-  keyMap[(mod1 + '+P>D')] =
-      ['previousDifferentElement', 'previous different element'];
-  keyMap[(mod1 + '+N>E')] =
-      ['nextEditText', msg('next_edit_text')];
-  keyMap[(mod1 + '+P>E')] =
-      ['previousEditText', msg('previous_edit_text')];
-  keyMap[(mod1 + '+N>F')] =
-      ['nextFormField', msg('next_form_field')];
-  keyMap[(mod1 + '+P>F')] =
-      ['previousFormField', msg('previous_form_field')];
-  keyMap[(mod1 + '+N>G')] = ['nextGraphic', msg('next_graphic')];
-  keyMap[(mod1 + '+P>G')] =
-      ['previousGraphic', msg('previous_graphic')];
-  keyMap[(mod1 + '+N>H')] = ['nextHeading', msg('next_heading')];
-  keyMap[(mod1 + '+P>H')] =
-      ['previousHeading', msg('previous_heading')];
-  keyMap[(mod1 + '+N>I')] =
-      ['nextListItem', msg('next_list_item')];
-  keyMap[(mod1 + '+P>I')] =
-      ['previousListItem', msg('previous_list_item')];
-  keyMap[(mod1 + '+N>J')] = ['nextJump', msg('next_jump')];
-  keyMap[(mod1 + '+P>J')] = ['previousJump', msg('previous_jump')];
-  keyMap[(mod1 + '+N>L')] = ['nextLink', msg('next_link')];
-  keyMap[(mod1 + '+P>L')] = ['previousLink', msg('previous_link')];
-  keyMap[(mod1 + '+N>O')] = ['nextList', msg('next_list')];
-  keyMap[(mod1 + '+P>O')] = ['previousList', msg('previous_list')];
-  keyMap[(mod1 + '+N>Q')] =
-      ['nextBlockquote', msg('next_blockquote')];
-  keyMap[(mod1 + '+P>Q')] =
-      ['previousBlockquote', msg('previous_blockquote')];
-  keyMap[(mod1 + '+N>R')] = ['nextRadio', msg('next_radio')];
-  keyMap[(mod1 + '+P>R')] =
-      ['previousRadio', msg('previous_radio')];
-  keyMap[(mod1 + '+N>S')] = ['nextSimilarElement', 'nextSimilarElement'];
-  keyMap[(mod1 + '+P>S')] =
-      ['previousSimilarElement', msg('previous_slider')];
-  keyMap[(mod1 + '+N>T')] = ['nextTable', msg('next_table')];
-  keyMap[(mod1 + '+P>T')] =
-      ['previousTable', msg('previous_table')];
-  keyMap[(mod1 + '+N>B')] = ['nextButton', msg('next_button')];
-  keyMap[(mod1 + '+P>B')] =
-      ['previousButton', msg('previous_button')];
-  keyMap[(mod1 + '+N>X')] = ['nextCheckbox', msg('next_checkbox')];
-  keyMap[(mod1 + '+P>X')] =
-      ['previousCheckbox', msg('previous_checkbox')];
-  keyMap[(mod1 + '+N>#186')] =
-      ['nextLandmark', msg('next_landmark')];  // ';'
-  keyMap[(mod1 + '+P>#186')] =
-      ['previousLandmark', msg('previous_landmark')];  // ';'
-  keyMap[(mod1 + '+B>B')] = ['benchmark', msg('benchmark')];
-  keyMap[(mod1 + '+B>F')] = ['readMacroFromHtml', 'Read macro from HTML'];
-
-  // TODO(deboer): Better keys and i18n.
-  keyMap[(mod1 + '+B>G')] = ['addMacroWriter', 'Add the macro writer to the page'];
-  keyMap[(mod1 + '+B>H')] = ['startHistoryRecording', 'Start history recording'];
-  keyMap[(mod1 + '+B>U')] = ['stopHistoryRecording', 'Stop history recording'];
-  keyMap[(mod1 + '+B>T')] = ['runTests',
-      'Run some basic tests using the current page'];
-  keyMap[(mod1 + '+B>C')] = ['enableConsoleTts',
-      'Write debugging TTS output to window.console'];
-
-  // Filtering commands.
-  keyMap[(mod1 + '+G')] = ['enterCssSpace', msg('enter_css_space')];
-  keyMap[(mod1 + '+I>I')] = ['filterLikeCurrentItem', msg('filter_item')];
-
-  return keyMap;
-};
-
-
-/**
- * Save the key map to localStorage, and update our reverse mapping.
- */
-cvox.ChromeVoxPrefs.prototype.saveKeyMap = function() {
-  this.nameToKeyMap = {};
-  for (var key in this.keyMap) {
-    var name = this.keyMap[key][0];
-    this.nameToKeyMap[name] = key;
-  }
-  localStorage['keyBindings'] = JSON.stringify(this.keyMap);
+ * Switches to another key map.
+ * @param {number} selectedKeyMap The index of the keymap in
+ * cvox.KeyMap.AVAIABLE_KEYMAP_INFO.
+*/
+cvox.ChromeVoxPrefs.prototype.switchToKeyMap = function(selectedKeyMap) {
+  // TODO(dtseng): Leaking state about multiple key maps here until we have a
+  // class to manage multiple key maps.
+  localStorage['currentKeyMap'] = selectedKeyMap;
+  this.keyMap_ = cvox.KeyMap.fromCurrentKeyMap();
+  this.keyMap_.toLocalStorage();
+  this.keyMap_.resetModifier();
+  this.sendPrefsToAllTabs(false, true);
 };
 
 
@@ -415,8 +121,8 @@ cvox.ChromeVoxPrefs.prototype.saveKeyMap = function() {
  */
 cvox.ChromeVoxPrefs.prototype.getPrefs = function() {
   var prefs = {};
-  for (var key in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
-    prefs[key] = localStorage[key];
+  for (var pref in cvox.ChromeVoxPrefs.DEFAULT_PREFS) {
+    prefs[pref] = localStorage[pref];
   }
   prefs['version'] = chrome.app.getDetails().version;
   return prefs;
@@ -428,53 +134,32 @@ cvox.ChromeVoxPrefs.prototype.getPrefs = function() {
  */
 cvox.ChromeVoxPrefs.prototype.reloadKeyMap = function() {
   // Get the current key map from localStorage.
-  try {
-    var currentKeyMap = JSON.parse(localStorage['keyBindings']);
-
-    // Now set the keyMap and write it back to localStorage.
-    this.keyMap = /** @type {Object.<Array.<string>>} */(currentKeyMap);
-
-    // Create the reverse map, from command to key.
-    this.nameToKeyMap = {};
-    for (var key in this.keyMap) {
-      var name = this.keyMap[key][0];
-      this.nameToKeyMap[name] = key;
-    }
-  } catch (e) {
-    console.log('ERROR: Could not reload keymap from localStorage');
+  // TODO(dtseng): We currently don't support merges since we write the entire
+  // map back to local storage.
+  var currentKeyMap = cvox.KeyMap.fromLocalStorage();
+  if (!currentKeyMap) {
+    currentKeyMap = cvox.KeyMap.fromCurrentKeyMap();
+    currentKeyMap.toLocalStorage();
   }
+  this.keyMap_ = currentKeyMap;
 };
 
 
 /**
  * Get the key map, from key binding to an array of [command, description].
- * @return {Object.<Array.<string>>} The key map.
+ * @return {cvox.KeyMap} The key map.
  */
 cvox.ChromeVoxPrefs.prototype.getKeyMap = function() {
-  return this.keyMap;
+  return this.keyMap_;
 };
 
-/**
- * Reset to the default key bindings.
- * @private
- */
-cvox.ChromeVoxPrefs.prototype.resetModifier_ = function() {
-  if (cvox.ChromeVox.isChromeOS) {
-    localStorage['cvoxKey'] = 'Shift+Search';
-  } else if (cvox.ChromeVox.isMac) {
-    localStorage['cvoxKey'] = 'Ctrl+Cmd';
-  } else {
-    localStorage['cvoxKey'] = 'Ctrl+Alt';
-  }
-};
 
 /**
  * Reset to the default key bindings.
  */
 cvox.ChromeVoxPrefs.prototype.resetKeys = function() {
-  this.resetModifier_();
-  this.keyMap = this.createDefaultKeyMap();
-  this.saveKeyMap();
+  this.keyMap_ = cvox.KeyMap.fromDefaults();
+  this.keyMap_.toLocalStorage();
   this.sendPrefsToAllTabs(false, true);
 };
 
@@ -492,7 +177,9 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToAllTabs =
     message['prefs'] = context.getPrefs();
   }
   if (sendKeyBindings) {
-    message['keyBindings'] = this.keyMap;
+    // Note that cvox.KeyMap stringifies to a minimal object when message gets
+    // passed to the content script.
+    message['keyBindings'] = this.keyMap_.toJSON();
   }
   chrome.windows.getAll({populate: true}, function(windows) {
     for (var i = 0; i < windows.length; i++) {
@@ -504,14 +191,13 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToAllTabs =
   });
 };
 
-
 /**
  * Send all of the settings over the specified port.
  * @param {Port} port The port representing the connection to a content script.
  */
 cvox.ChromeVoxPrefs.prototype.sendPrefsToPort = function(port) {
   port.postMessage({
-    'keyBindings': this.keyMap,
+    'keyBindings': this.keyMap_.toJSON(),
     'prefs': this.getPrefs()});
 };
 
@@ -528,39 +214,17 @@ cvox.ChromeVoxPrefs.prototype.setPref = function(key, value) {
   }
 };
 
-
 /**
- * Try to change a key binding. This will not succeed if the command is
- * unknown or if the key is already bound to another command.
- * @param {string} name The name of the action.
+ * Delegates to cvox.KeyMap.
+ * @param {string} command The command to set.
  * @param {string} newKey The new key to assign it to.
- * @return {boolean} True if the key was unique.
+ * @return {boolean} True if the key was bound to the command.
  */
-cvox.ChromeVoxPrefs.prototype.setKey = function(name, newKey) {
-  var oldKey = this.nameToKeyMap[name];
-  if (oldKey === undefined) {
-    // Unknown name, this shouldn't happen.
-    return false;
-  }
-
-  if (oldKey == newKey) {
-    // No change.
+cvox.ChromeVoxPrefs.prototype.setKey = function(command, newKey) {
+  if (this.keyMap_.rebind(command, newKey)) {
+    this.keyMap_.toLocalStorage();
+    this.sendPrefsToAllTabs(false, true);
     return true;
   }
-
-  var nameAndDescription = this.keyMap[oldKey];
-  var current = this.keyMap[newKey];
-  if (current) {
-    // Key already bound to something else!
-    return false;
-  }
-
-  delete this.keyMap[oldKey];
-  this.keyMap[newKey] = nameAndDescription;
-  this.nameToKeyMap[name] = newKey;
-  this.saveKeyMap();
-
-  this.sendPrefsToAllTabs(false, true);
-
-  return true;
+  return false;
 };

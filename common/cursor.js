@@ -29,6 +29,7 @@ goog.provide('cvox.Cursor');
  * Note: we cache the text of a particular node at the time we
  * traverse into it. Later we should add support for dynamically
  * reloading it.
+ * NOTE: Undefined behavior if node is null
  * @param {Node} node The DOM node.
  * @param {number} index The index of the character within the node.
  * @param {string} text The cached text contents of the node.
@@ -41,7 +42,7 @@ cvox.Cursor = function(node, index, text) {
 };
 
 /**
- * @return {cvox.Cursor} A new cursor pointing to the same location.
+ * @return {!cvox.Cursor} A new cursor pointing to the same location.
  */
 cvox.Cursor.prototype.clone = function() {
   return new cvox.Cursor(this.node, this.index, this.text);
@@ -49,10 +50,21 @@ cvox.Cursor.prototype.clone = function() {
 
 /**
  * Modify this cursor to point to the location that another cursor points to.
- * @param {cvox.Cursor} otherCursor The cursor to copy from.
+ * @param {!cvox.Cursor} otherCursor The cursor to copy from.
  */
 cvox.Cursor.prototype.copyFrom = function(otherCursor) {
   this.node = otherCursor.node;
   this.index = otherCursor.index;
   this.text = otherCursor.text;
+};
+
+/**
+ * Check for equality.
+ * @param {!cvox.Cursor} rhs The cursor to compare against.
+ * @return {boolean} True if equal.
+ */
+cvox.Cursor.prototype.equals = function(rhs) {
+  return this.node == rhs.node &&
+      this.index == rhs.index &&
+      this.text == rhs.text;
 };

@@ -451,7 +451,7 @@ function isElementHidden(obj) {
 }
 
 /**
- * @param {Element} An element to check.
+ * @param {Element} obj An element to check.
  * @return {boolean} True if the element or one of its ancestors is
  *     hidden from accessibility.
  */
@@ -459,8 +459,8 @@ function isElementOrAncestorHidden(obj) {
   if (isElementHidden(obj))
     return true;
 
-  if (obj.parentNode) {
-    return isElementOrAncestorHidden(obj.parentNode);
+  if (obj.parentElement) {
+    return isElementOrAncestorHidden(obj.parentElement);
   } else {
     return false;
   }

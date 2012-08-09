@@ -32,7 +32,7 @@ goog.require('axsjax.common.AxsJAX');
  * Web 2.0 applications.
  * @param {string} context The user specified string value, which is the
  *     starting context of the application. This can be changed later.
- * @param {axsjax.common.AxsJAX} axsJAX The AxsJAX object provided by the user.
+ * @param {AxsJAX} axsJAX The AxsJAX object provided by the user.
  * @constructor
  */
 var PowerKey = function(context, axsJAX) {
@@ -97,7 +97,7 @@ var PowerKey = function(context, axsJAX) {
 
   /**
    * AxsJAX object
-   * @type {axsjax.common.AxsJAX?}
+   * @type {AxsJAX?}
    * @private
    */
   this.axsJAX_ = null;

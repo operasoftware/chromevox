@@ -56,9 +56,9 @@ cvox.ApiImplementation.init = function() {
       function() {
         cvox.ScriptInstaller.installScript(
             cvox.ApiImplementation.siteSpecificScriptLoader,
-            'chromevoxScriptLoader')
-          .setAttribute('chromevoxScriptBase',
-              cvox.ApiImplementation.siteSpecificScriptBase);
+            'chromevoxScriptLoader',
+            null,
+            cvox.ApiImplementation.siteSpecificScriptBase);
       });
   if (!apiScript) {
     // If the API script is already installed, just re-enable it.
@@ -243,7 +243,8 @@ cvox.ApiImplementation.syncToNode = function(
     opt_queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
 
-  cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+  cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(targetNode);
+  cvox.ChromeVox.navigationManager.updateIndicator();
 
   if (speakNode == undefined) {
     speakNode = false;
@@ -255,22 +256,40 @@ cvox.ApiImplementation.syncToNode = function(
   }
 
   if (speakNode) {
-    var currentDesc;
-    if (targetNode.hasAttribute('cvoxnodedesc')) {
-      var predefinedNodeDescArray =
-          cvox.ChromeVoxJSON.parse(targetNode.getAttribute('cvoxnodedesc'));
-      currentDesc = new Array();
-      for (var i = 0, inDesc; inDesc = predefinedNodeDescArray[i]; i++) {
-        var desc = new cvox.NavDescription(inDesc.context, inDesc.text,
-            inDesc.userValue, inDesc.annotation, null, null);
-        currentDesc.push(desc);
-      }
-    } else {
-      currentDesc = cvox.ChromeVox.navigationManager.getCurrentDescription();
-    }
     cvox.ChromeVox.navigationManager.speakDescriptionArray(
-        currentDesc, opt_queueMode, null);
+        cvox.ApiImplementation.getDesc_(targetNode), opt_queueMode, null);
   }
+};
+
+
+//TODO refactor docs this function and getDescription should never return null
+/**
+ * Gets the predefined description set on a node by an api call, if such
+ * a call was made. Otherwise returns the description that the NavigationManager
+ * would speak.
+ * @param {Node} node The node for which to get the description.
+ * @return {Array.<cvox.NavDescription>} The description array.
+ * @private
+ */
+cvox.ApiImplementation.getDesc_ = function(node) {
+  if (!node.hasAttribute('cvoxnodedesc')) {
+    return cvox.ChromeVox.navigationManager.getDescription();
+  }
+
+  var preDesc = cvox.ChromeVoxJSON.parse(node.getAttribute('cvoxnodedesc'));
+  var currentDesc = new Array();
+  for (var i = 0; i < preDesc.length; ++i) {
+    var inDesc = preDesc[i];
+    // TODO: this can probably be replaced with just NavDescription(inDesc)
+    // need test case to ensure this change will work
+    currentDesc.push(new cvox.NavDescription({
+      context: inDesc.context,
+      text: inDesc.text,
+      userValue: inDesc.userValue,
+      annotation: inDesc.annotation
+    }));
+  }
+  return currentDesc;
 };
 
 /**

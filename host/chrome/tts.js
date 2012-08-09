@@ -47,18 +47,32 @@ cvox.ChromeTts.callId = 0;
  */
 cvox.ChromeTts.functionMap = new Object();
 
-/**
- * Speaks the given string using the specified queueMode and properties.
- * @param {string} textString The string of text to be spoken.
- * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
- *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object=} properties Speech properties to use for this utterance.
- */
+/** @override */
 cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
   if (!properties)
     properties = {};
 
   properties['lang'] = cvox.ChromeVox.msgs.getLocale();
+
+  // TODO (clchen, dmazzoni): Remove this once the TTS is able to fall back
+  // gracefully if 'fr' is specified instead of 'fr-FR'.
+  switch(properties['lang']) {
+    case 'de':
+      properties['lang'] = 'de-DE';
+      break;
+    case 'es':
+      properties['lang'] = 'es-ES';
+      break;
+    case 'fr':
+      properties['lang'] = 'fr-FR';
+      break;
+    case 'it':
+      properties['lang'] = 'it-IT';
+      break;
+    case 'en':
+      properties['lang'] = 'en-US';
+      break;
+  }
 
   textString =
       cvox.AbstractTts.preprocessWithProperties(textString, properties);
@@ -85,18 +99,13 @@ cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
   cvox.ExtensionBridge.send(message);
 };
 
-/**
- * Returns true if the TTS is currently speaking.
- * @return {boolean} True if the TTS is speaking.
- */
+/** @override */
 cvox.ChromeTts.prototype.isSpeaking = function() {
   cvox.ChromeTts.superClass_.isSpeaking.call(this);
   return false;
 };
 
-/**
- * Stops speech.
- */
+/** @override */
 cvox.ChromeTts.prototype.stop = function() {
   cvox.ChromeTts.superClass_.stop.call(this);
   cvox.ExtensionBridge.send(
@@ -104,12 +113,7 @@ cvox.ChromeTts.prototype.stop = function() {
        'action': 'stop'});
 };
 
-/**
- * Increases a TTS speech property.
- * @param {string} propertyName The name of the property to change.
- * @param {boolean} increase If true, increases the property value by one
- *     step size, otherwise decreases.
- */
+/** @override */
 cvox.ChromeTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   cvox.ExtensionBridge.send(

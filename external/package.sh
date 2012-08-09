@@ -90,8 +90,10 @@ build_zip() {
   # directory to it breaks the path to the ZIP_FILE, because that is a relative
   # path.  So we have to output via an (absolute) tempfile.
   local temp_zip="$TEMP_DIR/extension.zip"
-  cd "$TEMP_DIR/$EXTENSION"
-  zip -rq "$temp_zip" .
+  cd "$TEMP_DIR"
+  local zip_dir_name="$(basename ${ZIP_FILE%.*})"
+  ln -s "$EXTENSION" "$zip_dir_name"
+  zip -rq "$temp_zip" "$zip_dir_name"
   cd - >/dev/null
   mv "$temp_zip" "$ZIP_FILE"
 }

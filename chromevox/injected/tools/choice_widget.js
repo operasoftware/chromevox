@@ -22,34 +22,62 @@
 
 goog.provide('cvox.ChromeVoxChoiceWidget');
 
+
 goog.require('axsjax.common.PowerKey');
-goog.require('cvox.AbstractEarcons');
 goog.require('cvox.AbstractTts');
 goog.require('cvox.ChromeVox');
-
-/**
- * @constructor
- */
-cvox.ChromeVoxChoiceWidget = function() {
-  this.powerKey = new window.PowerKey('main', null);
-  this.powerKey.createCompletionField(document.body, 50, null, null, null,
-      false);
-  this.powerKey.setAutoHideCompletionField(true);
-  this.powerKey.setDefaultCSSStyle();
-};
+goog.require('cvox.Widget');
 
 /**
  * Creates an alert dialog widget given a set of descriptions and associated
  * functions.
  *
- * @param {Array.<string>} descriptions The array of strings to present
+ * @param {Array.<string>=} opt_descriptions The array of strings to present
  *     to the user.
- * @param {Array.<string>} functions The array of functions associated
+ * @param {Array.<string>=} opt_functions The array of functions associated
  *     with the descriptions.
+ * @param {string=} opt_prompt The message to be spoken to the user.
+ * @constructor
+ * @extends {cvox.Widget}
+ */
+cvox.ChromeVoxChoiceWidget = function(opt_descriptions, opt_functions, opt_prompt) {
+  if (opt_descriptions != undefined &&
+      opt_functions != undefined &&
+      opt_prompt != undefined) {
+    // intentional call to my init so that nobody can override
+    cvox.ChromeVoxChoiceWidget.prototype.init.call(this,
+        /** type = {Array.<string>} */ opt_descriptions,
+        /** type = {Array.<string>} */ opt_functions,
+        /** type = {string} */ opt_prompt);
+  }
+};
+goog.inherits(cvox.ChromeVoxChoiceWidget, cvox.Widget);
+
+/**
+ * @param {Array.<string>} descriptions The array of strings to present to
+ * the user.
+ * @param {Array.<string>} functions The array of functions associated with
+ * the descriptions.
  * @param {string} prompt The message to be spoken to the user.
  */
-cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
-    prompt) {
+cvox.ChromeVoxChoiceWidget.prototype.init = function(
+    descriptions, functions, prompt) {
+  /**
+   * @type {string}
+   * @private
+   */
+  this.prompt_ = prompt;
+
+  /**
+   * @type {axsjax.common.PowerKey}
+   * @protected
+   */
+  this.powerKey_ = new axsjax.common.PowerKey('main', null);
+  this.powerKey_.createCompletionField(document.body, 50, null, null, null,
+      false);
+  this.powerKey_.setAutoHideCompletionField(true);
+  this.powerKey_.setDefaultCSSStyle();
+
   // We must dedup the descriptions so they are accessible.
   // If there are two elements with the same lowercase form, the
   // first will keep its name.  The second will be named "<name> 2".
@@ -67,34 +95,44 @@ cvox.ChromeVoxChoiceWidget.prototype.show = function(descriptions, functions,
     dedupped.push(description);
   }
 
-
-  this.powerKey.setCompletionList(dedupped);
+  this.powerKey_.setCompletionList(dedupped);
   var completionActionMap = new Object();
   for (var i = 0, description; description = dedupped[i]; i++) {
     var action = new Object();
     action['main'] = functions[i];
     completionActionMap[description.toLowerCase()] = action;
   }
-  this.powerKey.setCompletionActionMap(completionActionMap);
-  this.powerKey.setCompletionPromptStr(dedupped.toString());
-  this.powerKey.setBrowseCallback(function(text) {
+  this.powerKey_.setCompletionActionMap(completionActionMap);
+  this.powerKey_.setCompletionPromptStr(dedupped.toString());
+  this.powerKey_.setBrowseCallback(function(text) {
     cvox.ChromeVox.tts.speak(text, cvox.AbstractTts.QUEUE_MODE_FLUSH,
         null);
   });
-  this.powerKey.updateCompletionField(
+};
+
+/**
+ * @override
+ */
+cvox.ChromeVoxChoiceWidget.prototype.show = function() {
+  cvox.ChromeVoxChoiceWidget.superClass_.show.call(this);
+
+  if (this.isActive())
+    return;
+
+  this.powerKey_.updateCompletionField(
       window.PowerKey.status.VISIBLE, true, 40, 20);
-  cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.LISTBOX);
-  window.setTimeout(function() {
-      cvox.ChromeVox.tts.speak(prompt);
-    }, 0);
+  window.setTimeout(goog.bind(function() {
+      cvox.ChromeVox.tts.speak(this.prompt_);
+    }, this), 0);
 };
 
 /**
  * Checks if the choice widget is currently active.
- * @return {boolean} True if the choice widget is active.
+ * @override
  */
 cvox.ChromeVoxChoiceWidget.prototype.isActive = function() {
-  if (this.powerKey.getStatus() == window.PowerKey.status.VISIBLE) {
+  if (this.powerKey_ &&
+      this.powerKey_.getStatus() == window.PowerKey.status.VISIBLE) {
     return true;
   }
   return false;

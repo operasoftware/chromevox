@@ -98,7 +98,8 @@ cvox.ShadesModifier.prototype.isLeafNode = function(node) {
 /**
  * Extend processDOM by breaking apart tables in "quirks mode" docs.
  * In standards mode we can do this more easily with CSS.
- * @param {Element} root The root node.
+ * @param {Element=} root The root node.
+ * @override
  */
 cvox.ShadesModifier.prototype.processDOM = function(root) {
   if (document.compatMode == 'BackCompat') {

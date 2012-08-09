@@ -21,4 +21,6 @@ androidvoxnav.start = function() {
   navigation.gesturenav.start(domNavigator, eventTranslator);
 };
 
-androidvoxnav.start();
+// Disabling the gesture navigation code since Android framework is handling
+// gestures starting in JellyBean.
+// androidvoxnav.start();

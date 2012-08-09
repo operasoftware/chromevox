@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('cvox.NavDescription');
-
-goog.require('cvox.AbstractTts');
-goog.require('cvox.ChromeVox');
-
 /**
  * @fileoverview A simple container object for the description of a
  * navigation from one object to another.
@@ -24,29 +19,42 @@ goog.require('cvox.ChromeVox');
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
+
+goog.provide('cvox.NavDescription');
+
+goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.CursorSelection');
+
 /**
- * A class representing the description of navigation from one object
- * to another.
- * @param {string} context The context, for example descriptions of objects
+ * A class representing the description of navigation from one object to
+ * another.
+ * @param {{context: (undefined|string),
+ *          text: (undefined|string),
+ *          userValue: (undefined|string),
+ *          annotation: (undefined|string),
+ *          earcons: (undefined|Array.<number>),
+ *          personality: (undefined|Object)}} kwargs The arguments for this
+ *  description.
+ *  context The context, for example descriptions of objects
  *     that were crossed into, like "Toolbar" or "Menu Bar" or "List with
  *     5 items". This is all spoken with an annotation voice.
- * @param {string} text The text of the object itself, including text from
+ *  text The text of the object itself, including text from
  *     titles, labels, etc.
- * @param {string} userValue The text that the user has entered.
- * @param {string} annotation The role and state of the object.
- * @param {Array.<number>} earcons A list of the earcon ids to play along
+ *  userValue The text that the user has entered.
+ *  annotation The role and state of the object.
+ *  earcons A list of the earcon ids to play along
  *     with the spoken description of this object.
- * @param {Object=} personality Optional TTS personality to use for the text.
+ *  personality Optional TTS personality to use for the text.
  * @constructor
  */
-cvox.NavDescription = function(context, text, userValue, annotation, earcons,
-      personality) {
-  this.context = context ? context : '';
-  this.text = text ? text : '';
-  this.userValue = userValue ? userValue : '';
-  this.annotation = annotation ? annotation : '';
-  this.earcons = earcons ? earcons : [];
-  this.personality = personality;
+cvox.NavDescription = function(kwargs) {
+  this.context = kwargs.context ? kwargs.context : '';
+  this.text = kwargs.text ? kwargs.text : '';
+  this.userValue = kwargs.userValue ? kwargs.userValue : '';
+  this.annotation = kwargs.annotation ? kwargs.annotation : '';
+  this.earcons = kwargs.earcons ? kwargs.earcons : [];
+  this.personality = kwargs.personality;
 };
 
 

@@ -1,0 +1,38 @@
+{
+  "name": "extensions",
+  "version": "1.0",
+  "description": "Enhances the Google experience with ChromeVox.",
+  "permissions": [
+    "tabs",
+    "http://books.google.com/*",
+    "https://plus.google.com/*",
+    "https://plus.sandbox.google.com/*",
+    "https://mail.google.com/*",
+    "https://www.google.com/calendar/*",
+    "https://news.google.com/*",
+    "http://news.google.com/*",
+    "https://drive.google.com/*",
+    "http://www.google.com/finance/*",
+    "http://iplayif.com/?story=*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://books.google.com/*",
+        "https://plus.google.com/*",
+        "https://plus.sandbox.google.com/*",
+        "https://mail.google.com/*",
+        "https://www.google.com/calendar/*",
+        "https://news.google.com/*",
+        "http://news.google.com/*",
+        "https://drive.google.com/*",
+        "http://www.google.com/finance/*",
+        "http://iplayif.com/?story=*"
+      ],
+      "all_frames": true,
+      "js": [
+        "loader.js"
+      ]
+    }
+  ]
+}

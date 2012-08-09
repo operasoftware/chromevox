@@ -21,30 +21,54 @@
 
 goog.provide('cvox.ScriptInstaller');
 
+goog.require('cvox.DomUtil');
+
 /**
  * Installs a script in the web page.
  * @param {string} src The URL of the script.
  * @param {string} uid A unique id.  This function won't install the same script
  *     twice.
- * @param {function()} opt_onload A function called when the script has loaded.
- * @return {Element?} The element if it was created.  Null if the script already
- *     existed and this function didn't do anything.
+ * @param {function()?} opt_onload A function called when the script has loaded.
+ * @param {string?} opt_chromevoxScriptBase An optional chromevoxScriptBase
+ *     attribute to add.
+ * @return {boolean} False if the script already existed and this function
+ * didn't do anything.
  */
-cvox.ScriptInstaller.installScript = function(src, uid, opt_onload) {
+cvox.ScriptInstaller.installScript = function(src, uid, opt_onload,
+    opt_chromevoxScriptBase) {
   if (document.querySelector('script[' + uid + ']')) {
-    return null;
+    return false;
   }
-
-  var forceRedownload = '?' + new Date().getTime();
-  var apiScript = document.createElement('script');
-  apiScript.type = 'text/javascript';
-  apiScript.setAttribute(uid, '1');
-  apiScript.src = src + forceRedownload;
-  document.head.appendChild(apiScript);
-
-  if (opt_onload) {
-    apiScript.onload = opt_onload;
+  if (!src) {
+    return false;
   }
-  return apiScript;
+  // Directly write the contents of the script we are trying to inject into
+  // the page.
+  var xhr = new XMLHttpRequest();
+  var url = src + '?' + new Date().getTime();
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4) {
+      var scriptText = xhr.responseText;
+      // Add a magic comment to the bottom of the file so that
+      // Chrome knows the name of the script in the JavaScript debugger.
+      scriptText += '\n//@ sourceURL=' + src + '\n';
+
+      var apiScript = document.createElement('script');
+      apiScript.type = 'text/javascript';
+      apiScript.setAttribute(uid, '1');
+      apiScript.textContent = scriptText;
+      if (opt_chromevoxScriptBase) {
+        apiScript.setAttribute('chromevoxScriptBase', opt_chromevoxScriptBase);
+      }
+      cvox.DomUtil.addNodeToHead(apiScript);
+
+      if (opt_onload) {
+        opt_onload();
+      }
+    }
+  };
+  xhr.open('GET', url, false);
+  xhr.send(null);
+  return true;
 };
 

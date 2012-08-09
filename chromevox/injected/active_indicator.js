@@ -22,12 +22,13 @@
 goog.provide('cvox.ActiveIndicator');
 
 goog.require('cvox.Cursor');
+goog.require('cvox.DomUtil');
 
 
 /**
  * Constructs and ActiveIndicator, a glowing outline around whatever
  * node or text range is currently active. Initially it won't display
- * anything; call syncToNode, syncToRange, or syncToCursorRange to
+ * anything; call syncToNode, syncToRange, or syncToCursorSelection to
  * make it animate and move. It only displays when this window/iframe
  * has focus.
  *
@@ -128,7 +129,9 @@ cvox.ActiveIndicator.STYLE =
     '}' +
     '.cvox_indicator_pulsing {' +
     '  -webkit-animation: ' +
-    '      cvox_indicator_pulsing_animation 2s 2 alternate !important;' +
+    // NOTE(deboer): This animation is 0 seconds long to work around
+    // http://crbug.com/128993.  Revert it to 2s when the bug is fixed.
+    '      cvox_indicator_pulsing_animation 0s 2 alternate !important;' +
     '  -webkit-animation-timing-function: ease-in-out !important;' +
     '}' +
     '.cvox_indicator_region {' +
@@ -264,14 +267,17 @@ cvox.ActiveIndicator.prototype.syncToRange = function(range) {
 
 /**
  * Move the indicator to surround the given cursor range.
- * @param {cvox.Cursor} start The start cursor position.
- * @param {cvox.Cursor} end The end cursor position.
+ * @param {!cvox.CursorSelection} sel The start cursor position.
  */
-cvox.ActiveIndicator.prototype.syncToCursorRange = function(start, end) {
-  var range = document.createRange();
-  range.setStart(start.node, start.index);
-  range.setEnd(end.node, end.index);
-  this.syncToRange(range);
+cvox.ActiveIndicator.prototype.syncToCursorSelection = function(sel) {
+  if (sel.start.node == sel.end.node && sel.start.index == sel.end.index) {
+    this.syncToNode(sel.start.node);
+  } else {
+    var range = document.createRange();
+    range.setStart(sel.start.node, sel.start.index);
+    range.setEnd(sel.end.node, sel.end.index);
+    this.syncToRange(range);
+  }
 };
 
 /**
@@ -345,12 +351,10 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
   }
 
   // Add the CSS style to the page if it's not already there.
-  if (!document.getElementById('cvox_indicator_style')) {
-    var style = document.createElement('style');
-    style.id = 'cvox_indicator_style';
-    style.innerHTML = cvox.ActiveIndicator.STYLE;
-    document.head.appendChild(style);
-  }
+  var style = document.createElement('style');
+  style.id = 'cvox_indicator_style';
+  style.innerHTML = cvox.ActiveIndicator.STYLE;
+  cvox.DomUtil.addNodeToHead(style, style.id);
 
   // Decide on the animation speed. By default we do a medium-speed
   // animation between the previous and new location. If the user is

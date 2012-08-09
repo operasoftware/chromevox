@@ -18,6 +18,8 @@
  * @author deboer@google.com (James deBoer)
  */
 
+window.CLOSURE_USE_EXT_MESSAGES = true;
+
 goog.require('cvox.ChromeEarcons');
 goog.require('cvox.ChromeHost');
 goog.require('cvox.ChromeMsgs');

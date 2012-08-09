@@ -111,6 +111,9 @@ cvox.AccessibilityApiHandler.init = function(tts, earcons) {
 cvox.AccessibilityApiHandler.addEventListeners = function() {
   /** Alias getMsg as msg. */
   var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
+  var ttsProps = {
+    'lang': cvox.ChromeVox.msgs.getLocale()
+  };
 
   var accessibility = chrome.experimental.accessibility;
 
@@ -120,7 +123,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
     }
     var tts = cvox.AccessibilityApiHandler.tts;
     var title = tab.title ? tab.title : tab.url;
-    tts.speak(msg('chrome_tab_created', [title]), 0, {});
+    tts.speak(msg('chrome_tab_created', [title]), 0, ttsProps);
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
@@ -140,7 +143,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
     chrome.tabs.get(tabId, function(tab) {
       var tts = cvox.AccessibilityApiHandler.tts;
       var title = tab.title ? tab.title : tab.url;
-      tts.speak(msg('chrome_tab_selected', [title]), 0, {});
+      tts.speak(msg('chrome_tab_selected', [title]), 0, ttsProps);
       var earcons = cvox.AccessibilityApiHandler.earcons;
       earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
     });
@@ -173,9 +176,13 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
         var msg_id = window.incognito ? 'chrome_incognito_window_selected' :
           'chrome_normal_window_selected';
         var title = tab.title ? tab.title : tab.url;
-        tts.speak(msg(msg_id, [title]), 0, {});
+        tts.speak(msg(msg_id, [title]), 0, ttsProps);
         var earcons = cvox.AccessibilityApiHandler.earcons;
         earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
+        cvox.ExtensionBridge.send({
+            message: 'USER_COMMAND',
+            command: 'announcePosition'
+        });
       });
     });
   });
@@ -185,7 +192,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       return;
     }
     var tts = cvox.AccessibilityApiHandler.tts;
-    tts.speak(win.name, 0, {});
+    tts.speak(win.name, 0, ttsProps);
     // Queue the next utterance because a window opening is always followed
     // by a focus event.
     cvox.AccessibilityApiHandler.nextQueueMode = 1;
@@ -207,7 +214,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       return;
     }
     var tts = cvox.AccessibilityApiHandler.tts;
-    tts.speak(msg('chrome_menu_opened', [menu.name]), 0, {});
+    tts.speak(msg('chrome_menu_opened', [menu.name]), 0, ttsProps);
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
@@ -246,7 +253,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
           earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
           var tts = cvox.AccessibilityApiHandler.tts;
           tts.speak(msg('chrome_brightness_changed', [brightness.brightness]),
-                    0, {});
+                    0, ttsProps);
         }
       });
 
@@ -258,7 +265,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
           // Speak about system update when it's ready, otherwise speak nothing.
           if (status.state == 'NeedRestart') {
             var tts = cvox.AccessibilityApiHandler.tts;
-            tts.speak(msg('chrome_system_need_restart'), 0, {});
+            tts.speak(msg('chrome_system_need_restart'), 0, ttsProps);
           }
           var earcons = cvox.AccessibilityApiHandler.earcons;
           earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
@@ -302,7 +309,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       var description = cvox.AccessibilityApiHandler.describe(ctl, false);
       tts.speak(description.utterance,
                 cvox.AccessibilityApiHandler.nextQueueMode,
-                {});
+                ttsProps);
       cvox.AccessibilityApiHandler.nextQueueMode = 0;
       if (description.earcon) {
           var earcons = cvox.AccessibilityApiHandler.earcons;
@@ -317,7 +324,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
 
     var tts = cvox.AccessibilityApiHandler.tts;
     var description = cvox.AccessibilityApiHandler.describe(ctl, true);
-    tts.speak(description.utterance, 0, {});
+    tts.speak(description.utterance, 0, ttsProps);
     if (description.earcon) {
       var earcons = cvox.AccessibilityApiHandler.earcons;
       earcons.playEarcon(description.earcon);

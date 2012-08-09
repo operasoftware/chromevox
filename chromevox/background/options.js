@@ -18,15 +18,18 @@
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
 
+goog.provide('cvox.OptionsPage');
+
 goog.require('cvox.ChromeEarcons');
 goog.require('cvox.ChromeHost');
 goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeTts');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxPrefs');
+goog.require('cvox.CommandStore');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
-
+goog.require('cvox.KeyMap');
 
 
 /**
@@ -63,9 +66,8 @@ cvox.OptionsPage.TEXT_TO_KEYCODE = {
  * building the key bindings table, and adding event listeners.
  */
 cvox.OptionsPage.init = function() {
+  cvox.CommandStore.init();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
-
-  cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
 
   cvox.OptionsPage.KEYCODE_TO_TEXT = {
     '#8' : cvox.ChromeVox.msgs.getMsg('backspace_key'),
@@ -94,8 +96,11 @@ cvox.OptionsPage.init = function() {
         key;
   }
 
-  cvox.OptionsPage.prefs = new cvox.ChromeVoxPrefs();
+  cvox.OptionsPage.prefs = chrome.extension.getBackgroundPage().prefs;
+  cvox.OptionsPage.populateSelectKeyMap();
   cvox.OptionsPage.addKeys();
+  cvox.OptionsPage.populateVoicesSelect();
+  cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
   cvox.OptionsPage.update();
 
   document.addEventListener('change', cvox.OptionsPage.eventListener, false);
@@ -110,9 +115,11 @@ cvox.OptionsPage.init = function() {
 
   document.getElementById('resetToDefaultKeys').addEventListener('click',
       function() {
-        cvox.OptionsPage.prefs.resetKeys();
+        var selectKeyMap = document.getElementById('cvox_keymaps');
+        cvox.OptionsPage.prefs.switchToKeyMap(selectKeyMap.selectedIndex);
         document.getElementById('keysContainer').innerHTML = '';
         cvox.OptionsPage.addKeys();
+        cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
       }, false);
 };
 
@@ -132,45 +139,104 @@ cvox.OptionsPage.update = function() {
 };
 
 /**
+ * Populate the keymap select element with stored keymaps
+ */
+cvox.OptionsPage.populateSelectKeyMap = function() {
+  var selectKeyMap = document.getElementById('cvox_keymaps');
+  for (var i = 0; i < cvox.KeyMap.AVAILABLE_MAP_INFO.length; i++) {
+    var availableMapInfo = cvox.KeyMap.AVAILABLE_MAP_INFO[i];
+    var option = document.createElement('option');
+    option.className = 'i18n';
+    option.setAttribute('msgid', availableMapInfo.id);
+    if (cvox.OptionsPage.prefs.getPrefs()['currentKeyMap'] == i) {
+      option.setAttribute('selected', '');
+    }
+    selectKeyMap.appendChild(option);
+  }
+};
+
+/**
  * Add the input elements for the key bindings to the container element
  * in the page. They're sorted in order of description.
  */
 cvox.OptionsPage.addKeys = function() {
   var container = document.getElementById('keysContainer');
   var keyMap = cvox.OptionsPage.prefs.getKeyMap();
-  var descriptionToKeyMap = {};
-  var descriptions = [];
-  for (var key in keyMap) {
-    var description = keyMap[key][1];
-    descriptionToKeyMap[description] = key;
-    descriptions.push(description);
-  }
-  descriptions.sort();
 
-  for (var i = 0; i < descriptions.length; i++) {
-    var description = descriptions[i];
-    var key = descriptionToKeyMap[description];
-    var name = keyMap[key][0];
+  // TODO(dtseng): Requires cleanup.
+  keyMap.resetModifier();
+  document.getElementById('cvoxKey').disabled = true;
+  document.getElementById('cvoxKey').textContent = localStorage['cvoxKey'];
 
-    var inputElem = document.createElement('input');
-    inputElem.type = 'text';
-    inputElem.className = 'key';
-    inputElem.name = name;
-    inputElem.id = name;
-    var displayedCombo = cvox.OptionsPage.convertBetweenCodesAndText(key,
+  var categories = cvox.CommandStore.categories();
+  for (var i = 0; i < categories.length; i++) {
+    var headerElement = document.createElement('h3');
+    headerElement.className = 'i18n';
+    headerElement.setAttribute('msgid', categories[i]);
+    container.appendChild(headerElement);
+
+    var commands = cvox.CommandStore.commandsForCategory(categories[i]);
+    for (var j = 0; j < commands.length; j++) {
+      var command = commands[j];
+      var key = keyMap.keyForCommand(command);
+
+      // TODO(dtseng): Decide what to do lack of key binding.
+      if (!key) {
+        key = '';
+      }
+      var inputElement = document.createElement('input');
+      inputElement.type = 'text';
+      inputElement.className = 'key';
+      inputElement.id = command;
+      var displayedCombo = cvox.OptionsPage.convertBetweenCodesAndText(key,
           cvox.OptionsPage.KEYCODE_TO_TEXT);
-    inputElem.value = displayedCombo;
+      inputElement.value = displayedCombo;
 
-    // Don't allow the user to change the sticky mode key.
-    if (name == 'toggleStickyMode') {
-      inputElem.disabled = true;
+      // Don't allow the user to change the sticky mode key.
+      if (command == 'toggleStickyMode') {
+        inputElement.disabled = true;
+      }
+      var message = cvox.CommandStore.messageForCommand(command);
+      if (!message) {
+        // TODO(dtseng): missing message id's.
+        message = command;
+      }
+
+      var labelElement = document.createElement('label');
+      labelElement.className = 'i18n';
+      labelElement.setAttribute('msgid', message);
+      labelElement.setAttribute('for', inputElement.id);
+
+      var divElement = document.createElement('div');
+      container.appendChild(divElement);
+      divElement.appendChild(inputElement);
+      divElement.appendChild(labelElement);
     }
-
-    var labelElem = document.createElement('label');
-    container.appendChild(labelElem);
-    labelElem.appendChild(inputElem);
-    labelElem.appendChild(document.createTextNode(description));
   }
+};
+
+/**
+ * Populates the voices select with options.
+ */
+cvox.OptionsPage.populateVoicesSelect = function() {
+  var select = document.getElementById('voices');
+  chrome.tts.getVoices(function(voices) {
+    voices.forEach(function(voice) {
+      var option = document.createElement('option');
+      option.voiceName = voice.voiceName || '';
+      option.innerText = option.voiceName;
+      if (localStorage['voiceName'] == voice.voiceName) {
+        option.setAttribute('selected', '');
+      }
+      select.add(option);
+    });
+  });
+
+  select.addEventListener('change', function(evt) {
+    var selIndex = select.selectedIndex;
+    var sel = select.options[selIndex];
+    localStorage['voiceName'] = sel.voiceName;
+  }, true);
 };
 
 /**
@@ -188,7 +254,6 @@ cvox.OptionsPage.setValue = function(element, value) {
   }
 };
 
-
 /**
  * Event listener, called when an event occurs in the page that might
  * affect one of the preference controls.
@@ -198,7 +263,7 @@ cvox.OptionsPage.setValue = function(element, value) {
 cvox.OptionsPage.eventListener = function(event) {
   window.setTimeout(function() {
     var target = event.target;
-    if (target.className == 'pref') {
+    if (target.classList.contains('pref')) {
       if (target.tagName == 'INPUT' && target.type == 'checkbox') {
         cvox.OptionsPage.prefs.setPref(target.name, target.checked);
       } else if (target.tagName == 'INPUT' && target.type == 'radio') {
@@ -210,21 +275,20 @@ cvox.OptionsPage.eventListener = function(event) {
           }
         }
       }
-    } else if (target.className == 'key') {
+    } else if (target.classList.contains('key')) {
       var keyCode = cvox.OptionsPage.convertBetweenCodesAndText(target.value,
           cvox.OptionsPage.TEXT_TO_KEYCODE);
       var success = false;
-      if (target.name == 'cvoxKey') {
+      if (target.id == 'cvoxKey') {
         // TODO (clchen): Implement a check when setting the modifier key.
-        cvox.OptionsPage.prefs.setPref(target.name, keyCode);
+        // TODO(dtseng): This is horribly conflict ridden.
+        // cvox.OptionsPage.prefs.setPref(target.id, keyCode);
         success = true;
       } else {
-        success = cvox.OptionsPage.prefs.setKey(target.name, keyCode);
-      }
-      if (success) {
-        target.removeAttribute('aria-invalid');
-      } else {
-        target.setAttribute('aria-invalid', 'true');
+        success = cvox.OptionsPage.prefs.setKey(target.id, keyCode);
+
+        // TODO(dtseng): Don't surface conflicts until we have a better
+        // workflow.
       }
     }
   }, 0);
@@ -267,10 +331,6 @@ cvox.OptionsPage.convertBetweenCodesAndText = function(input, conversionTable) {
   return output;
 };
 
-/**
- * Called by options.html when the page is loaded.
- * @export
- */
-function load() {
+document.addEventListener('DOMContentLoaded', function() {
   cvox.OptionsPage.init();
-}
+}, false);

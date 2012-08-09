@@ -26,6 +26,7 @@ goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.HostFactory');
+goog.require('cvox.AndroidVox');
 
 /**
  * @constructor
@@ -39,15 +40,12 @@ goog.inherits(cvox.AndroidHost, cvox.AbstractHost);
 cvox.AndroidHost.prototype.init = function() {
   cvox.ChromeVox.version = 'AndroidVox';
   var keyBindings = this.getStringifiedAndroidKeyBindings();
-  var parsedKeyBindings = /** @type {Object} */ (
-      cvox.ChromeVoxJSON.parse(keyBindings));
-  cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(parsedKeyBindings);
+  cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(keyBindings);
 
-  // Hard coded preferences in lieu of a prefs system for Android.
-  cvox.ApiImplementation.siteSpecificScriptLoader =
-      'https://ssl.gstatic.com/accessibility/javascript/ext/';
-  cvox.ApiImplementation.siteSpecificScriptBase =
-      'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js';
+  // There are no site specific scripts on Android.
+  cvox.ApiImplementation.siteSpecificScriptLoader = '';
+  cvox.ApiImplementation.siteSpecificScriptBase = '';
+  cvox.ApiImplementation.init();
 
   cvox.ChromeVox.speakInitialMessages();
 };
@@ -56,9 +54,15 @@ cvox.AndroidHost.prototype.reinit = function() {
 };
 
 cvox.AndroidHost.prototype.onPageLoad = function() {
+  // Enable touch exploration
+  cvox.ChromeVoxEventWatcher.focusFollowsMouse = true;
   // Remove the mouseover delay. The gesture detector will enable
   // focusFollowsMouse when a drag gesture is detected.
   cvox.ChromeVoxEventWatcher.mouseoverDelayMs = 0;
+};
+
+cvox.AndroidHost.prototype.ttsLoaded = function() {
+  return (typeof(accessibility) != 'undefined');
 };
 
 /**
@@ -66,6 +70,7 @@ cvox.AndroidHost.prototype.onPageLoad = function() {
  */
 cvox.AndroidHost.prototype.getStringifiedAndroidKeyBindings = function() {
   // TODO(svetoslavganov): Change the bindings for Android
+  // TODO(dtseng): Doesn't conform to the expected Object.<string, string> type.
   return cvox.ChromeVoxJSON.stringify({
      // Stop TTS
     '#17' : ['stopSpeech', 'Stop speaking'], // Ctrl
@@ -148,12 +153,58 @@ cvox.AndroidHost.prototype.getStringifiedAndroidKeyBindings = function() {
 };
 
 // TODO (clchen): Implement this.
-cvox.AndroidHost.prototype.getApiSrc = function(message) {
+cvox.AndroidHost.prototype.getApiSrc = function() {
   return '';
 };
 
+/**
+ * @return {boolean} True if the TTS has been loaded.
+ */
 cvox.AndroidHost.prototype.hasTtsCallback = function() {
   return false;
+};
+
+/**
+ * @return {boolean} True if the ChromeVox is supposed to intercept and handle
+ * mouse clicks for the platform, instead of just letting the clicks fall
+ * through.
+ *
+ * Note: This behavior is only needed for Android because of the way touch
+ * exploration and double-tap to click is implemented by the platform.
+ */
+cvox.AndroidHost.prototype.mustRedispatchClickEvent = function() {
+  return true;
+};
+
+/**
+ * Activates or deactivates ChromeVox.
+ * This is needed on Android by the Chrome app since it needs to manually
+ * enable/disable ChromeVox depending on which tab is active and it cannot
+ * use cvox.ChromeVoxUserCommands.commands['toggleChromeVox'] since that relies
+ * on going through the background page and there isn't one in the Android case.
+ *
+ * @param {boolean} active Whether ChromeVox should be active.
+ * @export
+ */
+cvox.AndroidHost.prototype.activateOrDeactivateChromeVox = function(active) {
+  if (active == cvox.ChromeVox.isActive) {
+    return;
+  }
+  cvox.ChromeVox.tts.stop();
+  cvox.ChromeVox.isActive = active;
+  cvox.ChromeVox.navigationManager.showOrHideIndicator();
+
+  // If ChromeVox is inactive, the event watcher will only listen
+  // for key events.
+  cvox.ChromeVoxEventWatcher.cleanup(document);
+  cvox.ChromeVoxEventWatcher.init(document);
+
+  if (document.activeElement) {
+    var speakNodeAlso = document.hasFocus();
+    cvox.ApiImplementation.syncToNode(document.activeElement, speakNodeAlso);
+  } else {
+    cvox.ChromeVox.navigationManager.updateIndicator();
+  }
 };
 
 cvox.HostFactory.hostConstructor = cvox.AndroidHost;

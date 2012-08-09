@@ -23,145 +23,139 @@ goog.provide('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.DomUtil');
 goog.require('cvox.SpokenMessages');
-
-/**
-   @type {number}
- */
-cvox.ChromeVoxFiltering.currentSelection;
-
-/**
-   @type {boolean}
-*/
-cvox.ChromeVoxFiltering.active;
+goog.require('cvox.Widget');
 
 /**
  * Initializes the filtering widget.
+ * @constructor
+ * @extends {cvox.Widget}
  */
-cvox.ChromeVoxFiltering.init = function() {
-  cvox.ChromeVoxFiltering.active = false;
-  cvox.ChromeVoxFiltering.currentSelection = -1;
+cvox.ChromeVoxFiltering = function() {
+  /**
+     @type {number}
+  */
+  this.currentSelection_ = -1;
 };
-
-/**
- * Returns whether or not the filtering widget is active.
- *
- * @return {boolean} True if the filtering widget is active.
- */
-cvox.ChromeVoxFiltering.isActive = function() {
-  return cvox.ChromeVoxFiltering.active;
-};
+goog.inherits(cvox.ChromeVoxFiltering, cvox.Widget);
 
 /**
  * Displays the filtering widget.
+ * @override
  */
-cvox.ChromeVoxFiltering.show = function() {
-  document.addEventListener('keydown', cvox.ChromeVoxFiltering.processKeyDown,
-                            true);
-  cvox.ChromeVoxFiltering.active = true;
+cvox.ChromeVoxFiltering.prototype.show = function() {
+  cvox.ChromeVoxFiltering.superClass_.show.call(this);
+  this.active_ = true;
 
-  // The filtering intro chain.
-  cvox.$m('filtering_intro')
-      .andMessage('filtering_intro_help')
-      .andMessage('filter')
-      .withCount(
-          cvox.ChromeVox.navigationManager.walkerDecorator.filters.length);
+  // Filtering specifics announcements.
+  cvox.$m('filter').withCount(
+      cvox.ChromeVox.navigationManager.getFilteredWalker().filters.length);
 
-  // Places selection on the first item (and flushes the speech chain).
-  cvox.ChromeVoxFiltering.next();
+  // Places selection on the first item.
+  this.next();
 };
 
 /**
  * Dismisses the filtering widget
+ * @override
  */
-cvox.ChromeVoxFiltering.hide = function() {
-  document.removeEventListener('keydown',
-                               cvox.ChromeVoxFiltering.processKeyDown,
-                               true);
-
-  if (cvox.ChromeVoxFiltering.active) {
-    cvox.ChromeVoxFiltering.currentSelection = -1;
-    cvox.ChromeVoxFiltering.active = false;
+cvox.ChromeVoxFiltering.prototype.hide = function() {
+  if (this.isActive()) {
+    this.currentSelection_ = -1;
   }
   cvox.$m('filtering_outro').speakFlush();
+
+  cvox.ChromeVoxFiltering.superClass_.hide.call(this);
 };
 
 /**
- * Handles the keyDown event when the filtering widget is active.
- *
- * @param {Object} evt The keyDown event.
- * @return {boolean} Whether or not the event was handled.
+ * @override
  */
-cvox.ChromeVoxFiltering.processKeyDown = function(evt) {
-  if (!cvox.ChromeVoxFiltering.active) {
+cvox.ChromeVoxFiltering.prototype.getName = function() {
+  return 'filtering_intro';
+};
+
+/**
+ * @override
+ */
+cvox.ChromeVoxFiltering.prototype.getHelp = function() {
+  return 'filtering_intro_help';
+};
+
+/**
+ * @override
+ */
+cvox.ChromeVoxFiltering.prototype.onKeyDown = function(evt) {
+  if (!this.active_) {
     return false;
   }
 
+  // Quiet speech on user interaction.
+  cvox.ChromeVox.tts.stop();
+
   var handled = false;
-  var decorator = cvox.ChromeVox.navigationManager.walkerDecorator;
-  var filters = cvox.ChromeVox.navigationManager.walkerDecorator.filters;
+  var decorator = cvox.ChromeVox.navigationManager.getFilteredWalker();
+  var filters = cvox.ChromeVox.navigationManager.getFilteredWalker().filters;
   if (evt.keyCode == 40) { // Down arrow
-    cvox.ChromeVoxFiltering.next();
+    this.next();
     handled = true;
   } else if (evt.keyCode == 38) { // Up arrow
-    cvox.ChromeVoxFiltering.prev();
+    this.prev();
     handled = true;
   } else if (evt.keyCode == 13) { // Enter
-    cvox.ChromeVoxFiltering.hide();
-    handled = true;
-  } else if (evt.keyCode == 27) { // Escape
-    cvox.ChromeVoxFiltering.hide();
+    this.hide();
     handled = true;
   } else if (evt.keyCode == 46) { // delete
-    if (cvox.ChromeVox.navigationManager.walkerDecorator.removeFilter(
-        cvox.ChromeVox.navigationManager.walkerDecorator.filters[
-            cvox.ChromeVoxFiltering.currentSelection])) {
+    if (cvox.ChromeVox.navigationManager.getFilteredWalker().removeFilter(
+        cvox.ChromeVox.navigationManager.getFilteredWalker().filters[
+            this.currentSelection_])) {
       cvox.$m('removed_filter').speakFlush();
     }
-    cvox.ChromeVoxFiltering.next();
+    this.next();
     handled = true;
   }
   if (handled) {
     evt.preventDefault();
     evt.stopPropagation();
+    return true;
+  } else {
+    return cvox.ChromeVoxFiltering.superClass_.onKeyDown.call(this, evt);
   }
-  return handled;
 };
 
 /**
  * Goes to the next matching result.
  */
-cvox.ChromeVoxFiltering.next = function() {
-  var i = cvox.ChromeVoxFiltering.currentSelection;
+cvox.ChromeVoxFiltering.prototype.next = function() {
+  var i = this.currentSelection_;
 
-  i = i >= cvox.ChromeVox.navigationManager.walkerDecorator.filters.length - 1 ?
-      i : i + 1;
-  cvox.ChromeVoxFiltering.currentSelection = i;
-  cvox.ChromeVoxFiltering.selectionMoved();
+  var len = cvox.ChromeVox.navigationManager.getFilteredWalker().filters.length;
+  i = (i >= len - 1) ? i : i + 1;
+  this.currentSelection_ = i;
+  this.selectionMoved();
 };
 
 /**
  * Goes to the previous matching result.
  */
-cvox.ChromeVoxFiltering.prev = function() {
-  cvox.ChromeVoxFiltering.currentSelection =
-  cvox.ChromeVoxFiltering.currentSelection > 0 ?
-  cvox.ChromeVoxFiltering.currentSelection - 1 : 0;
-  cvox.ChromeVoxFiltering.selectionMoved();
+cvox.ChromeVoxFiltering.prototype.prev = function() {
+  this.currentSelection_ =
+      this.currentSelection_ > 0 ? this.currentSelection_ - 1 : 0;
+  this.selectionMoved();
 };
 
 /**
  * Speaks the new selection.
  * @return {boolean} Whether the move occurred successfully.
  */
-cvox.ChromeVoxFiltering.selectionMoved = function() {
-  if (cvox.ChromeVox.navigationManager.walkerDecorator.filters.length == 0) {
-    cvox.ChromeVoxFiltering.hide();
+cvox.ChromeVoxFiltering.prototype.selectionMoved = function() {
+  var len = cvox.ChromeVox.navigationManager.getFilteredWalker().filters.length;
+  if (len == 0) {
+    this.hide();
     return false;
   }
 
-  var selector =
-  cvox.ChromeVox.navigationManager.walkerDecorator.filters[
-      cvox.ChromeVoxFiltering.currentSelection];
+  var selector = cvox.ChromeVox.navigationManager.getFilteredWalker().filters[
+      this.currentSelection_];
 
   var currentList = document.querySelectorAll(selector);
   var MAX_SPOKEN_NODES = 20;
@@ -179,10 +173,10 @@ cvox.ChromeVoxFiltering.selectionMoved = function() {
   }
 
   cvox.ChromeVox.navigationManager.activeIndicator.syncToNodes(indicateNodes);
-  var spokenIndex = cvox.ChromeVoxFiltering.currentSelection + 1;
+  var spokenIndex = this.currentSelection_ + 1;
   cvox.SpokenMessages.andIndexTotal(spokenIndex,
-          cvox.ChromeVox.navigationManager.walkerDecorator.filters.length)
-      .speakFlush();
+          cvox.ChromeVox.navigationManager.getFilteredWalker().filters.length)
+      .speakQueued();
 
   return true;
 };

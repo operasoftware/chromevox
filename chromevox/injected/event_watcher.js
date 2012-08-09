@@ -87,6 +87,16 @@ cvox.ChromeVoxEventWatcher.SUBTREE_MODIFIED_BURST_COUNT_LIMIT_ = 3;
  */
 cvox.ChromeVoxEventWatcher.MAX_LIVE_REGIONS_ = 5;
 
+
+/**
+ * Whether or not ChromeVox should echo keys.
+ * It is useful to turn this off in case the system is already echoing keys (for
+ * example, in Android).
+ *
+ * @type {boolean}
+ */
+cvox.ChromeVoxEventWatcher.shouldEchoKeys = true;
+
 /**
  * Inits the event watcher and adds listeners.
  * @param {!Document} doc The DOM document to add event listeners to.
@@ -244,6 +254,10 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
  * @param {Event} evt The event to be added to the events queue.
  */
 cvox.ChromeVoxEventWatcher.addEvent = function(evt) {
+  // Don't add any events to the events queue if ChromeVox is inactive.
+  if (!cvox.ChromeVox.isActive) {
+    return false;
+  }
   cvox.ChromeVoxEventWatcher.events_.push(evt);
   cvox.ChromeVoxEventWatcher.lastEventTime = new Date().getTime();
   if (cvox.ChromeVoxEventWatcher.firstUnprocessedEventTime == -1) {
@@ -276,16 +290,31 @@ cvox.ChromeVoxEventWatcher.hasPendingEvents_ = function() {
       cvox.ChromeVoxEventWatcher.queueProcessingScheduled_;
 };
 
+
+/**
+ * A bit used to make sure only one ready callback is pending at a time.
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.readyCallbackRunning_ = false;
+
+
 /**
  * Checks if the event watcher has pending events.  If not, call the oldest
  * readyCallback in a loop until exhausted or until there are pending events.
  * @private
  */
 cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_ = function() {
-  while (!cvox.ChromeVoxEventWatcher.hasPendingEvents_() &&
-         !cvox.ChromeVoxEventWatcher.queueProcessingScheduled_ &&
-         cvox.ChromeVoxEventWatcher.readyCallbacks_.length > 0) {
-    cvox.ChromeVoxEventWatcher.readyCallbacks_.shift()();
+  if (!cvox.ChromeVoxEventWatcher.readyCallbackRunning_) {
+    cvox.ChromeVoxEventWatcher.readyCallbackRunning_ = true;
+    window.setTimeout(function() {
+      cvox.ChromeVoxEventWatcher.readyCallbackRunning_ = false;
+      if (!cvox.ChromeVoxEventWatcher.hasPendingEvents_() &&
+             !cvox.ChromeVoxEventWatcher.queueProcessingScheduled_ &&
+             cvox.ChromeVoxEventWatcher.readyCallbacks_.length > 0) {
+        cvox.ChromeVoxEventWatcher.readyCallbacks_.shift()();
+        cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_();
+      }
+    }, 100);
   }
 };
 
@@ -370,6 +399,18 @@ cvox.ChromeVoxEventWatcher.getLastFocusedNode = function() {
 };
 
 /**
+ * Sets the last focused node.
+ * @param {Element} element The last focused element.
+ *
+ * @private.
+ */
+cvox.ChromeVoxEventWatcher.setLastFocusedNode_ = function(element) {
+  cvox.ChromeVoxEventWatcher.lastFocusedNode = element;
+  cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = !element ? null :
+      cvox.DomUtil.getControlValueAndStateString(element);
+};
+
+/**
  * Handles mouseclick events.
  * Mouseclick events are only triggered if the user touches the mouse;
  * we use it to determine whether or not we should bother trying to sync to a
@@ -381,6 +422,20 @@ cvox.ChromeVoxEventWatcher.getLastFocusedNode = function() {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.mouseClickEventWatcher = function(evt) {
+  if (cvox.ChromeVox.host.mustRedispatchClickEvent() && !evt.fromCvox) {
+    cvox.ChromeVoxUserCommands.wasMouseClicked = true;
+    evt.stopPropagation();
+    evt.preventDefault();
+    // Since the click event was caught and we are re-dispatching it, we also
+    // need to refocus the current node because the current node has already
+    // been blurred by the window getting the click event in the first place.
+    // Failing to restore focus before clicking can cause odd problems such as
+    // the soft IME not coming up in Android (it only shows up if the click
+    // happens in a focused text field).
+    cvox.DomUtil.setFocus(cvox.ChromeVox.navigationManager.getCurrentNode());
+    cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem']();
+    return false;
+  }
   cvox.ChromeVoxUserCommands.wasMouseClicked = true;
   return true;
 };
@@ -427,7 +482,7 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
         if (evt.target != cvox.ChromeVoxEventWatcher.pendingMouseOverNode) {
           return;
         }
-
+        cvox.ChromeVoxUserCommands.keepReading = false;
         var target = /** @type {Node} */(evt.target);
         cvox.DomUtil.setFocus(target);
         cvox.ApiImplementation.syncToNode(target, true,
@@ -480,8 +535,8 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
       evt.target.hasAttribute &&
       evt.target.getAttribute('aria-hidden') == 'true' &&
       evt.target.getAttribute('chromevoxignoreariahidden') != 'true') {
-    cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
-    cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+    cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
+    cvox.ChromeVoxEventWatcher.setUpTextHandler_();
     return;
   }
   if (evt.target) {
@@ -494,9 +549,10 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
     }
 
     if (parentControl) {
-      cvox.ChromeVoxEventWatcher.lastFocusedNode = parentControl;
+      cvox.ChromeVoxEventWatcher.setLastFocusedNode_(
+          /** @type {Element} */(parentControl));
     } else {
-      cvox.ChromeVoxEventWatcher.lastFocusedNode = target;
+      cvox.ChromeVoxEventWatcher.setLastFocusedNode_(target);
     }
 
     var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
@@ -507,12 +563,13 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
 
     // Navigate to this control so that it will be the same for focus as for
     // regular navigation.
+    cvox.ChromeVox.navigationManager.setGranularity(
+        cvox.NavigationShifter.GRANULARITIES.OBJECT);
     cvox.ApiImplementation.syncToNode(target, true, queueMode);
 
-    cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+    cvox.ChromeVoxEventWatcher.setUpTextHandler_();
   } else {
-    cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
-    cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = null;
+    cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
   }
   return;
 };
@@ -526,7 +583,7 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
 cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
   window.setTimeout(function() {
     if (!document.activeElement) {
-      cvox.ChromeVoxEventWatcher.lastFocusedNode = null;
+      cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
       cvox.ChromeVoxEventWatcher.addEvent(evt);
     }
   }, 0);
@@ -572,7 +629,7 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
     cvox.ChromeVoxEventWatcher.eventToEat = evt;
     return false;
   }
-  cvox.ChromeVoxEventWatcher.addEvent(evt);
+    cvox.ChromeVoxEventWatcher.addEvent(evt);
   return true;
 };
 
@@ -629,7 +686,7 @@ cvox.ChromeVoxEventWatcher.changeEventWatcher = function(evt) {
  * @param {Event} evt The event to handle.
  */
 cvox.ChromeVoxEventWatcher.changeHandler = function(evt) {
-  if (cvox.ChromeVoxEventWatcher.handleTextChanged(false)) {
+  if (cvox.ChromeVoxEventWatcher.setUpTextHandler_()) {
     return;
   }
   if (document.activeElement == evt.target) {
@@ -704,12 +761,11 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedHandler = function(evt) {
 };
 
 /**
- * Speaks updates to editable text controls as needed.
- *
- * @param {boolean} isKeypress Was this change triggered by a keypress?
+ * Sets up the text handler.
  * @return {boolean} True if an editable text control has focus.
+ * @private
  */
-cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
+cvox.ChromeVoxEventWatcher.setUpTextHandler_ = function() {
   var currentFocus = document.activeElement;
   if (currentFocus &&
       currentFocus.hasAttribute &&
@@ -737,11 +793,13 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
       return false;
     }
     if (currentFocus.constructor == HTMLInputElement &&
-        cvox.DomUtil.isInputTypeText(currentFocus)) {
+        cvox.DomUtil.isInputTypeText(currentFocus) &&
+        cvox.ChromeVoxEventWatcher.shouldEchoKeys) {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
       cvox.ChromeVoxEventWatcher.currentTextHandler =
           new cvox.ChromeVoxEditableHTMLInput(currentFocus, cvox.ChromeVox.tts);
-    } else if (currentFocus.constructor == HTMLTextAreaElement) {
+    } else if ((currentFocus.constructor == HTMLTextAreaElement) &&
+        cvox.ChromeVoxEventWatcher.shouldEchoKeys) {
       cvox.ChromeVoxEventWatcher.currentTextControl = currentFocus;
       cvox.ChromeVoxEventWatcher.currentTextHandler =
           new cvox.ChromeVoxEditableTextArea(currentFocus, cvox.ChromeVox.tts);
@@ -772,13 +830,24 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
             });
       }
       if (!cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
-        cvox.ChromeVox.navigationManager.syncToNode(
-            cvox.ChromeVoxEventWatcher.currentTextControl);
+        cvox.ChromeVox.navigationManager.updateSel(
+            cvox.CursorSelection.fromNode(
+                cvox.ChromeVoxEventWatcher.currentTextControl));
       }
     }
 
     return (null != cvox.ChromeVoxEventWatcher.currentTextHandler);
   }
+};
+
+/**
+ * Speaks updates to editable text controls as needed.
+ *
+ * @param {boolean} isKeypress Was this change triggered by a keypress?
+ * @return {boolean} True if an editable text control has focus.
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.handleTextChanged_ = function(isKeypress) {
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     var handler = cvox.ChromeVoxEventWatcher.currentTextHandler;
     handler.update(isKeypress);
@@ -796,7 +865,7 @@ cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
 cvox.ChromeVoxEventWatcher.onTextMutation = function() {
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     window.setTimeout(function() {
-      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+      cvox.ChromeVoxEventWatcher.handleTextChanged_(false);
     }, cvox.ChromeVoxEventWatcher.MAX_WAIT_TIME_MS_);
   }
 };
@@ -810,6 +879,17 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
   var parentControl = cvox.DomUtil.getSurroundingControl(control);
   var announceChange = false;
 
+  if (control != cvox.ChromeVoxEventWatcher.lastFocusedNode &&
+      (parentControl == null ||
+       parentControl != cvox.ChromeVoxEventWatcher.lastFocusedNode)) {
+    cvox.ChromeVoxEventWatcher.setLastFocusedNode_(control);
+    return;
+  } else if (newValue == cvox.ChromeVoxEventWatcher.lastFocusedNodeValue) {
+    return;
+  }
+
+  cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = newValue;
+
   if ((control.type == 'checkbox') || (control.type == 'radio')) {
     // Always announce changes to checkboxes and radio buttons.
     announceChange = true;
@@ -819,17 +899,7 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
     } else {
       cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.CHECK_OFF);
     }
-  } else if (control != cvox.ChromeVoxEventWatcher.lastFocusedNode &&
-      (parentControl == null ||
-       parentControl != cvox.ChromeVoxEventWatcher.lastFocusedNode)) {
-    cvox.ChromeVoxEventWatcher.lastFocusedNode = control;
-    cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = newValue;
-    return;
-  } else if (newValue == cvox.ChromeVoxEventWatcher.lastFocusedNodeValue) {
-    return;
   }
-
-  cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = newValue;
 
   if (control.tagName == 'SELECT') {
     announceChange = true;
@@ -877,6 +947,10 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
  * @return {boolean} True if this key event was handled.
  */
 cvox.ChromeVoxEventWatcher.handleControlAction = function(evt) {
+  // Ignore the control action if ChromeVox is not active.
+  if (!cvox.ChromeVox.isActive) {
+    return false;
+  }
   var control = evt.target;
 
   if (control.tagName == 'SELECT' && (control.size <= 1) &&
@@ -1041,7 +1115,9 @@ cvox.ChromeVoxEventWatcher.processQueue_ = function() {
   }
   cvox.ChromeVoxEventWatcher.events_ = [];
   for (i = 0; evt = events[i]; i++) {
-    if (i >= lastFocusIndex || evt.type == 'DOMSubtreeModified') {
+    var prevEvt = events[i - 1] || {};
+    if ((i >= lastFocusIndex || evt.type == 'DOMSubtreeModified') &&
+        (prevEvt.type != 'focus' || evt.type != 'change')) {
       cvox.ChromeVoxEventWatcher.events_.push(evt);
     }
   }
@@ -1079,36 +1155,37 @@ cvox.ChromeVoxEventWatcher.processQueue_ = function() {
 cvox.ChromeVoxEventWatcher.handleEvent_ = function(evt) {
   switch (evt.type) {
     case 'keydown':
+      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
       if (cvox.ChromeVoxEventWatcher.currentTextControl) {
-        cvox.ChromeVoxEventWatcher.handleTextChanged(true);
-      } else {
-        cvox.ChromeVoxEventWatcher.handleControlChanged(
-            document.activeElement);
+        cvox.ChromeVoxEventWatcher.handleTextChanged_(true);
+        if (cvox.ChromeVoxEventWatcher.currentTextHandler &&
+            cvox.ChromeVoxEventWatcher.currentTextHandler.lastChangeDescribed) {
+          break;
+        }
       }
+      // We're either not on a text control, or we are on a text control but no
+      // text change was described. Let's try describing the state instead.
+      cvox.ChromeVoxEventWatcher.handleControlChanged(document.activeElement);
       break;
     case 'keyup':
       break;
     case 'keypress':
-      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
       break;
     case 'focus':
       cvox.ChromeVoxEventWatcher.focusHandler(evt);
       break;
     case 'blur':
-      if (!document.activeElement) {
-        cvox.ChromeVoxEventWatcher.handleTextChanged(false);
-      }
+      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
       break;
     case 'change':
       cvox.ChromeVoxEventWatcher.changeHandler(evt);
       break;
     case 'select':
-      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
+      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
       break;
     case 'DOMSubtreeModified':
       cvox.ChromeVoxEventWatcher.subtreeModifiedHandler(evt);
       break;
   }
 };
-
-

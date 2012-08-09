@@ -70,6 +70,3 @@ cvox.KbExplorer.onKeyPress = function(evt) {
   evt.preventDefault();
   evt.stopPropagation();
 };
-
-
-goog.exportSymbol('load', cvox.KbExplorer.init);

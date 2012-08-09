@@ -1,0 +1,37 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_CHROMEVOX_NAME__",
+  "version": "1.0",
+  "description": "__MSG_CHROMEVOX_DESCRIPTION__.",
+  "background": {
+    "page": "chromevox/background/background.html"
+  },
+  "permissions": [
+    "bookmarks",
+    "tabs",
+    "experimental",
+    "tts",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [ "<all_urls>" ],
+      "all_frames": true,
+      "js": [
+        "chromeVoxChromePageScript.js"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "chromevox/chromevox-16.png",
+    "19": "chromevox/chromevox-19.png",
+    "48": "chromevox/chromevox-48.png",
+    "128": "chromevox/chromevox-128.png"
+  },
+  "web_accessible_resources": [
+    "chromevox/injected/api.js"
+  ],
+  "options_page": "chromevox/background/options.html",
+
+  "default_locale": "en"
+}

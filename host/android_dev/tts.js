@@ -37,14 +37,7 @@ cvox.AndroidTts = function() {
 };
 goog.inherits(cvox.AndroidTts, cvox.AbstractTts);
 
-/**
- * Speaks the given string using the specified queueMode and properties.
- * @param {string} textString The string of text to be spoken.
- * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
- *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object?=} properties Speech properties to use for this utterance.
- * @return {cvox.AndroidTts} this For chaining.
- */
+/** @override */
 cvox.AndroidTts.prototype.speak = function(textString, queueMode, properties) {
   cvox.AndroidTts.superClass_.speak.call(this, textString, queueMode, properties);
   var mergedProperties = this.mergeProperties(properties);
@@ -52,18 +45,13 @@ cvox.AndroidTts.prototype.speak = function(textString, queueMode, properties) {
   return this;
 };
 
-/**
- * Returns true if the TTS is currently speaking.
- * @return {boolean} True if the TTS is speaking.
- */
+/** @override */
 cvox.AndroidTts.prototype.isSpeaking = function() {
   cvox.AndroidTts.superClass_.isSpeaking.call(this);
   return accessibility.isSpeaking();
 };
 
-/**
- * Stops speech.
- */
+/** @override */
 cvox.AndroidTts.prototype.stop = function() {
   cvox.AndroidTts.superClass_.stop.call(this);
   accessibility.stop();

@@ -15,10 +15,10 @@
 goog.provide('cvox.ChromeVoxKbHandler');
 
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.History');
 goog.require('cvox.KeyUtil');
+goog.require('cvox.KeyboardHelpWidget');
 
 /**
  * @fileoverview Handles user keyboard input events.
@@ -46,39 +46,22 @@ cvox.ChromeVoxKbHandler.powerkeyShortcuts = [];
 /**
  * Loads the key bindings into the keyToFunctionsTable.
  *
- *  @param {Object} keyToFunctionsTable The key bindings table.
+ *  @param {string} keyToFunctionsTable The key bindings table in JSON form.
  */
 cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
     keyToFunctionsTable) {
-  // TODO(dmazzoni): Set up externs properly instead of using window.
-  window.console.log('Got keyToFunctionsTable');
-  cvox.ChromeVoxKbHandler.keyToFunctionsTable = keyToFunctionsTable;
+  // TODO(dtseng): Consider constructing a full cvox.KeyMap object here.
+  if (!window.JSON) {
+    return;
+  }
+  cvox.ChromeVoxKbHandler.keyToFunctionsTable =
+      /** @type {Object.<string, string>} */ (
+          window.JSON.parse(keyToFunctionsTable));
+
   cvox.ChromeVox.sequenceSwitchKeyCodes =
       cvox.ChromeVoxKbHandler.getSequenceSwitchKeys();
-  cvox.ChromeVoxKbHandler.powerkeyShortcuts =
-      cvox.ChromeVoxUserCommands.initPowerKey(
-      cvox.ChromeVoxKbHandler.keyToFunctionsTable,
-      cvox.ChromeVoxKbHandler.powerkeyActionHandler);
-};
-
-/**
- * Hanldes callbacks from PowerKey when user makes a selection.
- *
- * @param {string} completion The completion string selected by the user.
- * @param {number} index The index of the completion string.
- */
-cvox.ChromeVoxKbHandler.powerkeyActionHandler = function(completion, index) {
-  var keyStr = cvox.ChromeVoxKbHandler.powerkeyShortcuts[index];
-  var functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
-      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
-  var func = cvox.ChromeVoxUserCommands.commands[functionName];
-  if (func) {
-    if (cvox.ChromeVoxSearch.isActive()) {
-      cvox.ChromeVoxSearch.hide();
-      cvox.ChromeVox.navigationManager.syncToSelection();
-    }
-    func();
-  }
+  cvox.KeyboardHelpWidget.getInstance().init(
+      cvox.ChromeVoxKbHandler.keyToFunctionsTable);
 };
 
 /**
@@ -151,9 +134,10 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
         }
       }
       if (targetNode) {
-        cvox.ChromeVox.navigationManager.syncToNode(targetNode);
+        cvox.ChromeVox.navigationManager.updateSel(
+            cvox.CursorSelection.fromNode(targetNode));
         var currentDesc =
-            cvox.ChromeVox.navigationManager.getCurrentDescription();
+            cvox.ChromeVox.navigationManager.getDescription();
         cvox.ChromeVox.navigationManager.speakDescriptionArray(
             currentDesc, cvox.AbstractTts.QUEUE_MODE_FLUSH, null);
         return true;
@@ -167,7 +151,7 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     }
     // The only time ChromeVox should consider handling the enter
     // key is if the navigation manager is able to act on the current item.
-    if (!cvox.ChromeVox.navigationManager.canActOnCurrentItem()) {
+    if (!cvox.ChromeVox.navigationManager.canAct()) {
       return true;
     }
     // Act on this element.
@@ -175,7 +159,7 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   }
   var keyStr = cvox.KeyUtil.keyEventToString(evt);
   var functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
-      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
+      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] : null;
   // TODO (clchen): Disambiguate why functions are null. If the user pressed
   // something that is not a valid combination, make an error noise so there
   // is some feedback.
@@ -184,7 +168,7 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     // being down.
     keyStr = keyStr.replace('Prefix>', 'Cvox+');
     functionName = cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] ?
-      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr][0] : null;
+      cvox.ChromeVoxKbHandler.keyToFunctionsTable[keyStr] : null;
   }
 
   // If ChromeVox isn't active, ignore every command except the one
@@ -193,6 +177,8 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     return true;
   }
 
+  // TODO (stoarca): This block belongs in user_commands.js.
+  // Very confusing to have it here!
   // Ignore the left or right arrow key unless we are currently continuously
   // reading.
   if ((functionName == 'skipForward') || (functionName == 'skipBackward')) {
@@ -212,10 +198,6 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   var func = cvox.ChromeVoxUserCommands.commands[functionName];
   if (func && (!cvox.ChromeVoxUserCommands.powerkey ||
       !cvox.ChromeVoxUserCommands.powerkey.isVisible())) {
-    if (cvox.ChromeVoxSearch.isActive() && functionName != 'stopSpeech') {
-      cvox.ChromeVoxSearch.hide();
-      cvox.ChromeVox.navigationManager.syncToSelection();
-    }
     var history = cvox.History.getInstance();
     history.enterUserCommand(functionName);
     returnValue = func();
@@ -226,7 +208,7 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
         cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
       // if PowerKey is visible, hide it, since modifier keys have no use when
       // PowerKey is visible.
-      cvox.ChromeVoxUserCommands.hidePowerKey();
+      cvox.KeyboardHelpWidget.getInstance().hide();
       returnValue = false;
     }
     // Modifier/prefix is active -- prevent default action

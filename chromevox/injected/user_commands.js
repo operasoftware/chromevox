@@ -18,25 +18,26 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
+
 goog.provide('cvox.ChromeVoxUserCommands');
 
-goog.require('cvox.AbstractEarcons');
-goog.require('cvox.ApiImplementation');
+goog.require('cvox.AutoRunner');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxFiltering');
-goog.require('cvox.ChromeVoxNavigationManager');
-goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.CssSpace');
+goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
-goog.require('cvox.SpokenMessages');
+goog.require('cvox.KeyboardHelpWidget');
+goog.require('cvox.NodeChooserWidget');
+goog.require('cvox.SearchWidget');
 
 
 /**
  * @namespace
  */
-cvox.ChromeVoxUserCommands = function() { };
-
+cvox.ChromeVoxUserCommands = function() {
+};
 
 /**
  * @type {Object}
@@ -45,30 +46,10 @@ cvox.ChromeVoxUserCommands.commands = {};
 
 
 /**
- * @type {PowerKey}
- */
-cvox.ChromeVoxUserCommands.powerkey = null;
-
-
-/**
- * @type {Function}
- */
-cvox.ChromeVoxUserCommands.powerkeyActionCallback = null;
-
-/**
  * @type {boolean}
  * TODO (clchen, dmazzoni): Implement syncing on click to avoid needing this.
  */
 cvox.ChromeVoxUserCommands.wasMouseClicked = false;
-
-/**
- * A variable to hold the most recent anchor to prevent the code from getting
- * stuck on empty anchors when walking backwards.
- *
- * @type {Object}
- * @private
- */
-cvox.ChromeVoxUserCommands.mostRecentAnchor_ = null;
 
 /**
  * A boolean to determine if continuous reading should keep going.
@@ -77,154 +58,6 @@ cvox.ChromeVoxUserCommands.mostRecentAnchor_ = null;
  * @type {boolean}
  */
 cvox.ChromeVoxUserCommands.keepReading = false;
-
-
-// TODO (chaitanyag): Move the PowerKey related code in a separate JS file.
-/**
- * Initializes PowerKey.
- *
- * @param {Object} keyMap Object with keyboard shortcut -> function mappings.
- * @param {Function} callback Function to call when user makes a selection
- *     in PowerKey.
- * @return {Array} An array of keyboard shortcuts populated in powerkey.
- */
-cvox.ChromeVoxUserCommands.initPowerKey = function(keyMap, callback) {
-  var list = [];
-  var cmds = [];
-  for (var key in keyMap) {
-    list.push(keyMap[key][1] + ' - ' +
-        cvox.ChromeVoxUserCommands.getReadableShortcut(key));
-    cmds.push(key);
-  }
-  cvox.ChromeVoxUserCommands.powerkey = new window.PowerKey('main', null);
-  window.PowerKey.setDefaultCSSStyle();
-  cvox.ChromeVoxUserCommands.powerkey.setCompletionPromptStr(
-      cvox.ChromeVox.msgs.getMsg('powerkey_init_prompt'));
-  cvox.ChromeVoxUserCommands.powerkey.createCompletionField(
-      document.body,
-      50,
-      cvox.ChromeVoxUserCommands.powerkeyActionHandler,
-      null,
-      list,
-      false);
-  cvox.ChromeVoxUserCommands.powerkey.setAutoHideCompletionField(true);
-  cvox.ChromeVoxUserCommands.powerkey.hideOnEsc(false);
-  cvox.ChromeVoxUserCommands.powerkey.setBrowseCallback(
-      cvox.ChromeVoxUserCommands.powerkeyBrowseHandler);
-  cvox.ChromeVoxUserCommands.powerkeyActionCallback = callback;
-  return cmds;
-};
-
-
-/**
- * Returns a readable form of the specified keyboard shortcut.
- *
- * @param {string} key String form of a keyboard shortcut.
- * @return {string} Readable string representation.
- */
-cvox.ChromeVoxUserCommands.getReadableShortcut = function(key) {
-  var tokens = key.split('+');
-  for (var i = 0; i < tokens.length; i++) {
-    if (tokens[i].charAt(0) == '#' && tokens[i].indexOf('>') == -1) {
-      var keyCode = parseInt(tokens[i].substr(1), 10);
-      tokens[i] = cvox.KeyUtil.getReadableNameForKeyCode(keyCode);
-    } else {
-      var seqs = tokens[i].split('>');
-      for (var j = 0; j < seqs.length; j++) {
-        if (seqs[j].charAt(0) == '#') {
-          var keyCode = parseInt(seqs[j].substr(1), 10);
-          seqs[j] = cvox.KeyUtil.getReadableNameForKeyCode(keyCode);
-        }
-        seqs[j] = cvox.KeyUtil.getReadableNameForStr(seqs[j]) || seqs[j];
-      }
-      tokens[i] = seqs.join(', ');
-    }
-    tokens[i] = cvox.KeyUtil.getReadableNameForStr(tokens[i]) || tokens[i];
-  }
-  // trim '+'s, ' 's and return
-  return tokens.join(' + ').replace(/^[\+\s]*/, '').replace(/[\+\s]*$/, '');
-};
-
-
-/**
- * Handles browse callbacks from PowerKey by speaking the current suggestion.
- *
- * @param {string} completion The completion string.
- * @param {number} index The index of the completion string in the array.
- * @param {?HTMLElement} node The node corresponding the selected item.
- * @param {?Array} args optional arguments.
- */
-cvox.ChromeVoxUserCommands.powerkeyBrowseHandler = function(
-    completion, index, node, args) {
-  cvox.ChromeVox.tts.speak(completion, 0, null);
-};
-
-
-/**
- * Handles action callback from PowerKey when the user selects a suggestion.
- *
- * @param {string} completion The completion string.
- * @param {number} index The index of the completion string in the array.
- * @param {?HTMLElement} node The node corresponding the selected item.
- * @param {?Array} args optional arguments.
- */
-cvox.ChromeVoxUserCommands.powerkeyActionHandler = function(
-    completion, index, node, args) {
-  cvox.ChromeVoxUserCommands.hidePowerKey();
-  window.setTimeout(function() {
-    if (cvox.ChromeVoxUserCommands.powerkeyActionCallback) {
-      cvox.ChromeVoxUserCommands.powerkeyActionCallback(completion, index);
-    }
-  }, 1); // The 1 ms timeout is necessary to let the focus return to the
-  // element which was focused before showing PowerKey, before taking
-  // the PowerKey action.
-};
-
-
-/**
- * Hides PowerKey dialog and returns focus to the previously focused element.
- */
-cvox.ChromeVoxUserCommands.hidePowerKey = function() {
-  if (!cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
-    return;
-  }
-  cvox.ChromeVoxUserCommands.powerkey.updateCompletionField(
-      window.PowerKey.status.HIDDEN);
-  if (cvox.ChromeVoxUserCommands.savedCurrentNode) {
-    window.setTimeout(function() {
-      cvox.DomUtil.setFocus(cvox.ChromeVoxUserCommands.savedCurrentNode);
-    }, 0);
-  }
-};
-
-
-/**
- * Shows PowerKey dialog.
- *
- * @return {boolean} Always return false since we want to prevent the default
- * action.
- */
-cvox.ChromeVoxUserCommands.commands['showPowerKey'] = function() {
-  cvox.ChromeVox.tts.stop();
-  cvox.ChromeVoxUserCommands.savedCurrentNode =
-      cvox.ChromeVox.navigationManager.getCurrentNode();
-  cvox.ChromeVoxUserCommands.powerkey.updateCompletionField(
-      window.PowerKey.status.VISIBLE);
-  return false;
-};
-
-
-/**
- * Hides PowerKey dialog.
- *
- * @return {boolean} Always return false since we want to prevent the default
- * action.
- */
-cvox.ChromeVoxUserCommands.commands['hidePowerKey'] = function() {
-  cvox.ChromeVox.tts.stop();
-  cvox.ChromeVoxUserCommands.hidePowerKey();
-  return false;
-};
 
 
 /**
@@ -282,8 +115,9 @@ cvox.ChromeVoxUserCommands.commands['toggleKeyPrefix'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['forward'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  var navSucceeded =
-      cvox.ChromeVox.navigationManager.navigateForward(true, true);
+  cvox.ChromeVoxUserCommands.keepReading = false;
+  cvox.ChromeVox.navigationManager.setReversed(false);
+  var navSucceeded = cvox.ChromeVox.navigationManager.navigate(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 });
@@ -297,6 +131,7 @@ cvox.ChromeVoxUserCommands.commands['forward'] =
  */
 cvox.ChromeVoxUserCommands.commands['skipForward'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
+  cvox.ChromeVox.navigationManager.setReversed(false);
   if (cvox.ChromeVoxUserCommands.keepReading) {
     if (cvox.ChromeVox.host.hasTtsCallback()) {
       cvox.ChromeVox.navigationManager.skipForward();
@@ -319,7 +154,13 @@ cvox.ChromeVoxUserCommands.commands['skipForward'] =
  */
 cvox.ChromeVoxUserCommands.commands['right'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  var navSucceeded = cvox.ChromeVox.navigationManager.navigateRight(true);
+  cvox.ChromeVox.navigationManager.setReversed(false);
+  var navSucceeded = false;
+  if (cvox.ChromeVox.navigationManager.isTableMode()) {
+    navSucceeded = cvox.ChromeVox.navigationManager.nextCol();
+  } else {
+    navSucceeded = cvox.ChromeVox.navigationManager.subnavigate(true);
+  }
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 });
@@ -333,8 +174,9 @@ cvox.ChromeVoxUserCommands.commands['right'] =
  */
 cvox.ChromeVoxUserCommands.commands['backward'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  var navSucceeded =
-      cvox.ChromeVox.navigationManager.navigateBackward(true, true);
+  cvox.ChromeVoxUserCommands.keepReading = false;
+  cvox.ChromeVox.navigationManager.setReversed(true);
+  var navSucceeded = cvox.ChromeVox.navigationManager.navigate(true);
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 });
@@ -348,6 +190,7 @@ cvox.ChromeVoxUserCommands.commands['backward'] =
  */
 cvox.ChromeVoxUserCommands.commands['skipBackward'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
+  cvox.ChromeVox.navigationManager.setReversed(false);
   if (cvox.ChromeVoxUserCommands.keepReading) {
     if (cvox.ChromeVox.host.hasTtsCallback()) {
       cvox.ChromeVox.navigationManager.skipBackward();
@@ -370,7 +213,13 @@ cvox.ChromeVoxUserCommands.commands['skipBackward'] =
  */
 cvox.ChromeVoxUserCommands.commands['left'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  var navSucceeded = cvox.ChromeVox.navigationManager.navigateLeft(true);
+  cvox.ChromeVox.navigationManager.setReversed(true);
+  var navSucceeded = false;
+  if (cvox.ChromeVox.navigationManager.isTableMode()) {
+    navSucceeded = cvox.ChromeVox.navigationManager.nextCol();
+  } else {
+    navSucceeded = cvox.ChromeVox.navigationManager.subnavigate(true);
+  }
   cvox.ChromeVoxUserCommands.finishNavCommand('');
   return !navSucceeded;
 });
@@ -385,12 +234,8 @@ cvox.ChromeVoxUserCommands.commands['left'] =
  */
 cvox.ChromeVoxUserCommands.commands['previousGranularity'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  cvox.ChromeVox.navigationManager.up();
-  var strategy = cvox.ChromeVox.navigationManager.getStrategy();
-  if (cvox.ChromeVox.navigationManager.currentNavStrategy ==
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION) {
-    strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
-  }
+  cvox.ChromeVox.navigationManager.makeLessGranular();
+  var strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
   cvox.ChromeVoxUserCommands.finishNavCommand(strategy + ' ');
   return false;
 });
@@ -405,12 +250,8 @@ cvox.ChromeVoxUserCommands.commands['previousGranularity'] =
  */
 cvox.ChromeVoxUserCommands.commands['nextGranularity'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  cvox.ChromeVox.navigationManager.down();
-  var strategy = cvox.ChromeVox.navigationManager.getStrategy();
-  if (cvox.ChromeVox.navigationManager.currentNavStrategy ==
-      cvox.ChromeVoxNavigationManager.STRATEGIES.SELECTION) {
-    strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
-  }
+  cvox.ChromeVox.navigationManager.makeMoreGranular();
+  var strategy = cvox.ChromeVox.navigationManager.getGranularityMsg();
   cvox.ChromeVoxUserCommands.finishNavCommand(strategy + ' ');
   return false;
 });
@@ -451,9 +292,10 @@ cvox.ChromeVoxUserCommands.commands['nop'] = function() {
  */
 cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
   var descriptionArray =
-      cvox.ChromeVox.navigationManager.getCurrentDescription();
+      cvox.ChromeVox.navigationManager.getDescription();
 
   cvox.ChromeVox.navigationManager.setFocus();
+  cvox.ChromeVox.navigationManager.updateIndicator();
 
   var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
 
@@ -479,6 +321,7 @@ cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
 cvox.ChromeVoxUserCommands.findNextAndSpeak_ =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(predicate,
                                                               errorStr) {
+  cvox.ChromeVox.navigationManager.setReversed(false);
   // Don't do any navigational commands if the document is hidden from
   // screen readers.
   if (cvox.ChromeVox.entireDocumentIsHidden) {
@@ -490,11 +333,9 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ =
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
-  // Do a previous and then forward here to ensure that
-  // speaking is consistent with what would have happened if
-  // the user just navigated there.
-  cvox.ChromeVox.navigationManager.previous(true);
-  cvox.ChromeVoxUserCommands.commands['forward']();
+
+  cvox.ChromeVox.navigationManager.sync();
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
 });
 
 
@@ -509,40 +350,23 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ =
 cvox.ChromeVoxUserCommands.findPreviousAndSpeak_ =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(predicate,
                                                               errorStr) {
+  cvox.ChromeVox.navigationManager.setReversed(true);
   // Don't do any navigational commands if the document is hidden from
   // screen readers.
   if (cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
 
-  if (!cvox.ChromeVox.navigationManager.findPrevious(predicate)) {
+  if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
     cvox.ChromeVox.tts.speak(
         errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
-  // Do a previous and then forward here to ensure that
-  // speaking is consistent with what would have happened if
-  // the user just navigated there.
-  cvox.ChromeVox.navigationManager.previous(true);
-  cvox.ChromeVoxUserCommands.commands['forward']();
+
+  cvox.ChromeVox.navigationManager.sync();
+  cvox.ChromeVoxUserCommands.finishNavCommand('');
 });
 
-
-/**
- * @param {Array} arr Array of nodes.
- * @param {string} tagName The name of the tag.
- * @return {?Node} Node if obj is in the array.
- * @private
- */
-cvox.ChromeVoxUserCommands.containsTagName_ = function(arr, tagName) {
-  var i = arr.length;
-  while (i--) {
-    if (arr[i].tagName == tagName) {
-      return arr[i];
-    }
-  }
-  return null;
-};
 
 /**
  * Finds the next node based on its similarity or difference from the current
@@ -554,16 +378,18 @@ cvox.ChromeVoxUserCommands.containsTagName_ = function(arr, tagName) {
 cvox.ChromeVoxUserCommands.findBySimilarity = function(direction, isSimilar) {
   var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
   var cssSelector = cvox.WalkerDecorator.filterForNode(currentNode);
-  var inclusion = cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive;
-  cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive = isSimilar;
-  cvox.ChromeVox.navigationManager.walkerDecorator.addFilter(cssSelector);
+  var incl = cvox.ChromeVox.navigationManager.getFilteredWalker().isInclusive;
+  cvox.ChromeVox.navigationManager.getFilteredWalker().isInclusive = isSimilar;
+  cvox.ChromeVox.navigationManager.getFilteredWalker().addFilter(cssSelector);
   cvox.ChromeVoxUserCommands.commands[direction]();
-  cvox.ChromeVox.navigationManager.walkerDecorator.removeFilter(cssSelector);
-  cvox.ChromeVox.navigationManager.walkerDecorator.isInclusive = inclusion;
+  cvox.ChromeVox.navigationManager.getFilteredWalker().
+      removeFilter(cssSelector);
+  cvox.ChromeVox.navigationManager.getFilteredWalker().isInclusive = incl;
   cvox.ChromeVoxUserCommands.finishNavCommand('');
 
   if (!cvox.ChromeVox.navigationManager.getCurrentNode()) {
-    cvox.ChromeVox.navigationManager.syncToNode(currentNode);
+    cvox.ChromeVox.navigationManager.updateSel(
+        cvox.CursorSelection.fromNode(currentNode));
     var error = isSimilar ? 'no_more_similar_elements' :
         'no_more_different_elements';
     cvox.$m(error).speakFlush();
@@ -572,38 +398,42 @@ cvox.ChromeVoxUserCommands.findBySimilarity = function(direction, isSimilar) {
 
 
 /**
- * Handles TAB navigation by putting focus at the user's position.
- * This function will create dummy nodes if there is nothing that
- * is focusable at the current position.
- *
- * @return {boolean} Always return true since we rely on the default action.
+ * Handles any tab navigation by putting focus at the user's position.
+ * This function will create dummy nodes if there is nothing that is focusable
+ * at the current position.
+ * TODO (adu): This function is too long. We need to break it up into smaller
+ * helper functions.
+ * @return {boolean} True if default action should be taken.
+ * @private
  */
-cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
+cvox.ChromeVoxUserCommands.handleTabAction_ = function() {
   cvox.ChromeVox.tts.stop();
+
   // Clean up after any previous runs
-  var previousDummySpan = document.getElementById('ChromeVoxTabDummySpan');
-  if (previousDummySpan) {
-    previousDummySpan.parentNode.removeChild(previousDummySpan);
+  cvox.ChromeVoxUserCommands.removeTabDummySpan_();
+
+  // If we are tabbing from an invalid location, prevent the default action.
+  // We pass the isFocusable function as a predicate to specify we only want to
+  // revert to focusable nodes.
+  if (!cvox.ChromeVox.navigationManager.resolve(cvox.DomUtil.isFocusable)) {
+    cvox.ChromeVox.navigationManager.setFocus();
+    return false;
   }
 
-  // Hide the search widget if it is shown.
-  cvox.ChromeVoxSearch.hide();
-
-  var tagName = 'A';
   // If the user is already focused on a link or control,
   // nothing more needs to be done.
-  if ((document.activeElement.tagName == tagName) ||
-      cvox.DomUtil.isControl(document.activeElement)) {
+  var isLinkControl = cvox.ChromeVoxUserCommands.isFocusedOnLinkControl_();
+  if (isLinkControl) {
     return true;
   }
 
-  var anchorNode;
-  var focusNode;
   // Try to find something reasonable to focus on.
   // Use selection if it exists because it means that the user has probably
   // clicked with their mouse and we should respect their position.
   // If there is no selection, then use the last known position based on
   // NavigationManager's currentNode.
+  var anchorNode = null;
+  var focusNode = null;
   var sel = window.getSelection();
   if (!cvox.ChromeVoxUserCommands.wasMouseClicked) {
     sel = null;
@@ -617,10 +447,12 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
     anchorNode = sel.anchorNode;
     focusNode = sel.focusNode;
   }
+
+  // See if we can set focus to either anchorNode or focusNode.
+  // If not, try the parents. Otherwise give up and create a dummy span.
   if (anchorNode == null || focusNode == null) {
     return true;
   }
-
   if (cvox.DomUtil.isFocusable(anchorNode)) {
     anchorNode.focus();
     return true;
@@ -638,15 +470,81 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
     return true;
   }
 
-  // Create a dummy span immediately before the current position and focus
-  // on it so that the default tab action will start off as close to the
-  // user's current position as possible.
+  // Insert and focus a dummy span immediately before the current position
+  // so that the default tab action will start off as close to the user's
+  // current position as possible.
+  var bestGuess = anchorNode;
+  var dummySpan = cvox.ChromeVoxUserCommands.createTabDummySpan_();
+  bestGuess.parentNode.insertBefore(dummySpan, bestGuess);
+  dummySpan.focus();
+  return true;
+};
+
+
+/**
+ * @return {boolean} True if we are focused on a link or any other control.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.isFocusedOnLinkControl_ = function() {
+  var tagName = 'A';
+  if ((document.activeElement.tagName == tagName) ||
+      cvox.DomUtil.isControl(document.activeElement)) {
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * If a lingering tab dummy span exists, remove it.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.removeTabDummySpan_ = function() {
+  var previousDummySpan = document.getElementById('ChromeVoxTabDummySpan');
+  if (previousDummySpan) {
+    previousDummySpan.parentNode.removeChild(previousDummySpan);
+  }
+};
+
+
+/**
+ * Create a new tab dummy span.
+ * @return {Element} The dummy span element to be inserted.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.createTabDummySpan_ = function() {
   var span = document.createElement('span');
   span.id = 'ChromeVoxTabDummySpan';
-  anchorNode.parentNode.insertBefore(span, anchorNode);
   span.tabIndex = -1;
-  span.focus();
-  return true;
+  return span;
+};
+
+
+/**
+ * Handles TAB navigation.
+ * @return {boolean} True if the default action should be taken.
+ */
+cvox.ChromeVoxUserCommands.commands['handleTab'] =
+    cvox.ChromeVoxUserCommands.handleTabAction_;
+
+
+/**
+ * Handles SHIFT+TAB navigation
+ * @return {boolean} True if the default action should be taken.
+ */
+cvox.ChromeVoxUserCommands.commands['handleTabPrev'] =
+    cvox.ChromeVoxUserCommands.handleTabAction_;
+
+
+/**
+ * Shows the keyboard help widget.
+ *
+ * @return {boolean} Always return false since we want to prevent the default
+ * action.
+ */
+cvox.ChromeVoxUserCommands.commands['showPowerKey'] = function() {
+  cvox.KeyboardHelpWidget.getInstance().show();
+  return false;
 };
 
 
@@ -657,11 +555,7 @@ cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
-  if (cvox.ChromeVoxSearch.isActive()) {
-    cvox.ChromeVoxSearch.hide();
-  } else {
-    cvox.ChromeVoxSearch.show();
-  }
+  cvox.SearchWidget.getInstance().toggle();
   return false;
 };
 
@@ -673,11 +567,8 @@ cvox.ChromeVoxUserCommands.commands['toggleSearchWidget'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['toggleFilteringWidget'] = function() {
-  if (cvox.ChromeVoxFiltering.isActive()) {
-    cvox.ChromeVoxFiltering.hide();
-  } else {
-    cvox.ChromeVoxFiltering.show();
-  }
+  var filter = new cvox.ChromeVoxFiltering();
+  filter.toggle();
   return false;
 };
 
@@ -854,10 +745,9 @@ cvox.ChromeVoxUserCommands.commands['readLinkURL'] = function() {
   }
 
   if (url != '') {
-    cvox.ApiImplementation.speak(url, 0, null);
+    cvox.ChromeVox.tts.speak(url);
   } else {
-    cvox.ApiImplementation.speak(
-        cvox.ChromeVox.msgs.getMsg('no_url_found'), 0, null);
+    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_url_found'));
   }
 };
 
@@ -866,7 +756,7 @@ cvox.ChromeVoxUserCommands.commands['readLinkURL'] = function() {
  * Reads out the current page title.
  */
 cvox.ChromeVoxUserCommands.commands['readCurrentTitle'] = function() {
-  cvox.ApiImplementation.speak(document.title, 0, null);
+  cvox.ChromeVox.tts.speak(document.title);
 };
 
 
@@ -874,14 +764,16 @@ cvox.ChromeVoxUserCommands.commands['readCurrentTitle'] = function() {
  * Reads out the current page URL.
  */
 cvox.ChromeVoxUserCommands.commands['readCurrentURL'] = function() {
-  cvox.ApiImplementation.speak(document.URL, 0, null);
+  cvox.ChromeVox.tts.speak(document.URL);
 };
 
 
 /**
  * Starts reading the page contents from current location.
  */
-cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
+cvox.ChromeVoxUserCommands.commands['readFromHere'] =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
+  cvox.ChromeVox.navigationManager.setReversed(false);
   cvox.ChromeVoxUserCommands.keepReading = true;
   if (cvox.ChromeVox.host.hasTtsCallback()) {
     cvox.ChromeVox.navigationManager.startReadingFromCurrentNode(
@@ -889,7 +781,7 @@ cvox.ChromeVoxUserCommands.commands['readFromHere'] = function() {
   } else {
     cvox.ChromeVoxUserCommands.commands['readUntilStopped']();
   }
-};
+});
 
 /**
  * Continously reads the page. Note that this is only used if callbacks are
@@ -901,10 +793,11 @@ cvox.ChromeVoxUserCommands.commands['readUntilStopped'] =
     return;
   }
   if (!cvox.ChromeVox.tts.isSpeaking()) {
-    var navSucceeded =
-        cvox.ChromeVox.navigationManager.navigateForward(true, true);
+    var navSucceeded = cvox.ChromeVox.navigationManager.navigate(true);
     if (navSucceeded) {
       cvox.ChromeVoxUserCommands.finishNavCommand('');
+    } else {
+      cvox.ChromeVoxUserCommands.keepReading = false;
     }
   }
   window.setTimeout(cvox.ChromeVoxUserCommands.commands['readUntilStopped'],
@@ -934,25 +827,18 @@ cvox.ChromeVoxUserCommands.commands['jumpToTop'] =
  */
 cvox.ChromeVoxUserCommands.commands['toggleTable'] =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-  if (cvox.ChromeVox.navigationManager.inTableMode()) {
-    // Currently in table mode, so leave table mode.
-    var wasGrid = cvox.ChromeVox.navigationManager.insideGrid();
-    cvox.ChromeVox.navigationManager.exitTable(true);
-    if (wasGrid) {
-      cvox.ChromeVoxUserCommands.finishNavCommand(
-          cvox.ChromeVox.msgs.getMsg('leaving_grid') + ' ');
-    } else {
-      cvox.ChromeVoxUserCommands.finishNavCommand(
-          cvox.ChromeVox.msgs.getMsg('leaving_table') + ' ');
-    }
+  if (cvox.ChromeVox.navigationManager.isTableMode()) {
+    cvox.ChromeVox.navigationManager.tryExitTable();
+    cvox.ChromeVoxUserCommands.finishNavCommand(
+        cvox.ChromeVox.navigationManager.getGranularityMsg());
   } else {
-    // Not currently in table mode. Try and see if there's a table here.
-    var inTable = cvox.ChromeVox.navigationManager.forceEnterTable(true);
-    if (!inTable) {
+    cvox.ChromeVox.navigationManager.tryEnterTable({force: true});
+    if (cvox.ChromeVox.navigationManager.isTableMode()) {
+      cvox.ChromeVoxUserCommands.finishNavCommand(
+          cvox.ChromeVox.navigationManager.getGranularityMsg());
+    } else {
       cvox.ChromeVoxUserCommands.finishNavCommand(
           cvox.ChromeVox.msgs.getMsg('no_tables') + ' ');
-    } else {
-      cvox.ChromeVoxUserCommands.finishNavCommand('');
     }
   }
 });
@@ -962,7 +848,7 @@ cvox.ChromeVoxUserCommands.commands['toggleTable'] =
  * Announce the headers of the current cell
  */
 cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
+  if (! cvox.ChromeVox.navigationManager.isTableMode()) {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -1003,20 +889,16 @@ cvox.ChromeVoxUserCommands.commands['announceHeaders'] = function() {
  * columns.
  */
 cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
+  var desc = cvox.ChromeVox.navigationManager.getLocationDescription();
+  if (desc == null) {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
-        0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
+        cvox.AbstractTts.QUEUE_MODE_FLUSH,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  } else {
+    cvox.ChromeVox.navigationManager.speakDescriptionArray(
+        desc, cvox.AbstractTts.QUEUE_MODE_FLUSH, null);
   }
-
-  var description = cvox.ChromeVox.msgs.getMsg('table_location',
-                        [cvox.ChromeVox.navigationManager.getRowIndex(),
-                         cvox.ChromeVox.navigationManager.getRowCount(),
-                         cvox.ChromeVox.navigationManager.getColIndex(),
-                         cvox.ChromeVox.navigationManager.getColCount()]);
-
-  cvox.ChromeVox.tts.speak(description, 0, null);
 };
 
 
@@ -1024,7 +906,7 @@ cvox.ChromeVoxUserCommands.commands['speakTableLocation'] = function() {
  * Announce the row header (or best guess) of the current cell.
  */
 cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
+  if (! cvox.ChromeVox.navigationManager.isTableMode()) {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -1053,7 +935,7 @@ cvox.ChromeVoxUserCommands.commands['guessRowHeader'] = function() {
  * Announce the column header (or best guess) of the current cell.
  */
 cvox.ChromeVoxUserCommands.commands['guessColHeader'] = function() {
-  if (! cvox.ChromeVox.navigationManager.inTableMode()) {
+  if (! cvox.ChromeVox.navigationManager.isTableMode()) {
     cvox.ChromeVox.tts.speak(
         cvox.ChromeVox.msgs.getMsg('not_inside_table'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -1180,7 +1062,7 @@ cvox.ChromeVoxUserCommands.commands['skipToColEnd'] =
  */
 cvox.ChromeVoxUserCommands.commands['nextCheckbox'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.checkboxPredicate_,
+      cvox.DomPredicates.checkboxPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_checkbox'));
   return false;
 };
@@ -1194,7 +1076,7 @@ cvox.ChromeVoxUserCommands.commands['nextCheckbox'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousCheckbox'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.checkboxPredicate_,
+      cvox.DomPredicates.checkboxPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_checkbox'));
   return false;
 };
@@ -1208,7 +1090,7 @@ cvox.ChromeVoxUserCommands.commands['previousCheckbox'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextRadio'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.radioPredicate_,
+      cvox.DomPredicates.radioPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_radio_button'));
   return false;
 };
@@ -1222,7 +1104,7 @@ cvox.ChromeVoxUserCommands.commands['nextRadio'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousRadio'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.radioPredicate_,
+      cvox.DomPredicates.radioPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_radio_button'));
   return false;
 };
@@ -1236,7 +1118,7 @@ cvox.ChromeVoxUserCommands.commands['previousRadio'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextSlider'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.sliderPredicate_,
+      cvox.DomPredicates.sliderPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_slider'));
   return false;
 };
@@ -1250,7 +1132,7 @@ cvox.ChromeVoxUserCommands.commands['nextSlider'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousSlider'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.sliderPredicate_,
+      cvox.DomPredicates.sliderPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_slider'));
   return false;
 };
@@ -1264,7 +1146,7 @@ cvox.ChromeVoxUserCommands.commands['previousSlider'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextGraphic'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.graphicPredicate_,
+      cvox.DomPredicates.graphicPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_graphic'));
   return false;
 };
@@ -1278,7 +1160,7 @@ cvox.ChromeVoxUserCommands.commands['nextGraphic'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousGraphic'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.graphicPredicate_,
+      cvox.DomPredicates.graphicPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_graphic'));
   return false;
 };
@@ -1292,7 +1174,7 @@ cvox.ChromeVoxUserCommands.commands['previousGraphic'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextButton'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.buttonPredicate_,
+      cvox.DomPredicates.buttonPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_button'));
   return false;
 };
@@ -1306,7 +1188,7 @@ cvox.ChromeVoxUserCommands.commands['nextButton'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousButton'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.buttonPredicate_,
+      cvox.DomPredicates.buttonPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_button'));
   return false;
 };
@@ -1320,7 +1202,7 @@ cvox.ChromeVoxUserCommands.commands['previousButton'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextComboBox'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.comboBoxPredicate_,
+      cvox.DomPredicates.comboBoxPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_combo_box'));
   return false;
 };
@@ -1334,7 +1216,7 @@ cvox.ChromeVoxUserCommands.commands['nextComboBox'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousComboBox'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.comboBoxPredicate_,
+      cvox.DomPredicates.comboBoxPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_combo_box'));
   return false;
 };
@@ -1348,7 +1230,7 @@ cvox.ChromeVoxUserCommands.commands['previousComboBox'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextEditText'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.editTextPredicate_,
+      cvox.DomPredicates.editTextPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_edit_text'));
   return false;
 };
@@ -1362,7 +1244,7 @@ cvox.ChromeVoxUserCommands.commands['nextEditText'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousEditText'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.editTextPredicate_,
+      cvox.DomPredicates.editTextPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_edit_text'));
   return false;
 };
@@ -1376,7 +1258,7 @@ cvox.ChromeVoxUserCommands.commands['previousEditText'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.headingPredicate_,
+      cvox.DomPredicates.headingPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading'));
   return false;
 };
@@ -1390,7 +1272,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.headingPredicate_,
+      cvox.DomPredicates.headingPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading'));
   return false;
 };
@@ -1404,7 +1286,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading1'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading1Predicate_,
+      cvox.DomPredicates.heading1Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_1'));
   return false;
 };
@@ -1418,7 +1300,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading1'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading1'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading1Predicate_,
+      cvox.DomPredicates.heading1Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_1'));
   return false;
 };
@@ -1432,7 +1314,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading1'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading2'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading2Predicate_,
+      cvox.DomPredicates.heading2Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_2'));
   return false;
 };
@@ -1446,7 +1328,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading2'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading2'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading2Predicate_,
+      cvox.DomPredicates.heading2Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_2'));
   return false;
 };
@@ -1460,7 +1342,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading2'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading3'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading3Predicate_,
+      cvox.DomPredicates.heading3Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_3'));
   return false;
 };
@@ -1474,7 +1356,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading3'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading3'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading3Predicate_,
+      cvox.DomPredicates.heading3Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_3'));
   return false;
 };
@@ -1488,7 +1370,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading3'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading4'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading4Predicate_,
+      cvox.DomPredicates.heading4Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_4'));
   return false;
 };
@@ -1502,7 +1384,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading4'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading4'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading4Predicate_,
+      cvox.DomPredicates.heading4Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_4'));
   return false;
 };
@@ -1516,7 +1398,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading4'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading5'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading5Predicate_,
+      cvox.DomPredicates.heading5Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_5'));
   return false;
 };
@@ -1530,7 +1412,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading5'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading5'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading5Predicate_,
+      cvox.DomPredicates.heading5Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_5'));
   return false;
 };
@@ -1544,7 +1426,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading5'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextHeading6'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading6Predicate_,
+      cvox.DomPredicates.heading6Predicate,
       cvox.ChromeVox.msgs.getMsg('no_next_heading_6'));
   return false;
 };
@@ -1558,7 +1440,7 @@ cvox.ChromeVoxUserCommands.commands['nextHeading6'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousHeading6'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.heading6Predicate_,
+      cvox.DomPredicates.heading6Predicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_heading_6'));
   return false;
 };
@@ -1572,7 +1454,7 @@ cvox.ChromeVoxUserCommands.commands['previousHeading6'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextNotLink'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.notLinkPredicate_,
+      cvox.DomPredicates.notLinkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_not_link'));
   return false;
 };
@@ -1586,7 +1468,7 @@ cvox.ChromeVoxUserCommands.commands['nextNotLink'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousNotLink'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.notLinkPredicate_,
+      cvox.DomPredicates.notLinkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_not_link'));
   return false;
 };
@@ -1598,29 +1480,9 @@ cvox.ChromeVoxUserCommands.commands['previousNotLink'] = function() {
  * @return {boolean} Always return false to prevent default action.
  */
 cvox.ChromeVoxUserCommands.commands['nextAnchor'] = function() {
-  var temp = cvox.ChromeVox.navigationManager.currentNode;
-  if (!temp) {
-    temp = document.body.firstChild;
-  } else {
-    temp = cvox.DomUtil.nextLeafNode(temp);
-  }
-  while (temp) {
-    if (cvox.DomUtil.ancestorIsAnchor(temp)) {
-      break;
-    }
-    temp = cvox.DomUtil.nextLeafNode(temp);
-  }
-
-  if (temp) {
-    cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
-    cvox.ApiImplementation.syncToNode(temp, false);
-    cvox.ChromeVox.navigationManager.previous(true);
-    cvox.ChromeVoxUserCommands.commands['forward']();
-  } else {
-    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_next_anchor'), 0,
-        cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  }
-
+  cvox.ChromeVoxUserCommands.findNextAndSpeak_(
+      cvox.DomPredicates.anchorPredicate,
+      cvox.ChromeVox.msgs.getMsg('no_next_anchor'));
   return false;
 };
 
@@ -1631,41 +1493,9 @@ cvox.ChromeVoxUserCommands.commands['nextAnchor'] = function() {
  * @return {boolean} Always return false to prevent default action.
  */
 cvox.ChromeVoxUserCommands.commands['previousAnchor'] = function() {
-  var temp = cvox.ChromeVox.navigationManager.currentNode;
-  if (temp) {
-    temp = cvox.DomUtil.previousLeafNode(temp);
-  }
-
-  while (temp) {
-    if (cvox.DomUtil.ancestorIsAnchor(temp)) {
-      break;
-    }
-    temp = cvox.DomUtil.previousLeafNode(temp);
-  }
-
-  // TODO : This causes skipping over one anchor if other kinds of navigation
-  // are used between invocations of anchor navigation. The alternative is
-  // getting stuck on empty anchors.
-  if (temp == cvox.ChromeVoxUserCommands.mostRecentAnchor_) {
-    temp = cvox.DomUtil.previousLeafNode(temp);
-    while (temp) {
-      if (cvox.DomUtil.ancestorIsAnchor(temp)) {
-        break;
-      }
-      temp = cvox.DomUtil.previousLeafNode(temp);
-    }
-  }
-
-  if (temp) {
-    cvox.ChromeVoxUserCommands.mostRecentAnchor_ = temp;
-    cvox.ApiImplementation.syncToNode(temp, false);
-    cvox.ChromeVox.navigationManager.previous(true);
-    cvox.ChromeVoxUserCommands.commands['forward']();
-  } else {
-    cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_previous_anchor'),
-                             0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  }
-
+  cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
+      cvox.DomPredicates.anchorPredicate,
+      cvox.ChromeVox.msgs.getMsg('no_previous_anchor'));
   return false;
 };
 
@@ -1678,7 +1508,7 @@ cvox.ChromeVoxUserCommands.commands['previousAnchor'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextLink'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.linkPredicate_,
+      cvox.DomPredicates.linkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_link'));
   return false;
 };
@@ -1692,7 +1522,7 @@ cvox.ChromeVoxUserCommands.commands['nextLink'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousLink'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.linkPredicate_,
+      cvox.DomPredicates.linkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_link'));
   return false;
 };
@@ -1706,7 +1536,7 @@ cvox.ChromeVoxUserCommands.commands['previousLink'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextTable'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.tablePredicate_,
+      cvox.DomPredicates.tablePredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_table'));
   return false;
 };
@@ -1720,7 +1550,7 @@ cvox.ChromeVoxUserCommands.commands['nextTable'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousTable'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.tablePredicate_,
+      cvox.DomPredicates.tablePredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_table'));
   return false;
 };
@@ -1734,7 +1564,7 @@ cvox.ChromeVoxUserCommands.commands['previousTable'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextList'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.listPredicate_,
+      cvox.DomPredicates.listPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_list'));
   return false;
 };
@@ -1748,7 +1578,7 @@ cvox.ChromeVoxUserCommands.commands['nextList'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousList'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.listPredicate_,
+      cvox.DomPredicates.listPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_list'));
   return false;
 };
@@ -1762,7 +1592,7 @@ cvox.ChromeVoxUserCommands.commands['previousList'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextListItem'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.listItemPredicate_,
+      cvox.DomPredicates.listItemPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_list_item'));
   return false;
 };
@@ -1776,7 +1606,7 @@ cvox.ChromeVoxUserCommands.commands['nextListItem'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousListItem'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.listItemPredicate_,
+      cvox.DomPredicates.listItemPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_list_item'));
   return false;
 };
@@ -1790,7 +1620,7 @@ cvox.ChromeVoxUserCommands.commands['previousListItem'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextBlockquote'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.blockquotePredicate_,
+      cvox.DomPredicates.blockquotePredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_blockquote'));
   return false;
 };
@@ -1804,7 +1634,7 @@ cvox.ChromeVoxUserCommands.commands['nextBlockquote'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousBlockquote'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.blockquotePredicate_,
+      cvox.DomPredicates.blockquotePredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_blockquote'));
   return false;
 };
@@ -1818,7 +1648,7 @@ cvox.ChromeVoxUserCommands.commands['previousBlockquote'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextFormField'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.formFieldPredicate_,
+      cvox.DomPredicates.formFieldPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_form_field'));
   return false;
 };
@@ -1832,7 +1662,7 @@ cvox.ChromeVoxUserCommands.commands['nextFormField'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.formFieldPredicate_,
+      cvox.DomPredicates.formFieldPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_form_field'));
   return false;
 };
@@ -1846,7 +1676,7 @@ cvox.ChromeVoxUserCommands.commands['previousFormField'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextJump'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.jumpPredicate_,
+      cvox.DomPredicates.jumpPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_jump'));
   return false;
 };
@@ -1860,7 +1690,7 @@ cvox.ChromeVoxUserCommands.commands['nextJump'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.jumpPredicate_,
+      cvox.DomPredicates.jumpPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_jump'));
   return false;
 };
@@ -1874,7 +1704,7 @@ cvox.ChromeVoxUserCommands.commands['previousJump'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['nextLandmark'] = function() {
   cvox.ChromeVoxUserCommands.findNextAndSpeak_(
-      cvox.ChromeVoxUserCommands.landmarkPredicate_,
+      cvox.DomPredicates.landmarkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_next_landmark'));
   return false;
 };
@@ -1888,7 +1718,7 @@ cvox.ChromeVoxUserCommands.commands['nextLandmark'] = function() {
  */
 cvox.ChromeVoxUserCommands.commands['previousLandmark'] = function() {
   cvox.ChromeVoxUserCommands.findPreviousAndSpeak_(
-      cvox.ChromeVoxUserCommands.landmarkPredicate_,
+      cvox.DomPredicates.landmarkPredicate,
       cvox.ChromeVox.msgs.getMsg('no_previous_landmark'));
   return false;
 };
@@ -1952,7 +1782,7 @@ cvox.ChromeVoxUserCommands.commands['previousSimilarElement'] = function() {
  * action.
  */
 cvox.ChromeVoxUserCommands.commands['actOnCurrentItem'] = function() {
-  var actionTaken = cvox.ChromeVox.navigationManager.actOnCurrentItem();
+  var actionTaken = cvox.ChromeVox.navigationManager.act();
   if (!actionTaken) {
     cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('no_actions'),
         0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
@@ -1971,7 +1801,8 @@ cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem'] = function() {
   cvox.ChromeVox.tts.speak(
       cvox.ChromeVox.msgs.getMsg('element_clicked'),
       0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-  cvox.DomUtil.clickElem(cvox.ChromeVox.navigationManager.currentNode, false);
+  cvox.DomUtil.clickElem(
+      cvox.ChromeVox.navigationManager.getCurrentNode(), false);
   return false;
 };
 
@@ -2088,437 +1919,6 @@ cvox.ChromeVoxUserCommands.commands['toggleChromeVox'] = function() {
 };
 
 
-//
-// Predicates - functions that take an array of ancestor nodes that have
-// changed and returns true if a certain category has been found. Used for
-// implementing functions like nextCheckbox / prevCheckbox, and so on.
-//
-
-
-/**
- * Checkbox.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a checkbox.
- * @private
- */
-cvox.ChromeVoxUserCommands.checkboxPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute &&
-         nodes[i].getAttribute('role') == 'checkbox') ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'checkbox')) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Radio button.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a radio button.
- * @private
- */
-cvox.ChromeVoxUserCommands.radioPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'radio') ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'radio')) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Slider.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a slider.
- * @private
- */
-cvox.ChromeVoxUserCommands.sliderPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'slider') ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'range')) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Graphic.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a graphic.
- * @private
- */
-cvox.ChromeVoxUserCommands.graphicPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].tagName == 'IMG' ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'img')) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Button.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a button.
- * @private
- */
-cvox.ChromeVoxUserCommands.buttonPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'button') ||
-        nodes[i].tagName == 'BUTTON' ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'submit') ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'button') ||
-        (nodes[i].tagName == 'INPUT' && nodes[i].type == 'reset')) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Combo box.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a combo box.
- * @private
- */
-cvox.ChromeVoxUserCommands.comboBoxPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute &&
-         nodes[i].getAttribute('role') == 'combobox') ||
-        nodes[i].tagName == 'SELECT') {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Editable text field.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is an editable text field.
- * @private
- */
-cvox.ChromeVoxUserCommands.editTextPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'textbox') ||
-        nodes[i].tagName == 'TEXTAREA' ||
-        (nodes[i].tagName == 'INPUT' &&
-        cvox.DomUtil.isInputTypeText(nodes[i]))) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Heading.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading.
- * @private
- */
-cvox.ChromeVoxUserCommands.headingPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].getAttribute &&
-        nodes[i].getAttribute('role') == 'heading') {
-      return nodes[i];
-    }
-    switch (nodes[i].tagName) {
-      case 'H1':
-      case 'H2':
-      case 'H3':
-      case 'H4':
-      case 'H5':
-      case 'H6':
-        return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Heading level 1.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 1.
- * TODO: handle ARIA headings with ARIA heading levels?
- * @private
- */
-cvox.ChromeVoxUserCommands.heading1Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H1');
-};
-
-
-/**
- * Heading level 2.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 2.
- * @private
- */
-cvox.ChromeVoxUserCommands.heading2Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H2');
-};
-
-
-/**
- * Heading level 3.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 3.
- * @private
- */
-cvox.ChromeVoxUserCommands.heading3Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H3');
-};
-
-
-/**
- * Heading level 4.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 4.
- * @private
- */
-cvox.ChromeVoxUserCommands.heading4Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H4');
-};
-
-
-/**
- * Heading level 5.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 5.
- * @private
- */
-cvox.ChromeVoxUserCommands.heading5Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H5');
-};
-
-
-/**
- * Heading level 6.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a heading level 6.
- * @private
- */
-cvox.ChromeVoxUserCommands.heading6Predicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'H6');
-};
-
-
-/**
- * Not-link.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {boolean} True if none of the items in the array is a link.
- * @private
- */
-cvox.ChromeVoxUserCommands.notLinkPredicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.linkPredicate_(nodes) == null;
-};
-
-
-/**
- * Link.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a link.
- * @private
- */
-cvox.ChromeVoxUserCommands.linkPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'link') ||
-        nodes[i].tagName == 'A') {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Anchor.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is an anchor.
- * @private
- */
-cvox.ChromeVoxUserCommands.anchorPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].tagName == 'A' && nodes[i].getAttribute('name')) {
-        return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Table.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a data table.
- * @private
- */
-cvox.ChromeVoxUserCommands.tablePredicate_ = function(nodes) {
-  var tableNode = cvox.DomUtil.findTableNodeInList(nodes);
-  if (tableNode && !cvox.DomUtil.isLayoutTable(tableNode)) {
-    return tableNode;
-  } else {
-    return null;
-  }
-
-};
-
-
-/**
- * List.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a list.
- * @private
- */
-cvox.ChromeVoxUserCommands.listPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'list') ||
-        nodes[i].tagName == 'UL' ||
-        nodes[i].tagName == 'OL') {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * List item.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a list item.
- * @private
- */
-cvox.ChromeVoxUserCommands.listItemPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if ((nodes[i].getAttribute &&
-         nodes[i].getAttribute('role') == 'listitem') ||
-        nodes[i].tagName == 'LI') {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Blockquote.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a blockquote.
- * @private
- */
-cvox.ChromeVoxUserCommands.blockquotePredicate_ = function(nodes) {
-  return cvox.ChromeVoxUserCommands.containsTagName_(nodes, 'BLOCKQUOTE');
-};
-
-
-/**
- * Form field.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is any type of form field.
- * @private
- */
-cvox.ChromeVoxUserCommands.formFieldPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    var tagName = nodes[i].tagName;
-    var role = '';
-    if (nodes[i].getAttribute) {
-      role = nodes[i].getAttribute('role');
-    }
-    if (role == 'button' ||
-        role == 'checkbox' ||
-        role == 'combobox' ||
-        role == 'radio' ||
-        role == 'slider' ||
-        role == 'spinbutton' ||
-        role == 'textbox' ||
-        nodes[i].tagName == 'INPUT' ||
-        nodes[i].tagName == 'SELECT' ||
-        nodes[i].tagName == 'BUTTON') {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Jump point - an ARIA landmark or heading.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a jump point.
- * @private
- */
-cvox.ChromeVoxUserCommands.jumpPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (cvox.AriaUtil.isLandmark(nodes[i])) {
-      return nodes[i];
-    }
-    if (nodes[i].getAttribute &&
-        nodes[i].getAttribute('role') == 'heading') {
-      return nodes[i];
-    }
-    switch (nodes[i].tagName) {
-      case 'H1':
-      case 'H2':
-      case 'H3':
-      case 'H4':
-      case 'H5':
-      case 'H6':
-        return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * ARIA landmark.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is an ARIA landmark.
- * @private
- */
-cvox.ChromeVoxUserCommands.landmarkPredicate_ = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (cvox.AriaUtil.isLandmark(nodes[i])) {
-      return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Creates a simple function that will navigate to the given targetNode when
- * invoked.
- * Note that we are using this function because functions created inside a loop
- * have to be created by another function and not within the loop directly.
- *
- * See: http://joust.kano.net/weblog/archive/2005/08/08/
- * a-huge-gotcha-with-javascript-closures/
- * @param {Node} targetNode The target node to navigate to.
- * @return {function()} A function that will navigate to the given targetNode.
- * @private
- */
-cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_ = function(
-    targetNode) {
-  return function() {
-    cvox.ChromeVox.navigationManager.syncToNode(targetNode);
-    cvox.ChromeVox.navigationManager.previous(true);
-    cvox.ChromeVoxUserCommands.commands['forward']();
-  };
-};
-
-
 /**
  * Uses PowerKey to show a list of elements that can be navigated to.
  *
@@ -2535,24 +1935,10 @@ cvox.ChromeVoxUserCommands.showNavigationList = function(errorStr,
         cvox.AbstractTts.PERSONALITY_ANNOTATION);
     return;
   }
-  cvox.ChromeVox.tts.stop();
-  var functions = new Array();
-  var descriptions = new Array();
-  for (var i = 0, node; node = elementsArray[i]; i++) {
-    if (cvox.DomUtil.hasContent(node)) {
-      if (opt_descriptionsArray == null) {
-        descriptions.push(cvox.DomUtil.collapseWhitespace(
-            cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node)));
-      }
-      functions.push(
-          cvox.ChromeVoxUserCommands.createSimpleNavigateToFunction_(node));
-    }
-  }
-  if (opt_descriptionsArray) {
-    descriptions = opt_descriptionsArray;
-  }
-  var choiceWidget = new cvox.ChromeVoxChoiceWidget();
-  choiceWidget.show(descriptions, functions, descriptions.toString());
+
+  var nodeChooser =
+      new cvox.NodeChooserWidget(elementsArray, opt_descriptionsArray);
+  nodeChooser.show();
 };
 
 
@@ -2676,8 +2062,7 @@ cvox.ChromeVoxUserCommands.commands['showJumpsList'] = function() {
  * Announce the current position.
  */
 cvox.ChromeVoxUserCommands.commands['announcePosition'] = function() {
-  var descriptionArray =
-      cvox.ChromeVox.navigationManager.getCurrentDescription();
+  var descriptionArray = cvox.ChromeVox.navigationManager.getDescription();
 
   cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
     0, null);
@@ -2687,8 +2072,7 @@ cvox.ChromeVoxUserCommands.commands['announcePosition'] = function() {
  * Fully describe the current position
  */
 cvox.ChromeVoxUserCommands.commands['fullyDescribe'] = function() {
-  var descriptionArray =
-      cvox.ChromeVox.navigationManager.getCurrentFullDescription();
+  var descriptionArray = cvox.ChromeVox.navigationManager.getFullDescription();
 
   cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
     0, null);
@@ -2710,10 +2094,10 @@ cvox.ChromeVoxUserCommands.commands['filterLikeCurrentItem'] = function() {
     return;
   }
 
-  var walkerDecorator = cvox.ChromeVox.navigationManager.walkerDecorator;
+  var walkerDecorator = cvox.ChromeVox.navigationManager.getFilteredWalker();
   walkerDecorator.addFilter(cssSelector);
   cvox.$m('added_filter').speakFlush();
-  cvox.ChromeVox.navigationManager.navigateForward(true, true);
+  cvox.ChromeVox.navigationManager.navigate(true);
 };
 
 // Commands for starting and stopping event recording.
@@ -2733,3 +2117,9 @@ cvox.ChromeVoxUserCommands.commands['enterCssSpace'] = function() {
 cvox.ChromeVoxUserCommands.commands['enableConsoleTts'] = function() {
   cvox.ConsoleTts.getInstance().setEnabled(true);
 };
+
+cvox.ChromeVoxUserCommands.commands['autorunner'] = function() {
+  var runner = new cvox.AutoRunner();
+  runner.run();
+};
+

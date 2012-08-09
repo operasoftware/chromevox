@@ -64,7 +64,7 @@ cvox.CompositeTts.prototype.speak =
  * @override
  */
 cvox.CompositeTts.prototype.isSpeaking = function() {
-  this.ttsEngines_.some(function(engine) {
+  return this.ttsEngines_.some(function(engine) {
     return engine.isSpeaking();
   });
 };

@@ -322,9 +322,9 @@ cvox.TraverseUtil.backwardsChar = function(
  * true, will skip until a real character is found. Otherwise, it will
  * attempt to select all of the whitespace between the initial position
  * of endCursor and the next non-whitespace character.
- * @param {cvox.Cursor} startCursor On exit, points to the position before
+ * @param {!cvox.Cursor} startCursor On exit, points to the position before
  *     the char.
- * @param {cvox.Cursor} endCursor The position to start searching for the next
+ * @param {!cvox.Cursor} endCursor The position to start searching for the next
  *     char.  On exit, will point to the position past the char.
  * @param {Array.<Element>} elementsEntered Any HTML elements entered.
  * @param {Array.<Element>} elementsLeft Any HTML elements left.
@@ -385,9 +385,9 @@ cvox.TraverseUtil.getNextChar = function(
  * If skipWhitespace is true, will skip until a real character is found.
  * Otherwise, it will attempt to select all of the whitespace between
  * the initial position of endCursor and the next non-whitespace character.
- * @param {cvox.Cursor} startCursor The position to start searching for the
+ * @param {!cvox.Cursor} startCursor The position to start searching for the
  *     char. On exit, will point to the position before the char.
- * @param {cvox.Cursor} endCursor The position to start searching for the next
+ * @param {!cvox.Cursor} endCursor The position to start searching for the next
  *     char. On exit, will point to the position past the char.
  * @param {Array.<Element>} elementsEntered Any HTML elements entered.
  * @param {Array.<Element>} elementsLeft Any HTML elements left.

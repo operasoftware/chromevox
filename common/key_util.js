@@ -58,6 +58,8 @@ cvox.KeyUtil.sequenceBuffer = [];
  */
 cvox.KeyUtil.maxSeqLength = 2;
 
+
+// TODO(dtseng): Needs unit testing and cleanup; fairly brittle.
 /**
  * Convert a key event into an unambiguous string representation that's
  * unique but also human-readable enough for debugging.
@@ -131,7 +133,12 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
   // Prefix followed by any modifier alone does not make sense.
   // Return now and don't get out of sequencing mode; instead, wait for the
   // user to hit a non-modifier key.
-  if (keyIsPrefixed && cvox.KeyUtil.isModifierKey(keyEvent.keyCode)) {
+  // TODO(dtseng): The one noteable exception is sticky mode, where we want a
+//  double tap of the modifier. Any future double tap modifiers should ensure
+  // exceptions here. Clean this up.
+  if (keyIsPrefixed &&
+      cvox.KeyUtil.isModifierKey(keyEvent.keyCode) &&
+      cvox.KeyUtil.getStickyKeyCode() != keyEvent.keyCode) {
     util.sequencing = true;
     return str;
   }
@@ -172,6 +179,10 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
 
   if (!util.sequencing && !util.isModifierKey(keyEvent.keyCode)) {
     str += util.keyCodeToString(keyEvent.keyCode);
+  }
+  // Strip trailing +.
+  if (str[str.length - 1] == '+') {
+    str = str.slice(0, -1);
   }
   return str;
 };

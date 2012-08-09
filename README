@@ -20,9 +20,28 @@ source.py
 treescan.py
 
 To build AndroidVox, run 'make androidVoxDev.js'
+To build ClankVox, run 'make clankVoxDev.js'
 
 RUNNING:
 
-TODO(clchen): Add instructions for running androidVox on a Android device.
 
+
+Running in WebViews on Android:
+1. Checkout the Android source.
+
+2. Where you checked out the code, run this command to set the URL that WebViews
+will use for injecting ChromeVox:
+./vendor/google/tools/override-gservices secure:accessibility_script_injection_url=https://myserver.com/myBuildOfChromeVox.js
+
+3. To reset back to the default, use this command:
+./vendor/google/tools/override-gservices reset secure:accessibility_script_injection_url
+
+
+
+
+Running as a whitelisted extension:
+Whitelisted extensions can run in other extensions, in the chrome of Chrome,
+etc. This is the way that ChromeVox runs in ChromeOS. To try out this as a
+developer, add the following line to the manifest:
+"key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDEGBi/oD7Yl/Y16w3+gee/95/EUpRZ2U6c+8orV5ei+3CRsBsoXI/DPGBauZ3rWQ47aQnfoG00sXigFdJA2NhNK9OgmRA2evnsRRbjYm2BG1twpaLsgQPPus3PyczbDCvhFu8k24wzFyEtxLrfxAGBseBPb9QrCz7B4k2QgxD/CwIDAQAB",
 

@@ -55,12 +55,26 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
       if (goog.global.queue_.length == 0)
         return;
 
+      var src = goog.global.queue_[0];
+
+      if (window.CLOSURE_USE_EXT_MESSAGES) {
+        var relativeSrc = src.substr(src.indexOf('closure/..') + 11);
+        chrome.extension.sendMessage(
+            {'srcFile': relativeSrc},
+            function(response) {
+              eval(response['code']);
+              goog.global.queue_ = goog.global.queue_.slice(1);
+              loadNextScript();
+            });
+        return;
+      }
+      window.console.log('Using XHR');
+
       // Load the script by fetching its source and running 'eval' on it
       // directly, with a magic comment that makes Chrome treat it like it
       // loaded normally. Wait until it's fetched before loading the
       // next script.
       var xhr = new XMLHttpRequest();
-      var src = goog.global.queue_[0];
       var url = src + '?' + new Date().getTime();
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {

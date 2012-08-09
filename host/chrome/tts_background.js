@@ -57,16 +57,22 @@ cvox.TtsBackground = function() {
   this.propertyMax['rate'] = 5.0;
 
   this.lastEventType = 'end';
+
+  /**
+   * Used to count the number of active utterances sent to tts.
+   * We increment the count when an utterance first gets sent to tts via speak()
+   * calls. We decrement when we receive one of 'end', 'cancelled',
+   * 'interrupted', or 'error'. The count should always be zero when we're in a
+   * idle state.
+   * @type {number}
+   * @private
+   */
+  this.utteranceCount_ = 0;
 };
 goog.inherits(cvox.TtsBackground, cvox.AbstractTts);
 
-/**
- * Speaks the given string using the specified queueMode and properties.
- * @param {string} textString The string of text to be spoken.
- * @param {number=} queueMode The queue mode: AbstractTts.QUEUE_MODE_FLUSH
- *        for flush, AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object=} properties Speech properties to use for this utterance.
- */
+
+/** @override */
 cvox.TtsBackground.prototype.speak = function(
     textString, queueMode, properties) {
   cvox.TtsBackground.superClass_.speak.call(this, textString,
@@ -75,8 +81,18 @@ cvox.TtsBackground.prototype.speak = function(
   var mergedProperties = this.mergeProperties(properties);
   mergedProperties['enqueue'] =
       (queueMode === cvox.AbstractTts.QUEUE_MODE_QUEUE);
+  if (localStorage['voiceName']) {
+    mergedProperties['voiceName'] = localStorage['voiceName'];
+  }
   mergedProperties['onEvent'] = goog.bind(function(event) {
     this.lastEventType = event['type'];
+    if (this.lastEventType == 'end' ||
+        this.lastEventType == 'cancelled' ||
+        this.lastEventType == 'interrupted' ||
+        this.lastEventType == 'error') {
+      this.utteranceCount_--;
+    }
+
     if (event['type'] == 'end' && properties && properties['endCallback']) {
       properties['endCallback']();
     }
@@ -85,23 +101,29 @@ cvox.TtsBackground.prototype.speak = function(
         properties['startCallback']) {
       properties['startCallback']();
     }
+    if (event['type'] == 'error') {
+      this.onError_();
+    }
   }, this);
 
   chrome.tts.isSpeaking(goog.bind(function(state) {
-    // Check to see that either no one is speaking or only we are.
-    if (!state ||
-        (this.lastEventType != 'end' && this.lastEventType != 'cancelled')) {
-      chrome.tts.speak(textString, mergedProperties);
+    // TODO(dtseng): Leaving this here to identify cases when we drop text
+    // unintentionally.
+    // Eventually rewrite this arbitration logic to defer to other speakers
+    // except for ChromeOS. Currently only useful on Mac.
+    // Be wary of changing this as it depends on proper callbacks from the
+    // current TTS engine.
+    if (cvox.ChromeVox.isMac && this.utteranceCount_ == 0 && state) {
+      console.log('Dropped utterance: ' + textString);
+    } else {
+      // Check to see that either no one is speaking or only we are.
+      chrome.tts.speak(textString, mergedProperties, this.onError_);
+      this.utteranceCount_++;
     }
   }, this));
 };
 
-/**
- * Increases a TTS speech property.
- * @param {string} propertyName The name of the property to change.
- * @param {boolean} increase If true, increases the property value by one
- *     step size, otherwise decreases.
- */
+/** @override */
 cvox.TtsBackground.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   cvox.TtsBackground.superClass_.increaseOrDecreaseProperty.call(
@@ -109,19 +131,35 @@ cvox.TtsBackground.prototype.increaseOrDecreaseProperty =
   localStorage[propertyName] = this.ttsProperties[propertyName];
 };
 
-/**
- * Returns true if the TTS is currently speaking.
- * @return {boolean} True if the TTS is speaking.
- */
+/** @override */
 cvox.TtsBackground.prototype.isSpeaking = function() {
   cvox.TtsBackground.superClass_.isSpeaking.call(this);
   return this.lastEventType != 'end';
 };
 
-/**
- * Stops speech.
- */
+/** @override */
 cvox.TtsBackground.prototype.stop = function() {
   cvox.TtsBackground.superClass_.stop.call(this);
   chrome.tts.stop();
+};
+
+/**
+ * An error handler passed as a callback to chrome.tts.speak.
+ * @private
+ */
+cvox.TtsBackground.prototype.onError_ = function() {
+  if (chrome.extension.lastError) {
+    // Reset voice related parameters.
+    delete localStorage['voiceName'];
+  }
+};
+
+/**
+ * Converts an engine property value to a percentage from 0.00 to 1.00.
+ * @return {?number} The percentage of the property.
+ */
+cvox.TtsBackground.prototype.propertyToPercentage = function(property) {
+  // TODO(deboer): This function appears to only work when the min == 0.
+  return this.ttsProperties[property] /
+         Math.abs(this.propertyMax[property] - this.propertyMin[property]);
 };

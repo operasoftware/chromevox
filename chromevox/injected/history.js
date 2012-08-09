@@ -20,6 +20,9 @@
 
 goog.provide('cvox.History');
 
+goog.require('cvox.DomUtil');
+goog.require('cvox.NodeBreadcrumb');
+
 /**
  * A history event is stored in the cvox.History object and contains all the
  * information about a single ChromeVox event.
@@ -78,13 +81,6 @@ cvox.HistoryEvent = function(opt_json) {
 };
 
 /**
- * Counter to be incremented each time HistoryEvent tries to tag a previously
- * untagged node.
- * @type {number}
- */
-cvox.HistoryEvent.cvTagCounter = 0;
-
-/**
  * @param {string} functionName The name of the user command.
  * @return {cvox.HistoryEvent} this for chaining.
  */
@@ -114,19 +110,7 @@ cvox.HistoryEvent.prototype.speak = function(str) {
 cvox.HistoryEvent.prototype.done = function() {
   this.endTime_ = new Date().getTime();
 
-  var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
-  while (currentNode && !currentNode.hasAttribute) {
-      currentNode = currentNode.parentNode;
-  }
-  if (!currentNode) {
-    this.cvTag_ = -1;
-  }else if (currentNode.hasAttribute('chromevoxtag')) {
-    this.cvTag_ = currentNode.getAttribute('chromevoxtag');
-  } else {
-    this.cvTag_ = cvox.HistoryEvent.cvTagCounter;
-    currentNode.setAttribute('chromevoxtag', this.cvTag_);
-    cvox.HistoryEvent.cvTagCounter++;
-  }
+  this.cvTag_ = cvox.NodeBreadcrumb.getInstance().tagCurrentNode();
 
   window.console.log('User command done.', this);
   return this;
@@ -166,6 +150,21 @@ cvox.HistoryEvent.prototype.outputHTML = function() {
   return div;
 };
 
+/**
+ * Outputs Javascript to replay the command and assert the output.
+ * @return {string} The Javascript.
+ */
+cvox.HistoryEvent.prototype.outputJs = function() {
+  var o = 'this.waitForCalm(this.userCommand, \'' + this.userCommand_ + '\')';
+  if (this.spoken_.length > 0) {
+    o += '\n  .waitForCalm(this.assertSpoken, \'' +
+        cvox.DomUtil.collapseWhitespace(this.spoken_.join(' ')) + '\');\n';
+  } else {
+    o += ';\n';
+  }
+  return o;
+};
+
 
 /**
  * @constructor
@@ -174,14 +173,21 @@ cvox.History = function() {
   this.recording_ = false;
 
   this.events_ = [];
+  this.markers_ = {};
   this.currentEvent_ = null;
 
   this.mainDiv_ = null;
   this.listDiv_ = null;
   this.styleDiv_ = null;
+
+  this.bigBoxDiv_ = null;
+
+  // NOTE(deboer): Currently we only ever have one cvox.History, but
+  // if we ever have more than one, we need multiple NodeBreadcrumbs as well.
+  this.nodeBreadcrumb_ = cvox.NodeBreadcrumb.getInstance();
+
 };
 goog.addSingletonGetter(cvox.History);
-
 
 /**
  * Adds a list div to the DOM for debugging.
@@ -199,11 +205,19 @@ cvox.History.prototype.addListDiv_ = function() {
   this.mainDiv_.appendChild(this.listDiv_);
 
   var buttonDiv = document.createElement('div');
-  var button = document.createElement('a');
+  var button = document.createElement('button');
   button.onclick = cvox.History.sendToFeedback;
   button.innerHTML = 'Create bug';
   buttonDiv.appendChild(button);
   this.mainDiv_.appendChild(buttonDiv);
+
+  var dumpDiv = document.createElement('div');
+  var dumpButton = document.createElement('button');
+  dumpButton.onclick = cvox.History.dumpJs;
+  dumpButton.innerHTML = 'Dump test case';
+  dumpDiv.appendChild(dumpButton);
+  this.mainDiv_.appendChild(dumpDiv);
+
   document.body.appendChild(this.mainDiv_);
 
   this.styleDiv_ = document.createElement('style');
@@ -224,6 +238,43 @@ cvox.History.prototype.removeListDiv_ = function() {
   this.listDiv_ = null;
   this.styleDiv_ = null;
 };
+
+
+/**
+ * Adds a big text box in the middle of the screen
+ * @private
+ */
+cvox.History.prototype.addBigTextBox_ = function() {
+  var bigBoxDiv = document.createElement('div');
+  bigBoxDiv.style.position = 'fixed';
+  bigBoxDiv.style.top = '0';
+  bigBoxDiv.style.left = '0';
+  bigBoxDiv.style.zIndex = '999';
+
+  var textarea = document.createElement('textarea');
+  textarea.style.width = '500px';
+  textarea.style.height = '500px';
+  textarea.innerHTML = this.dumpJsOutput_();
+  bigBoxDiv.appendChild(textarea);
+
+  var buttons = document.createElement('div');
+  bigBoxDiv.appendChild(buttons);
+
+  function link(name, func) {
+    var linkElt = document.createElement('button');
+    linkElt.onclick = func;
+    linkElt.innerHTML = name;
+    buttons.appendChild(linkElt);
+  }
+  link('Close dialog', function() {
+    document.body.removeChild(bigBoxDiv);
+  });
+  link('Remove fluff', goog.bind(function() {
+    textarea.innerHTML = this.dumpJsOutput_(['stopSpeech', 'toggleKeyPrefix']);
+  }, this));
+  document.body.appendChild(bigBoxDiv);
+};
+
 
 
 /**
@@ -295,6 +346,30 @@ cvox.History.prototype.speak = function(str, mode, props) {
     return;
   }
   this.currentEvent_.speak(str);
+};
+
+
+cvox.History.dumpJs = function() {
+  var history = cvox.History.getInstance();
+  history.addBigTextBox_();
+  window.console.log(history.dumpJsOutput_());
+};
+
+
+/**
+ * @return {string} A string of Javascript output.
+ */
+cvox.History.prototype.dumpJsOutput_ = function(opt_skipCommands) {
+  var skipMap = {};
+  if (opt_skipCommands) {
+    opt_skipCommands.forEach(function(e) { skipMap[e] = 1; });
+  }
+  // TODO: pretty print
+  return ['/*DOC: += ',
+          this.nodeBreadcrumb_.dumpWalkedDom().innerHTML, '*/\n']
+      .concat(this.events_
+          .filter(function(e) { return ! (e.userCommand_ in skipMap); })
+          .map(function(e) { return e.outputJs(); })).join('');
 };
 
 

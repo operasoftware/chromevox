@@ -72,3 +72,24 @@ cvox.AbstractHost.prototype.hasTtsCallback = function() {
 cvox.AbstractHost.prototype.canShowLens = function() {
   return false;
 };
+
+/**
+ * @return {boolean} True if the TTS has been loaded.
+ */
+cvox.AbstractHost.prototype.ttsLoaded = function() {
+  return true;
+};
+
+
+/**
+ * @return {boolean} True if the ChromeVox is supposed to intercept and handle
+ * mouse clicks for the platform, instead of just letting the clicks fall
+ * through.
+ *
+ * Note: This behavior is only needed for Android because of the way touch
+ * exploration and double-tap to click is implemented by the platform.
+ */
+cvox.AbstractHost.prototype.mustRedispatchClickEvent = function() {
+  return false;
+};
+

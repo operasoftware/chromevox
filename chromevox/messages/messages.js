@@ -54,7 +54,7 @@ msgs.MSG_CHROMEVOX_DESCRIPTION =
  * @desc The description of the stopSpeech key.  Displayed in the Options page.
  */
 msgs.MSG_CHROMEVOX_STOP_SPEECH_KEY =
-    goog.getMsg('Stop speaking');
+    goog.getMsg('Stop speech');
 
 
 /**
@@ -215,7 +215,7 @@ msgs.MSG_CHROMEVOX_READ_FROM_HERE =
  * Displayed in the Options page.
  */
 msgs.MSG_CHROMEVOX_SHOW_POWER_KEY =
-    goog.getMsg('Show ChromeVox help');
+    goog.getMsg('Open ChromeVox keyboard help');
 
 
 /**
@@ -227,11 +227,18 @@ msgs.MSG_CHROMEVOX_HIDE_POWER_KEY =
 
 
 /**
+ * @desc Spoken instruction on navigating power key.
+ */
+msgs.MSG_CHROMEVOX_POWER_KEY_HELP =
+    goog.getMsg('Press up or down to review commands, press enter to activate');
+
+
+/**
  * @desc The description of the help key.
  * Displayed in the Options page.
  */
 msgs.MSG_CHROMEVOX_HELP =
-    goog.getMsg('Open ChromeVox help documentation');
+    goog.getMsg('Open ChromeVox tutorial');
 
 
 /**
@@ -453,7 +460,7 @@ msgs.MSG_CHROMEVOX_ANNOUNCE_HEADERS =
  * Displayed in the Options page.
  */
 msgs.MSG_CHROMEVOX_SPEAK_TABLE_LOCATION =
-    goog.getMsg('Announce the current table location');
+    goog.getMsg('Announce current cell coordinates');
 
 
 /**
@@ -1049,7 +1056,15 @@ msgs.MSG_CHROMEVOX_OPTIONS_CVOX_MODIFIER_KEY =
  * @desc A button to reset the key assignments in the options page.
  */
 msgs.MSG_CHROMEVOX_OPTIONS_RESET_KEYS =
-    goog.getMsg('Reset to default keys');
+    goog.getMsg('Select keymap');
+
+
+/**
+ * @desc Labels the key map selection combo box. Key maps describe a pairing
+ * of keys users use to invoke a command.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_SELECT_KEYMAP =
+    goog.getMsg('Use the keymap:');
 
 /**
  * @desc The title of the ChromeOS Keyboard explorer page.  The keyboard
@@ -1444,6 +1459,19 @@ msgs.MSG_CHROMEVOX_NO_CELL_RIGHT =
  */
 msgs.MSG_CHROMEVOX_NO_CELL_LEFT =
     goog.getMsg('No cell left.');
+
+/**
+ * @desc Spoken, in table mode, when the user moves to an empty cell.
+ */
+msgs.MSG_CHROMEVOX_EMPTY_CELL =
+    goog.getMsg('Empty cell.');
+
+/**
+ * @desc Spoken, in table mode, when the user moves to a cell that has
+ * rowspan or colspan > 1
+ */
+msgs.MSG_CHROMEVOX_SPANNED =
+    goog.getMsg('Spanned.');
 
 /**
  * @desc Describes a row header in an HTML table.
@@ -2703,6 +2731,34 @@ msgs.MSG_CHROMEVOX_PAUSE = goog.getMsg(', ');
  */
 msgs.MSG_CHROMEVOX_END = goog.getMsg('. ');
 
+
+/**
+ * @desc Description of the previous different element command displayed in the
+ * options page.
+ */
+msgs.MSG_CHROMEVOX_PREVIOUS_DIFFERENT_ELEMENT =
+    goog.getMsg('Previous different element.');
+
+/**
+ * @desc Description of the next different element command displayed in the
+ * options page.
+ */
+msgs.MSG_CHROMEVOX_NEXT_DIFFERENT_ELEMENT =
+    goog.getMsg('Next different element.');
+
+/**
+ * @desc Description of the previous similar element command displayed in the
+ * options page.
+ */
+msgs.MSG_CHROMEVOX_PREVIOUS_SIMILAR_ELEMENT =
+    goog.getMsg('Previous similar element.');
+
+/**
+ * @desc Description of the next similar element command.
+ */
+msgs.MSG_CHROMEVOX_NEXT_SIMILAR_ELEMENT =
+    goog.getMsg('Next similar element.');
+
 /**
  * @desc Verbal indication of no more similar elements.
  */
@@ -2733,10 +2789,9 @@ msgs.MSG_CHROMEVOX_ENTER_GROUP_EXPLORATION = goog.getMsg('Exploring groups');
 
 /**
  * @desc A message displayed at the top of PDF files where text has
- * been automatically extracted for accessibility. Please leave %URL%
- * alone, it will be substituted.
+ * been automatically extracted for accessibility.
  */
-msgs.MSG_CHROMEVOX_PDF_HEADER = goog.getMsg('This page contains the text automatically extracted from the PDF file <b>{$filename}</b>. <a href=%URL%>Click here for the original.</a>', {'filename': '$1'});
+msgs.MSG_CHROMEVOX_PDF_HEADER = goog.getMsg('This page contains the text automatically extracted from the PDF file <b>{$filename}</b>. <a href="{$url}">Click here for the original.</a>', {'filename': '$1', 'url': '$2'});
 
 /**
  * @desc A message spoken when the user switches to the object granularity,
@@ -2749,6 +2804,18 @@ msgs.MSG_CHROMEVOX_OBJECT_STRATEGY = goog.getMsg('Object');
  * which allows users to navigate the page by groups.
  */
 msgs.MSG_CHROMEVOX_GROUP_STRATEGY = goog.getMsg('Group');
+
+/**
+ * @desc A message spoken when the user switches to the table granularity,
+ * which allows users to navigate within a group.
+ */
+msgs.MSG_CHROMEVOX_TABLE_STRATEGY = goog.getMsg('Table');
+
+/**
+ * @desc A message spoken when the user switches to the visual granularity,
+ * which allows users to navigate the page by visual regions.
+ */
+msgs.MSG_CHROMEVOX_VISUAL_STRATEGY = goog.getMsg('Visual');
 
 /**
  * @desc A message spoken when the user switches to a custom granularity,
@@ -2773,3 +2840,90 @@ msgs.MSG_CHROMEVOX_WORD_GRANULARITY = goog.getMsg('Word');
  * which allows users to navigate the page one character at a time.
  */
 msgs.MSG_CHROMEVOX_CHARACTER_GRANULARITY = goog.getMsg('Character');
+
+
+/**
+ * @desc The text of the label for the choice of default voice. Shown in the
+ * options page.
+ */
+msgs.MSG_CHROMEVOX_TTS_VOICES = goog.getMsg('Speak using the voice');
+
+/**
+ * @desc Spoken when the search widget first shows.
+ */
+msgs.MSG_CHROMEVOX_SEARCH_WIDGET_INTRO = goog.getMsg('Find in page.');
+
+/**
+ * @desc Spoken help message when the search widget shows.
+ */
+msgs.MSG_CHROMEVOX_SEARCH_WIDGET_INTRO_HELP =
+    goog.getMsg('Enter a search query.');
+
+/**
+ * @desc Spoken message when the search widget hides.
+ */
+msgs.MSG_CHROMEVOX_SEARCH_WIDGET_OUTRO =
+    goog.getMsg('Exiting find in page.');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_MODIFIER_KEYS = goog.getMsg('Modifier Keys');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_CHROMEVOX_NAVIGATION = goog.getMsg('ChromeVox Navigation');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_INFORMATION = goog.getMsg('Information');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_HELP_COMMANDS = goog.getMsg('Help Commands');
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_CONTROLLING_SPEECH = goog.getMsg('Controlling Speech');
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_LENS = goog.getMsg('Lens');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_OVERVIEW = goog.getMsg('Overview');
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_TABLES = goog.getMsg('Tables');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_JUMP_COMMANDS = goog.getMsg('Jump Commands');
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
+msgs.MSG_CHROMEVOX_DEVELOPER = goog.getMsg('Developer');
+
+/**
+ * @desc Name of the classic key map.
+ */
+msgs.MSG_CHROMEVOX_KEYMAP_CLASSIC = goog.getMsg('Classic');
+
+/**
+ * @desc Name of the alternate key map.
+ */
+msgs.MSG_CHROMEVOX_KEYMAP_ALT1 = goog.getMsg('Alternate 1');
+
+/**
+ * @desc Description of the TTS console logging command.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_ENABLE_TTS_LOG = goog.getMsg('Enable TTS logging');

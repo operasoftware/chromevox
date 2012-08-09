@@ -82,7 +82,12 @@ cvox.ChromeMsgs.prototype.getMsg = function(message_id, opt_subs) {
 cvox.ChromeMsgs.prototype.addTranslatedMessagesToDom = function(root) {
   var elts = root.querySelectorAll('.i18n');
   for (var i = 0; i < elts.length; i++) {
-    elts[i].textContent = this.getMsg(elts[i].getAttribute('msgid'));
+    var msgid = elts[i].getAttribute('msgid');
+    if (!msgid) {
+      throw new Error('Element has no msgid attribute: ' + elts[i]);
+    }
+    elts[i].textContent = this.getMsg(msgid);
+    elts[i].classList.add('i18n-processed');
   }
 };
 

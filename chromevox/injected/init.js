@@ -27,9 +27,10 @@ goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxNavigationManager');
-goog.require('cvox.ChromeVoxSearch');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.ConsoleTts');
+goog.require('cvox.DescriptionUtil');
+goog.require('cvox.DomUtil');
 goog.require('cvox.HostFactory');
 goog.require('cvox.Lens');
 goog.require('cvox.LiveRegions');
@@ -79,11 +80,12 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
   if (document.hasFocus()) {
     var activeElem = document.activeElement;
     if (cvox.DomUtil.isControl(activeElem)) {
-      cvox.ChromeVox.navigationManager.syncToNode(activeElem);
+      cvox.ChromeVox.navigationManager.updateSel(
+          cvox.CursorSelection.fromNode(activeElem));
       cvox.ChromeVox.navigationManager.setFocus();
       if (!disableSpeak) {
-        var description = cvox.DomUtil.getControlDescription(activeElem);
-        description.speak(queueMode);
+        var desc = cvox.DescriptionUtil.getControlDescription(activeElem);
+        desc.speak(queueMode);
         queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
       }
     }
@@ -96,6 +98,11 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
 cvox.ChromeVox.init = function() {
   // Setup globals
   cvox.ChromeVox.host = cvox.HostFactory.getHost();
+
+  if (!cvox.ChromeVox.host.ttsLoaded()) {
+    window.setTimeout(cvox.ChromeVox.init, 300);
+    return;
+  }
 
   cvox.ChromeVox.tts = new cvox.CompositeTts()
       .add(cvox.HostFactory.getTts())
@@ -114,17 +121,11 @@ cvox.ChromeVox.init = function() {
       new cvox.ChromeVoxNavigationManager();
   cvox.ChromeVox.syncToNode =
       cvox.ApiImplementation.syncToNode;
-  cvox.ChromeVox.processEmbeddedPdfs =
-      cvox.ChromeVoxInit.processEmbeddedPdfs;
 
   cvox.ChromeVox.speakInitialMessages = cvox.ChromeVox.speakInitialPageLoad;
 
   // Do platform specific initialization here.
   cvox.ChromeVox.host.init();
-
-  // Initialize common components
-  cvox.ChromeVoxFiltering.init();
-  cvox.ChromeVoxSearch.init();
 
   // Start the event watchers
   cvox.ChromeVoxEventWatcher.init(document);
@@ -136,7 +137,6 @@ cvox.ChromeVox.init = function() {
   };
 
   cvox.ChromeVox.host.onPageLoad();
-  cvox.ApiImplementation.init();
 };
 
 /**
@@ -146,122 +146,6 @@ cvox.ChromeVox.init = function() {
 cvox.ChromeVox.reinit = function() {
   cvox.ChromeVox.host.reinit();
   cvox.ChromeVox.init();
-};
-
-/**
- * Process PDFs created with Chrome's built-in PDF plug-in, which has an
- * accessibility hook.
- */
-cvox.ChromeVoxInit.processEmbeddedPdfs = function() {
-  if (window.location.hash == '#original') {
-    return;
-  }
-
-  var es = document.querySelectorAll('embed[type="application/pdf"]');
-  // We check if it is a built-in PDF by the lack of a <head> and
-  // the embed's name being "plugin"
-  if (es.length == 1 && !document.head && es[0].name == 'plugin') {
-    window.location.href = cvox.ChromeVox.host.getFileSrc(
-        'chromevox/background/pdf_viewer.html#' + es[0].src);
-  }
-  for (var i = 0; i < es.length; i++) {
-    var e = es[i];
-    if (typeof e.accessibility === 'function') {
-      var infoJSON = e.accessibility();
-      var info = cvox.ChromeVoxJSON.parse(infoJSON);
-
-      if (!info.loaded) {
-        setTimeout(cvox.ChromeVox.processEmbeddedPdfs, 100);
-        continue;
-      }
-      if (!info.copyable) {
-        cvox.ChromeVox.tts.speak(
-            'Unable to access copy-protected PDF. Skipping.');
-        continue;
-      }
-
-      var div = document.createElement('DIV');
-
-      var headerDiv = document.createElement('DIV');
-      headerDiv.style.position = 'relative';
-      headerDiv.style.background = 'white';
-      headerDiv.style.margin = '20pt';
-      headerDiv.style.padding = '20pt';
-      headerDiv.style.border = '1px solid #000';
-      var filename = e.src.substr(e.src.lastIndexOf('/') + 1);
-      document.title = filename;
-      var html = cvox.ChromeVox.msgs.getMsg('pdf_header', filename);
-      html = html.replace('%URL%', '"' + e.src + '#original' + '"');
-      headerDiv.innerHTML = html;
-      div.appendChild(headerDiv);
-
-      // Document Styles
-      div.style.position = 'relative';
-      div.style.background = '#CCC';
-      div.style.paddingTop = '1pt';
-      div.style.paddingBottom = '1pt';
-      div.style.width = '100%';
-      div.style.minHeight = '100%';
-
-      var displayPage = function(i) {
-        var json = e.accessibility(i);
-        var page = cvox.ChromeVoxJSON.parse(json);
-        var pageDiv = document.createElement('DIV');
-        var pageAnchor = document.createElement('A');
-
-        // Page Achor Setup
-        pageAnchor.name = 'page' + i;
-
-        // Page Styles
-        pageDiv.style.position = 'relative';
-        pageDiv.style.background = 'white';
-        pageDiv.style.margin = 'auto';
-        pageDiv.style.marginTop = '20pt';
-        pageDiv.style.marginBottom = '20pt';
-        pageDiv.style.height = page.height + 'pt';
-        pageDiv.style.width = page.width + 'pt';
-        pageDiv.style.boxShadow = '0pt 0pt 10pt #333';
-
-        // Text Nodes
-        var texts = page['textBox'];
-        for (var j = 0; j < texts.length; j++) {
-          var text = texts[j];
-          var textSpan = document.createElement('Span');
-
-          // Text Styles
-          textSpan.style.position = 'absolute';
-          textSpan.style.left = text.left + 'pt';
-          textSpan.style.top = text.top + 'pt';
-          textSpan.style.fontSize = (0.8 * text.height) + 'pt';
-
-          // Text Content
-          for (var k = 0; k < text['textNodes'].length; k++) {
-            var node = text['textNodes'][k];
-            if (node.type == 'text') {
-              textSpan.appendChild(document.createTextNode(node.text));
-            } else if (node.type == 'url') {
-              var a = document.createElement('A');
-              a.href = node.url;
-              a.appendChild(document.createTextNode(node.text));
-              textSpan.appendChild(a);
-            }
-          }
-
-          pageDiv.appendChild(textSpan);
-        }
-        div.appendChild(pageAnchor);
-        div.appendChild(pageDiv);
-
-        if (i < info['numberOfPages'] - 1) {
-          setTimeout(function() { displayPage(i + 1); }, 0);
-        } else {
-          e.parentNode.replaceChild(div, e);
-        }
-      };
-
-      setTimeout(function() { displayPage(0); }, 0);
-    }
-  }
 };
 
 window.setTimeout(cvox.ChromeVox.init, 0);

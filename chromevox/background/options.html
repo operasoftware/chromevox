@@ -8,25 +8,24 @@
 fieldset {
   margin: 0.2em 0 0.8em 0;
 }
-label {
-  display: block;
-}
 input[aria-invalid="true"] {
   color: #d00;
   background-color: ff9;
 }
+.subsection {
+  margin-left: 1em;
+}
 </style>
 
-<script type="text/javascript" src="../../closure/closure_preinit.js"></script>
 <script type="text/javascript" src="../../closure/base.js"></script>
 <script type="text/javascript" src="../../deps.js"></script>
-<script type="text/javascript" src="options.js"></script>
-<script type="text/javascript" src="../../chromeVoxChromeOptionsScript.js">	
+<script type="text/javascript" src="options_loader.js"></script>
+<script type="text/javascript" src="../../chromeVoxChromeOptionsScript.js">
 </script>
 
 </head>
 <html>
-<body onload="load()">
+<body>
 
 <h1 class="i18n" msgid="options_page_title">ChromeVox Options (with dev msgs)</h1>
 
@@ -34,47 +33,21 @@ input[aria-invalid="true"] {
 Use the options below to customize ChromeVox. Changes take effect
 immediately.</p>
 
-<fieldset>
-  <legend class="i18n" msgid="options_magnifier">Magnifier</legend>
-  <label>
-    <input type="checkbox" class="pref" name="lensVisible"
-        class="i18n" msgid="options_magnifier_show_checkbox">
-    Show Magnifier
-  </label>
-  <div style="margin-left: 1em;">
-    <label>
-      <input type="radio" class="pref" name="lensAnchored" value="true"
-          class="i18n" msgid="options_magnifier_top_of_page">
-      At top of page
-    </label>
-    <label>
-      <input type="radio" class="pref" name="lensAnchored" value="false"
-          class="i18n" msgid="options_magnifier_next_focused">
-      Next to focused element
-    </label>
-  </div>
-</fieldset>
-
-<fieldset>
-  <legend class="i18n" msgid="options_mouse">Mouse</legend>
-  <label>
-    <input type="checkbox" class="pref" name="focusFollowsMouse"
-      class="i18n" msgid="options_mouse_focus_follows">
-    Focus follows mouse.
-  </label>
-</fieldset>
 
 <fieldset>
   <legend class="i18n" msgid="options_verbosity">Verbosity</legend>
-  <div style="margin-left: 1em;">
-    <label>
-      <input type="radio" class="pref" name="useBriefMode" value="false"
-          class="i18n" msgid="options_verbosity_verbose">
+  <div>
+    <input type="radio" class="pref" name="useBriefMode" value="false"
+        id="useBriefModeFalse" />
+    <label for="useBriefModeFalse" class="i18n"
+        msgid="options_verbosity_verbose">
       Verbose
     </label>
-    <label>
-      <input type="radio" class="pref" name="useBriefMode" value="true"
-          class="i18n" msgid="options_verbosity_brief">
+  </div>
+  <div>
+    <input type="radio" class="pref" name="useBriefMode" value="true"
+        id="useBriefModeTrue" />
+    <label for="useBriefModeTrue" class="i18n" msgid="options_verbosity_brief">
       Brief
     </label>
   </div>
@@ -82,30 +55,86 @@ immediately.</p>
 
 <fieldset>
   <legend class="i18n" msgid="options_cursor">When editing text</legend>
-  <label>
+  <div>
     <input type="radio" class="pref" name="cursorIsBlock" value="false"
-        class="i18n" msgid="options_cursor_between_characters">
-    The cursor is between characters (like on Mac OS X)
-  </label>
-  <label>
+        id="cursorIsBlockFalse" />
+    <label for="cursorIsBlockFalse" class="i18n"
+        msgid="options_cursor_between_characters">
+      The cursor is between characters (like on Mac OS X)
+    </label>
+  </div>
+  <div>
     <input type="radio" class="pref" name="cursorIsBlock" value="true"
-        class="i18n" msgid="options_cursor_on_character">
-    The cursor is on a character (like on Windows)
+        id="cursorIsBlockTrue" />
+    <label for="cursorIsBlockTrue" class="i18n"
+        msgid="options_cursor_on_character">
+      The cursor is on a character (like on Windows)
+    </label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend class="i18n" msgid="tts_voices">By default, use the voice</legend>
+  <select class="pref" name="voices" id="voices">
+  </select>
+</fieldset>
+
+<fieldset>
+  <legend class="i18n" msgid="options_magnifier">Magnifier</legend>
+  <div>
+    <input type="checkbox" class="pref" name="lensVisible" id="lensVisible" />
+    <label for="lensVisible" class="i18n"
+        msgid="options_magnifier_show_checkbox">
+      Show Magnifier
+    </label>
+  </div>
+  <div class="subsection">
+    <div>
+      <input type="radio" class="pref" name="lensAnchored" value="true"
+          id="lensAnchoredTop" />
+      <label for="lansAnchoredTop" class="i18n"
+          msgid="options_magnifier_top_of_page">
+        At top of page
+      </label>
+    </div>
+    <div>
+      <input type="radio" class="pref" name="lensAnchored" value="false"
+          id="lensAnchoredFocused"/>
+      <label for="lensAnchoredFocused" class="i18n"
+          msgid="options_magnifier_next_focused">
+        Next to focused element
+      </label>
+    </div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend class="i18n" msgid="options_mouse">Mouse</legend>
+  <input type="checkbox" class="pref" name="focusFollowsMouse"
+      id="focusFollowsMouse" />
+  <label for="focusFollowsMouse" class="i18n"
+      msgid="options_mouse_focus_follows">
+    Focus follows mouse.
   </label>
 </fieldset>
 
 
 <h2 class="i18n" msgid="options_key_assignments">Key assignments</h2>
+<div>
+  <label for="cvox_keymaps" class="i18n" msgid="options_select_keymap"></label>
+  <select name="cvoxKeymaps" msgid="options_reset_keys" id="cvox_keymaps">
+  </select>
+</div>
 
 <button id="resetToDefaultKeys" class="i18n" msgid="options_reset_keys">
-  Reset to default keys
+  Reset
 </button>
-  <label>
-    <input type="text" class="key" name="cvoxKey"
-        class="i18n" msgid="options_cvox_modifier_key">
+<div>
+  <input type="text" class="key" name="cvoxKey" id="cvoxKey" />
+  <label for="cvoxKey" class="i18n" msgid="options_cvox_modifier_key">
     ChromeVox modifier key combination (Cvox)
   </label>
-  <br>
+</div>
 <div id="keysContainer">
 
 </div>

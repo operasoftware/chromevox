@@ -26,6 +26,7 @@
 
 goog.provide('cvox.TraverseContent');
 
+goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TraverseUtil');
@@ -157,6 +158,23 @@ cvox.TraverseContent.prototype.syncToSelection = function() {
   this.endCursor_ = new cvox.Cursor(
       selection.focusNode, selection.focusOffset,
       cvox.TraverseUtil.getNodeText(selection.focusNode));
+};
+
+/**
+ * Set the start and end cursors to the selection.
+ * @param {cvox.CursorSelection} sel The selection.
+ */
+cvox.TraverseContent.prototype.syncToCursorSelection = function(sel) {
+  this.startCursor_ = sel.start.clone();
+  this.endCursor_ = sel.end.clone();
+};
+
+/**
+ * Get the cursor selection.
+ * @return {cvox.CursorSelection} The selection.
+ */
+cvox.TraverseContent.prototype.getCurrentCursorSelection = function() {
+  return new cvox.CursorSelection(this.startCursor_, this.endCursor_);
 };
 
 /**

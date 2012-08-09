@@ -28,10 +28,14 @@ goog.require('cvox.ChromeVoxPrefs');
 goog.require('cvox.EarconsBackground');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
+goog.require('cvox.InjectedScriptLoader');
 goog.require('cvox.TtsBackground');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.CompositeTts');
 
+// TODO(dtseng): This is required to prevent Closure from stripping our export
+// prefs on window.
+goog.require('cvox.OptionsPage');
 
 
 /**
@@ -56,61 +60,117 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   consoleTts.setEnabled(true);
 
   /**
+   * Chrome's actual TTS which knows and cares about pitch, volume, etc.
+   * @type {cvox.TtsBackground}
+   * @private
+   */
+  this.backgroundTts_ = new cvox.TtsBackground();
+
+  /**
    * @type {cvox.TtsInterface}
    */
   this.tts = new cvox.CompositeTts()
-      .add(new cvox.TtsBackground())
+      .add(this.backgroundTts_)
       .add(consoleTts);
+
   this.earcons = new cvox.EarconsBackground();
   this.addBridgeListener();
-  this.addStorageListener();
 
   cvox.AccessibilityApiHandler.init(this.tts, this.earcons);
 
+  var listOfFiles;
+
+  // These lists of files must match the content_scripts section in
+  // the manifest files.
   if (COMPILED) {
+    listOfFiles = ['chromeVoxChromePageScript.js'];
+  } else {
+    listOfFiles = [
+        'closure/closure_preinit.js',
+        'closure/base.js',
+        'deps.js',
+        'chromevox/injected/loader.js'];
+  }
+
+  var self = this;
+  var stageTwo = function(code) {
     // Inject the content script into all running tabs.
-    var self = this;
-    console.log('Getting all windows');
     chrome.windows.getAll({'populate': true}, function(windows) {
       for (var i = 0; i < windows.length; i++) {
         var tabs = windows[i].tabs;
         for (var j = 0; j < tabs.length; j++) {
           var tab = tabs[j];
-          self.injectChromeVoxIntoTab(tab);
+          self.injectChromeVoxIntoTab(tab, listOfFiles, code);
         }
       }
     });
-  }
+  };
 
   this.checkVersionNumber();
+
+  // Set up a message passing system for goog.provide() calls from
+  // within the content scripts.
+  chrome.extension.onMessage.addListener(
+      function(request, sender, callback) {
+        if (request['srcFile']) {
+          var srcFile = request['srcFile'];
+          cvox.InjectedScriptLoader.fetchCode(
+              [srcFile],
+              function(code) {
+                callback({'code': code[srcFile]});
+              });
+        }
+        return true;
+      });
+
+  // We use fetchCode instead of chrome.extensions.executeFile because
+  // executeFile doesn't propagate the file name to the content script
+  // which means that script is not visible in Dev Tools.
+  cvox.InjectedScriptLoader.fetchCode(listOfFiles, stageTwo);
 };
+
 
 
 /**
  * Inject ChromeVox into a tab.
  * @param {Tab} tab The tab where ChromeVox scripts should be injected.
+ * @param {Array.<string>} files The files to load.
+ * @param {Object.<string, string>} code The contents of the files.
  */
-cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab = function(tab) {
+cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab =
+    function(tab, files, code) {
+  window.console.log('Injecting into ' + tab.id, tab);
+  var sawError = false;
+
+  /**
+   * A helper function which executes code.
+   * @param {string} code The code to execute.
+   * @param {boolean} opt_singleFrame If true, don't execute in all frames.
+   */
+  var executeScript = goog.bind(function(code) {
+    chrome.tabs.executeScript(
+        tab.id,
+        {'code': code,
+         'allFrames': true},
+        goog.bind(function() {
+          if (!chrome.extension.lastError) {
+            return;
+          }
+          if (sawError) {
+            return;
+          }
+          sawError = true;
+          console.error('Could not inject into tab', tab);
+          this.tts.speak('Error starting ChromeVox for '
+                         + tab.title + ', ' + tab.url);
+        }, this));
+  }, this);
+
   // INJECTED_AFTER_LOAD is set true to prevent ChromeVox from giving
   // the same feedback as a page loading.
-  chrome.tabs.executeScript(
-      tab.id,
-      {'code': 'window.INJECTED_AFTER_LOAD = true;',
-       'allFrames': true},
-      function() {
-        if (chrome.extension.lastError) {
-          console.log('ERROR: Did not inject into ' + tab.url);
-        }
-      });
-  chrome.tabs.executeScript(
-      tab.id,
-      {'file': 'chromeVoxChromePageScript.js',
-       'allFrames': true},
-      function() {
-        if (chrome.extension.lastError) {
-          console.log('ERROR: Did not inject into ' + tab.url);
-        }
-      });
+  executeScript(
+      'window.INJECTED_AFTER_LOAD = true; window.CLOSURE_NO_DEPS = true');
+  files.forEach(function(file) { executeScript(code[file]); });
 };
 
 
@@ -125,8 +185,10 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
     this.tts.stop();
   } else if (msg['action'] == 'increaseOrDecrease') {
     this.tts.increaseOrDecreaseProperty(msg['property'], msg['increase']);
-    var value = this.tts.ttsProperties[msg['property']];
-    var valueAsPercent = Math.round(value * 100);
+    var property = msg['property'];
+    var engine = this.backgroundTts_;
+    var valueAsPercent = Math.round(
+        this.backgroundTts_.propertyToPercentage(property) * 100);
     var announcement;
     switch (msg['property']) {
     case cvox.AbstractTts.RATE:
@@ -203,13 +265,13 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       }
       break;
     case 'TTS':
-      if (msg['startCallbackId']) {
+      if (msg['startCallbackId'] != undefined) {
         msg['properties']['startCallback'] = function() {
           port.postMessage({'message': 'TTS_CALLBACK',
                             'id': msg['startCallbackId']});
         };
       }
-      if (msg['endCallbackId']) {
+      if (msg['endCallbackId'] != undefined) {
         msg['properties']['endCallback'] = function() {
           port.postMessage({'message': 'TTS_CALLBACK',
                             'id': msg['endCallbackId']});
@@ -226,18 +288,6 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       break;
     }
   }, this));
-};
-
-
-/**
- * Listen for changes to local storage, and reloads the key map.
- */
-cvox.ChromeVoxBackground.prototype.addStorageListener = function() {
-  var storageEventHandler = goog.bind(function() {
-    // Reload the key map from local storage
-    this.prefs.reloadKeyMap();
-  }, this);
-  window.addEventListener('storage', storageEventHandler, false);
 };
 
 
@@ -298,9 +348,13 @@ cvox.ChromeVoxBackground.prototype.readPrefs = function() {
 };
 
 // Create the background page object and export a function window['speak']
-// so that other background pages can access it.
+// so that other background pages can access it. Also export the prefs object
+// for access by the options page.
 (function() {
-   var background = new cvox.ChromeVoxBackground();
-   background.init();
-   window['speak'] = goog.bind(background.tts.speak, background.tts);
+  var background = new cvox.ChromeVoxBackground();
+  background.init();
+  window['speak'] = goog.bind(background.tts.speak, background.tts);
+
+  // Export the prefs object for access by the options page.
+  window['prefs'] = background.prefs;
 })();

@@ -97,41 +97,24 @@ cvox.AbstractTts.prototype.propertyStep = {
 };
 
 
-/**
- * Speaks the given string using the specified queueMode and properties.
- * @param {string} textString The string of text to be spoken.
- * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
- *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object=} properties Speech properties to use for this utterance.
- * @return {cvox.AbstractTts} A tts object useful for chaining speak calls.
- */
+/** @override */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
   return this;
 };
 
 
-/**
- * Returns true if the TTS is currently speaking.
- * @return {boolean} True if the TTS is speaking.
- */
+/** @override */
 cvox.AbstractTts.prototype.isSpeaking = function() {
   return false;
 };
 
 
-/**
- * Stops speech.
- */
+/** @override */
 cvox.AbstractTts.prototype.stop = function() {
 };
 
 
-/**
- * Increases a TTS speech property.
- * @param {string} propertyName The name of the property to change.
- * @param {boolean} increase If true, increases the property value by one
- *     step size, otherwise decreases.
- */
+/** @override */
 cvox.AbstractTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   var min = this.propertyMin[propertyName];
@@ -169,6 +152,9 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
     }
     if (typeof(properties[tts.RATE]) == 'number') {
       mergedProperties[tts.RATE] = properties[tts.RATE];
+    }
+    if (typeof(properties[tts.LANG]) == 'string') {
+      mergedProperties[tts.LANG] = properties[tts.LANG];
     }
 
     var context = this;
@@ -336,6 +322,8 @@ cvox.AbstractTts.RATE = 'rate';
 cvox.AbstractTts.PITCH = 'pitch';
 /** TTS volume property. @type {string} */
 cvox.AbstractTts.VOLUME = 'volume';
+/** TTS language property. @type {string} */
+cvox.AbstractTts.LANG = 'lang';
 
 /** TTS relative rate property. @type {string} */
 cvox.AbstractTts.RELATIVE_RATE = 'relativeRate';

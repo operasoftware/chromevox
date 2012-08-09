@@ -120,6 +120,13 @@ cvox.ChromeVoxEditableTextBase.prototype.maxShortPhraseLen = 60;
 cvox.ChromeVoxEditableTextBase.prototype.isPassword = false;
 
 /**
+ * Whether or not the last update to the text and selection was described
+ *
+ * @type {boolean}
+ */
+cvox.ChromeVoxEditableTextBase.prototype.lastChangeDescribed = false;
+
+/**
  * Get a speakable text string describing the current state of the
  * text control.
  * @return {string} The value.
@@ -229,7 +236,6 @@ cvox.ChromeVoxEditableTextBase.prototype.speak =
   if (opt_triggeredByUser === true) {
     queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
-
   this.tts.speak(str, queueMode, {});
 };
 
@@ -264,6 +270,7 @@ cvox.ChromeVoxEditableTextBase.prototype.restoreState = function(state) {
 cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
   if (evt.value == this.value && evt.start == this.start &&
       evt.end == this.end) {
+    this.lastChangeDescribed = false;
     return;
   }
   if (evt.value == this.value) {
@@ -271,6 +278,7 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
   } else {
     this.describeTextChanged(evt);
   }
+  this.lastChangeDescribed = true;
 
   this.value = evt.value;
   this.start = evt.start;
