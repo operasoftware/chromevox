@@ -80,6 +80,8 @@ cvox.AbstractEarcons.prototype.getEarconName = function(earcon) {
     this.earconNames.push('SEARCH_HIT');
     this.earconNames.push('SEARCH_MISS');
     this.earconNames.push('SECTION');
+    this.earconNames.push('SELECTION');
+    this.earconNames.push('SELECTION_REVERSE');
     this.earconNames.push('TASK_SUCCESS');
     this.earconNames.push('WRAP');
     this.earconNames.push('WRAP_EDGE');
@@ -128,6 +130,9 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
     this.earconNamesToIds['SEARCH_HIT'] = cvox.AbstractEarcons.SEARCH_HIT;
     this.earconNamesToIds['SEARCH_MISS'] = cvox.AbstractEarcons.SEARCH_MISS;
     this.earconNamesToIds['SECTION'] = cvox.AbstractEarcons.SECTION;
+    this.earconNamesToIds['SELECTION'] = cvox.AbstractEarcons.SELECTION;
+    this.earconNamesToIds['SELECTION_REVERSE'] =
+        cvox.AbstractEarcons.SELECTION_REVERSE;
     this.earconNamesToIds['TASK_SUCCESS'] = cvox.AbstractEarcons.TASK_SUCCESS;
     this.earconNamesToIds['WRAP'] = cvox.AbstractEarcons.WRAP;
     this.earconNamesToIds['WRAP_EDGE'] = cvox.AbstractEarcons.WRAP_EDGE;
@@ -273,14 +278,24 @@ cvox.AbstractEarcons.SECTION = 26;
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.TASK_SUCCESS = 27;
+cvox.AbstractEarcons.SELECTION = 27;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP = 28;
+cvox.AbstractEarcons.SELECTION_REVERSE = 28;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP_EDGE = 29;
+cvox.AbstractEarcons.TASK_SUCCESS = 29;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP = 30;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP_EDGE = 31;

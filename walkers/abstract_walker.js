@@ -48,7 +48,6 @@
 
 goog.provide('cvox.AbstractWalker');
 
-goog.require('cvox.ChromeVoxChoiceWidget');
 goog.require('cvox.CursorSelection');
 
 /**
@@ -100,26 +99,14 @@ cvox.AbstractWalker.prototype.syncToPageBeginning = function(kwargs) {
       cvox.CursorSelection.fromBody().setReversed(kwargs.reversed));
 };
 
-// TODO (stoarca): choiceWidget should be replaced with a base class
-// "disambiguator" so that testing is easy.
+
 /**
  * Tries to act on the current item. Displays a disambiguation dialog if
  * more than one action is possible.
  * @param {!cvox.CursorSelection} sel The selection on which to act.
- * @param {!cvox.ChromeVoxChoiceWidget} choiceWidget The choiceWidget
- * for disambiguation.
  * @return {boolean} True if some action that could be taken exists.
  */
-cvox.AbstractWalker.prototype.act = function(sel, choiceWidget) {
-  return false;
-};
-
-/**
- * Returns true if this walker can act on the current item.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {boolean} True if some action that could be taken exists.
- */
-cvox.AbstractWalker.prototype.canAct = function(sel) {
+cvox.AbstractWalker.prototype.act = function(sel) {
   return false;
 };
 

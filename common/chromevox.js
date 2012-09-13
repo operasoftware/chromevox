@@ -53,7 +53,12 @@ goog.addDependency(
 
 goog.addDependency(
     '../chromevox/injected/navigation_manager.js',
-    ['cvox.ChromeVoxNavigationManager'],
+    ['cvox.NavigationManager'],
+    []);
+
+goog.addDependency(
+    '../chromevox/injected/serializer.js',
+    ['cvox.Serializer'],
     []);
 
 // Constants
@@ -105,9 +110,13 @@ cvox.ChromeVox.version = null;
  */
 cvox.ChromeVox.earcons = null;
 /**
- * @type {cvox.ChromeVoxNavigationManager}
+ * @type {cvox.NavigationManager}
  */
 cvox.ChromeVox.navigationManager = null;
+/**
+ * @type {cvox.Serializer}
+ */
+cvox.ChromeVox.serializer = null;
 /**
  * @type {boolean}
  */
@@ -188,3 +197,23 @@ cvox.ChromeVox.speakInitialMessages = function() {};
  * @type {boolean}
  */
 cvox.ChromeVox.entireDocumentIsHidden = false;
+
+/**
+ * Stores state variables in a provided object.
+ *
+ * @param {Object} store The object.
+ */
+cvox.ChromeVox.storeOn = function(store) {
+  store['isStickyOn'] = cvox.ChromeVox.isStickyOn;
+  cvox.ChromeVox.navigationManager.storeOn(store);
+};
+
+/**
+ * Updates the object with state variables from an earlier storeOn call.
+ *
+ * @param {Object} store The object.
+ */
+cvox.ChromeVox.readFrom = function(store) {
+  cvox.ChromeVox.isStickyOn = store['isStickyOn'];
+  cvox.ChromeVox.navigationManager.readFrom(store);
+};

@@ -7,57 +7,46 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
+
 /**
-  @param {String} url url to load script of. */
+  @param {string} url url to load script of. */
 var loadScript = function(url) {
+
   var urlStartsWith = function(str) {
     return url.indexOf(str) == 0;
   }
-  var scripts = ['namespaces',
-                 'speakable',
-                 'speakableManager',
+  var scripts = ['main',
                  'util',
-                 'iframe_util',
-                 'listeners_loader',
-                 'alias'];
+                 'sprintf-0.7-beta1',
+                 'speakable',
+                 'speakable_parser',
+                 'speakable_manager',
+                 'traverse_manager',
+                 'listeners',
+                 'extension'];
 
   var forceRedownload = '?' + new Date().getTime();
-/*
-  for (var i=0; i<scripts.length; ++i) {
+
+  for (var i = 0; i < scripts.length; ++i) {
     var commonScript = document.createElement('script');
     commonScript.type = 'text/javascript';
     commonScript.src = window.chrome.extension.getURL(
-        'common/'+scripts[i]+'.js') + forceRedownload;
+        'cvoxext/common/' + scripts[i] + '.js') + forceRedownload;
 
     document.head.appendChild(commonScript);
   }
-*/
-  var commonScript = document.createElement('script');
-  commonScript.type = 'text/javascript';
-  commonScript.src = window.chrome.extension.getURL(
-       'common/extensions_common.js') + forceRedownload;
-  document.head.appendChild(commonScript);
-
 
   var apiScript = document.createElement('script');
   apiScript.type = 'text/javascript';
   var scriptName;
-
-  if (urlStartsWith('https://plus.google.com/hangouts') ||
-      urlStartsWith('https://plus.sandbox.google.com/hangouts') ||
-      urlStartsWith('https://plus.google.com/u/0')) {
-    scriptName = 'hangoutvox';
-  }
-  else if (urlStartsWith('https://plus.google.com') ||
+  if (urlStartsWith('https://plus.google.com') ||
       urlStartsWith('https://plus.sandbox.google.com')) {
     scriptName = 'plus';
   }
-  else if (urlStartsWith('http://books.google.com')) {
-    scriptName = 'booksvox';
+  else if (urlStartsWith('http://books.google.com/books')) {
+    scriptName = 'books';
   }
-
   else if (urlStartsWith('https://mail.google.com')) {
-    console.log('came here');
     scriptName = 'gmail';
   }
 
@@ -71,17 +60,60 @@ var loadScript = function(url) {
   else if (urlStartsWith('https://drive.google.com/')) {
     scriptName = 'drive';
   }
-  else if (urlStartsWith('http://www.google.com/finance')) {
+  else if (url == 'http://www.google.com/finance') {
     scriptName = 'finance';
+  }
+  else if (url == 'http://www.google.com/finance/stockscreener' ||
+                  url == 'http://www.google.com/finance#stockscreener') {
+    scriptName = 'finance_stock_screener';
   }
   else if (urlStartsWith('http://iplayif.com/?story=')) {
     scriptName = 'iplayif';
   }
-  apiScript.src = window.chrome.extension.getURL('extensions/' +
-      scriptName + '.js') + forceRedownload;
+  else if (urlStartsWith('http://www.google.com/search') ||
+           urlStartsWith('https://www.google.com/search')) {
+    scriptName = 'calculator';
+  }
+  if (scriptName) {
+    apiScript.src = window.chrome.extension.getURL('cvoxext/extensions/' +
+        scriptName + '.js') + forceRedownload;
+  }
 
-  //apiScript.src = window.chrome.extension.getURL(
-  //    'common/test.js') + forceRedownload;
   document.head.appendChild(apiScript);
 };
-loadScript(document.location.href);
+
+/**load appropriate version of ChromeVox, can load Web Store and ChromeOS
+versions */
+var checkChromeVoxAndLoad = function() {
+  /** @const */
+  var chromeVoxIDs = {
+    webstore: 'kgejglhpjiefppelpmljglcjbhoiplfn',
+    chromeos: 'mndnfokpggljbaajbnioimlmbfngpief'
+  };
+  var port = chrome.extension.connect(chromeVoxIDs.webstore);
+  window.setTimeout(
+    function() {
+      try {
+        port.postMessage();
+        loadScript(document.location.href);
+      } catch (e) {
+        var port2 = chrome.extension.connect(chromeVoxIDs.chromeos);
+        window.setTimeout(function() {
+          try {
+           port2.postMessage();
+            loadScript(document.location.href);
+          } catch (e) {
+            var install = confirm('ChromeVox Extensions needs ChromeVox. ' +
+                      'Click OK to install ChromeVox');
+            if (install) {
+              window.open('https://chrome.google.com/webstore/detail/' +
+                'kgejglhpjiefppelpmljglcjbhoiplfn');
+            }
+          }
+        },0);
+
+      }
+    },0);
+};
+
+checkChromeVoxAndLoad();

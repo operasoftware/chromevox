@@ -1,5 +1,5 @@
 {
-  "name": "extensions",
+  "name": "ChromeVox Extensions Suite",
   "version": "1.0",
   "description": "Enhances the Google experience with ChromeVox.",
   "permissions": [
@@ -11,9 +11,12 @@
     "https://www.google.com/calendar/*",
     "https://news.google.com/*",
     "http://news.google.com/*",
+    "http://www.google.com/finance",
     "https://drive.google.com/*",
     "http://www.google.com/finance/*",
-    "http://iplayif.com/?story=*"
+    "http://iplayif.com/?story=*",
+    "https://www.google.com/*",
+    "http://www.google.com/*"
   ],
   "content_scripts": [
     {
@@ -27,11 +30,15 @@
         "http://news.google.com/*",
         "https://drive.google.com/*",
         "http://www.google.com/finance/*",
-        "http://iplayif.com/?story=*"
+        "http://www.google.com/finance",
+        "http://iplayif.com/?story=*",
+        "https://www.google.com/*",
+        "http://www.google.com/*"
+
       ],
       "all_frames": true,
       "js": [
-        "loader.js"
+        "cvoxext/loader.js"
       ]
     }
   ]

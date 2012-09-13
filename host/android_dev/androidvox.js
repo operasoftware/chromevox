@@ -21,7 +21,6 @@
 goog.provide('cvox.AndroidVox');
 
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.ChromeVoxUserCommands');
 
 /**
@@ -61,7 +60,9 @@ cvox.AndroidVox.performAction = function(actionJson) {
   // trying to force a position reset.
   if ((granularity == MOVEMENT_GRANULARITY_PAGE) &&
       (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY)) {
-    cvox.ChromeVox.navigationManager.reset();
+    cvox.ChromeVox.navigationManager.setReversed(false);
+    cvox.ChromeVox.navigationManager.syncToPageBeginning();
+    cvox.ChromeVox.navigationManager.updateIndicator();
   }
 
   // This is a hack; we're using page and next to mean readFromHere since

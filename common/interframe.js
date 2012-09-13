@@ -28,6 +28,7 @@
 goog.provide('cvox.Interframe');
 
 goog.require('cvox.ChromeVoxJSON');
+goog.require('cvox.DomUtil');
 
 /**
  * @constructor
@@ -181,7 +182,7 @@ cvox.Interframe.sendMessageToIFrame = function(message, iframe) {
  * @param {Object} message The message to send.
  */
 cvox.Interframe.sendMessageToParentWindow = function(message) {
-  if (window.parent == window) {
+  if (!cvox.Interframe.isIframe()) {
     return;
   }
 
@@ -210,6 +211,14 @@ cvox.Interframe.sendMessageToParentWindow = function(message) {
 cvox.Interframe.sendIdToIFrame = function(id, iframe) {
   var message = {'command': cvox.Interframe.SET_ID, 'id': id};
   cvox.Interframe.sendMessageToIFrame(message, iframe);
+};
+
+/**
+ * Returns true if inside iframe
+ * @return {boolean} true if inside iframe.
+ */
+cvox.Interframe.isIframe = function() {
+  return (window != window.parent);
 };
 
 cvox.Interframe.init();

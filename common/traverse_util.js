@@ -23,6 +23,7 @@
 goog.provide('cvox.TraverseUtil');
 
 goog.require('cvox.Cursor');
+goog.require('cvox.DomUtil');
 
 /**
  * Utility functions for stateless DOM traversal.
@@ -95,20 +96,6 @@ cvox.TraverseUtil.setSelection = function(start, end) {
 };
 
 /**
- * Use the computed CSS style to figure out if this DOM node is currently
- * visible.
- * @param {Node} node A HTML DOM node.
- * @return {boolean} Whether or not the html node is visible.
- */
-cvox.TraverseUtil.isVisible = function(node) {
-  if (!node.style) {
-    return true;
-  }
-  var style = window.getComputedStyle(/** @type {Element} */(node), null);
-  return (!!style && style.display != 'none' && style.visibility != 'hidden');
-};
-
-/**
  * Check if this DOM node has the attribute aria-hidden='true', which should
  * hide it from screen readers.
  * @param {Node} node An HTML DOM node.
@@ -146,7 +133,7 @@ cvox.TraverseUtil.forwardsChar = function(
           }
           continue;
         }
-        if (cvox.TraverseUtil.isVisible(node)) {
+        if (cvox.DomUtil.isVisible(node, {checkAncestors: false})) {
           childNode = node;
           break;
         }
@@ -179,7 +166,7 @@ cvox.TraverseUtil.forwardsChar = function(
           }
           continue;
         }
-        if (cvox.TraverseUtil.isVisible(node)) {
+        if (cvox.DomUtil.isVisible(node, {checkAncestors: false})) {
           siblingNode = node;
           break;
         }
@@ -240,7 +227,7 @@ cvox.TraverseUtil.backwardsChar = function(
           }
           continue;
         }
-        if (cvox.TraverseUtil.isVisible(node)) {
+        if (cvox.DomUtil.isVisible(node, {checkAncestors: false})) {
           childNode = node;
           break;
         }
@@ -277,7 +264,7 @@ cvox.TraverseUtil.backwardsChar = function(
           }
           continue;
         }
-        if (cvox.TraverseUtil.isVisible(node)) {
+        if (cvox.DomUtil.isVisible(node, {checkAncestors: false})) {
           siblingNode = node;
           break;
         }

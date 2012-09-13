@@ -26,6 +26,7 @@ goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.DomUtil');
 goog.require('cvox.ScriptInstaller');
+goog.require('cvox.ApiUtil');
 
 /**
  * @constructor
@@ -50,16 +51,15 @@ cvox.ApiImplementation.siteSpecificScriptBase;
  */
 cvox.ApiImplementation.init = function() {
   window.addEventListener('message', cvox.ApiImplementation.portSetup, true);
+  var scripts = new Array();
+  scripts.push(cvox.ChromeVox.host.getFileSrc(
+      'chromevox/injected/api_util.js'));
+  scripts.push(cvox.ChromeVox.host.getApiSrc());
+  scripts.push(cvox.ApiImplementation.siteSpecificScriptLoader);
 
-  var apiScript = cvox.ScriptInstaller.installScript(
-      cvox.ChromeVox.host.getApiSrc(), 'cvoxapi',
-      function() {
-        cvox.ScriptInstaller.installScript(
-            cvox.ApiImplementation.siteSpecificScriptLoader,
-            'chromevoxScriptLoader',
-            null,
-            cvox.ApiImplementation.siteSpecificScriptBase);
-      });
+  var apiScript = cvox.ScriptInstaller.installScript(scripts,
+      'cvoxapi', null, cvox.ApiImplementation.siteSpecificScriptBase);
+
   if (!apiScript) {
     // If the API script is already installed, just re-enable it.
     window.location.href = 'javascript:cvox.Api.internalEnable();';
@@ -101,34 +101,14 @@ cvox.ApiImplementation.dispatchApiMessage = function(message) {
     case 'clickNodeRef': method = cvox.ApiImplementation.clickNodeRef; break;
     case 'getBuild': method = cvox.ApiImplementation.getBuild; break;
     case 'getVersion': method = cvox.ApiImplementation.getVersion; break;
+    case 'getCurrentNode': method = cvox.ApiImplementation.getCurrentNode;
+        break;
   }
   if (!method) {
     throw 'Unknown API call: ' + message['cmd'];
   }
 
   method.apply(cvox.ApiImplementation, message['args']);
-};
-
-/**
- * Retrieve a node from its serializable node reference.
- *
- * @param {Object} nodeRef A serializable reference to a node.
- * @return {Node} The node on the page that this object refers to.
- */
-cvox.ApiImplementation.getNodeFromRef_ = function(nodeRef) {
-  if (nodeRef['id']) {
-    return document.getElementById(nodeRef['id']);
-  } else if (nodeRef['cvoxid']) {
-    var selector = '*[cvoxid="' + nodeRef['cvoxid'] + '"]';
-    var element = document.querySelector(selector);
-    if (nodeRef['childIndex'] != null) {
-      return element.childNodes[nodeRef['childIndex']];
-    } else {
-      return element;
-    }
-  }
-
-  throw 'Bad node reference: ' + cvox.ChromeVoxJSON.stringify(nodeRef);
 };
 
 /**
@@ -154,7 +134,7 @@ cvox.ApiImplementation.speak = function(textString, queueMode, properties) {
 cvox.ApiImplementation.speakNodeRef = function(nodeRef, queueMode, properties) {
   if (cvox.ChromeVox.isActive) {
     cvox.ApiImplementation.speak(
-        cvox.DomUtil.getName(cvox.ApiImplementation.getNodeFromRef_(nodeRef)),
+        cvox.DomUtil.getName(cvox.ApiUtils.getNodeFromRef(nodeRef)),
         queueMode,
         properties);
   }
@@ -219,7 +199,7 @@ cvox.ApiImplementation.playEarcon = function(earcon) {
  * @param {boolean=} speakNode If true, speaks out the node.
  */
 cvox.ApiImplementation.syncToNodeRef = function(nodeRef, speakNode) {
-  var node = cvox.ApiImplementation.getNodeFromRef_(nodeRef);
+  var node = cvox.ApiUtils.getNodeFromRef(nodeRef);
   cvox.ApiImplementation.syncToNode(node, speakNode);
 };
 
@@ -261,8 +241,19 @@ cvox.ApiImplementation.syncToNode = function(
   }
 };
 
+/**
+ * Get the current node that ChromeVox is on.
+ * @param {number} callbackId The callback Id.
+ */
+cvox.ApiImplementation.getCurrentNode = function(callbackId) {
+  var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+  cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
+      {
+        'id': callbackId,
+        'currentNode': cvox.ApiUtils.makeNodeReference(currentNode)
+      }));
+};
 
-//TODO refactor docs this function and getDescription should never return null
 /**
  * Gets the predefined description set on a node by an api call, if such
  * a call was made. Otherwise returns the description that the NavigationManager
@@ -300,7 +291,7 @@ cvox.ApiImplementation.getDesc_ = function(node) {
  */
 cvox.ApiImplementation.clickNodeRef = function(nodeRef, shiftKey) {
   cvox.DomUtil.clickElem(
-      cvox.ApiImplementation.getNodeFromRef_(nodeRef), shiftKey);
+      cvox.ApiUtils.getNodeFromRef(nodeRef), shiftKey);
 };
 
 /**

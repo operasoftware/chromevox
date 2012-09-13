@@ -25,6 +25,7 @@ goog.require('cvox.ChromeVox');
 goog.require('cvox.CssDimension');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
+goog.require('cvox.GroupUtil');
 goog.require('cvox.SpokenMessages');
 
 /**
@@ -209,10 +210,7 @@ cvox.CssSpace.getFlattenedSubtree = function(node, collection) {
   // Always add these nodes and skip their descendants. The idea is to gather
   // nodes that have a good bounding box; leverage existing smart groups for
   // this.
-  // TODO (stoarca): cyclic dependency! This is not the right way to reuse code!
-  if ((node.tagName == 'P' ||
-      cvox.ChromeVox.navigationManager.navShifter_.
-          groupWalker_.stopNodeDescent(node)) &&
+  if ((node.tagName == 'P' || cvox.GroupUtil.isLeafNode(node)) &&
       cvox.DomUtil.hasContent(node)) {
     collection.push(node);
     return;

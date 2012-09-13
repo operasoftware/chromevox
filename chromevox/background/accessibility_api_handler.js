@@ -122,8 +122,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       return;
     }
     var tts = cvox.AccessibilityApiHandler.tts;
-    var title = tab.title ? tab.title : tab.url;
-    tts.speak(msg('chrome_tab_created', [title]), 0, ttsProps);
+    tts.speak(msg('chrome_tab_created'), 0, ttsProps);
     var earcons = cvox.AccessibilityApiHandler.earcons;
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
   });
@@ -136,11 +135,14 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
     earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   });
 
-  chrome.tabs.onSelectionChanged.addListener(function(tabId, selectInfo) {
+  chrome.tabs.onActivated.addListener(function(activeInfo) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    chrome.tabs.get(tabId, function(tab) {
+    chrome.tabs.get(activeInfo.tabId, function(tab) {
+      if (tab.status == 'loading') {
+        return;
+      }
       var tts = cvox.AccessibilityApiHandler.tts;
       var title = tab.title ? tab.title : tab.url;
       tts.speak(msg('chrome_tab_selected', [title]), 0, ttsProps);
@@ -179,10 +181,6 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
         tts.speak(msg(msg_id, [title]), 0, ttsProps);
         var earcons = cvox.AccessibilityApiHandler.earcons;
         earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
-        cvox.ExtensionBridge.send({
-            message: 'USER_COMMAND',
-            command: 'announcePosition'
-        });
       });
     });
   });

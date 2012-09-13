@@ -88,7 +88,7 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
     util.sequencing = false;
     util.sequenceBuffer = [];
   }
-  var keyIsPrefixed = util.sequencing || keyEvent['keyPrefixOn'] ||
+  var keyIsPrefixed = util.sequencing || keyEvent['keyPrefix'] ||
       keyEvent['stickyMode'];
 
   // Check if the Cvox key should be considered as pressed because the

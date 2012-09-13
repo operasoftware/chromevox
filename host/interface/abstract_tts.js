@@ -486,15 +486,22 @@ cvox.AbstractTts.QUEUE_MODE_QUEUE = 1;
  * @type {Object.<string, string>}
  */
 cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
+  'admob': 'ad-mob',
+  'adsense': 'ad-sense',
+  'adwords': 'ad-words',
+  'angularjs': 'angular j s',
   'bcc': 'B C C',
   'cc': 'C C',
   'chromevox': 'chrome-vox',
   'cr48': 'C R 48',
   'ctrl': 'control',
+  'doubleclick': 'double-click',
   'gmail': 'gee mail',
   'gtalk': 'gee talk',
   'http': 'H T T P',
+  'https' : 'H T T P S',
   'igoogle': 'eye google',
+  'pagerank': 'page-rank',
   'username': 'user-name',
   'www': 'W W W',
   'youtube': 'you tube'

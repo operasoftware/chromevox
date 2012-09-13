@@ -13,22 +13,25 @@
 // limitations under the License.
 
 /**
- * @fileoverview Widget presenting a list of nodes to choose from.
+ * @fileoverview A Choice Widget presenting a list of nodes with the ability
+ * to sync selection when chosen.
  * @author dtseng@google.com (David Tseng)
  */
 
 goog.provide('cvox.NodeChooserWidget');
 
+goog.require('cvox.ChoiceWidget');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxChoiceWidget');
 goog.require('cvox.DomUtil');
 goog.require('cvox.SpokenMessages');
 
+// TODO(dtseng): This class should have a name reflecting its tagName
+// (i.e. 'headings chooser').
 /**
  * @constructor
- * @param {Array.<Node>} elementsArray Nodes to choose from.
- * @param {Array.<string>} opt_descriptionsArray Describes each element.
- * @extends {cvox.ChromeVoxChoiceWidget}
+ * @param {Array} elementsArray The set of elements to present.
+* @param {Array} opt_descriptionsArray An optional list of descriptions.
+ * @extends {cvox.ChoiceWidget}
  */
 cvox.NodeChooserWidget = function(elementsArray, opt_descriptionsArray) {
   var functions = new Array();
@@ -45,11 +48,10 @@ cvox.NodeChooserWidget = function(elementsArray, opt_descriptionsArray) {
   if (opt_descriptionsArray) {
     descriptions = opt_descriptionsArray;
   }
-
-  cvox.ChromeVoxChoiceWidget.call(
-      this, descriptions, functions, descriptions.toString());
+  goog.base(this, descriptions, functions);
 };
-goog.inherits(cvox.NodeChooserWidget, cvox.ChromeVoxChoiceWidget);
+goog.inherits(cvox.NodeChooserWidget, cvox.ChoiceWidget);
+
 
 /**
  * Creates a simple function that will navigate to the given targetNode when
@@ -69,7 +71,6 @@ cvox.NodeChooserWidget.prototype.createSimpleNavigateToFunction_ = function(
       this.hide();
       cvox.ChromeVox.navigationManager.updateSel(
           cvox.CursorSelection.fromNode(targetNode));
-      cvox.ChromeVox.navigationManager.previous(true);
-      cvox.ChromeVoxUserCommands.commands['forward']();
+      cvox.ChromeVox.navigationManager.sync();
     }, this);
 };

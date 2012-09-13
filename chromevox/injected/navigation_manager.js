@@ -23,10 +23,11 @@
  */
 
 
-goog.provide('cvox.ChromeVoxNavigationManager');
+goog.provide('cvox.NavigationManager');
 
 goog.require('cvox.ActiveIndicator');
-goog.require('cvox.ChromeVoxChoiceWidget');
+goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxEventSuspender');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
@@ -35,6 +36,7 @@ goog.require('cvox.NavDescription');
 goog.require('cvox.NavigationHistory');
 goog.require('cvox.NavigationShifter');
 goog.require('cvox.NavigationSpeaker');
+goog.require('cvox.PageSelection');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.WalkerDecorator');
 goog.require('cvox.Widget');
@@ -43,51 +45,134 @@ goog.require('cvox.Widget');
 /**
  * @constructor
  */
-cvox.ChromeVoxNavigationManager = function() {
+cvox.NavigationManager = function() {
   this.addInterframeListener_();
 
   this.reset();
 };
 
 /**
+ * Stores state variables in a provided object.
+ *
+ * @param {Object} store The object.
+ */
+cvox.NavigationManager.prototype.storeOn = function(store) {
+  store['reversed'] = this.isReversed();
+  this.navShifter_.storeOn(store);
+};
+
+/**
+ * Updates the object with state variables from an earlier storeOn call.
+ *
+ * @param {Object} store The object.
+ */
+cvox.NavigationManager.prototype.readFrom = function(store) {
+  this.curSel_.setReversed(store['reversed']);
+  this.navShifter_.readFrom(store);
+};
+
+/**
  * Resets the navigation manager to the top of the page.
  */
-cvox.ChromeVoxNavigationManager.prototype.reset = function() {
-  if (this.activeIndicator) {
-    this.activeIndicator.removeFromDom();
-  }
-
-  this.navSpeaker_ = new cvox.NavigationSpeaker();
+cvox.NavigationManager.prototype.reset = function() {
   /**
-   * @type {cvox.NavigationShifter}
+   * @type {!cvox.NavigationSpeaker}
+   * @private
+   */
+  this.navSpeaker_ = new cvox.NavigationSpeaker();
+
+  /**
+   * @type {!cvox.NavigationShifter}
+   * @private
    */
   this.navShifter_ = new cvox.NavigationShifter();
 
-  /** @type {!cvox.CursorSelection} */
-  this.curSel_ = this.navShifter_.syncToPageBeginning();
 
-  /** @type {!cvox.CursorSelection} */
+  // NOTE(deboer): document.activeElement can not be null (c.f.
+  // https://developer.mozilla.org/en-US/docs/DOM/document.activeElement)
+  // Instead, if there is no active element, activeElement is set to
+  // document.body.
+  /**
+   * If there is an activeElement, use it.  Otherwise, sync to the page
+   * beginning.
+   * @type {!cvox.CursorSelection}
+   * @private
+   */
+  this.curSel_ = document.activeElement != document.body ?
+      (/** @type {!cvox.CursorSelection} **/
+      cvox.CursorSelection.fromNode(document.activeElement)) :
+      this.navShifter_.syncToPageBeginning();
+
+  /**
+   * @type {!cvox.CursorSelection}
+   * @private
+   */
   this.prevSel_ = this.curSel_.clone();
-
-  this.iframeIdMap = {};
-  this.nextIframeId = 1;
-
-  this.choiceWidget_ = new cvox.ChromeVoxChoiceWidget();
 
   /**
    * Keeps track of whether we have skipped while "reading from here"
+   * so that we can insert an earcon.
    * @type {boolean}
    * @private
    */
   this.skipped_ = false;
 
+  // TODO(stoarca): Make private when external calls are gone.
+  /**
+   * True if in "reading from here" mode.
+   * @type {boolean}
+   */
+  this.keepReading_ = false;
+
+  /**
+   * True if we are at the edge of a table and we already tried to go past it.
+   * @type {boolean}
+   * @private
+   */
   this.bumpedEdge_ = false;
 
+  /**
+   * True if we are at the end of the page and we wrap around.
+   * @type {boolean}
+   * @private
+   */
+  this.pageEnd_ = false;
+
+  /**
+   * True if we want to ignore iframes no matter what.
+   * @type {boolean}
+   * @private
+   */
+  this.ignoreIframesNoMatterWhat_ = false;
+
+  /**
+   * @type {cvox.PageSelection}
+   * @private
+   */
+  this.pageSel_ = null;
+
+  // TODO(stoarca): This seems goofy. Why are we doing this?
+  if (this.activeIndicator) {
+    this.activeIndicator.removeFromDom();
+  }
   this.activeIndicator = new cvox.ActiveIndicator();
 
+  /**
+   * Makes sure focus doesn't get lost.
+   * @type {!cvox.NavigationHistory}
+   * @private
+   */
   this.navigationHistory_ = new cvox.NavigationHistory();
 
-  this.updateIndicator();
+  this.iframeIdMap = {};
+  this.nextIframeId = 1;
+
+  // Only sync if the activeElement is not document.body; which is shorthand for
+  // 'no selection'.  Currently the walkers don't deal with the no selection
+  // case -- and it is not clear that they should.
+  if (document.activeElement != document.body) {
+    this.sync();
+  }
 };
 
 
@@ -98,23 +183,29 @@ cvox.ChromeVoxNavigationManager.prototype.reset = function() {
  *     returns true if it is a valid recovery candidate.
  * @return {boolean} True if we should continue navigation normally.
  */
-cvox.ChromeVoxNavigationManager.prototype.resolve =
-    function(opt_predicate) {
+cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
   var current = this.getCurrentNode();
-  if (this.navigationHistory_.validate(current)) {
+  if (!this.navigationHistory_.becomeInvalid(current)) {
     return true;
   }
 
   // Our current node was invalid. Revert to history.
   var revert = this.navigationHistory_.revert(opt_predicate);
 
-  // Convert to selections. If history is wiped, these will be null.
+  // If the history is empty, revert.current will be null.  In that case,
+  // it is best to continue navigationg normally.
+  if (!revert.current) {
+    return true;
+  }
+
+  // Convert to selections.
   var newSel = cvox.CursorSelection.fromNode(revert.current);
   var context = cvox.CursorSelection.fromNode(revert.previous);
 
   // Default to document body if selections are null.
   newSel = newSel || cvox.CursorSelection.fromBody();
   context = context || cvox.CursorSelection.fromBody();
+  newSel.setReversed(this.isReversed());
 
   this.updateSel(newSel, context);
   return false;
@@ -123,35 +214,19 @@ cvox.ChromeVoxNavigationManager.prototype.resolve =
 
 /**
  * Delegates to NavigationShifter with current page state.
- * @param {boolean=} navigateIframes If true, will jump in and out of iframes.
- * @return {boolean} Whether or not navigation was performed successfully. Note
- * that failure indicates that the end of the document has been reached.
+ * @param {boolean=} iframes Jump in and out of iframes if true. Default false.
+ * @return {boolean} False if end of document has been reached.
+ * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.next = function(navigateIframes) {
-  if (!this.resolve()) {
+cvox.NavigationManager.prototype.next_ = function(iframes) {
+  if (this.tryBoundaries_(this.navShifter_.next(this.curSel_), iframes)) {
+    // TODO(dtseng): An observer interface would help to keep logic like this
+    // to a minimum.
+    this.pageSel_ && this.pageSel_.extend(this.curSel_);
     return true;
   }
-  var ret = this.navShifter_.next(this.curSel_);
-  if (navigateIframes &&
-      this.tryIframe_(ret && ret.start.node, !this.curSel_.isReversed())) {
-    return true;
-  }
-  return this.tryTable_(ret);
-};
-
-
-/**
- * Delegates to NavigationShifter with current page state.
- * @param {boolean=} navigateIframes If true, will jump in and out of iframes.
- * @return {boolean} Whether or not navigation was performed successfully. Note
- * that failure indicates that the start of the document has been reached.
- */
-cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
-  var r = this.curSel_.isReversed();
-  this.curSel_.setReversed(true);
-  var ret = this.next(navigateIframes);
-  this.curSel_.setReversed(r);
-  return ret;
+  this.finishSel();
+  return false;
 };
 
 
@@ -162,7 +237,8 @@ cvox.ChromeVoxNavigationManager.prototype.previous = function(navigateIframes) {
  *     It returns null if that node can't be found.
  * @return {boolean} True if a match was found.
  */
-cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
+cvox.NavigationManager.prototype.findNext = function(predicate) {
+  this.resolve();
   var ret = this.navShifter_.findNext(this.curSel_, predicate);
   if (ret) {
     return this.tryTable_(ret);
@@ -172,41 +248,19 @@ cvox.ChromeVoxNavigationManager.prototype.findNext = function(predicate) {
 
 
 /**
- * Delegates to NavigationShifter. Tries to enter any iframes or tables.
- */
-cvox.ChromeVoxNavigationManager.prototype.syncToPageBeginning = function() {
-  var ret = this.navShifter_.syncToPageBeginning({
-      reversed: this.curSel_.isReversed()
-  });
-  if (this.tryIframe_(ret && ret.start.node, true)) {
-    return;
-  }
-  this.tryTable_(ret);
-};
-
-
-/**
  * Delegates to NavigationShifter with current page state.
  * @return {boolean} True if some action that could be taken exists.
  */
-cvox.ChromeVoxNavigationManager.prototype.act = function() {
-  return this.navShifter_.act(this.curSel_, this.choiceWidget_);
-};
-
-
-/**
- * Delegates to NavigationShifter with current page state.
- * @return {boolean} True if some action that could be taken exists.
- */
-cvox.ChromeVoxNavigationManager.prototype.canAct = function() {
-  return this.navShifter_.canAct(this.curSel_);
+cvox.NavigationManager.prototype.act = function() {
+  return this.navShifter_.act(this.curSel_);
 };
 
 
 /**
  * Delegates to NavigationShifter with current page state.
  */
-cvox.ChromeVoxNavigationManager.prototype.sync = function() {
+cvox.NavigationManager.prototype.sync = function() {
+  this.resolve();
   var ret = this.navShifter_.sync(this.curSel_);
   if (ret) {
     this.curSel_ = ret;
@@ -215,11 +269,33 @@ cvox.ChromeVoxNavigationManager.prototype.sync = function() {
 
 
 /**
+ * Begins a DOM selection for the current CursorSelection in the document.
+ */
+cvox.NavigationManager.prototype.beginSel = function() {
+  this.pageSel_ = new cvox.PageSelection(this.curSel_);
+};
+
+
+/**
+ * Finishes a DOM selection.
+ */
+cvox.NavigationManager.prototype.finishSel = function() {
+  this.pageSel_ = null;
+};
+
+
+// TODO(stoarca): getDiscription is split awkwardly between here and the
+// walkers. The walkers should have getBaseDescription() which requires
+// very little context, and then this method should tack on everything
+// which requires any extensive knowledge.
+/**
  * Delegates to NavigationShifter with the current page state.
  * @return {Array.<cvox.NavDescription>} The summary of the current position.
  */
-cvox.ChromeVoxNavigationManager.prototype.getDescription = function() {
-  var desc = this.navShifter_.getDescription(this.prevSel_, this.curSel_);
+cvox.NavigationManager.prototype.getDescription = function() {
+  var desc = this.pageSel_ ? this.pageSel_.getDescription(
+          this.navShifter_, this.prevSel_, this.curSel_) :
+      this.navShifter_.getDescription(this.prevSel_, this.curSel_);
   var earcons = [];
 
   if (this.skipped_) {
@@ -229,9 +305,13 @@ cvox.ChromeVoxNavigationManager.prototype.getDescription = function() {
   if (this.bumpedEdge_) {
     earcons.push(cvox.AbstractEarcons.WRAP);
   }
+  if (this.pageEnd_) {
+    earcons.push(cvox.AbstractEarcons.WRAP);
+    this.pageEnd_ = false;
+  }
   if (earcons.length > 0 && desc.length > 0) {
     earcons.forEach(function(earcon) {
-    desc[0].pushEarcon(earcon);
+        desc[0].pushEarcon(earcon);
     });
   }
   return desc;
@@ -243,7 +323,7 @@ cvox.ChromeVoxNavigationManager.prototype.getDescription = function() {
  *
  * @return {string} The name of the strategy used.
  */
-cvox.ChromeVoxNavigationManager.prototype.getGranularityMsg = function() {
+cvox.NavigationManager.prototype.getGranularityMsg = function() {
   return this.navShifter_.getGranularityMsg();
 };
 
@@ -253,13 +333,8 @@ cvox.ChromeVoxNavigationManager.prototype.getGranularityMsg = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToFirstCell = function() {
-  var ret = this.navShifter_.goToFirstCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToFirstCell = function() {
+  return this.updateSel(this.navShifter_.goToFirstCell(this.curSel_));
 };
 
 
@@ -268,13 +343,8 @@ cvox.ChromeVoxNavigationManager.prototype.goToFirstCell = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToLastCell = function() {
-  var ret = this.navShifter_.goToLastCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToLastCell = function() {
+  return this.updateSel(this.navShifter_.goToLastCell(this.curSel_));
 };
 
 
@@ -283,13 +353,8 @@ cvox.ChromeVoxNavigationManager.prototype.goToLastCell = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToRowFirstCell = function() {
-  var ret = this.navShifter_.goToRowFirstCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToRowFirstCell = function() {
+  return this.updateSel(this.navShifter_.goToRowFirstCell(this.curSel_));
 };
 
 
@@ -298,13 +363,8 @@ cvox.ChromeVoxNavigationManager.prototype.goToRowFirstCell = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToRowLastCell = function() {
-  var ret = this.navShifter_.goToRowLastCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToRowLastCell = function() {
+  return this.updateSel(this.navShifter_.goToRowLastCell(this.curSel_));
 };
 
 
@@ -313,13 +373,8 @@ cvox.ChromeVoxNavigationManager.prototype.goToRowLastCell = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToColFirstCell = function() {
-  var ret = this.navShifter_.goToColFirstCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToColFirstCell = function() {
+  return this.updateSel(this.navShifter_.goToColFirstCell(this.curSel_));
 };
 
 
@@ -328,13 +383,8 @@ cvox.ChromeVoxNavigationManager.prototype.goToColFirstCell = function() {
  * @return {boolean} Whether or not the traversal was successful. False implies
  * that we are not currently inside a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.goToColLastCell = function() {
-  var ret = this.navShifter_.goToColLastCell(this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  this.updateSel(ret);
-  return true;
+cvox.NavigationManager.prototype.goToColLastCell = function() {
+  return this.updateSel(this.navShifter_.goToColLastCell(this.curSel_));
 };
 
 
@@ -343,16 +393,13 @@ cvox.ChromeVoxNavigationManager.prototype.goToColLastCell = function() {
  * @return {boolean} Whether or not the command was successful. False implies
  * either we were already on the last row or not in table.
  */
-cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
-  var ret = this.navShifter_.nextRow(this.curSel_);
-  if (!ret) {
+cvox.NavigationManager.prototype.nextRow = function() {
+  if (!this.updateSel(this.navShifter_.nextRow(this.curSel_))) {
     if (this.bumpedEdge_) {
       return false;
     }
     this.bumpedEdge_ = true;
-    return true;
   }
-  this.updateSel(ret);
   return true;
 };
 
@@ -362,55 +409,17 @@ cvox.ChromeVoxNavigationManager.prototype.nextRow = function() {
  * @return {boolean} Whether or not the command was successful. False implies
  * either we were already on the last col or not in table.
  */
-cvox.ChromeVoxNavigationManager.prototype.nextCol = function() {
-  var ret = this.navShifter_.nextCol(this.curSel_);
-  this.updateSel(ret || this.curSel_);
-  if (!ret) {
-    return false;
-  }
-  return true;
+cvox.NavigationManager.prototype.nextCol = function() {
+  this.updateSel(this.navShifter_.nextCol(this.curSel_));
 };
 
 
 /**
  * Returns the text content of the row header(s) of the current cell.
- * @return {?string} The text content of the row header(s) of the current cell
- * or null if the cell has no row headers.
+ * @return {!string} The text content of the header(s) of the current cell
  */
-cvox.ChromeVoxNavigationManager.prototype.getRowHeaderText = function() {
-  return this.navShifter_.getRowHeaderText(this.curSel_);
-};
-
-
-/**
- * Returns the text content of best-guess row header of the current cell.
- * This is used when the table does not specify row and column headers.
- * @return {?string} The text content of the guessed row header of the current
- * cell.
- */
-cvox.ChromeVoxNavigationManager.prototype.getRowHeaderGuess = function() {
-  return this.navShifter_.getRowHeaderGuess(this.curSel_);
-};
-
-
-/**
- * Returns the text content of the col header(s) of the current cell.
- * @return {?string} The text content of the col header(s) of the current cell
- * or null if the cell has no col headers.
- */
-cvox.ChromeVoxNavigationManager.prototype.getColHeaderText = function() {
-  return this.navShifter_.getColHeaderText(this.curSel_);
-};
-
-
-/**
- * Returns the text content of best-guess col header of the current cell.
- * This is used when the table does not specify col and column headers.
- * @return {?string} The text content of the guessed col header of the current
- * cell.
- */
-cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
-  return this.navShifter_.getColHeaderGuess(this.curSel_);
+cvox.NavigationManager.prototype.getHeaderText = function() {
+  return this.navShifter_.getHeaderText(this.curSel_);
 };
 
 
@@ -419,33 +428,15 @@ cvox.ChromeVoxNavigationManager.prototype.getColHeaderGuess = function() {
  * @return {Array.<cvox.NavDescription>} The description of our location in
  * a table, or null if not in a table.
  */
-cvox.ChromeVoxNavigationManager.prototype.getLocationDescription = function() {
+cvox.NavigationManager.prototype.getLocationDescription = function() {
   return this.navShifter_.getLocationDescription(this.curSel_);
-};
-
-
-/**
- * Returns true if curSel_ is inside a table.
- * @return {boolean} true if inside a table.
- */
-cvox.ChromeVoxNavigationManager.prototype.isInTable = function() {
-  return this.navShifter_.isInTable(this.curSel_);
-};
-
-
-/**
- * Returns true if curSel_ is inside a grid.
- * @return {boolean} true if inside a grid.
- */
-cvox.ChromeVoxNavigationManager.prototype.isInGrid = function() {
-  return this.navShifter_.isInGrid(this.curSel_);
 };
 
 
 /**
  * Delegates to NavigationShifter.
  */
-cvox.ChromeVoxNavigationManager.prototype.makeMoreGranular = function() {
+cvox.NavigationManager.prototype.makeMoreGranular = function() {
   this.navShifter_.makeMoreGranular();
   this.sync();
 };
@@ -454,7 +445,7 @@ cvox.ChromeVoxNavigationManager.prototype.makeMoreGranular = function() {
 /**
  * Delegates to NavigationShifter.
  */
-cvox.ChromeVoxNavigationManager.prototype.makeLessGranular = function() {
+cvox.NavigationManager.prototype.makeLessGranular = function() {
   this.navShifter_.makeLessGranular();
   this.sync();
 };
@@ -465,8 +456,7 @@ cvox.ChromeVoxNavigationManager.prototype.makeLessGranular = function() {
  * was not previously gotten from a call to getGranularity();
  * @param {number} granularity The desired granularity.
  */
-cvox.ChromeVoxNavigationManager.prototype.setGranularity =
-    function(granularity) {
+cvox.NavigationManager.prototype.setGranularity = function(granularity) {
   this.navShifter_.setGranularity(granularity);
 };
 
@@ -474,7 +464,7 @@ cvox.ChromeVoxNavigationManager.prototype.setGranularity =
  * Delegates to NavigationShifter.
  * @return {number} The current granularity.
  */
-cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
+cvox.NavigationManager.prototype.getGranularity = function() {
   return this.navShifter_.getGranularity();
 };
 
@@ -482,7 +472,7 @@ cvox.ChromeVoxNavigationManager.prototype.getGranularity = function() {
 /**
  * Delegates to NavigationShifter.
  */
-cvox.ChromeVoxNavigationManager.prototype.ensureSubnavigating = function() {
+cvox.NavigationManager.prototype.ensureSubnavigating = function() {
   if (!this.navShifter_.isSubnavigating()) {
     this.navShifter_.ensureSubnavigating();
     this.sync();
@@ -494,7 +484,7 @@ cvox.ChromeVoxNavigationManager.prototype.ensureSubnavigating = function() {
  * Stops subnavigating, specifying that we should navigate at a less granular
  * level than the current navigation strategy.
  */
-cvox.ChromeVoxNavigationManager.prototype.ensureNotSubnavigating = function() {
+cvox.NavigationManager.prototype.ensureNotSubnavigating = function() {
   if (this.navShifter_.isSubnavigating()) {
     this.navShifter_.ensureNotSubnavigating();
     this.sync();
@@ -503,19 +493,10 @@ cvox.ChromeVoxNavigationManager.prototype.ensureNotSubnavigating = function() {
 
 
 /**
- * Returns true if currently in subnavigation mode
- * @return {boolean} If subnavigating.
- */
-cvox.ChromeVoxNavigationManager.prototype.isSubnavigating = function() {
-  return this.navShifter_.isSubnavigating();
-};
-
-
-/**
  * Delegates to NavigationShifter.
  * @return {boolean} true if in table mode.
  */
-cvox.ChromeVoxNavigationManager.prototype.isTableMode = function() {
+cvox.NavigationManager.prototype.isTableMode = function() {
   return this.navShifter_.isTableMode();
 };
 
@@ -528,7 +509,7 @@ cvox.ChromeVoxNavigationManager.prototype.isTableMode = function() {
  * @param {Function} completionFunction Function to call when finished speaking.
  *
  */
-cvox.ChromeVoxNavigationManager.prototype.speakDescriptionArray = function(
+cvox.NavigationManager.prototype.speakDescriptionArray = function(
     descriptionArray, initialQueueMode, completionFunction) {
   this.navSpeaker_.speakDescriptionArray(
       descriptionArray, initialQueueMode, completionFunction);
@@ -538,94 +519,100 @@ cvox.ChromeVoxNavigationManager.prototype.speakDescriptionArray = function(
 // TODO(stoarca): The stuff below belongs in its own layer.
 /**
  * Moves forward. Stops any subnavigation.
- * @param {boolean} navigateIframes If true, will jump in and out of iframes.
- * @return {boolean} Whether or not navigation was performed successfully. Note
- * that failure indicates that the end of the document has been reached.
  */
-cvox.ChromeVoxNavigationManager.prototype.navigate =
-    function(navigateIframes) {
-  // TODO(stoarca): This complies with the old navigation model, but it doesn't
-  // make sense from the user's point of view. Upon entering a table, pressing
-  // forward now starts skipping content on the page. This should be a separate
-  // command.
-  // TODO(stoarca, adu): Why does this not call resolveCurrentNode?
-  if (this.isTableMode()) {
-    if (this.nextRow()) {
-      return true;
-    }
-    return this.tryExitTable();
+cvox.NavigationManager.prototype.navigate = function() {
+  if (!this.resolve()) {
+    return;
   }
   this.ensureNotSubnavigating();
-  if (!this.next(navigateIframes)) {
-    this.syncToPageBeginning();
-  }
-  return true;
+  this.next_(true);
 };
 
 
 /**
- * Moves forward. Starts reading the page from that node.
- * Uses QUEUE_MODE_FLUSH to flush any previous speech.
+ * Moves forward after switching to a lower granularity until the next
+ * call to navigate().
  */
-cvox.ChromeVoxNavigationManager.prototype.skipForward = function() {
-  if (this.next(true)) {
-    this.updateIndicator();
-    this.skipped_ = true;
-    this.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_FLUSH);
-  }
-};
-
-
-/**
- * Moves forward. Starts reading the page from that node.
- * Uses QUEUE_MODE_FLUSH to flush any previous speech.
- */
-cvox.ChromeVoxNavigationManager.prototype.skipBackward = function() {
-  if (this.previous(true)) {
-    this.updateIndicator();
-    this.skipped_ = true;
-    this.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_FLUSH);
-  }
-};
-
-
-/**
- * Depending on whether we are in table mode, either starts subnavigating
- * forward (moving forward using a more granular strategy) or moves to the
- * next column inside the table.
- * @param {boolean} navigateIframes If true, will jump in and out of iframes.
- * @return {boolean} Whether or not navigation was performed successfully. Note
- * that failure indicates that the start of the document has been reached.
- */
-cvox.ChromeVoxNavigationManager.prototype.subnavigate =
-    function(navigateIframes) {
+cvox.NavigationManager.prototype.subnavigate = function() {
   if (!this.resolve()) {
-    return true;
+    return;
   }
   this.ensureSubnavigating();
-  if (!this.next(navigateIframes)) {
-    this.syncToPageBeginning();
+  this.next_(true);
+};
+
+
+/**
+ * Moves forward. Starts reading the page from that node.
+ * Uses QUEUE_MODE_FLUSH to flush any previous speech.
+ * @return {boolean} False if not "reading from here". True otherwise.
+ */
+cvox.NavigationManager.prototype.skip = function() {
+  if (!this.keepReading_) {
+    return false;
+  }
+  if (cvox.ChromeVox.host.hasTtsCallback() && this.next_(true)) {
+    this.skipped_ = true;
+    this.setReversed(false);
+    this.startCallbackReading_(cvox.AbstractTts.QUEUE_MODE_FLUSH);
   }
   return true;
 };
 
 
 /**
- * Starts reading the page from the current node.
- *
- * @param {number} queueMode Indicates whether queue mode or flush mode should
- * be used.
+ * Starts reading the page from the current selection.
+ * @param {number} queueMode Either flush or queue.
  */
-cvox.ChromeVoxNavigationManager.prototype.startReadingFromCurrentNode =
-    function(queueMode) {
-  var currentDesc = this.getDescription();
-  this.speakDescriptionArray(currentDesc, queueMode, goog.bind(function() {
-    if (this.next(false)) {
-      this.updateIndicator();
-      this.startReadingFromCurrentNode(cvox.AbstractTts.QUEUE_MODE_QUEUE);
+cvox.NavigationManager.prototype.startReading = function(queueMode) {
+  this.keepReading_ = true;
+  if (cvox.ChromeVox.host.hasTtsCallback()) {
+    this.startCallbackReading_(queueMode);
+  } else {
+    this.startNonCallbackReading_(queueMode);
+  }
+};
+
+
+/**
+ * Starts reading the page from the current selection if there are callbacks.
+ * @param {number} queueMode Either flush or queue.
+ */
+cvox.NavigationManager.prototype.startCallbackReading_ =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(queueMode) {
+  this.setFocus();
+  this.updateIndicator();
+
+  var desc = this.getDescription();
+  this.speakDescriptionArray(desc, queueMode, goog.bind(function() {
+    if (this.next_(false)) {
+      this.startCallbackReading_(cvox.AbstractTts.QUEUE_MODE_QUEUE);
     }
   }, this));
-};
+});
+
+
+/**
+ * Starts reading the page from the current selection if there are no callbacks.
+ * With this method, we poll the keepReading_ var and stop when it is false.
+ * @param {number} queueMode Either flush or queue.
+ */
+cvox.NavigationManager.prototype.startNonCallbackReading_ =
+    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(queueMode) {
+  if (!this.keepReading_) {
+    return;
+  }
+
+  if (!cvox.ChromeVox.tts.isSpeaking()) {
+    this.setFocus();
+    this.updateIndicator();
+    this.speakDescriptionArray(this.getDescription(), queueMode, null);
+    if (!this.next_(false)) {
+      this.keepReading_ = false;
+    }
+  }
+  window.setTimeout(goog.bind(this.startNonCallbackReading_, this), 1000);
+});
 
 
 /**
@@ -636,17 +623,24 @@ cvox.ChromeVoxNavigationManager.prototype.startReadingFromCurrentNode =
  *
  * @return {Array.<cvox.NavDescription>} The summary of the current position.
  */
-cvox.ChromeVoxNavigationManager.prototype.getFullDescription = function() {
+cvox.NavigationManager.prototype.getFullDescription = function() {
   return [cvox.DescriptionUtil.getDescriptionFromAncestors(
       cvox.DomUtil.getAncestors(this.curSel_.start.node),
       true,
       cvox.ChromeVox.verbosity)];
 };
 
+
 /**
  * Sets the browser's focus to the current node.
  */
-cvox.ChromeVoxNavigationManager.prototype.setFocus = function() {
+cvox.NavigationManager.prototype.setFocus = function() {
+  // TODO(dtseng): cvox.DomUtil.setFocus() totally destroys DOM ranges that have
+  // been set on the page; this requires further investigation, but
+  // PageSelection won't work without this.
+  if (this.pageSel_) {
+    return;
+  }
   if (this.isTableMode()) {
     // If there is a control element inside a cell, we want to give focus to
     // it so that it can be activated without getting out of table mode.
@@ -661,7 +655,7 @@ cvox.ChromeVoxNavigationManager.prototype.setFocus = function() {
  * Returns the node of the directed start of the selection.
  * @return {Node} The current node.
  */
-cvox.ChromeVoxNavigationManager.prototype.getCurrentNode = function() {
+cvox.NavigationManager.prototype.getCurrentNode = function() {
   return this.curSel_.start.node;
 };
 
@@ -672,9 +666,9 @@ cvox.ChromeVoxNavigationManager.prototype.getCurrentNode = function() {
  * from the other frame.
  * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
+cvox.NavigationManager.prototype.addInterframeListener_ = function() {
   /**
-   * @type {!cvox.ChromeVoxNavigationManager}
+   * @type {!cvox.NavigationManager}
    */
   var self = this;
 
@@ -686,29 +680,30 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
 
     window.focus();
 
-    self.setGranularity(message['strategy']);
+    cvox.ChromeVox.serializer.readFrom(message);
 
     if (message['command'] == 'exitIframe') {
       var id = message['sourceId'];
       var iframeElement = self.iframeIdMap[id];
       if (iframeElement) {
+        var reversed = self.isReversed();
         self.updateSel(cvox.CursorSelection.fromNode(iframeElement));
+        self.curSel_.setReversed(reversed);
       }
-      self.curSel_.setReversed(!message['forwards']);
       self.sync();
-      self.navigate(true);
+      self.navigate();
     } else {
-      self.curSel_.setReversed(!message['forwards']);
       self.syncToPageBeginning();
 
       // if we have an empty body, then immediately exit the iframe
       if (!cvox.DomUtil.hasContent(document.body)) {
-        self.tryIframe_(null, message['forwards']);
+        self.tryIframe_(null);
         return;
       }
     }
 
     // Now speak what ended up being selected.
+    // TODO(deboer): Some of this could be moved to readFrom
     self.setFocus();
     self.updateIndicator();
     self.speakDescriptionArray(
@@ -724,7 +719,7 @@ cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_ = function() {
  * @param {{force: (undefined|boolean)}=} kwargs Extra arguments.
  *  force: If true, enters table even if it's a layout table. False by default.
  */
-cvox.ChromeVoxNavigationManager.prototype.tryEnterTable = function(kwargs) {
+cvox.NavigationManager.prototype.tryEnterTable = function(kwargs) {
   var ret = this.navShifter_.tryEnterTable(this.curSel_, kwargs);
   if (ret) {
     this.curSel_ = ret;
@@ -734,51 +729,142 @@ cvox.ChromeVoxNavigationManager.prototype.tryEnterTable = function(kwargs) {
 
 /**
  * Exits a table in the direction of sel.
- * @return {boolean} False if moving out of the table makes us hit the end of
- * the page. True otherwise.
  */
-cvox.ChromeVoxNavigationManager.prototype.tryExitTable = function() {
+cvox.NavigationManager.prototype.tryExitTable = function() {
+  var r = this.isReversed();
   // TODO (deboer): Move this method to cvox.NavigationShifter.
   // TODO (stoarca): I don't think it makes sense that when we switch out of
   // table mode, we jump out of the table. This means that I can't toggle
   // between table mode and not, despite the user command that claims to do
   // so. Keeping it for now to comply with old tests.
   this.navShifter_.ensureNotTableMode();
-  if (this.isInTable()) {
-    var r = this.curSel_.isReversed();
-    r ? this.goToFirstCell() : this.goToLastCell();
+  if (this.navShifter_.isInTable(this.curSel_)) {
+    var node = cvox.DomUtil.getContainingTable(this.curSel_.start.node);
+    if (!node) {
+      // we were not in a table.
+      return;
+    }
+    do {
+      node = cvox.DomUtil.directedNextLeafNode(node, r)
+    } while (node && !cvox.DomUtil.hasContent(node));
+    var sel = cvox.CursorSelection.fromNode(node);
+    if (sel) {
+      sel.setReversed(r);
+    }
+    this.tryBoundaries_(sel, true);
     this.sync();
-    this.curSel_.setReversed(r);
-
-    var ret = this.navigate(true);
     this.bumpedEdge_ = false;
-    return ret;
   }
-  return true;
 };
 
 
 /**
- * Enters or exits a table (updates the selection) if sel is significant.
- * @param {cvox.CursorSelection} sel The selection (possibly null).
- * @return {boolean} False means the end of the page was reached.
+ * Returns the filteredWalker.
+ * @return {!cvox.WalkerDecorator} The filteredWalker.
+ */
+cvox.NavigationManager.prototype.getFilteredWalker = function() {
+  // TODO (stoarca): Should not be exposed. Delegate instead.
+  return this.navShifter_.filteredWalker;
+};
+
+
+/**
+ * Update the active indicator to reflect the current node or selection.
+ */
+cvox.NavigationManager.prototype.updateIndicator = function() {
+  cvox.SelectionUtil.scrollElementsToView(this.curSel_.start.node);
+  this.activeIndicator.syncToCursorSelection(this.curSel_);
+};
+
+
+/**
+ * Show or hide the active indicator based on whether ChromeVox is
+ * active or not.
+ */
+cvox.NavigationManager.prototype.showOrHideIndicator = function() {
+  this.activeIndicator.setVisible(cvox.ChromeVox.isActive);
+};
+
+
+/**
+ * This is used to update the selection to arbitrary nodes because there are
+ * some callers who have the expectation that this works.
+ * TODO (stoarca): The implementation is currently a hack. The walkers don't
+ * currently support arbitrary nodes (nor did they previously, but there
+ * was no comment about it).
+ * @param {Node} node The node to update to.
+ */
+cvox.NavigationManager.prototype.updateSelToArbitraryNode = function(node) {
+  // We assume ObjectWalker is magical and does what we want (and is the
+  // only one with such properties). This assumption is wrong, but we'll
+  // have to make it until we have a better way to do this.
+  this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
+  if (node) {
+    this.updateSel(cvox.CursorSelection.fromNode(node));
+  } else {
+    this.syncToPageBeginning();
+  }
+};
+
+
+/**
+ * Updates curSel_ to the new selection and sets prevSel_ to the old curSel_.
+ * This should be called exactly when something user-perceivable happens.
+ * @param {cvox.CursorSelection} sel The selection to update to.
+ * @param {cvox.CursorSelection} opt_context An optional override for prevSel_.
+ * Used to override both curSel_ and prevSel_ when jumping back in nav history.
+ * @return {boolean} False if sel is null. True otherwise.
+ */
+cvox.NavigationManager.prototype.updateSel = function(sel, opt_context) {
+  if (sel) {
+    this.prevSel_ = opt_context || this.curSel_;
+    this.curSel_ = sel;
+  }
+  // Always update the navigation history.
+  var currentNode = this.getCurrentNode();
+  this.navigationHistory_.update(currentNode);
+
+  return !!sel;
+};
+
+
+/**
+ * Sets the direction.
+ * @param {!boolean} r True to reverse.
+ */
+cvox.NavigationManager.prototype.setReversed = function(r) {
+  this.curSel_.setReversed(r);
+};
+
+
+/**
+ * Returns true if currently reversed.
+ * @return {boolean} True if reversed.
+ */
+cvox.NavigationManager.prototype.isReversed = function() {
+  return this.curSel_.isReversed();
+};
+
+
+/**
+ * Checks if boundary conditions are met and updates the selection.
+ * @param {cvox.CursorSelection} sel The selection.
+ * @param {boolean=} iframes If true, tries to enter iframes. Default false.
+ * @return {boolean} False if end of page is reached.
  * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.tryTable_ = function(sel) {
-  if (this.isTableMode()) {
-    if (sel) {
-      this.updateSel(sel);
-      return true;
-    }
-    return this.tryExitTable();
-  } else {
-    if (!sel) {
-      return false;
-    }
-    this.updateSel(sel);
-    this.tryEnterTable();
+cvox.NavigationManager.prototype.tryBoundaries_ = function(sel, iframes) {
+  this.pageEnd_ = false;
+  iframes = (!!iframes && !this.ignoreIframesNoMatterWhat_) || false;
+  if (iframes && this.tryIframe_(sel && sel.start.node)) {
     return true;
   }
+  if (this.tryTable_(sel)) {
+    return true;
+  }
+  this.syncToPageBeginning();
+  this.pageEnd_ = true;
+  return false;
 };
 
 
@@ -787,18 +873,15 @@ cvox.ChromeVoxNavigationManager.prototype.tryTable_ = function(sel) {
  * as needed. If the node is an iframe, jump into it. If the node is null,
  * assume we reached the end of an iframe and try to jump out of it.
  * @param {Node} node The node to try to jump into.
- * @param {boolean} forwards True if navigation is currently moving forwards.
  * @return {boolean} True if we jumped into an iframe.
  * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.tryIframe_ = function(
-    node, forwards) {
-  if (node == null && window.parent != window) {
+cvox.NavigationManager.prototype.tryIframe_ = function(node) {
+  if (node == null && cvox.Interframe.isIframe()) {
     var message = {
-      'command': 'exitIframe',
-      'forwards': forwards,
-      'strategy': this.navShifter_.getGranularity()
+      'command': 'exitIframe'
     };
+    cvox.ChromeVox.serializer.storeOn(message);
     cvox.Interframe.sendMessageToParentWindow(message);
     return true;
   }
@@ -825,10 +908,9 @@ cvox.ChromeVoxNavigationManager.prototype.tryIframe_ = function(
 
   var message = {
     'command': 'enterIframe',
-    'forwards': forwards,
-    'strategy': this.navShifter_.getGranularity(),
     'id': iframeId
   };
+  cvox.ChromeVox.serializer.storeOn(message);
   cvox.Interframe.sendMessageToIFrame(message, iframeElement);
 
   return true;
@@ -836,95 +918,49 @@ cvox.ChromeVoxNavigationManager.prototype.tryIframe_ = function(
 
 
 /**
- * Checks if the choice widget is currently active.
- * @return {boolean} True if the choice widget is active.
+ * Enters or exits a table (updates the selection) if sel is significant.
+ * @param {cvox.CursorSelection} sel The selection (possibly null).
+ * @return {boolean} False means the end of the page was reached.
+ * @private
  */
-cvox.ChromeVoxNavigationManager.prototype.isChoiceWidgetActive = function() {
-  return this.choiceWidget_.isActive();
-};
-
-
-/**
- * Returns the filteredWalker.
- * @return {!cvox.WalkerDecorator} The filteredWalker.
- */
-cvox.ChromeVoxNavigationManager.prototype.getFilteredWalker = function() {
-  // TODO (stoarca): Should not be exposed. Delegate instead.
-  return this.navShifter_.filteredWalker;
-};
-
-
-/**
- * Update the active indicator to reflect the current node or selection.
- */
-cvox.ChromeVoxNavigationManager.prototype.updateIndicator = function() {
-  cvox.SelectionUtil.scrollElementsToView(this.curSel_.start.node);
-  this.activeIndicator.syncToCursorSelection(this.curSel_);
-};
-
-
-/**
- * Show or hide the active indicator based on whether ChromeVox is
- * active or not.
- */
-cvox.ChromeVoxNavigationManager.prototype.showOrHideIndicator = function() {
-  this.activeIndicator.setVisible(cvox.ChromeVox.isActive);
-};
-
-
-/**
- * This is used to update the selection to arbitrary nodes because there are
- * some callers who have the expectation that this works.
- * TODO (stoarca): The implementation is currently a hack. The walkers don't
- * currently support arbitrary nodes (nor did they previously, but there
- * was no comment about it).
- * @param {Node} node The node to update to.
- */
-cvox.ChromeVoxNavigationManager.prototype.updateSelToArbitraryNode =
-    function(node) {
-  // We assume ObjectWalker is magical and does what we want (and is the
-  // only one with such properties). This assumption is wrong, but we'll
-  // have to make it until we have a better way to do this.
-  this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
-  if (node) {
-    this.updateSel(cvox.CursorSelection.fromNode(node));
+cvox.NavigationManager.prototype.tryTable_ = function(sel) {
+  if (this.isTableMode()) {
+    if (sel) {
+      this.updateSel(sel);
+      return true;
+    }
+    this.tryExitTable();
+    return true
   } else {
-    this.syncToPageBeginning();
+    if (!sel) {
+      return false;
+    }
+    this.updateSel(sel);
+    this.tryEnterTable();
+    return true;
   }
 };
 
 
 /**
- * Updates curSel_ to the new selection and sets prevSel_ to the old curSel_.
- * This should be called exactly when something user-perceivable happens.
- * @param {cvox.CursorSelection} sel The selection to update to.
- * @param {cvox.CursorSelection} opt_context An optional override for prevSel_.
- * Used to override both curSel_ and prevSel_ when jumping back in nav history.
+ * Delegates to NavigationShifter. Tries to enter any iframes or tables.
  */
-cvox.ChromeVoxNavigationManager.prototype.updateSel =
-    function(sel, opt_context) {
-  var r = this.curSel_.isReversed();
-  if (sel) {
-    this.prevSel_ = opt_context || this.curSel_;
-    this.curSel_ = sel;
+cvox.NavigationManager.prototype.syncToPageBeginning = function() {
+  var ret = this.navShifter_.syncToPageBeginning({
+      reversed: this.curSel_.isReversed()
+  });
+  if (this.tryIframe_(ret && ret.start.node)) {
+    return;
   }
-  // Always update the navigation history.
-  var currentNode = this.getCurrentNode();
-  this.navigationHistory_.update(currentNode);
+  this.tryTable_(ret);
 };
 
-/**
- * Sets the direction.
- * @param {!boolean} r True to reverse.
- */
-cvox.ChromeVoxNavigationManager.prototype.setReversed = function(r) {
-  this.curSel_.setReversed(r);
-};
 
 /**
- * Returns true if currently reversed.
- * @return {boolean} True if reversed.
+ * Used during testing since there are iframes and we don't always want to
+ * interact with them so that we can test certain features.
  */
-cvox.ChromeVoxNavigationManager.prototype.isReversed = function() {
-  return this.curSel_.isReversed();
+cvox.NavigationManager.prototype.ignoreIframesNoMatterWhat = function() {
+  this.ignoreIframesNoMatterWhat_ = true;
 };
+

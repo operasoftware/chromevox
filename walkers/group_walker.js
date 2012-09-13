@@ -23,10 +23,11 @@
 goog.provide('cvox.GroupWalker');
 
 goog.require('cvox.AbstractNodeWalker');
-goog.require('cvox.AriaUtil');
+goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
+goog.require('cvox.GroupUtil');
 
 
 /**
@@ -41,7 +42,7 @@ goog.inherits(cvox.GroupWalker, cvox.AbstractNodeWalker);
 /**
  * @override
  */
-cvox.GroupWalker.prototype.act = function(sel, choiceWidget) {
+cvox.GroupWalker.prototype.act = function(sel) {
   var node = sel.start.node;
   if (node && node.tagName && node.tagName == 'A') {
     cvox.DomUtil.clickElem(node, false);
@@ -62,28 +63,12 @@ cvox.GroupWalker.prototype.act = function(sel, choiceWidget) {
           functions.push(cvox.DomUtil.createSimpleClickFunction(link));
         }
       }
-      choiceWidget.init(descriptions, functions, descriptions.toString());
-      choiceWidget.show();
+      var widget = new cvox.ChoiceWidget(descriptions, functions);
+      widget.show();
       return true;
     }
     return false;
   }
-};
-
-/**
- * @override
- */
-cvox.GroupWalker.prototype.canAct = function(sel) {
-  if (sel.start.node.tagName && sel.start.node.tagName == 'A') {
-    return true;
-  }
-  if (sel.start.node.getElementsByTagName) {
-    var aNodes = sel.start.node.getElementsByTagName('A');
-    if (aNodes.length > 0) {
-      return true;
-    }
-  }
-  return false;
 };
 
 /**
@@ -101,128 +86,8 @@ cvox.GroupWalker.prototype.getGranularityMsg = function() {
 };
 
 /**
- * @type {number}
- * @const
- * If a node contains more characters than this, it should not be treated
- * as a leaf node by the smart navigation algorithm.
- *
- * This number was determined by looking at the average number of
- * characters in a paragraph:
- * http://www.fullondesign.co.uk/design/usability/
- * 285-how-many-characters-per-a-page-is-normal.htm
- * and then trying it out on a few popular websites (CNN, BBC,
- * Google Search, etc.) and making sure it made sense.
- * @private
- */
-cvox.GroupWalker.SMARTNAV_MAX_CHARCOUNT_ = 1500;
-
-
-/**
- * @type {string}
- * If a node contains any of these elements, it should not be treated
- * as a leaf node by the smart navigation algorithm.
- * @private
- * @const
- */
-cvox.GroupWalker.SMARTNAV_BREAKOUT_SELECTOR_ = 'blockquote,' +
-    'button,' +
-    'code,' +
-    'form,' +
-    'frame,' +
-    'h1,' +
-    'h2,' +
-    'h3,' +
-    'h4,' +
-    'h5,' +
-    'h6,' +
-    'hr,' +
-    'iframe,' +
-    'input,' +
-    'object,' +
-    'ol,' +
-    'p,' +
-    'pre,' +
-    'select,' +
-    'table,' +
-    'tr,' +
-    'ul,' +
-    // Aria widget roles
-    '[role~="alert ' +
-    'alertdialog ' +
-    'button ' +
-    'checkbox ' +
-    'combobox ' +
-    'dialog ' +
-    'log ' +
-    'marquee ' +
-    'menubar ' +
-    'progressbar ' +
-    'radio ' +
-    'radiogroup ' +
-    'scrollbar ' +
-    'slider ' +
-    'spinbutton ' +
-    'status ' +
-    'tab ' +
-    'tabpanel ' +
-    'textbox ' +
-    'toolbar ' +
-    'tooltip ' +
-    'treeitem ' +
-    // Aria structure roles
-    'article ' +
-    'document ' +
-    'group ' +
-    'heading ' +
-    'img ' +
-    'list ' +
-    'math ' +
-    'region ' +
-    'row ' +
-    'separator"]';
-
-
-/**
  * @override
  */
 cvox.GroupWalker.prototype.stopNodeDescent = function(node) {
-  // TODO (stoarca): Write test to make sure that this function satisfies
-  // the restriction in the base class.
-  if (node.tagName == 'LABEL') {
-    return cvox.DomUtil.isLeafNode(node);
-  }
-  if (cvox.DomUtil.isLeafNode(node)) {
-    return true;
-  }
-
-  if (!cvox.DomUtil.isSemanticElt(node)) {
-    var breakingNodes = node.querySelectorAll(
-        cvox.GroupWalker.SMARTNAV_BREAKOUT_SELECTOR_);
-
-    for (var i = 0; i < breakingNodes.length; ++i) {
-      if (cvox.DomUtil.hasContent(breakingNodes[i])) {
-        return false;
-      }
-    }
-  }
-
-  if (cvox.AriaUtil.isCompositeControl(node) &&
-      !cvox.DomUtil.isFocusable(node)) {
-    return false;
-  }
-
-  var content = cvox.DomUtil.collapseWhitespace(
-      cvox.DomUtil.getValue(node) + ' ' +
-      cvox.DomUtil.getName(node));
-  if (content.length > cvox.GroupWalker.SMARTNAV_MAX_CHARCOUNT_) {
-    return false;
-  }
-
-  if (content.replace(/\s/g, '') === '') {
-    // Text only contains whitespace
-    return false;
-  }
-
-  return true;
+  return cvox.GroupUtil.isLeafNode(node);
 };
-

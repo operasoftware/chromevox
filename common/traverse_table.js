@@ -290,7 +290,11 @@ cvox.TraverseTable.prototype.findNearestCursor = function(node) {
   }
   while (!cvox.DomPredicates.cellPredicate(cvox.DomUtil.getAncestors(n))) {
     n = cvox.DomUtil.directedNextLeafNode(n);
-    if (!cvox.DomUtil.getContainingTable(n)) {
+    // TODO(stoarca): Ugly logic. Captions should be part of tables.
+    // There have been a bunch of bugs as a result of
+    // DomUtil.findTableNodeInList excluding captions from tables because
+    // it makes them non-contiguous.
+    if (!cvox.DomUtil.getContainingTable(n, {allowCaptions: true})) {
       return null;
     }
   }
@@ -526,6 +530,11 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
 
     var assumedScope = null;
     var specifiedScope = null;
+
+    if (currentShadowNode.spanned) {
+      continue;
+    }
+
     if ((currentCell.tagName == 'TH') &&
         !(currentCell.hasAttribute('scope'))) {
       // No scope specified - compute scope ourselves.
@@ -598,9 +607,7 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
         }
         rightShadowNode.rowHeaderCells.push(currentCell);
       }
-      if (currentShadowNode.spanned != true) {
-        this.tableRowHeaders.push(currentCell);
-      }
+      this.tableRowHeaders.push(currentCell);
     } else if ((specifiedScope == 'col') || (assumedScope == 'col')) {
       currentShadowNode.isColHeader = true;
 
@@ -628,10 +635,7 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
         }
         downShadowNode.colHeaderCells.push(currentCell);
       }
-      if (currentShadowNode.spanned != true) {
-        this.tableColHeaders.push(currentCell);
-      }
-
+      this.tableColHeaders.push(currentCell);
     } else if (specifiedScope == 'rowgroup') {
        currentShadowNode.isRowHeader = true;
 
@@ -663,9 +667,7 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
               rowHeaderCells.push(currentCell);
         }
       }
-      if (currentShadowNode.spanned != true) {
-        this.tableRowHeaders.push(currentCell);
-      }
+      this.tableRowHeaders.push(currentCell);
 
     } else if (specifiedScope == 'colgroup') {
       currentShadowNode.isColHeader = true;
@@ -700,9 +702,7 @@ cvox.TraverseTable.prototype.findHeaderCells_ = function() {
           }
         }
       }
-      if (currentShadowNode.spanned != true) {
-        this.tableColHeaders.push(currentCell);
-      }
+      this.tableColHeaders.push(currentCell);
     }
     if (currentCell.hasAttribute('headers')) {
       this.findAttrbHeaders_(currentShadowNode);

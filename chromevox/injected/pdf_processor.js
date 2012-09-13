@@ -133,6 +133,9 @@ cvox.PdfProcessor.processEmbeddedPdfs = function() {
           // 'display: none' instead.
           e.style.display = 'none';
           e.parentNode.appendChild(div);
+
+          // TODO(stoarca): Why are we resetting the navigationManager?
+          // This function is too big and confusing, it needs to be cleaned up.
           cvox.ChromeVox.navigationManager.reset();
         }
       };

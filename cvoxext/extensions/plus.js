@@ -19,66 +19,171 @@
  * @author cagriy@google.com (Cagri K. Yildirim)
  */
 
-var plusvox = new cvoxExt.extension();
+var plusvox = {
 
-/**
- * CSS selectors for each speakable object.
- * Read in the order of declaration
- * @const
- */
-plusvox.GPLUS_POST_DOM_SELECTORS = {
-  author: {selector: '.cK'},
-  time: {selector: '.Ri.lu'},
-  sharingDetails: {selector: '.a-n.ej.Ku.pl'},
-  content: {selector: '.wm.VC'},
-  shareLinkTitle: {selector: '.a-n.ot-anchor.YF'},
-  shareLinkDetails: {selector: '.pg.XF'},
-  sharerComment: {selector: '.sE.nv'},
-  taggedBy: {selector: '.Sg.Ob'},
-  hungout: {selector: '.Vo'},
-  hungoutwith: {selector: '.Hs'},
-  pictureCaption: {selector: '.pc'},
-  commentCount: {selector: '.gh.Ni'},
-  comments: {selector: '.Oi'},
-  plusCount: {selector: '.G8.ol.a-f-e.le'}
+  /** plusvox constants */
+  constants: {
+    //class names of left side pane menu items
+    HOME_CLASSNAME: '.jz',
+    PROFILE_CLASSNAME: '.ila',
+    EXPLORE_CLASSNAME: '.dla',
+    EVENTS_CLASSNAME: '.sga',
+    HANGOUTS_CLASSNAME: '.fla',
+    PHOTOS_CLASSNAME: '.jl',
+    CIRCLES_CLASSNAME: '.bq',
+    LOCAL_CLASSNAME: '.gla',
+    GAMES_CLASSNAME: '.ela',
+    PAGES_CLASSNAME: '.hla',
+    LEFT_SIDE_MENU_COMMON_CLASSNAME: '.NIa.cOa.Gdb'
+  },
+  /**
+  * plusvox speakables
+  * @const
+  */
+  speakables: {
+    gPlusPost: {
+      selector: {
+        query: '.Tg.Sb'
+      },
+      formatter: ['$author $content $addedPhotos $sharerComment ' +
+      '$shareLinkTitle $sharingDetails $time. $plusCount $commentCount']
+    },
+    gPlusComment: {
+      selector: {
+        query: '.Ho.gx'
+      },
+      formatter: ['$commentAuthor $commentContent $commentTime $commentPlusCt']
+    },
+    author: {
+      selector: {
+        query: '.cK'
+      },
+      formatter: ['$self']
+    },
+    content: {
+      selector: {
+        query: '.wm.VC'
+      },
+      formatter: ['said $self.']
+    },
+    shareLinkTitle: {
+      selector: {
+        query: '.a-n.ot-anchor.YF'
+      },
+      formatter: ['link: $self']
+    },
+    sharerComment: {
+      selector: {
+        query: '.sE.nv'
+      },
+      formatter: ['said $self']
+    },
+    sharingDetails: {
+      selector: {
+        query: '.a-n.ej.Ku.pl'
+      },
+      formatter: ['shared with: $self']
+    },
+    hangouters: {
+      selector: {
+        query: '.Ob'
+      },
+      formatter: ['$self']
+    },
+    time: {
+      selector: {
+        query: '.Ri.lu'
+      },
+      formatter: ['at $self']
+    },
+    addedPhotos: {
+      selector: {
+        query: '.QV'
+      },
+      formatter: ['$self']
+    },
+    plusCount: {
+      selector: {
+        query: '.G8.ol.a-f-e.le'
+      },
+      formatter: ['$self']
+    },
+    commentCount: {
+      selector: {
+        query: '.gh.Ni'
+      },
+      formatter: ['$self people commented on this post']
+    },
+    commentAuthor: {
+      selector: {
+        query: '.Sg.Ob.qm'
+      },
+      formatter: ['$self commented']
+    },
+    commentContent: {
+      selector: {
+        query: '.Mi'
+      },
+      formatter: ['$self']
+    },
+    commentTime: {
+      selector: {
+        query: '.Bf'
+      },
+      formatter: ['at $self']
+    },
+    commentPlusCt: {
+      selector: {
+        query: '.L7.ol.a-f-e.Uh'
+      },
+      formatter: ['$self']
+    }
+  },
+  quickNavigate: function(evt) {
+      var goToMenuItemClassName;
+      var constants = plusvox.constants;
+      //if pressed 1 to 9 then go to the appropriate left menu
+      switch (evt.charCode) {
+        case 49:
+          goToMenuItemClassName = constants.HOME_CLASSNAME;
+          break;
+        case 50:
+          goToMenuItemClassName = constants.PROFILE_CLASSNAME;
+          break;
+        case 51:
+          goToMenuItemClassName = constants.EXPLORE_CLASSNAME;
+          break;
+        case 52:
+          goToMenuItemClassName = constants.EVENTS_CLASSNAME;
+          break;
+        case 53:
+          goToMenuItemClassName = constants.HANGOUTS_CLASSNAME;
+          break;
+        case 54:
+          goToMenuItemClassName = constants.PHOTOS_CLASSNAME;
+          break;
+        case 55:
+          goToMenuItemClassName = constants.CIRCLES_CLASSNAME;
+          break;
+        case 56:
+          goToMenuItemClassName = constants.LOCAL_CLASSNAME;
+          break;
+        case 57:
+          goToMenuItemClassName = constants.GAMES_CLASSNAME;
+          break;
+        case 48:
+          goToMenuItemClassName = constants.PAGES_CLASSNAME;
+          break;
+      }
+      //concatenate common class name with the menu item class name and click
+      cvox.Api.click(document.querySelector(
+          constants.LEFT_SIDE_MENU_COMMON_CLASSNAME + goToMenuItemClassName));
+
+  },
+  init: function() {
+    document.addEventListener('keypress', plusvox.quickNavigate, true);
+  }
 };
 
-/**
-  * @const comment selectors
-  */
-plusvox.GPLUS_COMMENT_DOM_SELECTORS = {
-  author: {selector: '.Sg.Ob.qm'},
-  time: {selector: '.Bf'},
-  content: {selector: '.Mi'},
-  plusCount: {selector: '.L7.ol.a-f-e.Uh'}
-};
 
-/**
-  * @const thread class name
-  */
-plusvox.GPLUS_THREAD_SELECTOR = '.Tg.Sb';
-
-/**
-  * @const comment class name
-  */
-plusvox.GPLUS_COMMENT_SELECTOR = '.Ho.gx';
-
-/** init function, adds speakables*/
-plusvox.init = function() {
-
-  var gPlusThread = new cvoxExt.speakable(
-    plusvox.GPLUS_THREAD_SELECTOR,
-    plusvox.GPLUS_POST_DOM_SELECTORS,
-    'thread',
-    false);
-  cvoxExt.speakableManager.addNoTraverseSpeakable(gPlusThread);
-
-  var gPlusComment = new cvoxExt.speakable(
-    plusvox.GPLUS_COMMENT_SELECTOR,
-    plusvox.GPLUS_COMMENT_DOM_SELECTORS,
-    'comment',
-    false);
-  cvoxExt.speakableManager.addNoTraverseSpeakable(gPlusComment);
-};
-
-cvoxExt.loadExtension(plusvox);
+cvoxExt.loadExtension(plusvox.speakables, plusvox.init);

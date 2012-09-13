@@ -107,6 +107,25 @@ cvox.NavigationShifter.GRANULARITIES = {
   'VISUAL': 5
 };
 
+
+/**
+ * Stores state variables in a provided object.
+ *
+ * @param {Object} store The object.
+ */
+cvox.NavigationShifter.prototype.storeOn = function(store) {
+  store['granularity'] = this.getGranularity();
+};
+
+/**
+ * Updates the object with state variables from an earlier storeOn call.
+ *
+ * @param {Object} store The object.
+ */
+cvox.NavigationShifter.prototype.readFrom = function(store) {
+  this.setGranularity(store['granularity']);
+};
+
 /**
  * Delegates to currentWalker_.
  * @param {!cvox.CursorSelection} sel The selection to go next from.
@@ -144,20 +163,10 @@ cvox.NavigationShifter.prototype.syncToPageBeginning = function(kwargs) {
 /**
  * Delegates to currentWalker_.
  * @param {!cvox.CursorSelection} sel The selection.
- * @param {!cvox.ChromeVoxChoiceWidget} choiceWidget For disambiguation.
  * @return {boolean} True if some action that could be taken exists.
  */
-cvox.NavigationShifter.prototype.act = function(sel, choiceWidget) {
-  return this.currentWalker_.act(sel, choiceWidget);
-};
-
-/**
- * Delegates to currentWalker_.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {boolean} True if some action that could be take exists.
- */
-cvox.NavigationShifter.prototype.canAct = function(sel) {
-  return this.currentWalker_.canAct(sel);
+cvox.NavigationShifter.prototype.act = function(sel) {
+  return this.currentWalker_.act(sel);
 };
 
 /**
@@ -266,39 +275,10 @@ cvox.NavigationShifter.prototype.nextCol = function(sel) {
 /**
  * Delegates to TableWalker.
  * @param {cvox.CursorSelection} sel The selection for which to look up headers.
- * @return {?string} The text inside the row header(s) or null if no headers
- * or not in table.
+ * @return {!string} The text inside the header(s).
  */
-cvox.NavigationShifter.prototype.getRowHeaderText = function(sel) {
-  return this.tableWalker_.getRowHeaderText(sel);
-};
-
-/**
- * Delegates to TableWalker.
- * @param {cvox.CursorSelection} sel The selection for which to guess headers.
- * @return {?string} A guess for row headers. null if sel is not in table.
- */
-cvox.NavigationShifter.prototype.getRowHeaderGuess = function(sel) {
-  return this.tableWalker_.getRowHeaderGuess(sel);
-};
-
-/**
- * Delegates to TableWalker.
- * @param {cvox.CursorSelection} sel The selection for which to look up headers.
- * @return {?string} The text inside the col header(s) or null if no headers
- * or not in table.
- */
-cvox.NavigationShifter.prototype.getColHeaderText = function(sel) {
-  return this.tableWalker_.getColHeaderText(sel);
-};
-
-/**
- * Delegates to TableWalker.
- * @param {cvox.CursorSelection} sel The selection for which to guess headers.
- * @return {?string} The header text.
- */
-cvox.NavigationShifter.prototype.getColHeaderGuess = function(sel) {
-  return this.tableWalker_.getColHeaderGuess(sel);
+cvox.NavigationShifter.prototype.getHeaderText = function(sel) {
+  return this.tableWalker_.getHeaderText(sel);
 };
 
 /**
@@ -317,15 +297,6 @@ cvox.NavigationShifter.prototype.getLocationDescription = function(sel) {
  */
 cvox.NavigationShifter.prototype.isInTable = function(sel) {
   return this.tableWalker_.isInTable(sel);
-};
-
-/**
- * Returns true if the selection is inside a grid.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {boolean} true if inside a grid.
- */
-cvox.NavigationShifter.prototype.isInGrid = function(sel) {
-  return this.tableWalker_.isInGrid(sel);
 };
 
 /**
@@ -407,25 +378,6 @@ cvox.NavigationShifter.prototype.isSubnavigating = function() {
 };
 
 /**
- * Forces table mode.
- */
-cvox.NavigationShifter.prototype.ensureTableMode = function() {
-  this.isTableMode_ = true;
-  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.tableWalker_;
-  this.currentWalkerIndex_ = cvox.NavigationShifter.GRANULARITIES.GROUP;
-  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
-};
-
-/**
- * Forces not table mode.
- */
-cvox.NavigationShifter.prototype.ensureNotTableMode = function() {
-  this.isTableMode_ = false;
-  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.groupWalker_;
-  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
-};
-
-/**
  * Returns true if the shifter is currently in table mode.
  * @return {boolean} true if in table mode.
  */
@@ -435,12 +387,12 @@ cvox.NavigationShifter.prototype.isTableMode = function() {
 
 /**
  * Tries to enter a table.
- * @param {cvox.CursorSelection} curSel The current selection.
+ * @param {!cvox.CursorSelection} sel The selection.
  * @param {{force: (undefined|boolean)}=} kwargs Extra arguments.
  *  force: If true, enters table even if it's a layout table. False by default.
  * @return {cvox.CursorSelection} A selection, or null if we did nothing.
  */
-cvox.NavigationShifter.prototype.tryEnterTable = function(curSel, kwargs) {
+cvox.NavigationShifter.prototype.tryEnterTable = function(sel, kwargs) {
   kwargs = kwargs || {force: false};
 
   // Don't enter a table if we are already in one.
@@ -448,11 +400,11 @@ cvox.NavigationShifter.prototype.tryEnterTable = function(curSel, kwargs) {
     return null;
   }
 
-  var tableNode = cvox.DomUtil.getContainingTable(curSel.start.node);
+  var tableNode = cvox.DomUtil.getContainingTable(sel.start.node);
   if (tableNode) {
     if (kwargs.force || !cvox.DomUtil.isLayoutTable(tableNode)) {
-      this.ensureTableMode();
-      return this.sync(curSel);
+      this.ensureTableMode_();
+      return this.sync(sel);
     }
   }
   return null;
@@ -502,3 +454,25 @@ cvox.NavigationShifter.prototype.reset_ = function() {
    */
   this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
 };
+
+/**
+ * Forces table mode.
+ * @private
+ */
+cvox.NavigationShifter.prototype.ensureTableMode_ = function() {
+  this.isTableMode_ = true;
+  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.tableWalker_;
+  this.currentWalkerIndex_ = cvox.NavigationShifter.GRANULARITIES.GROUP;
+  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
+};
+
+// TODO(stoarca): Make private after moving tryExitTable here.
+/**
+ * Forces not table mode.
+ */
+cvox.NavigationShifter.prototype.ensureNotTableMode = function() {
+  this.isTableMode_ = false;
+  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.groupWalker_;
+  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
+};
+

@@ -19,28 +19,18 @@
 
 goog.provide('cvox.KeyboardHelpWidget');
 
+goog.require('cvox.ChoiceWidget');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxChoiceWidget');
 goog.require('cvox.CommandStore');
 
 /**
  * @constructor
- * @extends {cvox.ChromeVoxChoiceWidget}
- */
-cvox.KeyboardHelpWidget = function() {
-  cvox.CommandStore.init();
-};
-goog.inherits(cvox.KeyboardHelpWidget, cvox.ChromeVoxChoiceWidget);
-goog.addSingletonGetter(cvox.KeyboardHelpWidget);
-
-
-/**
- * Initializes PowerKey.
- *
  * @param {Object.<string, string>} map Object with keyboard shortcut ->
  * function mappings.
+ * @extends {cvox.ChoiceWidget}
  */
-cvox.KeyboardHelpWidget.prototype.init = function(map) {
+cvox.KeyboardHelpWidget = function(map) {
+  cvox.CommandStore.init();
   var list = [];
   var callbacks = [];
 
@@ -61,12 +51,33 @@ cvox.KeyboardHelpWidget.prototype.init = function(map) {
     callbacks.push(this.createCallback_(command));
   }
 
-  // TODO(dtseng): Belongs in constructor.
-  cvox.ChromeVoxChoiceWidget.call(this, list, callbacks, '');
-
-  this.powerKey_.setCompletionPromptStr(
-      cvox.ChromeVox.msgs.getMsg('powerkey_init_prompt'));
+  return goog.base(this, list, callbacks);
 };
+goog.inherits(cvox.KeyboardHelpWidget, cvox.ChoiceWidget);
+
+
+/**
+ * @override
+ */
+cvox.KeyboardHelpWidget.prototype.getNameMsg = function() {
+  return 'keyboard_help_intro';
+};
+
+
+/**
+ * Gets the singleton instance.
+ * @param {Object.<string, string>} opt_map An optional map to initialize the
+ * singleton.
+ * @return {!cvox.KeyboardHelpWidget} The widget.
+ */
+cvox.KeyboardHelpWidget.getInstance = function(opt_map) {
+  if (opt_map) {
+    cvox.KeyboardHelpWidget.instance_ =
+        new cvox.KeyboardHelpWidget(opt_map);
+  }
+  return cvox.KeyboardHelpWidget.instance_;
+};
+
 
 /**
  * Returns a readable form of the specified keyboard shortcut.

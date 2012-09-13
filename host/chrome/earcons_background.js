@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,6 +114,9 @@ cvox.EarconsBackground.prototype.getEarconMap = function() {
   this.earconMap[cvox.AbstractEarcons.SEARCH_HIT] = 'search_hit.ogg';
   this.earconMap[cvox.AbstractEarcons.SEARCH_MISS] = 'search_miss.ogg';
   this.earconMap[cvox.AbstractEarcons.SECTION] = 'section.ogg';
+  this.earconMap[cvox.AbstractEarcons.SELECTION] = 'selection.ogg';
+  this.earconMap[cvox.AbstractEarcons.SELECTION_REVERSE] =
+      'selection_reverse.ogg';
   this.earconMap[cvox.AbstractEarcons.TASK_SUCCESS] = 'task_success.ogg';
   this.earconMap[cvox.AbstractEarcons.WRAP] = 'wrap.ogg';
   this.earconMap[cvox.AbstractEarcons.WRAP_EDGE] = 'wrap_edge.ogg';

@@ -23,8 +23,8 @@ goog.provide('cvox.SearchWidget');
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.Cursor');
+goog.require('cvox.NavigationManager');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TraverseUtil');
 goog.require('cvox.Widget');
@@ -88,12 +88,13 @@ cvox.SearchWidget = function() {
 goog.inherits(cvox.SearchWidget, cvox.Widget);
 goog.addSingletonGetter(cvox.SearchWidget);
 
+
 /**
  * Displays the search widget.
  * @override
  */
 cvox.SearchWidget.prototype.show = function() {
-  cvox.SearchWidget.superClass_.show.call(this);
+  goog.base(this, 'show');
 
   this.initialNode_ =
       cvox.ChromeVox.navigationManager.getCurrentNode();
@@ -108,8 +109,7 @@ cvox.SearchWidget.prototype.show = function() {
     this.startingRange_ = this.initialRange_;
   } else if (this.initialNode_) {
     this.startingRange_ = document.createRange();
-    this.startingRange_.setStartBefore(this.initialNode_);
-    this.startingRange_.setEndAfter(this.initialNode_);
+    this.startingRange_.selectNodeContents(this.initialNode_);
   } else {
     this.startingRange_ = document.createRange();
     this.startingRange_.selectNodeContents(cvox.DomUtil.getFirstLeafNode());
@@ -152,13 +152,13 @@ cvox.SearchWidget.prototype.hide = function() {
   }
   cvox.$m('search_widget_outro').speakFlush();
 
-  cvox.SearchWidget.superClass_.hide.call(this, true);
+  goog.base(this, 'hide', true);
 };
 
 /**
  * @override
  */
-cvox.SearchWidget.prototype.getName = function() {
+cvox.SearchWidget.prototype.getNameMsg = function() {
   return 'search_widget_intro';
 };
 
@@ -217,7 +217,7 @@ cvox.SearchWidget.prototype.onKeyDown = function(evt) {
     this.toggleCaseSensitivity_();
     handled = true;
   } else {
-    return cvox.SearchWidget.superClass_.onKeyDown.call(this, evt);
+    return goog.base(this, 'onKeyDown', evt);
   }
   if (handled) {
     evt.preventDefault();
@@ -356,15 +356,16 @@ cvox.SearchWidget.prototype.getNextResult_ = function(
       cvox.DomUtil.previousLeafNode(startRange.startContainer);
   while (current && current != document.body) {
     if (cvox.DomUtil.hasContent(current)) {
-      var text = current.constructor == Text ?
-                 current.data :
-                 cvox.DomUtil.getName(current);
+      var text = current.constructor == Text ? current.data :
+          cvox.DomUtil.getName(current);
+
       if (!this.caseSensitive_) {
         text = text.toLowerCase();
       }
       var found = forwards ?
                   text.indexOf(searchStr) :
                   text.lastIndexOf(searchStr);
+
       if (found >= 0) {
         var result = document.createRange();
         if (current.constructor == Text) {
@@ -383,7 +384,6 @@ cvox.SearchWidget.prototype.getNextResult_ = function(
       current = cvox.DomUtil.previousLeafNode(current);
     }
   }
-
   // Edge of document reached, no matches found.
   return null;
 };
@@ -439,19 +439,22 @@ cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
     return;
   }
 
-  if (result.endContainer.constructor == Text) {
-    // Extend to the end of the sentence or to the end of the text block.
-    var endCursor = new cvox.Cursor(
-        result.endContainer,
-        result.endOffset,
-        result.endContainer.data);
-    var startCursor = endCursor.clone();
-    if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], [], {}) &&
-        endCursor.node == result.endContainer) {
-      result.setEnd(endCursor.node, endCursor.index);
-    } else {
-      result.setEndAfter(result.endContainer);
-    }
+  // Extend to the end of the sentence or to the end of the text block.
+  var prefix = document.createRange();
+  var suffix = result.cloneRange();
+  prefix.setStart(result.startContainer, 0);
+  prefix.setEnd(result.startContainer, result.startOffset);
+  suffix.setStart(result.endContainer, result.endOffset);
+  var endCursor = new cvox.Cursor(
+      result.endContainer,
+      result.endOffset,
+      result.endContainer.data);
+  var startCursor = endCursor.clone();
+  if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], [], {}) &&
+      endCursor.node == result.endContainer) {
+    suffix.setEnd(endCursor.node, endCursor.index);
+  } else {
+    suffix.setEndAfter(result.endContainer);
   }
 
   // Sync to the original node and then to the current search result
@@ -469,13 +472,14 @@ cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
   cvox.SelectionUtil.scrollToSelection(sel);
   var anchorNode = sel.anchorNode;
 
-  // If the result is in a pure-Text node, replace the full text of the
-  // target node with just the selection portion.
-  if (result.endContainer.constructor == Text) {
-    description.text = (sel + '');
-  }
+  // Construct the utterance so the search hit is surrounded by pauses.
+  description[0].text = cvox.DomUtil.collapseWhitespace(prefix.toString()) +
+      ', ' +
+      cvox.DomUtil.collapseWhitespace(result.toString()) +
+      ', ' +
+      cvox.DomUtil.collapseWhitespace(suffix.toString());
 
-  // Speak the description and some instructions.
+    // Speak the description and some instructions.
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
       description,
       cvox.AbstractTts.QUEUE_MODE_FLUSH,

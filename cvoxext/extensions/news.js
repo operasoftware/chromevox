@@ -22,83 +22,54 @@
 /**
  * newsvox object
  */
-var newsvox = new cvoxExt.extension();
+var newsvox = {};
 
-/** @const unread messages selector */
-newsvox.ARTICLE_SELECTOR = '.focused-story';
+/** newsvox extension */
+newsvox.speakers = {
 
-/** @const focused story selector */
-newsvox.FOCUSED_STORY_SELECTOR = '.focused-story';
-
-/** @const messages subselector */
-newsvox.ARTICLE_SUBSELECTOR = {
+  focusedTopStory: {
+    formatter: ['$title<0> by $source $snippet .' +
+    'Related news: $title<1> $title<2>'],
+    selector: {query: '.blended-wrapper-first.esc-wrapper.focused-story'}
+  },
+  focusedStories: {
+    selector: {query: '.focused-story'},
+    formatter: ['$title by $source $snippet']
+  },
   title: {
-    selector: '.titletext',
-    type: 'content'
+    selector: {query: '.esc-lead-article-title-wrapper'}
   },
   source: {
-    selector: '.esc-lead-article-source',
-    type: 'content'
-  },
-  time: {
-    selector: '.esc-lead-article-timestamp',
-    type: 'userValue'
+    selector: {query: '.esc-lead-article-source-wrapper'}
   },
   snippet: {
-    selector: 'esc-lead-snippet-wrapper',
-    type: 'content'
-  }
-};
-
-/** @const top stories selector */
-newsvox.TOP_STORIES_SELECTOR = '.topic';
-
-/** @const top stories subselector */
-newsvox.TOP_STORIES_SUBSELECTOR = {
-  selector: '.persistentblue',
-  type: 'content'
-};
-
-/** news row speakable object */
-newsvox.newsRowSpeakable = new cvoxExt.speakable(
-  newsvox.ARTICLE_SELECTOR,
-  newsvox.ARTICLE_SUBSELECTOR,
-  'articleRow',
-  '');
-
-/** top stories speakable object */
-newsvox.topStoriesSpeakable = new cvoxExt.speakable(
-  newsvox.TOP_STORIES_SELECTOR,
-  newsvox.TOP_STORIES_SUBSELECTOR,
-  'topStories',
-  '');
-
-/** @const side menu selector */
-newsvox.SIDE_MENU_SELECTOR = '.nav-items';
-
-/** @const side menu subselector */
-newsvox.SIDE_MENU_SUBSELECTOR = {
+    selector: {query: '.esc-lead-snippet-wrapper'}
+  },
   topStories: {
-    pretext: 'Top Stories',
-    speakables: [newsvox.topStoriesSpeakable]
+    selector: {query: '.persistentblue'}
   }
 };
 
-/** @const scroll Handler */
-newsvox.scrollHandler = function() {
-  console.log('mod');
-  var focusedStory = cvoxExt.util.getFirstDomObjectFromSelector(
-      newsvox.FOCUSED_STORY_SELECTOR);
-  if (focusedStory && focusedStory != newsvox.focusedStory) {
-    cvox.Api.stop();
-    newsvox.focusedStory = focusedStory;
-    cvox.Api.setSpeechForNode(focusedStory,
-        newsvox.newsRowSpeakable.generateSpeechNode(focusedStory));
-    focusedStory.setAttribute('tabindex', -1);
+/** @const scroll Handler
+ *  @param {Array<Mutation>} mutations the DOM mutations to check for.
+ */
+newsvox.scrollHandler = function(mutations) {
+
+  //if any of div elements have the focused-story class name then focus on that
+  //element
+  var focusedStory = cvoxExt.Util.getVisibleDomObjectsFromSelector(
+      {query: '.focused-story'})[0];
+
+  if (focusedStory && (focusedStory != newsvox.focusedStory)) {
+
+    SpeakableManager.updateSpeak(focusedStory);
+
+    focusedStory.setAttribute('tabindex', 0);
     focusedStory.focus();
+
+    newsvox.focusedStory = focusedStory;
   }
-  setTimeout(newsvox.scrollHandler, 500);
-  //TODO Find a better way of detecting change
+
 };
 
 /** read focused message */
@@ -107,32 +78,20 @@ newsvox.readArticle = function() {
   cvox.Api.click(message);
 };
 
-/** init function
- *  @this{newsvox}
- */
-newsvox.init = function() {
-  cvoxExt.speakableManager.elementNextKey = null;
-  cvoxExt.speakableManager.elementPrevKey = null;
+/** register the DOM mutation observer to news table div after checking if it
+is loaded */
+newsvox.registerObserver = function() {
+  var newsDiv = document.getElementsByClassName('lt-col')[0];
 
-  cvoxExt.speakableManager.speakableNextKey = null;
-  cvoxExt.speakableManager.speakablePrevKey = null;
+  if (!newsDiv) {
+    setTimeout(newsvox.registerObserver, 50);
+    return;
+  }
+  var observer = new WebKitMutationObserver(newsvox.scrollHandler);
+  observer.observe(newsDiv, {childList: true, subtree: true,
+      attributes: true });
 
-  cvoxExt.readFocus = true;
-
-  var sidemenuSpeakable = new cvoxExt.speakable(newsvox.SIDE_MENU_SELECTOR,
-                                                newsvox.SIDE_MENU_SUBSELECTOR,
-                                               'sideMenu',
-                                               '');
-  cvoxExt.speakableManager.addNoTraverseSpeakable(newsvox.newsRowSpeakable);
-  cvoxExt.addSpeakable(sidemenuSpeakable);
-  cvoxExt.addSpeakableKeyListener(
-      newsvox.newsRowSpeakable, 'r', this.readArticle);
-
-
-  cvoxExt.speakableManager.updateSpeakables();
-  cvoxExt.speakableManager.nextSpeakable(0);
-  cvoxExt.speakableManager.nextElementOfCurrSpeakable(0);
 };
 
-cvoxExt.loadExtension(newsvox);
-newsvox.scrollHandler();
+cvoxExt.loadExtension(newsvox.speakers, newsvox.registerObserver);
+

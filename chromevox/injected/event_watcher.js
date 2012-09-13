@@ -99,7 +99,7 @@ cvox.ChromeVoxEventWatcher.shouldEchoKeys = true;
 
 /**
  * Inits the event watcher and adds listeners.
- * @param {!Document} doc The DOM document to add event listeners to.
+ * @param {!Document|!Window} doc The DOM document to add event listeners to.
  */
 cvox.ChromeVoxEventWatcher.init = function(doc) {
   /**
@@ -247,6 +247,25 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
   cvox.ChromeVoxEventWatcher.subtreeModifiedEventsCount_ = 0;
 };
 
+
+/**
+ * Stores state variables in a provided object.
+ *
+ * @param {Object} store The object.
+ */
+cvox.ChromeVoxEventWatcher.storeOn = function(store) {
+  store['searchKeyHeld'] = cvox.ChromeVoxEventWatcher.searchKeyHeld_;
+};
+
+/**
+ * Updates the object with state variables from an earlier storeOn call.
+ *
+ * @param {Object} store The object.
+ */
+cvox.ChromeVoxEventWatcher.readFrom = function(store) {
+  cvox.ChromeVoxEventWatcher.searchKeyHeld_ = store['searchKeyHeld'];
+};
+
 /**
  * Adds an event to the events queue and updates the time when the last
  * event was received.
@@ -321,7 +340,7 @@ cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_ = function() {
 
 /**
  * Add all of our event listeners to the document.
- * @param {!Document} doc The DOM document to add event listeners to.
+ * @param {!Document|!Window} doc The DOM document to add event listeners to.
  * @private
  */
 cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
@@ -362,7 +381,7 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
 
 /**
  * Remove all registered event watchers.
- * @param {!Document} doc The DOM document to add event listeners to.
+ * @param {!Document|!Window} doc The DOM document to add event listeners to.
  */
 cvox.ChromeVoxEventWatcher.cleanup = function(doc) {
   for (var i = 0; i < cvox.ChromeVoxEventWatcher.listeners_.length; i++) {
@@ -375,7 +394,7 @@ cvox.ChromeVoxEventWatcher.cleanup = function(doc) {
 
 /**
  * Add one event listener and save the data so it can be removed later.
- * @param {!Document} doc The DOM document to add event listeners to.
+ * @param {!Document|!Window} doc The DOM document to add event listeners to.
  * @param {string} type The event type.
  * @param {EventListener|function(Event):(boolean|undefined)} listener
  *     The function to be called when the event is fired.
@@ -482,7 +501,7 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
         if (evt.target != cvox.ChromeVoxEventWatcher.pendingMouseOverNode) {
           return;
         }
-        cvox.ChromeVoxUserCommands.keepReading = false;
+        cvox.ChromeVox.navigationManager.keepReading_ = false;
         var target = /** @type {Node} */(evt.target);
         cvox.DomUtil.setFocus(target);
         cvox.ApiImplementation.syncToNode(target, true,
@@ -539,7 +558,7 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
     cvox.ChromeVoxEventWatcher.setUpTextHandler_();
     return;
   }
-  if (evt.target) {
+  if (evt.target && evt.target != window) {
     var target = /** @type {Element} */(evt.target);
     var parentControl = cvox.DomUtil.getSurroundingControl(target);
     if (parentControl &&
@@ -612,14 +631,13 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
   // so that the jscompiler doesn't try to rename these.
   evt['searchKeyHeld'] = cvox.ChromeVoxEventWatcher.searchKeyHeld_;
   evt['stickyMode'] = cvox.ChromeVox.isStickyOn;
-  evt['keyPrefixOn'] = cvox.ChromeVox.keyPrefixOn;
+  evt['keyPrefix'] = cvox.ChromeVox.keyPrefixOn;
 
   cvox.ChromeVox.keyPrefixOn = false;
 
   cvox.ChromeVoxEventWatcher.eventToEat = null;
-  if (!cvox.ChromeVox.navigationManager.isChoiceWidgetActive() &&
-      (!cvox.ChromeVoxKbHandler.basicKeyDownActionsListener(evt) ||
-      cvox.ChromeVoxEventWatcher.handleControlAction(evt))) {
+  if (!cvox.ChromeVoxKbHandler.basicKeyDownActionsListener(evt) ||
+      cvox.ChromeVoxEventWatcher.handleControlAction(evt)) {
     // Swallow the event immediately to prevent the arrow keys
     // from driving controls on the web page.
     evt.preventDefault();
@@ -1050,8 +1068,9 @@ cvox.ChromeVoxEventWatcher.handleDialogFocus = function(target) {
       // If it's an alert dialog, also queue up the text of the dialog.
       for (var i = 0; i < dialog.childNodes.length; i++) {
         var child = dialog.childNodes[i];
-        var childStyle = window.getComputedStyle(child, null);
-        if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+        // We skip the ancestor check because we know the target must be
+        // visible in order to gain focus.
+        if (cvox.DomUtil.isVisible(child, {checkAncestors: false}) &&
             !cvox.AriaUtil.isHidden(child)) {
           var text = cvox.DomUtil.collapseWhitespace(
               cvox.DomUtil.getValue(child) + ' ' +

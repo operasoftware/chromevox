@@ -237,101 +237,83 @@ cvox.TableWalker.prototype.nextCol = function(sel) {
 };
 
 /**
- * Returns the text content of the row header(s) of the cell that contains sel.
+ * Returns the text content of the header(s) of the cell that contains sel.
  * @param {!cvox.CursorSelection} sel The selection.
- * @return {?string} The header text.
+ * @return {!string} The header text.
  */
-cvox.TableWalker.prototype.getRowHeaderText = function(sel) {
+cvox.TableWalker.prototype.getHeaderText = function(sel) {
   this.tt_.initialize(this.getTableNode_(sel));
   var position = this.tt_.findNearestCursor(sel.start.node);
   if (!position) {
-    return null;
+    return cvox.ChromeVox.msgs.getMsg('not_inside_table');
   }
   if (!this.tt_.goToCell(position)) {
-    return null;
+    return cvox.ChromeVox.msgs.getMsg('not_inside_table');
   }
+  return (
+      this.getRowHeaderText_(position) +
+      ' ' +
+      this.getColHeaderText_(position));
+};
+
+/**
+ * Returns the text content of the row header(s) of the cell that contains sel.
+ * @param {!Array.<number>} position The selection.
+ * @return {!string} The header text.
+ * @private
+ */
+cvox.TableWalker.prototype.getRowHeaderText_ = function(position) {
+  // TODO(stoarca): OPTMZ Replace with join();
+  var rowHeaderText = '';
+
   var rowHeaders = this.tt_.getCellRowHeaders();
   if (!rowHeaders) {
-    return null;
+    var firstCellInRow = this.tt_.getCellAt([position[0], 0]);
+    rowHeaderText += cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(firstCellInRow) + ' ' +
+            cvox.DomUtil.getName(firstCellInRow));
+    return cvox.ChromeVox.msgs.getMsg('row_header') + rowHeaderText;
   }
 
-  var rowHeaderText = '';
   for (var i = 0; i < rowHeaders.length; ++i) {
     rowHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(rowHeaders[i]) + ' ' +
             cvox.DomUtil.getName(rowHeaders[i]));
   }
-  return rowHeaderText;
-};
-
-/**
- * Returns the text content for the first cell in the row of sel. This is used
- * as a 'best guess' at a row header when there is no explicit one.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {?string} The header text.
- */
-cvox.TableWalker.prototype.getRowHeaderGuess = function(sel) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.start.node);
-  if (!position) {
-    return null;
+  if (rowHeaderText == '') {
+    return cvox.ChromeVox.msgs.getMsg('empty_row_header');
   }
-
-  var rowHeaderText = '';
-  var firstCellInRow = this.tt_.getCellAt([position[0], 0]);
-  rowHeaderText += cvox.DomUtil.collapseWhitespace(
-      cvox.DomUtil.getValue(firstCellInRow) + ' ' +
-          cvox.DomUtil.getName(firstCellInRow));
-  return rowHeaderText;
+  return cvox.ChromeVox.msgs.getMsg('row_header') + rowHeaderText;
 };
 
 /**
  * Returns the text content of the col header(s) of the cell that contains sel.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {?string} The header text.
+ * @param {!Array.<number>} position The selection.
+ * @return {!string} The header text.
+ * @private
  */
-cvox.TableWalker.prototype.getColHeaderText = function(sel) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.start.node);
-  if (!position) {
-    return null;
-  }
-  if (!this.tt_.goToCell(position)) {
-    return null;
-  }
+cvox.TableWalker.prototype.getColHeaderText_ = function(position) {
+  // TODO(stoarca): OPTMZ Replace with join();
+  var colHeaderText = '';
+
   var colHeaders = this.tt_.getCellColHeaders();
   if (!colHeaders) {
-    return null;
+    var firstCellInCol = this.tt_.getCellAt([0, position[1]]);
+    colHeaderText += cvox.DomUtil.collapseWhitespace(
+        cvox.DomUtil.getValue(firstCellInCol) + ' ' +
+        cvox.DomUtil.getName(firstCellInCol));
+    return cvox.ChromeVox.msgs.getMsg('column_header') + colHeaderText;
   }
 
-  var colHeaderText = '';
   for (var i = 0; i < colHeaders.length; ++i) {
     colHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(colHeaders[i]) + ' ' +
             cvox.DomUtil.getName(colHeaders[i]));
   }
-  return colHeaderText;
-};
-
-/**
- * Returns the text content for the first cell in the col of sel. This is used
- * as a 'best guess' at a col header when there is no explicit one.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {?string} The header text.
- */
-cvox.TableWalker.prototype.getColHeaderGuess = function(sel) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.start.node);
-  if (!position) {
-    return null;
+  if (colHeaderText == '') {
+    return cvox.ChromeVox.msgs.getMsg('empty_row_header');
   }
-
-  var colHeaderText = '';
-  var firstCellInCol = this.tt_.getCellAt([0, position[1]]);
-  colHeaderText += cvox.DomUtil.collapseWhitespace(
-      cvox.DomUtil.getValue(firstCellInCol) + ' ' +
-      cvox.DomUtil.getName(firstCellInCol));
-  return colHeaderText;
+  return cvox.ChromeVox.msgs.getMsg('column_header') + colHeaderText;
 };
 
 /**
@@ -363,19 +345,6 @@ cvox.TableWalker.prototype.getLocationInfo_ = function(sel) {
  */
 cvox.TableWalker.prototype.isInTable = function(sel) {
   return this.getTableNode_(sel) != null;
-};
-
-/**
- * Returns true if sel is inside a table grid.
- * @param {!cvox.CursorSelection} sel The selection.
- * @return {boolean} True if inside a table node and it is marked as grid.
- */
-cvox.TableWalker.prototype.isInGrid = function(sel) {
-  var node = this.getTableNode_(sel);
-  if (!node) {
-    return false;
-  }
-  return node.getAttribute('role') == 'grid';
 };
 
 /**

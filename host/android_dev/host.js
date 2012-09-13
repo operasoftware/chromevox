@@ -196,8 +196,8 @@ cvox.AndroidHost.prototype.activateOrDeactivateChromeVox = function(active) {
 
   // If ChromeVox is inactive, the event watcher will only listen
   // for key events.
-  cvox.ChromeVoxEventWatcher.cleanup(document);
-  cvox.ChromeVoxEventWatcher.init(document);
+  cvox.ChromeVoxEventWatcher.cleanup(window);
+  cvox.ChromeVoxEventWatcher.init(window);
 
   if (document.activeElement) {
     var speakNodeAlso = document.hasFocus();

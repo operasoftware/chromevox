@@ -19,62 +19,35 @@
  */
 
 
-var calvox = new cvoxExt.extension();
+var calvox = {};
 
-/** @const calendar event selector */
-calvox.EVENT_SELECTOR = '.lk.lv-event-title';
-
-/** @const calendar event subselector */
-calvox.EVENT_SUBSELECTOR = {
+/** extension */
+calvox.speakers = {
+  events: {
+    selector: {query: '.lk.lv-event-title'},
+    formatter: ['$title']
+  },
   title: {
-    attribute: 'title'
+    selector: {attribute: 'title'}
   }
 };
-
-/** @const date of event selector */
-calvox.DATE_SELECTOR = '.lk.lv-datelink';
-
-/** @const create event button selector */
-calvox.CREATE_BUTTON_SELECTOR = '.goog-imageless-button-content';
 
 /** find and press the agenda button */
 calvox.findAgendaButton = function() {
-  var checkedButton = document.querySelectorAll(
-      '.goog-imageless-button-checked')[0];
-  if (!checkedButton || checkedButton.querySelector(
-      '.goog-imageless-button-content').textContent != 'Agenda') {
-    var buttons = document.querySelectorAll(
-        '.goog-imageless-button-content');
-    for (var b = 0; b < buttons.length; ++b) {
-      if (buttons[b].textContent == 'Agenda') {
-        cvox.Api.click(buttons[b]);
-        return;
-      }
-    }
-  }
-  setTimeout(calvox.findAgendaButton, 50);
+  var evt = document.createEvent('KeyboardEvent');
+  evt.initKeyboardEvent('keydown', true, true, window, false, false,
+                 false, false, 65, 0);
+  delete evt.keyCode;
+  // MUST use delete, otherwise it will remain stuck at 0
+  //despite assigning it 65.
+  delete evt.shiftKey;
+  evt.keyCode = 65;
+  // keycode for "a'
+  evt.shiftKey = false;
+  // Must set shift to false, otherwise it will be true after modifying the keyCode.
+
+  document.dispatchEvent(evt);
 };
 
-/** init function
- */
-calvox.init = function() {
-  calvox.findAgendaButton();
+cvoxExt.loadExtension(calvox.speakers, calvox.findAgendaButton);
 
-  // Calendar already has a navigation system, therefore we specify
-  // the reading style of cells
-  var eventSpeakable = new cvoxExt.speakable(calvox.EVENT_SELECTOR,
-                                             calvox.EVENT_SUBSELECTOR,
-                                             'event',
-                                             '');
-
-  var dateSpeakable = new cvoxExt.speakable(calvox.DATE_SELECTOR,
-                                            {},
-                                            'date',
-                                            '',
-                                            true);
-
-  cvoxExt.speakableManager.addNoTraverseSpeakable(eventSpeakable);
-  cvoxExt.speakableManager.addNoTraverseSpeakable(dateSpeakable);
-};
-
-cvoxExt.loadExtension(calvox);

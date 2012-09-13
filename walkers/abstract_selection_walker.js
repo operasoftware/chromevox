@@ -89,20 +89,17 @@ cvox.AbstractSelectionWalker.prototype.sync = function(sel) {
     newSel = cvox.CursorSelection.fromNode(node);
   } else {
     newSel = sel.clone();
-    newSel.end = newSel.start;
-  }
-
-  if (r) {
-    newSel.start.index = newSel.start.text.length;
-    newSel.end.index = newSel.start.index;
-    newSel.setReversed(true);
+    if (r) {
+      newSel.start = newSel.end;
+    } else {
+      newSel.end = newSel.start;
+    }
   }
 
   // Selection syncs to the beginning when a page boundary is reached.
-  // TODO(dtseng): The sync invariant appears to be violated here; should be a
-  // previous + next pair to sync to current selection.
-  return this.next(/** @type {!cvox.CursorSelection} */ (newSel)) ||
-      cvox.CursorSelection.fromBody().setReversed(sel.isReversed());
+  // this.next places us at the correct initial position.
+  return (this.next(newSel.setReversed(false)) ||
+      cvox.CursorSelection.fromBody()).setReversed(r);
 };
 
 /**

@@ -229,16 +229,6 @@ cvox.DomPredicates.heading6Predicate = function(nodes) {
 
 
 /**
- * Not-link.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {boolean} True if none of the items in the array is a link.
- */
-cvox.DomPredicates.notLinkPredicate = function(nodes) {
-  return cvox.DomPredicates.linkPredicate(nodes) == null;
-};
-
-
-/**
  * Link.
  * @param {Array.<Node>} nodes An array of nodes to check.
  * @return {?Node} Node in the array that is a link.
@@ -255,29 +245,15 @@ cvox.DomPredicates.linkPredicate = function(nodes) {
 
 
 /**
- * Anchor.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is an anchor.
- */
-cvox.DomPredicates.anchorPredicate = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].tagName == 'A' && nodes[i].getAttribute('name')) {
-        return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
  * Table.
  * @param {Array.<Node>} nodes An array of nodes to check.
  * @return {?Node} Node in the array that is a data table.
  */
 cvox.DomPredicates.tablePredicate = function(nodes) {
-  var tableNode = cvox.DomUtil.findTableNodeInList(nodes);
-  if (tableNode && !cvox.DomUtil.isLayoutTable(tableNode)) {
-    return tableNode;
+  // TODO(stoarca): Captions should always be allowed!!
+  var node = cvox.DomUtil.findTableNodeInList(nodes, {allowCaptions: true});
+  if (node && !cvox.DomUtil.isLayoutTable(node)) {
+    return node;
   } else {
     return null;
   }
@@ -369,34 +345,6 @@ cvox.DomPredicates.formFieldPredicate = function(nodes) {
         nodes[i].tagName == 'SELECT' ||
         nodes[i].tagName == 'BUTTON') {
       return nodes[i];
-    }
-  }
-  return null;
-};
-
-
-/**
- * Jump point - an ARIA landmark or heading.
- * @param {Array.<Node>} nodes An array of nodes to check.
- * @return {?Node} Node in the array that is a jump point.
- */
-cvox.DomPredicates.jumpPredicate = function(nodes) {
-  for (var i = 0; i < nodes.length; i++) {
-    if (cvox.AriaUtil.isLandmark(nodes[i])) {
-      return nodes[i];
-    }
-    if (nodes[i].getAttribute &&
-        nodes[i].getAttribute('role') == 'heading') {
-      return nodes[i];
-    }
-    switch (nodes[i].tagName) {
-      case 'H1':
-      case 'H2':
-      case 'H3':
-      case 'H4':
-      case 'H5':
-      case 'H6':
-        return nodes[i];
     }
   }
   return null;

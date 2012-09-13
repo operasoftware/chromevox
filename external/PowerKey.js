@@ -313,13 +313,17 @@ PowerKey.prototype.detachHandler = function(target, event, handler) {
  *     keys and functions as values.
  * @param {Array?} completionList The array of completions.
  * @param {boolean} browseOnly Whether the completion list is browse-only.
+ * @param {boolean=} opt_ariaHidden If true, set the completion field to
+ *   ARIA hidden.  Do this if you don't want screenreaders to interact with
+ *   the completion field -- e.g. if you have your own handlers.
  */
 PowerKey.prototype.createCompletionField = function(parent,
                                                     size,
                                                     handler,
                                                     actionMap,
                                                     completionList,
-                                                    browseOnly) {
+                                                    browseOnly,
+                                                    opt_ariaHidden) {
   var self = this;
   var floatId, fieldId, oldCmdNode, divId, bgDivId;
   // If the completion field already exists, remove it and create a new one.
@@ -392,6 +396,10 @@ PowerKey.prototype.createCompletionField = function(parent,
   this.cmpFloatElement.className = 'pkHiddenStatus';
   this.cmpTextElement.className = 'pkOpaqueCompletionText';
   this.backgroundDivElement.className = 'pkBackgroundHide';
+
+  if (opt_ariaHidden) {
+    this.cmpTextElement.setAttribute('aria-hidden', 'true');
+  }
 
   this.completionActionMap_ = actionMap;
   this.completionHandler_ = handler;

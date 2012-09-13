@@ -34,6 +34,7 @@ goog.require('cvox.SpokenMessages');
  */
 cvox.Widget.ref_;
 
+
 /**
  * @constructor
  */
@@ -52,12 +53,12 @@ cvox.Widget = function() {
    */
   this.lastFocusedNode_ = null;
 
-
   // Checks to see if there is a current widget in use.
   if (!cvox.Widget.ref_ || !cvox.Widget.ref_.isActive()) {
     cvox.Widget.ref_ = this;
   }
 };
+
 
 /**
  * Returns whether or not the widget is active.
@@ -66,6 +67,7 @@ cvox.Widget = function() {
 cvox.Widget.prototype.isActive = function() {
   return this.active_;
 };
+
 
 /**
  * Visual/aural display of this widget.
@@ -80,25 +82,24 @@ cvox.Widget.prototype.show = function() {
   document.addEventListener('keydown', this.onKeyDown, true);
   document.addEventListener('keypress', this.onKeyPress, true);
 
-  if (this.getName() && this.getHelp()) {
-    cvox.$m(this.getName())
+  if (this.getNameMsg() && this.getHelp()) {
+    cvox.$m(this.getNameMsg())
         .andPause()
         .andMessage(this.getHelp())
         .speakFlush();
   }
-
   cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
 
-  // TODO(dtseng): Substitute document.activeElement with a more authorative
-  // source once walker refactoring finishes.
   this.lastFocusedNode_ = document.activeElement;
-
   this.active_ = true;
 };
 
+
 /**
  * Visual/aural hide of this widget.
- * @param {boolean} opt_noSync Don't sync to previous position before show.
+ * @param {boolean} opt_noSync Whether to attempt to sync to the node before
+ * this widget was first shown. If left unspecified or false, an attempt to sync
+ * will be made.
  */
 cvox.Widget.prototype.hide = function(opt_noSync) {
   document.removeEventListener('keypress', this.onKeyPress, true);
@@ -124,22 +125,21 @@ cvox.Widget.prototype.toggle = function() {
   }
 };
 
+
 /**
  * The name of the widget.
  * @return {string} The message id referencing the name of the widget.
  */
-cvox.Widget.prototype.getName = function() {
-  return '';
-};
+cvox.Widget.prototype.getNameMsg = goog.abstractMethod;
+
 
 /**
  * Gets the help message for the widget.
  * The help message succintly describes how to use the widget.
  * @return {string} The message id referencing the help for the widget.
  */
-cvox.Widget.prototype.getHelp = function() {
-  return '';
-};
+cvox.Widget.prototype.getHelp = goog.abstractMethod;
+
 
 /**
  * The default widget key down handler.
@@ -160,6 +160,7 @@ cvox.Widget.prototype.onKeyDown = function(evt) {
 
   return false;
 };
+
 
 /**
  * The default widget key press handler.

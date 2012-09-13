@@ -19,64 +19,101 @@
  * @author cagriy@google.com (Cagri K. Yildirim)
  */
 
+var drivevox = {};
 
-/**
- *  drivevox object
- */
-var drivevox = new cvoxExt.extension();
+/** extension */
+drivevox.speakers = {
+  doc: {
+    formatter: ['unselected $typeImg $name owned by $owner shared with ' +
+    '$shared last modified on $date'],
+    selector: {query: '.doclist-tr-hover'}
+  },
+  selecteddoc: {
+    formatter: ['selected $typeImg $name owned by $owner shared with $shared ' +
+    'last modified on $date'],
+    selector: {query: '.doclist-tr-selected.doclist-tr-hover'}
+  },
 
-/** @const selected document selector */
-drivevox.DOCUMENT_SELECTOR = '.doclist-tr-hover.doclist-tr-underlined';
-
-/** @const document subselector */
-drivevox.DOCUMENT_SUBSELECTOR = {
-  name: {
-    selector: '.goog-inline-block.doclist-name',
-    type: 'text',
-    attribute: 'title'
+  typeImg: {
+    formatter: ['{user}$type'],
+    selector: {query: '.goog-inline-block.doclist-icon'}
   },
   type: {
-    selector: '.goog-inline-block.doclist-icon',
-    type: 'text',
-    attribute: 'title'
+    selector: {attribute: 'title'}
+  },
+  name: {
+    formatter: ['{user}$self'],
+    selector: {query: '.goog-inline-block.doclist-name'}
   },
   shared: {
-    selector: '.goog-inline-block.doclist-shared',
-    type: 'text'
+    formatter: ['{user}$self'],
+    selector: {query: '.goog-inline-block.doclist-shared'}
   },
   folder: {
-    selector: '.goog-inline-block.documentpill',
-    type: 'text'
+    formatter: ['{user}$self'],
+    selector: {query: '.goog-inline-block.documentpill'}
   },
   owner: {
-    selector: '.doclist-td-owners',
-    type: 'text',
-    pretext: 'owned by'
+    formatter: ['{user}$self'],
+    selector: {query: '.doclist-td-owners'}
   },
   date: {
-    selector: '.doclist-date',
-    type: 'text'
+    selector: {query: '.doclist-date'},
+    formatter: ['{user}$self']
   }
 };
 
-/** handler for cursor update */
-drivevox.modified = function() {
-  cvox.Api.setSpeechForNode(
-      cvoxExt.util.getFirstDomObjectFromSelector('___hovercard_0'),
-      drivevox.documentSpeakable.generateSpeechNode(
-      cvoxExt.util.getFirstDomObjectFromSelector(drivevox.DOCUMENT_SELECTOR)));
-};
-
-/** init function
+/** handler for cursor update
+ * @param {Array<DOMMutation>} mutations the mutations to check for selection.
+ * @return {undefined} returns early if selected.
  */
-drivevox.init = function() {
+drivevox.modified = function(mutations) {
+  //check if any element is selected, if so focus on it
+  for (var i = 0; i < mutations.length; ++i) {
+    if (mutations[i].attributeName == 'class' &&
+      mutations[i].target.className.indexOf('doclist-tr-selected') != -1) {
+      SpeakableManager.updateSpeak(mutations[i].target);
+      mutations[i].target.setAttribute('tabindex', -1);
+      mutations[i].target.blur();
+      mutations[i].target.focus();
+      return;
+    }
 
-  drivevox.documentSpeakable = new cvoxExt.speakable(drivevox.DOCUMENT_SELECTOR,
-                                                drivevox.DOCUMENT_SUBSELECTOR,
-                                                'document',
-                                                '');
+  }
 
-  cvoxExt.speakableManager.addNoTraverseSpeakable(drivevox.documentSpeakable);
+  //if none is selected, check if a new element is hovered on, if so focus on it
+  for (var i = 0; i < mutations.length; ++i) {
+    if (mutations[i].attributeName == 'class' &&
+      mutations[i].target.className.indexOf('doclist-tr-hover') != -1) {
+      SpeakableManager.updateSpeak(mutations[i].target);
+      mutations[i].target.setAttribute('tabindex', -1);
+      mutations[i].target.blur();
+      mutations[i].target.focus();
+      return;
+    }
+
+  }
+
 };
 
-cvoxExt.loadExtension(drivevox);
+/**
+ * load the DOM mutation listener
+ */
+drivevox.loadListeners = function() {
+  if (!drivevox.listenersLoaded) {
+    var documentList = document.getElementsByClassName('doclistview');
+    if (documentList.length > 0) {
+      var observer = new WebKitMutationObserver(drivevox.modified);
+      observer.observe(documentList[0], {childList: true, subtree: true,
+          attributes: true });
+      drivevox.listenersLoaded = true;
+    }
+  }
+};
+
+/** init function for drivevox to register onLoad listener */
+drivevox.init = function() {
+  document.addEventListener('load', drivevox.loadListeners, true);
+};
+
+cvoxExt.loadExtension(drivevox.speakers, drivevox.init);

@@ -32,6 +32,7 @@
     "128": "chromevox/chromevox-128.png"
   },
   "web_accessible_resources": [
+    "chromevox/injected/api_util.js",
     "chromevox/injected/api.js"
   ],
   "options_page": "chromevox/background/options.html",

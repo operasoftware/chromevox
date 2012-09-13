@@ -1,15 +1,15 @@
 {
   "manifest_version": 2,
   "name": "__MSG_CHROMEVOX_NAME__",
-  "version": "1.0",
-  "description": "__MSG_CHROMEVOX_DESCRIPTION__.",
+  "version": "1.22.1",
+  "description": "ChromeVox - Giving Voice to Chrome.",
   "background": {
     "page": "chromevox/background/background.html"
   },
   "permissions": [
     "bookmarks",
     "tabs",
-    "experimental",
+    
     "tts",
     "<all_urls>"
   ],
@@ -29,6 +29,7 @@
     "128": "chromevox/chromevox-128.png"
   },
   "web_accessible_resources": [
+    "chromevox/injected/api_util.js",
     "chromevox/injected/api.js"
   ],
   "options_page": "chromevox/background/options.html",

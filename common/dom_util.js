@@ -105,24 +105,132 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG = {
 
 
 /**
- * Determines whether or not a style is invisible according to any CSS
- * criteria that can hide a node.
- *
- * @param {Object} style An object's style.
- * @return {boolean} True if the style is invisible.
+ * Determine if the given node is visible on the page. This does not check if
+ * it is inside the document view-port as some sites try to communicate with
+ * screen readers with such elements.
+ * @param {Node} node The node to determine as visible or not.
+ * @param {Object=} opt_options In certain cases, we already have information
+ *     on the context of the node. To improve performance and avoid redundant
+ *     operations, you may wish to turn certain visibility checks off by
+ *     passing in an options object. The following properties are configurable:
+ *   checkAncestors: {boolean=} True if we should check the ancestor chain
+ *       for forced invisibility traits of descendants. True by default.
+ *   checkDescendants: {boolean=} True if we should consider descendants of
+ *       the  given node for visible elements. True by default.
+ * @return {boolean} True if the node is visible.
  */
-cvox.DomUtil.isInvisibleStyle = function(style) {
+cvox.DomUtil.isVisible = function(node, opt_options) {
+  opt_options = opt_options || {};
+  if (typeof(opt_options.checkAncestors) === 'undefined') {
+    opt_options.checkAncestors = true;
+  }
+  if (typeof(opt_options.checkDescendants) === 'undefined') {
+    opt_options.checkDescendants = true;
+  }
+
+  // Confirm that no subtree containing node is invisible.
+  if (opt_options.checkAncestors &&
+      cvox.DomUtil.hasInvisibleAncestor_(node)) {
+    return false;
+  }
+
+  // If the node's subtree has a visible node, we declare it as visible.
+  var recursive = opt_options.checkDescendants;
+  if (cvox.DomUtil.hasVisibleNodeSubtree_(node, recursive)) {
+    return true;
+  }
+
+  return false;
+};
+
+
+/**
+ * Checks the ancestor chain for the given node for invisibility. If an
+ * ancestor is invisible and this cannot be overriden by a descendant,
+ * we return true.
+ * @param {Node} node The node to check the ancestor chain for.
+ * @return {boolean} True if a descendant is invisible.
+ * @private
+ */
+cvox.DomUtil.hasInvisibleAncestor_ = function(node) {
+  var ancestor = node;
+  while (ancestor = ancestor.parentElement) {
+    var style = document.defaultView.getComputedStyle(ancestor, null);
+    if (cvox.DomUtil.isInvisibleStyle(style, true)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Checks for a visible node in the subtree defined by root.
+ * @param {Node} root The root of the subtree to check.
+ * @param {boolean} recursive Whether or not to check beyond the root of the
+ *     subtree for visible nodes. This option exists for performance tuning.
+ *     Sometimes we already have information about the descendants, and we do
+ *     not need to check them again.
+ * @return {boolean} True if the subtree contains a visible node.
+ * @private
+ */
+cvox.DomUtil.hasVisibleNodeSubtree_ = function(root, recursive) {
+  if (!(root instanceof Element)) {
+    var parentStyle = document.defaultView
+        .getComputedStyle(root.parentElement, null);
+    var isVisibleParent = !cvox.DomUtil.isInvisibleStyle(parentStyle);
+    return isVisibleParent;
+  }
+
+  var rootStyle = document.defaultView.getComputedStyle(root, null);
+  var isRootVisible = !cvox.DomUtil.isInvisibleStyle(rootStyle);
+  if (isRootVisible) {
+    return true;
+  }
+  var isSubtreeInvisible = cvox.DomUtil.isInvisibleStyle(rootStyle, true);
+  if (!recursive || isSubtreeInvisible) {
+    return false;
+  }
+
+  // Carry on with a recursive check of the descendants.
+  var children = root.childNodes;
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    if (cvox.DomUtil.hasVisibleNodeSubtree_(child, recursive)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Determines whether or a node is not visible according to any CSS criteria
+ * that can hide it.
+ * @param {CSSStyleDeclaration} style The style of the node to determine as
+ *     invsible or not.
+ * @param {boolean=} opt_strict If set to true, we do not check the visibility
+ *     style attribute. False by default.
+ * CAUTION: Checking the visibility style attribute can result in returning
+ *     true (invisible) even when an element has have visible descendants. This
+ *     is because an element with visibility:hidden can have descendants that
+ *     are visible.
+ * @return {boolean} True if the node is invisible.
+ */
+cvox.DomUtil.isInvisibleStyle = function(style, opt_strict) {
   if (!style) {
     return false;
   }
   if (style.display == 'none') {
     return true;
   }
-  if (style.visibility == 'hidden') {
-    return true;
-  }
   // Opacity values range from 0.0 (transparent) to 1.0 (fully opaque).
   if (parseFloat(style.opacity) == 0) {
+    return true;
+  }
+  // Visibility style tests for non-strict checking.
+  if (!opt_strict &&
+      (style.visibility == 'hidden' || style.visibility == 'collapse')) {
     return true;
   }
   return false;
@@ -168,6 +276,9 @@ cvox.DomUtil.isSemanticElt = function(node) {
 
 /**
  * Determines whether or not a node is a leaf node.
+ * TODO (adu): This function is doing a lot more than just checking for the
+ *     presence of descendants. We should be more precise in the documentation
+ *     about what we mean by leaf node.
  *
  * @param {Node} node The node to be checked.
  * @return {boolean} True if the node is a leaf node.
@@ -180,9 +291,7 @@ cvox.DomUtil.isLeafNode = function(node) {
 
   // Now we know for sure it's an element.
   var element = /** @type {Element} */(node);
-
-  var style = document.defaultView.getComputedStyle(element, null);
-  if (cvox.DomUtil.isInvisibleStyle(style)) {
+  if (!cvox.DomUtil.isVisible(element, {checkAncestors: false})) {
     return true;
   }
   if (cvox.AriaUtil.isHidden(element)) {
@@ -494,9 +603,8 @@ cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
     if (!includeControls && cvox.DomUtil.isControl(child)) {
       continue;
     }
-    var childStyle = window.getComputedStyle(child, null);
-    if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
-        !cvox.AriaUtil.isHidden(child)) {
+    var isVisible = cvox.DomUtil.isVisible(child, {checkAncestors: false});
+    if (isVisible && !cvox.AriaUtil.isHidden(child)) {
       name += ' ' + cvox.DomUtil.getName(child, true, includeControls);
     }
   }
@@ -708,38 +816,17 @@ cvox.DomUtil.hasContent = function(node) {
     return false;
   }
 
-  // Exclude style nodes that have been dumped into the body
+  // Exclude style nodes that have been dumped into the body.
   if (cvox.DomUtil.isDescendantOf(node, 'STYLE')) {
     return false;
   }
 
-  // Check the style to exclude undisplayed/hidden nodes
-  var closestStyledParent = node;
-  // nodeType:3 == TEXT_NODE
-  while (closestStyledParent && (closestStyledParent.nodeType == 3)) {
-    closestStyledParent = closestStyledParent.parentNode;
-  }
-  if (closestStyledParent) {
-    var style =
-        document.defaultView.getComputedStyle(closestStyledParent, null);
-    if (cvox.DomUtil.isInvisibleStyle(style)) {
-      return false;
-    }
-    // TODO (clchen, raman): Look into why WebKit has a problem here.
-    // The issue is that getComputedStyle does not always return the correct
-    // result; manually going up the parent chain sometimes produces a different
-    // result than just using getComputedStyle.
-    var tempNode = closestStyledParent;
-    while (tempNode && tempNode.tagName != 'BODY') {
-      style = document.defaultView.getComputedStyle(tempNode, null);
-      if (cvox.DomUtil.isInvisibleStyle(style)) {
-        return false;
-      }
-      tempNode = tempNode.parentNode;
-    }
+  // Check the style to exclude undisplayed/hidden nodes.
+  if (!cvox.DomUtil.isVisible(node)) {
+    return false;
   }
 
-  // Ignore anything that is hidden by ARIA
+  // Ignore anything that is hidden by ARIA.
   if (cvox.AriaUtil.isHidden(node)) {
     return false;
   }
@@ -761,6 +848,8 @@ cvox.DomUtil.hasContent = function(node) {
     return true;
   }
 
+  var controlQuery = 'button,input,select,textarea';
+
   // Skip any non-control content inside of a label if the label is
   // correctly associated with a control, the label text will get spoken
   // when the control is reached.
@@ -769,8 +858,7 @@ cvox.DomUtil.hasContent = function(node) {
     enclosingLabel = enclosingLabel.parentElement;
   }
   if (enclosingLabel) {
-    var embeddedControl = enclosingLabel.querySelector(
-        'button,input,select,textarea');
+    var embeddedControl = enclosingLabel.querySelector(controlQuery);
     if (enclosingLabel.hasAttribute('for')) {
       var targetId = enclosingLabel.getAttribute('for');
       var targetNode = document.getElementById(targetId);
@@ -792,12 +880,12 @@ cvox.DomUtil.hasContent = function(node) {
     enclosingLegend = enclosingLegend.parentElement;
   }
   if (enclosingLegend) {
-    var embeddedControl = enclosingLegend.querySelector(
-        'button,input,select,textarea');
     var legendAncestor = enclosingLegend.parentElement;
     while (legendAncestor && legendAncestor.tagName != 'FIELDSET') {
       legendAncestor = legendAncestor.parentElement;
     }
+    var embeddedControl =
+        legendAncestor && legendAncestor.querySelector(controlQuery);
     if (legendAncestor && !embeddedControl) {
       return false;
     }
@@ -1134,7 +1222,7 @@ cvox.DomUtil.setFocus = function(targetNode, opt_focusDescendants) {
     // - instead, let the instance of ChromeVox in the iframe focus itself to
     // avoid getting trapped in iframes that have no ChromeVox in them.
     // This self focusing is performed by calling window.focus() in
-    // cvox.ChromeVoxNavigationManager.prototype.addInterframeListener_
+    // cvox.NavigationManager.prototype.addInterframeListener_
     if (targetNode.tagName != 'IFRAME') {
       // setTimeout must be used because there's a bug (in Chrome, I think)
       // with .focus() which causes the page to be redrawn incorrectly if
@@ -1358,9 +1446,56 @@ cvox.DomUtil.getSurroundingControl = function(node) {
 
 
 /**
+ * Given a node and a function for determining when to stop
+ * descent, return the next leaf-like node.
+ *
+ * @param {!Node} node The node from which to start looking,
+ * this node *must not* be above document.body
+ * @param {boolean} r True if reversed. False by default.
+ * @param {function(Node):boolean} isLeaf A function that
+ *   returns true if we should stop descending.
+ * @return {Node} The next leaf-like node or null if there is no next
+ *   leaf-like node.  This function will always return a node below
+ *   document.body and never document.body itself.
+ */
+cvox.DomUtil.directedNextLeafLikeNode = function(node, r, isLeaf) {
+  if (node != document.body) {
+    // if not at the top of the tree, we want to find the next possible
+    // branch forward in the dom, so we climb up the parents until we find a
+    // node that has a nextSibling
+    while (!cvox.DomUtil.directedNextSibling(node, r)) {
+      // since node is never above document.body, it always has a parent.
+      // so node.parentNode will never be null.
+      node = /** @type {!Node} */node.parentNode;
+      if (node == document.body) {
+        // we've readed the end of the document.
+        return null;
+      }
+    }
+    if (cvox.DomUtil.directedNextSibling(node, r)) {
+      // we just checked that next sibling is non-null.
+      node = /** @type {!Node} */cvox.DomUtil.directedNextSibling(node, r);
+    }
+  }
+  // once we're at our next sibling, we want to descend down into it as
+  // far as the child class will allow
+  while (cvox.DomUtil.directedFirstChild(node, r) && !isLeaf(node)) {
+    node = /** @type {!Node} */cvox.DomUtil.directedFirstChild(node, r);
+  }
+
+  // after we've done all that, if we are still at document.body, this must
+  // be an empty document.
+  if (node == document.body) {
+    return null;
+  }
+  return node;
+};
+
+
+/**
  * Given a node, returns the next leaf node.
  *
- * @param {Node} node The node from which to start looking
+ * @param {!Node} node The node from which to start looking
  * for the next leaf node.
  * @param {boolean=} reverse True if reversed. False by default.
  * @return {Node} The next leaf node.
@@ -1368,40 +1503,21 @@ cvox.DomUtil.getSurroundingControl = function(node) {
  */
 cvox.DomUtil.directedNextLeafNode = function(node, reverse) {
   reverse = !!reverse;
-  var tempNode = node;
-  while (tempNode && !cvox.DomUtil.directedNextSibling(tempNode, reverse)) {
-    tempNode = tempNode.parentNode;
-  }
-  if (tempNode && cvox.DomUtil.directedNextSibling(tempNode, reverse)) {
-    tempNode = cvox.DomUtil.directedNextSibling(tempNode, reverse);
-    while (!cvox.DomUtil.isLeafNode(tempNode)) {
-      tempNode = cvox.DomUtil.directedFirstChild(tempNode, reverse);
-    }
-  }
-  return tempNode;
+  return cvox.DomUtil.directedNextLeafLikeNode(
+      node, reverse, cvox.DomUtil.isLeafNode);
 };
 
 
 /**
  * Given a node, returns the previous leaf node.
  *
- * @param {Node} node The node from which to start looking
+ * @param {!Node} node The node from which to start looking
  * for the previous leaf node.
  * @return {Node} The previous leaf node.
  * Null if there is no previous leaf node.
  */
 cvox.DomUtil.previousLeafNode = function(node) {
-  var tempNode = node;
-  while (tempNode && (!tempNode.previousSibling)) {
-    tempNode = tempNode.parentNode;
-  }
-  if (tempNode && tempNode.previousSibling) {
-    tempNode = tempNode.previousSibling;
-    while (!cvox.DomUtil.isLeafNode(tempNode)) {
-      tempNode = tempNode.lastChild;
-    }
-  }
-  return tempNode;
+  return cvox.DomUtil.directedNextLeafNode(node, true);
 };
 
 
@@ -1470,32 +1586,38 @@ cvox.DomUtil.getLinkURL = function(node) {
 /**
  * Checks if a given node is inside a table and returns the table node if it is
  * @param {Node} node The node.
+ * @param {{allowCaptions: (undefined|boolean)}=} kwargs Optional named args.
+ *  allowCaptions: If true, will return true even if inside a caption. False
+ *    by default.
  * @return {Node} If the node is inside a table, the table node. Null if it
  * is not.
  */
-cvox.DomUtil.getContainingTable = function(node) {
+cvox.DomUtil.getContainingTable = function(node, kwargs) {
   var ancestors = cvox.DomUtil.getAncestors(node);
-  return cvox.DomUtil.findTableNodeInList(ancestors);
+  return cvox.DomUtil.findTableNodeInList(ancestors, kwargs);
 };
 
 
 /**
  * Extracts a table node from a list of nodes.
  * @param {Array.<Node>} nodes The list of nodes.
+ * @param {{allowCaptions: (undefined|boolean)}=} kwargs Optional named args.
+ *  allowCaptions: If true, will return true even if inside a caption. False
+ *    by default.
  * @return {Node} The table node if the list of nodes contains a table node.
  * Null if it does not.
  */
-cvox.DomUtil.findTableNodeInList = function(nodes) {
+cvox.DomUtil.findTableNodeInList = function(nodes, kwargs) {
+  kwargs = kwargs || {allowCaptions: false};
   // Don't include the caption node because it is actually rendered outside
   // of the table.
   for (var i = nodes.length - 1, node; node = nodes[i]; i--) {
     if (node.constructor != Text) {
-      if (node.tagName == 'CAPTION') {
+      if (!kwargs.allowCaptions && node.tagName == 'CAPTION') {
         return null;
       }
-      if ((node.tagName == 'TABLE') ||
-          cvox.AriaUtil.isGrid(node)) {
-          return node;
+      if ((node.tagName == 'TABLE') || cvox.AriaUtil.isGrid(node)) {
+        return node;
       }
     }
   }
@@ -1510,6 +1632,8 @@ cvox.DomUtil.findTableNodeInList = function(nodes) {
  * otherwise.
  */
 cvox.DomUtil.isLayoutTable = function(tableNode) {
+  // TODO(stoarca): Why are we returning based on this inaccurate heuristic
+  // instead of first trying the better heuristics below?
   if (tableNode.rows && (tableNode.rows.length == 1 ||
       (tableNode.rows[0].childElementCount == 1))) {
     // This table has only one row or only "one" column.
@@ -1799,7 +1923,8 @@ cvox.DomUtil.deepClone = function(node, skipattrs) {
  * Returns either node.firstChild or node.lastChild, depending on direction.
  * @param {Node|Text} node The node.
  * @param {boolean} reverse If reversed.
- * @return {Node|Text} The directed first child.
+ * @return {Node|Text} The directed first child or null if the node has
+ *   no children.
  */
 cvox.DomUtil.directedFirstChild = function(node, reverse) {
   if (reverse) {
@@ -1813,7 +1938,8 @@ cvox.DomUtil.directedFirstChild = function(node, reverse) {
  * direction.
  * @param {Node|Text} node The node.
  * @param {boolean=} reverse If reversed.
- * @return {Node|Text} The directed next sibling.
+ * @return {Node|Text} The directed next sibling or null if there are
+ *   no more siblings in that direction.
  */
 cvox.DomUtil.directedNextSibling = function(node, reverse) {
   if (reverse) {

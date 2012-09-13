@@ -21,13 +21,15 @@ goog.provide('cvox.MacroWriter');
 
 goog.require('cvox.ChromeVoxUserCommands');
 
+// TODO(dtseng): Bad idea; we are not set up to define commands outside of
+// ChromeVoxUserCommands.
 cvox.ChromeVoxUserCommands.commands['readMacroFromHtml'] =
 cvox.MacroWriter.readMacroFromHtml = function() {
   // Find the node called 'cvoxMacroCode'
   var elt = document.getElementById('cvoxMacroWriterCode');
   if (!elt) {
     window.console.log('Could not find the macro writer text box');
-    return;
+    return false;
   }
 
   // A list of commands:
@@ -49,7 +51,8 @@ cvox.MacroWriter.readMacroFromHtml = function() {
   eval(code);
 };
 
-cvox.ChromeVoxUserCommands.commands['addMacroWriter'] = function() {
+cvox.ChromeVoxUserCommands.commands['addMacroWriter'] =
+    /** @type {function(): boolean} */ function() {
   var ta = document.createElement('textarea');
   ta.id = 'cvoxMacroWriterCode';
   ta.style.height = '200px';

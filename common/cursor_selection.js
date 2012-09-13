@@ -122,6 +122,17 @@ cvox.CursorSelection.prototype.clone = function() {
 
 
 /**
+ * Places a DOM selection around this CursorSelection.
+ */
+cvox.CursorSelection.prototype.select = function() {
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  this.normalize();
+  sel.addRange(this.getRange_());
+};
+
+
+/**
  * Creates a new cursor selection that starts and ends at the node.
  * Returns null if node is null.
  * @param {Node} node The node.
@@ -132,6 +143,7 @@ cvox.CursorSelection.fromNode = function(node) {
     return null;
   }
   var text = cvox.TraverseUtil.getNodeText(node);
+
   return new cvox.CursorSelection(
       new cvox.Cursor(node, 0, text),
       new cvox.Cursor(node, 0, text));
@@ -182,4 +194,44 @@ cvox.CursorSelection.prototype.getRange_ = function() {
  */
 cvox.CursorSelection.prototype.equals = function(rhs) {
   return this.start.equals(rhs.start) && this.end.equals(rhs.end);
+};
+
+/**
+ * Check for equality regardless of direction.
+ * @param {!cvox.CursorSelection} rhs The CursorSelection to compare against.
+ * @return {boolean} True if equal.
+ */
+cvox.CursorSelection.prototype.absEquals = function(rhs) {
+  return ((this.start.equals(rhs.start) && this.end.equals(rhs.end)) ||
+      (this.end.equals(rhs.start) && this.start.equals(rhs.end)));
+};
+
+/**
+ * Determines if this starts before another CursorSelection in document order.
+ * If this is reversed, then a reversed document order is checked.
+ * In the case that this and rhs start at the same position, we return true.
+ * @param {!cvox.CursorSelection} rhs The selection to compare.
+ * @return {boolean} True if this is before rhs.
+ */
+cvox.CursorSelection.prototype.directedBefore = function(rhs) {
+  var leftToRight = this.start.node.compareDocumentPosition(rhs.start.node) ==
+      cvox.CursorSelection.BEFORE;
+  return this.start.node == rhs.start.node ||
+      (this.isReversed() ? !leftToRight : leftToRight);
+};
+/**
+ * Normalizes this selection.
+ * Use this routine to adjust CursorSelection's that have been collapsed due to
+ * convention such as when a CursorSelection references a node without attention
+ * to its endpoints.
+ * The result is to surround the node with this cursor.
+ * @return {!cvox.CursorSelection} The normalized selection.
+ */
+cvox.CursorSelection.prototype.normalize = function() {
+  if (this.absEnd().index == 0) {
+    this.absEnd().index = this.absEnd().node.nodeType == Node.TEXT_NODE ?
+      this.absEnd().text.length :
+      this.absEnd().node.children.length;
+  }
+  return this;
 };

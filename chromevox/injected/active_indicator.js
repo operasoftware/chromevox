@@ -222,6 +222,13 @@ cvox.ActiveIndicator.prototype.syncToNode = function(node) {
   if (!node) {
     return;
   }
+  // In the navigation manager, and specifically the node walkers, focusing
+  // on the body means we are before the beginning of the document.  In
+  // that case, we simply hide the active indicator.
+  if (node == document.body) {
+    this.removeFromDom();
+    return;
+  }
   this.syncToNodes([node]);
 };
 

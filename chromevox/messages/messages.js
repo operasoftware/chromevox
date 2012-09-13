@@ -65,11 +65,11 @@ msgs.MSG_CHROMEVOX_TOGGLE_STICKY_MODE =
     goog.getMsg('Enable/Disable sticky mode');
 
 /**
- * @desc The description of the toggleKeyPrefix key.
+ * @desc The description of the prefix key.
  * Displayed in the Options page.
  */
-msgs.MSG_CHROMEVOX_TOGGLE_KEY_PREFIX =
-    goog.getMsg('Key prefix');
+msgs.MSG_CHROMEVOX_PREFIX_KEY =
+    goog.getMsg('Prefix key');
 
 
 /**
@@ -1103,7 +1103,7 @@ msgs.MSG_CHROMEVOX_CHROME_BRIGHTNESS_CHANGED =
  * @desc Spoken when a new Chrome tab named 'title' is opened.
  */
 msgs.MSG_CHROMEVOX_CHROME_TAB_CREATED =
-    goog.getMsg('{$title}, tab created.', {'title': '$1'});
+    goog.getMsg('tab created.');
 
 
 /**
@@ -1313,6 +1313,16 @@ msgs.MSG_CHROMEVOX_DESCRIBE_SELECTED =
     goog.getMsg(', selected');
 
 
+
+
+/**
+ * @desc Spoken through the a11y api after describing an element if it is
+ * unselected.
+ */
+msgs.MSG_CHROMEVOX_DESCRIBE_UNSELECTED =
+    goog.getMsg(', unselected');
+
+
 /**
  * @desc Spoken through the a11y api after describing an element if it
  * is part of a group.
@@ -1383,11 +1393,23 @@ msgs.MSG_CHROMEVOX_STICKY_MODE_DISABLED =
     goog.getMsg('Sticky mode disabled');
 
 /**
- * @desc Prompt spoken when the user first opens the PowerKey window.
+ * @desc Prompt spoken when the user first opens the Keyboard Help Widget.
  */
-msgs.MSG_CHROMEVOX_POWERKEY_INIT_PROMPT =
-    goog.getMsg('Search for a keyboard shortcut or use Up/Down ' +
-                'arrow keys to browse.');
+msgs.MSG_CHROMEVOX_KEYBOARD_HELP_INTRO =
+    goog.getMsg('Keyboard Help');
+
+
+/**
+ * @desc Prompt spoken as a generic name for any choice widget.
+ */
+msgs.MSG_CHROMEVOX_CHOICE_WIDGET_NAME =
+    goog.getMsg('Chooser');
+
+/**
+ * @desc Prompt spoken as a help message when any choice widget is opened.
+ */
+msgs.MSG_CHROMEVOX_CHOICE_WIDGET_HELP =
+    goog.getMsg('Use up and down arrow keys to browse, or type to search.');
 
 /**
  * @desc Spoken when table mode reachs the end of a cell.
@@ -1853,13 +1875,6 @@ msgs.MSG_CHROMEVOX_NO_NEXT_RADIO_BUTTON =
  */
 msgs.MSG_CHROMEVOX_NO_PREVIOUS_RADIO_BUTTON =
     goog.getMsg('No previous radio button.');
-
-/**
- * @desc Spoken if there are no reasonable actions for the focused
- * HTML element.
- */
-msgs.MSG_CHROMEVOX_NO_ACTIONS =
-    goog.getMsg('No actions available.');
 
 /**
  * @desc Spoken when the current HTML element is clicked.

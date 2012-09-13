@@ -52,12 +52,22 @@ cvox.NavigationHistory.prototype.reset_ = function() {
   var startNode = document.body;
 
   /**
-   * An array of nodes ordered from newest to oldest in the history. For
-   * clarity, the most recent nodes are at the start of the array.
+   * An array of nodes ordered from newest to oldest in the history.
+   * The most recent nodes are at the start of the array.
    * @type {Array.<Node>}
    * @private
    */
   this.history_ = [startNode];
+
+  /**
+   * A flag to keep track of whether the last node added to the history was
+   * valid or not. If false, something strange might be going on, and we
+   * can react to this in the code.
+   * @type {boolean}
+   * @private
+   */
+  this.arrivedValid_ = true;
+
 };
 
 
@@ -79,20 +89,34 @@ cvox.NavigationHistory.prototype.update = function(newNode) {
       cvox.NavigationHistory.MAX_HISTORY_LEN_) {
     this.history_.pop();
   }
+
+  // Check if the node is valid upon arrival. If not, set a flag because
+  // something fishy is probably going on.
+  this.arrivedValid_ = this.isValidNode_(newNode);
 };
 
 
 /**
- * Routinely clean out history and determine if the given node is valid.
- * @param {Node} node The node to validate (resolve).
- * @return {boolean} True if the current navigation state is valid.
+ * Routinely clean out history and determine if the given node has become
+ * invalid since we arrived there (during the update call). If the node
+ * was already invalid, we will return false.
+ * @param {Node} node The node to check for validity change.
+ * @return {boolean} True if node changed state to invalid.
  */
-cvox.NavigationHistory.prototype.validate = function(node) {
+cvox.NavigationHistory.prototype.becomeInvalid = function(node) {
   // Remove any invalid nodes from history_.
   this.clean_();
 
+  // If node was somehow already invalid on arrival, the page was probably
+  // changing very quickly. Be defensive here and allow the default
+  // navigation action by returning true.
+  if (!this.arrivedValid_) {
+    this.arrivedValid_ = true; // Reset flag.
+    return false;
+  }
+
   // Run the validation method on the given node.
-  return this.isValidNode_(node);
+  return !this.isValidNode_(node);
 };
 
 
@@ -108,6 +132,13 @@ cvox.NavigationHistory.prototype.validate = function(node) {
  *     null or undefined means the history is empty.
  */
 cvox.NavigationHistory.prototype.revert = function(opt_predicate) {
+  // If the currently active element is valid, it is probably the best
+  // recovery target. Add it to the history before computing the reversion.
+  var active = document.activeElement;
+  if (active != document.body && this.isValidNode_(active)) {
+    this.update(active);
+  }
+
   // Remove the most-recent-nodes that do not match the predicate.
   if (opt_predicate) {
     while (this.history_.length > 0) {
@@ -120,11 +151,7 @@ cvox.NavigationHistory.prototype.revert = function(opt_predicate) {
   }
 
   // The reversion is just the first two nodes in the history.
-  var reversion = {
-    current: this.history_[0],
-    previous: this.history_[1]
-  };
-  return reversion;
+  return {current: this.history_[0], previous: this.history_[1]};
 };
 
 
@@ -148,8 +175,7 @@ cvox.NavigationHistory.prototype.clean_ = function() {
 
 /**
  * Determine if the given node is valid based on a heuristic.
- * A valid node must be attached to the DOM and
- * not hidden by CSS: (display:none, visibility:hidden, opacity:0)
+ * A valid node must be attached to the DOM and visible.
  * @param {Node} node The node to validate.
  * @return {boolean} True if node is valid.
  * @private
@@ -162,69 +188,9 @@ cvox.NavigationHistory.prototype.isValidNode_ = function(node) {
 
   // TODO (adu): In the future we may change this to just let users know the
   // node is invisible instead of restoring focus.
-  if (!this.isVisibleNode_(node)) {
+  if (!cvox.DomUtil.isVisible(node)) {
     return false;
   }
 
   return true;
-};
-
-
-/**
- * Determine if the given node is visible on the page. This does not check if
- * it is inside the document view-port as some sites try to communicate with
- * screen readers with such elements.
- * @param {Node} node The node to determine as visible or not.
- * @return {boolean} True if the node is visible.
- * @private
- */
-cvox.NavigationHistory.prototype.isVisibleNode_ = function(node) {
-  var ancestors = cvox.DomUtil.getAncestors(node);
-  // No reason to check the current node twice, remove from ancestor array.
-  var current = /** @type {Element} */ ancestors.pop();
-
-  // Confirm that no subtree containing node is hidden via style.
-  for (var i = 0; i < ancestors.length; i++) {
-    if (this.isInvisibleSubtree_(ancestors[i])) {
-      return false;
-    }
-  }
-
-  // Confirm current node is visible, including the visibility hidden check.
-  var style = document.defaultView.getComputedStyle(current, null);
-  if (cvox.DomUtil.isInvisibleStyle(style)) {
-    return false;
-  }
-
-  // The node is visible.
-  return true;
-};
-
-
-/**
- * Determine if a DOM subtree, defined by its root, must be invisible.
- * NOTE: We do not have to check every node in the subtree. It is sufficient to
- * check if the root node has either display none or opacity 0. If so, then all
- * decendents (including the root) must be invisible.
- * @param {Node} root The root of the DOM tree.
- * @return {boolean} True if the DOM tree and the root inclusive must be
- *     invisible.
- * @private
- */
-cvox.NavigationHistory.prototype.isInvisibleSubtree_ = function(root) {
-  // Cast because getComputedStyle expects an Element.
-  var element = /** @type {Element} */ root;
-  var style = document.defaultView.getComputedStyle(element, null);
-
-  // If no style was computed, the node must be visible by default.
-  if (!style) {
-    return false;
-  }
-  if (style.display == 'none') {
-    return true;
-  }
-  if (parseInt(style.opacity, 10) == 0) {
-    return true;
-  }
-  return false;
 };

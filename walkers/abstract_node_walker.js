@@ -49,46 +49,16 @@ goog.inherits(cvox.AbstractNodeWalker, cvox.AbstractWalker);
  */
 cvox.AbstractNodeWalker.prototype.next = function(sel) {
   var r = sel.isReversed();
-  var node = sel.end.node;
-
-  if (node == document.body && !cvox.DomUtil.directedFirstChild(node, r)) {
-    return sel;
-  }
+  var node = sel.end.node || document.body;
 
   do {
-    if (!node || node == document.body) {
-      // if null, we want to start from the beginning of the document
-      node = document.body;
-    } else {
-      // if not null, we want to find the next possible branch forward
-      // in the dom, so we climb up the parents until we find a
-      // node that has a nextSibling
-      while (node && !cvox.DomUtil.directedNextSibling(node, r)) {
-        node = node.parentNode;
-      }
-      if (node && cvox.DomUtil.directedNextSibling(node, r)) {
-        node = cvox.DomUtil.directedNextSibling(node, r);
-      }
-    }
+    node = cvox.DomUtil.directedNextLeafLikeNode(node, r,
+        goog.bind(this.stopNodeDescent, this));
     if (!node) {
-      // weve reached the end of the document
       return null;
-    }
-    // once we're at our next sibling, we want to descend down into it as
-    // far as the child class will allow
-    while (cvox.DomUtil.directedFirstChild(node, r) &&
-           !this.stopNodeDescent(node)) {
-      node = cvox.DomUtil.directedFirstChild(node, r);
     }
     // and repeat all of the above until we have a node that is not empty
   } while (node && !cvox.DomUtil.hasContent(node));
-
-  // special case body because if body is a valid selection, then
-  // we won't be able to move past it (since we use it as the absolute root
-  // of the tree).
-  if (node == document.body) {
-    return null;
-  }
 
   return cvox.CursorSelection.fromNode(node).setReversed(r);
 };

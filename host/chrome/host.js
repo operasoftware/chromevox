@@ -180,7 +180,9 @@ cvox.ChromeHost.prototype.onPageLoad = function() {
 
   cvox.ExtensionBridge.addDisconnectListener(goog.bind(function() {
     cvox.ChromeVox.isActive = false;
-    cvox.ChromeVoxEventWatcher.cleanup(document);
+    cvox.ChromeVoxEventWatcher.cleanup(window);
+    // TODO(stoarca): Huh?? Why are we resetting during disconnect?
+    // This is not appropriate behavior!
     cvox.ChromeVox.navigationManager.reset();
     this.unhidePageFromNativeScreenReaders();
   }, this));
@@ -212,8 +214,8 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
 
   // If ChromeVox is inactive, the event watcher will only listen
   // for key events.
-  cvox.ChromeVoxEventWatcher.cleanup(document);
-  cvox.ChromeVoxEventWatcher.init(document);
+  cvox.ChromeVoxEventWatcher.cleanup(window);
+  cvox.ChromeVoxEventWatcher.init(window);
 
   if (document.activeElement) {
     var speakNodeAlso = document.hasFocus();

@@ -45,12 +45,14 @@ goog.inherits(cvox.ObjectWalker, cvox.AbstractNodeWalker);
  */
 cvox.ObjectWalker.prototype.findNext = function(sel, predicate) {
   var r = sel.isReversed();
-  var prev = sel.clone();
+  // Sync since the caller can pass an unsync'ed selection.
+  var prev = this.sync(sel);
   var ret = prev;
   // TODO(stoarca): replace this with a nicer construct for safe infinite loop
   for (var i = 0; i < 1000; ++i) {
-    ret = cvox.CursorSelection.fromNode(
-        cvox.DomUtil.directedNextLeafNode(prev.start.node, r));
+    // Use ObjectWalker's traversal which guarantees us a stable iteration of
+    // the DOM including returning null at page bounds.
+    ret = this.next(prev || this.syncToPageBeginning({reversed: r}));
     // OPTMZ(stoarca): getUniqueAncestors is expensive when done 1000 times.
     if (!ret || predicate(cvox.DomUtil.getUniqueAncestors(prev.end.node,
                                                           ret.start.node))) {

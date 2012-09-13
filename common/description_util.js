@@ -120,7 +120,8 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     if (!personality) {
       personality = cvox.DomUtil.getPersonalityForNode(node);
     }
-    if (i < len - 1) {
+    // TODO(dtseng): Is this needed?
+    if (i < len - 1 && node.hasAttribute('role')) {
       var name = cvox.DomUtil.getName(node, false);
       if (name) {
         roleText = name + ' ' + roleText;

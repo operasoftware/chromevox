@@ -54,13 +54,6 @@
    var channel_;
 
    /**
-    * The next id to use for the cvoxid attribute that we add to elements
-    * in order to be able to find them from the content script.
-    * @type {number}
-    */
-   var nextCvoxId_ = 1;
-
-   /**
     * The next id to use for async callbacks.
     * @type {number}
     */
@@ -115,41 +108,6 @@
      channel_.port1.postMessage(JSON.stringify(message));
    }
 
-   /**
-    * Internal function that makes a serializable reference to a node.
-    * If the node or its parent has an ID, reference it directly. Otherwise,
-    * add a temporary cvoxid attribute. This has a corresponding method in
-    * api_implementation.js to decode this and return a node.
-    * @param {Node} targetNode The node to reference.
-    * @return {Object} A serializable node reference.
-    */
-   function makeNodeReference_(targetNode) {
-     if (targetNode.id &&
-         document.getElementById(targetNode.id) == targetNode) {
-       return {'id': targetNode.id};
-     } else if (targetNode instanceof HTMLElement) {
-       var cvoxid = nextCvoxId_;
-       targetNode.setAttribute('cvoxid', cvoxid);
-       nextCvoxId_ = (nextCvoxId_ + 1) % 100;
-       return {'cvoxid': cvoxid};
-     } else if (targetNode.parentElement) {
-       var parent = targetNode.parentElement;
-       var childIndex = -1;
-       for (var i = 0; i < parent.childNodes.length; i++) {
-         if (parent.childNodes[i] == targetNode) {
-           childIndex = i;
-         }
-       }
-       if (childIndex >= 0) {
-         var cvoxid = nextCvoxId_;
-         parent.setAttribute('cvoxid', cvoxid);
-         nextCvoxId_ = (nextCvoxId_ + 1) % 100;
-         return {'cvoxid': cvoxid, 'childIndex': childIndex};
-       }
-     }
-
-     throw 'Cannot reference node: ' + targetNode;
-   }
 
    /*
     * Public API.
@@ -235,7 +193,8 @@
 
      var message = {
        'cmd': 'speakNodeRef',
-       'args': [makeNodeReference_(targetNode), queueMode, properties]
+       'args': [cvox.ApiUtils.makeNodeReference(targetNode), queueMode,
+           properties]
      };
      channel_.port1.postMessage(JSON.stringify(message));
    };
@@ -320,9 +279,23 @@
 
      var message = {
        'cmd': 'syncToNodeRef',
-       'args': [makeNodeReference_(targetNode), speakNode]
+       'args': [cvox.ApiUtils.makeNodeReference(targetNode), speakNode]
      };
      channel_.port1.postMessage(JSON.stringify(message));
+   };
+
+   /**
+    * Retrieves the current node and calls the given callback function with it.
+    *
+    * @param {Function} callback The function to be called.
+    */
+   cvox.Api.getCurrentNode = function(callback) {
+     if (!cvox.Api.isChromeVoxActive() || !callback) {
+       return;
+     }
+     callAsync_({'cmd': 'getCurrentNode'}, function(response) {
+       callback(cvox.ApiUtils.getNodeFromRef(response['currentNode']));
+     });
    };
 
    /**
@@ -354,7 +327,7 @@
 
      var message = {
        'cmd': 'clickNodeRef',
-       'args': [makeNodeReference_(targetElement), shiftKey]
+       'args': [cvox.ApiUtils.makeNodeReference(targetElement), shiftKey]
      };
      channel_.port1.postMessage(JSON.stringify(message));
    };

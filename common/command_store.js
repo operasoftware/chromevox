@@ -62,7 +62,7 @@ cvox.CommandStore.store_ = [
 
   // TODO(dtseng): Pending additional boolean flag to exclude from options page.
   ['toggleStickyMode', 'toggle_sticky_mode', 'modifier_keys'],
-  ['toggleKeyPrefix', 'toggle_key_prefix', 'modifier_keys'],
+  ['toggleKeyPrefix', 'prefix_key', 'modifier_keys'],
 
   ['handleTab', 'handle_tab_next', 'chromevox_navigation'],
   ['handleTabPrev', 'handle_tab_prev', 'chromevox_navigation'],
@@ -82,9 +82,11 @@ cvox.CommandStore.store_ = [
 
   // ['enterCssSpace', 'enter_css_space', 'chromevox_navigation'],
 
+  ['readLinkURL', 'read_link_url', 'information'],
   ['readCurrentURL', 'read_current_url', 'information'],
   ['readCurrentTitle', 'read_current_title', 'information'],
   ['toggleSearchWidget', 'toggle_search_widget', 'information'],
+  ['fullyDescribe', 'fully_describe', 'information'],
 
   //  ['announcePosition', 'announce_position', 'information'],
   //  ['toggleFilteringWidget', 'toggle_filtering_widget', 'information'],
@@ -151,8 +153,6 @@ cvox.CommandStore.store_ = [
   ['toggleTable', 'toggle_table', 'tables'],
   ['announceHeaders', 'announce_headers', 'tables'],
   ['speakTableLocation', 'speak_table_location', 'tables'],
-  //['guessRowHeader', 'guess_row_header', 'tables'],
-  //['guessColHeader', 'guess_col_header', 'tables'],
   ['skipToBeginning', 'skip_to_beginning', 'tables'],
   ['skipToEnd', 'skip_to_end', 'tables'],
   ['skipToRowBeginning', 'skip_to_row_beginning', 'tables'],

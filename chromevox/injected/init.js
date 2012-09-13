@@ -26,7 +26,6 @@ goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxFiltering');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.ChromeVoxKbHandler');
-goog.require('cvox.ChromeVoxNavigationManager');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.DescriptionUtil');
@@ -34,6 +33,8 @@ goog.require('cvox.DomUtil');
 goog.require('cvox.HostFactory');
 goog.require('cvox.Lens');
 goog.require('cvox.LiveRegions');
+goog.require('cvox.NavigationManager');
+goog.require('cvox.Serializer');
 goog.require('cvox.SpokenMessages');
 goog.require('cvox.TtsHistory');
 
@@ -117,10 +118,11 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVox.earcons = cvox.HostFactory.getEarcons();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   cvox.ChromeVox.isActive = true;
-  cvox.ChromeVox.navigationManager =
-      new cvox.ChromeVoxNavigationManager();
-  cvox.ChromeVox.syncToNode =
-      cvox.ApiImplementation.syncToNode;
+  cvox.ChromeVox.navigationManager = new cvox.NavigationManager();
+  cvox.ChromeVox.navigationManager.updateIndicator();
+  cvox.ChromeVox.syncToNode = cvox.ApiImplementation.syncToNode;
+
+  cvox.ChromeVox.serializer = new cvox.Serializer();
 
   cvox.ChromeVox.speakInitialMessages = cvox.ChromeVox.speakInitialPageLoad;
 
@@ -128,7 +130,7 @@ cvox.ChromeVox.init = function() {
   cvox.ChromeVox.host.init();
 
   // Start the event watchers
-  cvox.ChromeVoxEventWatcher.init(document);
+  cvox.ChromeVoxEventWatcher.init(window);
 
   // Provide a way for modules that can't depend on cvox.ChromeVoxUserCommands
   // to execute commands.

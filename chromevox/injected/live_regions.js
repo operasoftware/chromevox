@@ -103,13 +103,8 @@ cvox.LiveRegions.updateLiveRegion = function(region, queueMode, disableSpeak) {
   }
 
   // Make sure it's visible.
-  var element = region;
-  while (element) {
-    var style = document.defaultView.getComputedStyle(element, null);
-    if (cvox.DomUtil.isInvisibleStyle(style)) {
-      return false;
-    }
-    element = element.parentElement;
+  if (!cvox.DomUtil.isVisible(region)) {
+    return false;
   }
 
   // Retrieve the previous value of this region if we've tracked it
@@ -235,8 +230,7 @@ cvox.LiveRegions.buildCurrentLiveRegionValue = function(node) {
   // Recursively add descriptions of child nodes.
   for (var i = 0; i < node.childNodes.length; i++) {
     var child = node.childNodes[i];
-    var childStyle = window.getComputedStyle(child, null);
-    if (!cvox.DomUtil.isInvisibleStyle(childStyle) &&
+    if (cvox.DomUtil.isVisible(child, {checkAncestors: false}) &&
         !cvox.AriaUtil.isHidden(child)) {
       var recursiveArray = cvox.LiveRegions.buildCurrentLiveRegionValue(child);
       result = result.concat(recursiveArray);

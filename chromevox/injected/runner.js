@@ -19,6 +19,7 @@
 
 goog.provide('cvox.AutoRunner');
 
+goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.History');
 goog.require('cvox.NodeBreadcrumb');
@@ -215,14 +216,13 @@ cvox.AutoRunner.prototype.runTest_ = function(func) {
  * TODO(deboer): Hard coding tests isn't fun.
  */
 cvox.AutoRunner.prototype.run = function() {
- new cvox.ChromeVoxChoiceWidget(
+  new cvox.ChoiceWidget(
      ['runRadioButtonAnnouncements',
       'runNextGranularity',
       'runBackForwardTest'],
      [goog.bind(this.runTest_, this, runRadioButtonAnnouncements),
       goog.bind(this.runTest_, this, runNextGranularity),
-      goog.bind(this.runTest_, this, runBackForwardTest)],
-     'Pick a test to run').show();
+      goog.bind(this.runTest_, this, runBackForwardTest)]).show();
 };
 
 

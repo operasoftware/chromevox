@@ -17,6 +17,8 @@
     "Cvox+C>U": "readCurrentURL",
     "Cvox+R": "readFromHere",
     "Cvox+K": "fullyDescribe",
+    "Cvox+S>B": "beginSelection",
+    "Cvox+S>F": "finishSelection",
     "Cvox+#190": "showPowerKey",
     "Cvox+H": "help",
     "Cvox+#191": "toggleSearchWidget",
