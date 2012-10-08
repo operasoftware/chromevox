@@ -93,14 +93,27 @@ cvox.ChromeVox.speakInitialPageLoad = function() {
   }
 };
 
+
+cvox.ChromeVox.initTimeout_ = 100;
+
 /**
  * Initializes cvox.ChromeVox.
  */
 cvox.ChromeVox.init = function() {
+  if (document.readyState != 'complete') {
+    window.console.log('ChromeVox not starting on unloaded page: ' +
+                       document.location.href +
+                       '. Will try again in ' +
+                       cvox.ChromeVox.initTimeout_ + 'ms');
+    window.setTimeout(cvox.ChromeVox.init, cvox.ChromeVox.initTimeout_);
+    cvox.ChromeVox.initTimeout_ *= 2;
+    return;
+  }
   // Setup globals
   cvox.ChromeVox.host = cvox.HostFactory.getHost();
 
   if (!cvox.ChromeVox.host.ttsLoaded()) {
+    window.console.log('ChromeVox not starting; waiting for TTS.');
     window.setTimeout(cvox.ChromeVox.init, 300);
     return;
   }

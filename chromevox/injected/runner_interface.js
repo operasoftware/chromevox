@@ -20,6 +20,8 @@
 
 goog.provide('cvox.RunnerInterface');
 
+goog.require('cvox.SpokenListBuilder');
+
 /**
  * @interface
  */
@@ -50,6 +52,16 @@ cvox.RunnerInterface.prototype.assertEquals = function(expected, actual) { };
  * @return {cvox.RunnerInterface} this.
  */
 cvox.RunnerInterface.prototype.assertSpoken = function(expected) { };
+
+/**
+ * Asserts a list of utterances are in the correct queue mode.
+ * @param {cvox.SpokenListBuilder|Array} expectedList A list
+ *     of [text, queueMode] tuples OR a SpokenListBuilder with the expected
+ *     utterances.
+ * @return {cvox.RunnerInterface} this.
+ */
+cvox.RunnerInterface.prototype.assertSpokenList = function(expectedList) { };
+
 
 /**
  * Appends HTML to the document.

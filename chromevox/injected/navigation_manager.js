@@ -31,6 +31,7 @@ goog.require('cvox.ChromeVoxEventSuspender');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
+goog.require('cvox.Focuser');
 goog.require('cvox.Interframe');
 goog.require('cvox.NavDescription');
 goog.require('cvox.NavigationHistory');
@@ -117,6 +118,14 @@ cvox.NavigationManager.prototype.reset = function() {
    */
   this.skipped_ = false;
 
+  /**
+   * Keeps track of whether we have recovered from dropped focus
+   * so that we can insert an earcon.
+   * @type {boolean}
+   * @private
+   */
+  this.recovered_ = false;
+
   // TODO(stoarca): Make private when external calls are gone.
   /**
    * True if in "reading from here" mode.
@@ -164,6 +173,9 @@ cvox.NavigationManager.prototype.reset = function() {
    */
   this.navigationHistory_ = new cvox.NavigationHistory();
 
+  /** @type {boolean} */
+  this.disableNavigationHistory_ = false;
+
   this.iframeIdMap = {};
   this.nextIframeId = 1;
 
@@ -184,6 +196,9 @@ cvox.NavigationManager.prototype.reset = function() {
  * @return {boolean} True if we should continue navigation normally.
  */
 cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
+  if (this.disableNavigationHistory_) {
+    return true;
+  }
   var current = this.getCurrentNode();
   if (!this.navigationHistory_.becomeInvalid(current)) {
     return true;
@@ -208,7 +223,24 @@ cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
   newSel.setReversed(this.isReversed());
 
   this.updateSel(newSel, context);
+  this.recovered_ = true;
   return false;
+};
+
+
+/**
+ * Disables NavigationHistory.
+ */
+cvox.NavigationManager.prototype.disableNavigationHistory = function() {
+  this.disableNavigationHistory_ = true;
+};
+
+
+/**
+ * Enables NavigationHistory.
+ */
+cvox.NavigationManager.prototype.enableNavigationHistory = function() {
+  this.disableNavigationHistory_ = false;
 };
 
 
@@ -225,7 +257,6 @@ cvox.NavigationManager.prototype.next_ = function(iframes) {
     this.pageSel_ && this.pageSel_.extend(this.curSel_);
     return true;
   }
-  this.finishSel();
   return false;
 };
 
@@ -267,20 +298,34 @@ cvox.NavigationManager.prototype.sync = function() {
   }
 };
 
-
 /**
- * Begins a DOM selection for the current CursorSelection in the document.
+ * Sync's all possible cursors:
+ * - focus
+ * - ActiveIndicator
+ * - CursorSelection
  */
-cvox.NavigationManager.prototype.beginSel = function() {
-  this.pageSel_ = new cvox.PageSelection(this.curSel_);
+cvox.NavigationManager.prototype.syncAll = function() {
+  this.sync();
+  this.setFocus();
+  this.updateIndicator();
 };
 
 
 /**
- * Finishes a DOM selection.
+ * Clears a DOM selection made via a CursorSelection.
  */
-cvox.NavigationManager.prototype.finishSel = function() {
+cvox.NavigationManager.prototype.clearPageSel = function() {
   this.pageSel_ = null;
+};
+
+
+/**
+ * Begins or finishes a DOM selection at the current CursorSelection in the
+ * document.
+ */
+cvox.NavigationManager.prototype.togglePageSel = function() {
+  this.pageSel_ = this.pageSel_ ? null : new cvox.PageSelection(this.curSel_);
+  return !!this.pageSel_;
 };
 
 
@@ -302,8 +347,12 @@ cvox.NavigationManager.prototype.getDescription = function() {
     earcons.push(cvox.AbstractEarcons.PARAGRAPH_BREAK);
     this.skipped_ = false;
   }
+  if (this.recovered_) {
+    earcons.push(cvox.AbstractEarcons.FONT_CHANGE);
+    this.recovered_ = false;
+  }
   if (this.bumpedEdge_) {
-    earcons.push(cvox.AbstractEarcons.WRAP);
+    earcons.push(cvox.AbstractEarcons.OBJECT_EXIT);
   }
   if (this.pageEnd_) {
     earcons.push(cvox.AbstractEarcons.WRAP);
@@ -395,10 +444,13 @@ cvox.NavigationManager.prototype.goToColLastCell = function() {
  */
 cvox.NavigationManager.prototype.nextRow = function() {
   if (!this.updateSel(this.navShifter_.nextRow(this.curSel_))) {
+    // This causes navigation to bump at the end of tables.
     if (this.bumpedEdge_) {
       return false;
     }
     this.bumpedEdge_ = true;
+  } else {
+    this.bumpedEdge_ = false;
   }
   return true;
 };
@@ -411,6 +463,7 @@ cvox.NavigationManager.prototype.nextRow = function() {
  */
 cvox.NavigationManager.prototype.nextCol = function() {
   this.updateSel(this.navShifter_.nextCol(this.curSel_));
+  this.bumpedEdge_ = false;
 };
 
 
@@ -519,13 +572,16 @@ cvox.NavigationManager.prototype.speakDescriptionArray = function(
 // TODO(stoarca): The stuff below belongs in its own layer.
 /**
  * Moves forward. Stops any subnavigation.
+ * @param {boolean=} opt_ignoreIframes Ignore iframes when navigating. Defaults
+ * to not ignore iframes.
+ * @return {boolean} False if end of document reached.
  */
-cvox.NavigationManager.prototype.navigate = function() {
+cvox.NavigationManager.prototype.navigate = function(opt_ignoreIframes) {
   if (!this.resolve()) {
-    return;
+    return false;
   }
   this.ensureNotSubnavigating();
-  this.next_(true);
+  return this.next_(!opt_ignoreIframes);
 };
 
 
@@ -624,6 +680,9 @@ cvox.NavigationManager.prototype.startNonCallbackReading_ =
  * @return {Array.<cvox.NavDescription>} The summary of the current position.
  */
 cvox.NavigationManager.prototype.getFullDescription = function() {
+  if (this.pageSel_) {
+    return this.pageSel_.getFullDescription();
+  }
   return [cvox.DescriptionUtil.getDescriptionFromAncestors(
       cvox.DomUtil.getAncestors(this.curSel_.start.node),
       true,
@@ -644,9 +703,9 @@ cvox.NavigationManager.prototype.setFocus = function() {
   if (this.isTableMode()) {
     // If there is a control element inside a cell, we want to give focus to
     // it so that it can be activated without getting out of table mode.
-    cvox.DomUtil.setFocus(this.curSel_.start.node, true);
+    cvox.Focuser.setFocus(this.curSel_.start.node, true);
   } else {
-    cvox.DomUtil.setFocus(this.curSel_.start.node);
+    cvox.Focuser.setFocus(this.curSel_.start.node);
   }
 };
 
@@ -656,7 +715,7 @@ cvox.NavigationManager.prototype.setFocus = function() {
  * @return {Node} The current node.
  */
 cvox.NavigationManager.prototype.getCurrentNode = function() {
-  return this.curSel_.start.node;
+  return this.curSel_.absStart().node;
 };
 
 
@@ -738,6 +797,7 @@ cvox.NavigationManager.prototype.tryExitTable = function() {
   // between table mode and not, despite the user command that claims to do
   // so. Keeping it for now to comply with old tests.
   this.navShifter_.ensureNotTableMode();
+  this.bumpedEdge_ = false;
   if (this.navShifter_.isInTable(this.curSel_)) {
     var node = cvox.DomUtil.getContainingTable(this.curSel_.start.node);
     if (!node) {
@@ -745,7 +805,7 @@ cvox.NavigationManager.prototype.tryExitTable = function() {
       return;
     }
     do {
-      node = cvox.DomUtil.directedNextLeafNode(node, r)
+      node = cvox.DomUtil.directedNextLeafNode(node, r);
     } while (node && !cvox.DomUtil.hasContent(node));
     var sel = cvox.CursorSelection.fromNode(node);
     if (sel) {
@@ -753,7 +813,6 @@ cvox.NavigationManager.prototype.tryExitTable = function() {
     }
     this.tryBoundaries_(sel, true);
     this.sync();
-    this.bumpedEdge_ = false;
   }
 };
 
@@ -772,7 +831,6 @@ cvox.NavigationManager.prototype.getFilteredWalker = function() {
  * Update the active indicator to reflect the current node or selection.
  */
 cvox.NavigationManager.prototype.updateIndicator = function() {
-  cvox.SelectionUtil.scrollElementsToView(this.curSel_.start.node);
   this.activeIndicator.syncToCursorSelection(this.curSel_);
 };
 
@@ -780,18 +838,27 @@ cvox.NavigationManager.prototype.updateIndicator = function() {
 /**
  * Show or hide the active indicator based on whether ChromeVox is
  * active or not.
+ *
+ * If 'active' is true, cvox.NavigationManager does not do anything.
+ * However, callers to showOrHideIndicator also need to call updateIndicator
+ * to update the indicator -- which also does the work to show the
+ * indicator.
+ *
+ * @param {boolean} active True if we should show the indicator, false
+ *     if we should hide the indicator.
  */
-cvox.NavigationManager.prototype.showOrHideIndicator = function() {
-  this.activeIndicator.setVisible(cvox.ChromeVox.isActive);
+cvox.NavigationManager.prototype.showOrHideIndicator = function(active) {
+  if (!active) {
+    this.activeIndicator.removeFromDom();
+  }
 };
 
 
 /**
  * This is used to update the selection to arbitrary nodes because there are
- * some callers who have the expectation that this works.
- * TODO (stoarca): The implementation is currently a hack. The walkers don't
- * currently support arbitrary nodes (nor did they previously, but there
- * was no comment about it).
+ * some callers who have the expectation that this works. The caller should
+ * expect the CursorSelection to sync to a node that we can describe. This may
+ * not be the same node given.
  * @param {Node} node The node to update to.
  */
 cvox.NavigationManager.prototype.updateSelToArbitraryNode = function(node) {
@@ -801,6 +868,7 @@ cvox.NavigationManager.prototype.updateSelToArbitraryNode = function(node) {
   this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
   if (node) {
     this.updateSel(cvox.CursorSelection.fromNode(node));
+    this.sync();
   } else {
     this.syncToPageBeginning();
   }
@@ -927,10 +995,11 @@ cvox.NavigationManager.prototype.tryTable_ = function(sel) {
   if (this.isTableMode()) {
     if (sel) {
       this.updateSel(sel);
+      this.bumpedEdge_ = false;
       return true;
     }
     this.tryExitTable();
-    return true
+    return true;
   } else {
     if (!sel) {
       return false;
@@ -963,4 +1032,3 @@ cvox.NavigationManager.prototype.syncToPageBeginning = function() {
 cvox.NavigationManager.prototype.ignoreIframesNoMatterWhat = function() {
   this.ignoreIframesNoMatterWhat_ = true;
 };
-

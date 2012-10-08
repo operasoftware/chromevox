@@ -25,9 +25,12 @@ uniq = $(if $(word 1, $(1)), $(call uniq2, $(1)), $(1))
 uniq2 = $(firstword $(1)) $(call uniq, $(filter-out $(firstword $(1)), $(wordlist 2, $(words $(1)), $(1))))
 
 
-deps.js: # empty
+deps.js: .FORCE
 	@echo Building Javascript dependencies deps.js
 	@$(DEPSWRITER) --root_with_prefix=". ../" >deps.js
+
+
+.FORCE:
 
 CHROMEVOX_manifest_manifest_gen_passthru_SRCS = chromevox/manifest_compiled.json
 CHROMEVOX_manifest_manifest_gen_passthru_FILES = chromevox/manifest_compiled_manifest/manifest.json
@@ -81,6 +84,14 @@ HOST_INTERFACE_abstract_msgs_DEPS = $(CLOSURE_base_FILES)
 HOST_INTERFACE_abstract_msgs_SRCS = host/interface/abstract_msgs.js
 HOST_INTERFACE_abstract_msgs_FILES = $(HOST_INTERFACE_abstract_msgs_DEPS) $(HOST_INTERFACE_abstract_msgs_SRCS)
 
+HOST_INTERFACE_braille_interface_DEPS = $(CLOSURE_base_FILES)
+HOST_INTERFACE_braille_interface_SRCS = host/interface/braille_interface.js
+HOST_INTERFACE_braille_interface_FILES = $(HOST_INTERFACE_braille_interface_DEPS) $(HOST_INTERFACE_braille_interface_SRCS)
+
+HOST_INTERFACE_abstract_braille_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_braille_interface_FILES))
+HOST_INTERFACE_abstract_braille_SRCS = host/interface/abstract_braille.js
+HOST_INTERFACE_abstract_braille_FILES = $(HOST_INTERFACE_abstract_braille_DEPS) $(HOST_INTERFACE_abstract_braille_SRCS)
+
 HOST_INTERFACE_abstract_earcons_DEPS = $(CLOSURE_base_FILES)
 HOST_INTERFACE_abstract_earcons_SRCS = host/interface/abstract_earcons.js
 HOST_INTERFACE_abstract_earcons_FILES = $(HOST_INTERFACE_abstract_earcons_DEPS) $(HOST_INTERFACE_abstract_earcons_SRCS)
@@ -97,7 +108,7 @@ HOST_INTERFACE_abstract_tts_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INT
 HOST_INTERFACE_abstract_tts_SRCS = host/interface/abstract_tts.js
 HOST_INTERFACE_abstract_tts_FILES = $(HOST_INTERFACE_abstract_tts_DEPS) $(HOST_INTERFACE_abstract_tts_SRCS)
 
-HOST_INTERFACE_host_factory_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(HOST_INTERFACE_abstract_host_FILES) $(HOST_INTERFACE_abstract_msgs_FILES) $(HOST_INTERFACE_abstract_tts_FILES))
+HOST_INTERFACE_host_factory_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_braille_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(HOST_INTERFACE_abstract_host_FILES) $(HOST_INTERFACE_abstract_msgs_FILES) $(HOST_INTERFACE_abstract_tts_FILES))
 HOST_INTERFACE_host_factory_SRCS = host/interface/host_factory.js
 HOST_INTERFACE_host_factory_FILES = $(HOST_INTERFACE_host_factory_DEPS) $(HOST_INTERFACE_host_factory_SRCS)
 
@@ -121,10 +132,6 @@ COMMON_cursor_DEPS = $(CLOSURE_base_FILES)
 COMMON_cursor_SRCS = common/cursor.js
 COMMON_cursor_FILES = $(COMMON_cursor_DEPS) $(COMMON_cursor_SRCS)
 
-CHROMEVOX_INJECTED_event_suspender_DEPS = $(CLOSURE_base_FILES)
-CHROMEVOX_INJECTED_event_suspender_SRCS = chromevox/injected/event_suspender.js
-CHROMEVOX_INJECTED_event_suspender_FILES = $(CHROMEVOX_INJECTED_event_suspender_DEPS) $(CHROMEVOX_INJECTED_event_suspender_SRCS)
-
 COMMON_aria_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(COMMON_chromevox_FILES))
 COMMON_aria_util_SRCS = common/aria_util.js
 COMMON_aria_util_FILES = $(COMMON_aria_util_DEPS) $(COMMON_aria_util_SRCS)
@@ -133,7 +140,7 @@ COMMON_xpath_util_DEPS = $(CLOSURE_base_FILES)
 COMMON_xpath_util_SRCS = common/xpath_util.js
 COMMON_xpath_util_FILES = $(COMMON_xpath_util_DEPS) $(COMMON_xpath_util_SRCS)
 
-COMMON_dom_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_xpath_util_FILES))
+COMMON_dom_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_xpath_util_FILES))
 COMMON_dom_util_SRCS = common/dom_util.js
 COMMON_dom_util_FILES = $(COMMON_dom_util_DEPS) $(COMMON_dom_util_SRCS)
 
@@ -152,6 +159,10 @@ COMMON_editable_text_area_shadow_FILES = $(COMMON_editable_text_area_shadow_DEPS
 COMMON_editable_text_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_content_editable_extractor_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_area_shadow_FILES))
 COMMON_editable_text_SRCS = common/editable_text.js
 COMMON_editable_text_FILES = $(COMMON_editable_text_DEPS) $(COMMON_editable_text_SRCS)
+
+HOST_CHROME_braille_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(HOST_INTERFACE_abstract_braille_FILES))
+HOST_CHROME_braille_background_SRCS = host/chrome/braille_background.js
+HOST_CHROME_braille_background_FILES = $(HOST_CHROME_braille_background_DEPS) $(HOST_CHROME_braille_background_SRCS)
 
 HOST_CHROME_earcons_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_earcons_FILES))
 HOST_CHROME_earcons_background_SRCS = host/chrome/earcons_background.js
@@ -177,7 +188,11 @@ CHROMEVOX_BACKGROUND_injected_script_loader_DEPS = $(CLOSURE_base_FILES)
 CHROMEVOX_BACKGROUND_injected_script_loader_SRCS = chromevox/background/injected_script_loader.js
 CHROMEVOX_BACKGROUND_injected_script_loader_FILES = $(CHROMEVOX_BACKGROUND_injected_script_loader_DEPS) $(CHROMEVOX_BACKGROUND_injected_script_loader_SRCS)
 
-COMMON_key_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
+COMMON_key_sequence_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(COMMON_chromevox_json_FILES))
+COMMON_key_sequence_SRCS = common/key_sequence.js
+COMMON_key_sequence_FILES = $(COMMON_key_sequence_DEPS) $(COMMON_key_sequence_SRCS)
+
+COMMON_key_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(COMMON_key_sequence_FILES))
 COMMON_key_util_SRCS = common/key_util.js
 COMMON_key_util_FILES = $(COMMON_key_util_DEPS) $(COMMON_key_util_SRCS)
 
@@ -208,6 +223,22 @@ CHROMEVOX_INJECTED_script_installer_FILES = $(CHROMEVOX_INJECTED_script_installe
 CHROMEVOX_INJECTED_api_implementation_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_buildinfo_FILES) $(COMMON_chromevox_FILES) $(COMMON_chromevox_json_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_api_util_FILES) $(CHROMEVOX_INJECTED_script_installer_FILES))
 CHROMEVOX_INJECTED_api_implementation_SRCS = chromevox/injected/api_implementation.js
 CHROMEVOX_INJECTED_api_implementation_FILES = $(CHROMEVOX_INJECTED_api_implementation_DEPS) $(CHROMEVOX_INJECTED_api_implementation_SRCS)
+
+CHROMEVOX_INJECTED_event_suspender_DEPS = $(CLOSURE_base_FILES)
+CHROMEVOX_INJECTED_event_suspender_SRCS = chromevox/injected/event_suspender.js
+CHROMEVOX_INJECTED_event_suspender_FILES = $(CHROMEVOX_INJECTED_event_suspender_DEPS) $(CHROMEVOX_INJECTED_event_suspender_SRCS)
+
+COMMON_focuser_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(COMMON_dom_util_FILES))
+COMMON_focuser_SRCS = common/focuser.js
+COMMON_focuser_FILES = $(COMMON_focuser_DEPS) $(COMMON_focuser_SRCS)
+
+COMMON_platform_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
+COMMON_platform_util_SRCS = common/platform_util.js
+COMMON_platform_util_FILES = $(COMMON_platform_util_DEPS) $(COMMON_platform_util_SRCS)
+
+COMMON_time_widget_DEPS = $(CLOSURE_base_FILES)
+COMMON_time_widget_SRCS = common/time_widget.js
+COMMON_time_widget_FILES = $(COMMON_time_widget_DEPS) $(COMMON_time_widget_SRCS)
 
 CHROMEVOX_INJECTED_node_breadcrumb_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
 CHROMEVOX_INJECTED_node_breadcrumb_SRCS = chromevox/injected/node_breadcrumb.js
@@ -365,11 +396,11 @@ CHROMEVOX_INJECTED_navigation_speaker_DEPS = $(call uniq, $(CLOSURE_base_FILES) 
 CHROMEVOX_INJECTED_navigation_speaker_SRCS = chromevox/injected/navigation_speaker.js
 CHROMEVOX_INJECTED_navigation_speaker_FILES = $(CHROMEVOX_INJECTED_navigation_speaker_DEPS) $(CHROMEVOX_INJECTED_navigation_speaker_SRCS)
 
-CHROMEVOX_INJECTED_navigation_manager_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_interframe_FILES) $(COMMON_nav_description_FILES) $(COMMON_page_selection_FILES) $(COMMON_selection_util_FILES) $(COMMON_walker_decorator_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_navigation_history_FILES) $(CHROMEVOX_INJECTED_navigation_shifter_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES))
+CHROMEVOX_INJECTED_navigation_manager_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_focuser_FILES) $(COMMON_interframe_FILES) $(COMMON_nav_description_FILES) $(COMMON_page_selection_FILES) $(COMMON_selection_util_FILES) $(COMMON_walker_decorator_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_navigation_history_FILES) $(CHROMEVOX_INJECTED_navigation_shifter_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES))
 CHROMEVOX_INJECTED_navigation_manager_SRCS = chromevox/injected/navigation_manager.js
 CHROMEVOX_INJECTED_navigation_manager_FILES = $(CHROMEVOX_INJECTED_navigation_manager_DEPS) $(CHROMEVOX_INJECTED_navigation_manager_SRCS)
 
-CHROMEVOX_INJECTED_UI_search_widget_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_navigation_manager_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES))
+CHROMEVOX_INJECTED_UI_search_widget_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_navigation_manager_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES))
 CHROMEVOX_INJECTED_UI_search_widget_SRCS = chromevox/injected/ui/search_widget.js
 CHROMEVOX_INJECTED_UI_search_widget_FILES = $(CHROMEVOX_INJECTED_UI_search_widget_DEPS) $(CHROMEVOX_INJECTED_UI_search_widget_SRCS)
 
@@ -377,19 +408,31 @@ COMMON_css_space_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_
 COMMON_css_space_SRCS = common/css_space.js
 COMMON_css_space_FILES = $(COMMON_css_space_DEPS) $(COMMON_css_space_SRCS)
 
+CHROMEVOX_TESTING_spoken_list_builder_DEPS = $(CLOSURE_base_FILES)
+CHROMEVOX_TESTING_spoken_list_builder_SRCS = chromevox/testing/spoken_list_builder.js
+CHROMEVOX_TESTING_spoken_list_builder_FILES = $(CHROMEVOX_TESTING_spoken_list_builder_DEPS) $(CHROMEVOX_TESTING_spoken_list_builder_SRCS)
+
+CHROMEVOX_INJECTED_runner_interface_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_TESTING_spoken_list_builder_FILES))
+CHROMEVOX_INJECTED_runner_interface_SRCS = chromevox/injected/runner_interface.js
+CHROMEVOX_INJECTED_runner_interface_FILES = $(CHROMEVOX_INJECTED_runner_interface_DEPS) $(CHROMEVOX_INJECTED_runner_interface_SRCS)
+
+CHROMEVOX_TESTING_abstract_test_case_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_runner_interface_FILES) $(CHROMEVOX_TESTING_spoken_list_builder_FILES))
+CHROMEVOX_TESTING_abstract_test_case_SRCS = chromevox/testing/abstract_test_case.js
+CHROMEVOX_TESTING_abstract_test_case_FILES = $(CHROMEVOX_TESTING_abstract_test_case_DEPS) $(CHROMEVOX_TESTING_abstract_test_case_SRCS)
+
 HOST_TESTING_tts_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(HOST_INTERFACE_host_factory_FILES))
 HOST_TESTING_tts_SRCS = host/testing/tts.js
 HOST_TESTING_tts_FILES = $(HOST_TESTING_tts_DEPS) $(HOST_TESTING_tts_SRCS)
 
-CHROMEVOX_INJECTED_runner_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_choice_widget_FILES) $(COMMON_composite_tts_FILES) $(HOST_TESTING_tts_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_node_breadcrumb_FILES))
+CHROMEVOX_INJECTED_runner_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_choice_widget_FILES) $(CHROMEVOX_TESTING_abstract_test_case_FILES) $(CHROMEVOX_TESTING_spoken_list_builder_FILES) $(COMMON_composite_tts_FILES) $(HOST_TESTING_tts_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_node_breadcrumb_FILES) $(CHROMEVOX_INJECTED_runner_interface_FILES))
 CHROMEVOX_INJECTED_runner_SRCS = chromevox/injected/runner.js
 CHROMEVOX_INJECTED_runner_FILES = $(CHROMEVOX_INJECTED_runner_DEPS) $(CHROMEVOX_INJECTED_runner_SRCS)
 
-CHROMEVOX_INJECTED_user_commands_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(CHROMEVOX_INJECTED_UI_node_chooser_widget_FILES) $(CHROMEVOX_INJECTED_UI_search_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_space_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_runner_FILES))
+CHROMEVOX_INJECTED_user_commands_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(CHROMEVOX_INJECTED_UI_node_chooser_widget_FILES) $(CHROMEVOX_INJECTED_UI_search_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_space_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(COMMON_platform_util_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_runner_FILES))
 CHROMEVOX_INJECTED_user_commands_SRCS = chromevox/injected/user_commands.js
 CHROMEVOX_INJECTED_user_commands_FILES = $(CHROMEVOX_INJECTED_user_commands_DEPS) $(CHROMEVOX_INJECTED_user_commands_SRCS)
 
-CHROMEVOX_INJECTED_keyboard_handler_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_key_util_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
+CHROMEVOX_INJECTED_keyboard_handler_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_key_sequence_FILES) $(COMMON_key_util_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
 CHROMEVOX_INJECTED_keyboard_handler_SRCS = chromevox/injected/keyboard_handler.js
 CHROMEVOX_INJECTED_keyboard_handler_FILES = $(CHROMEVOX_INJECTED_keyboard_handler_DEPS) $(CHROMEVOX_INJECTED_keyboard_handler_SRCS)
 
@@ -401,7 +444,7 @@ CHROMEVOX_INJECTED_macro_writer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHRO
 CHROMEVOX_INJECTED_macro_writer_SRCS = chromevox/injected/macro_writer.js
 CHROMEVOX_INJECTED_macro_writer_FILES = $(CHROMEVOX_INJECTED_macro_writer_DEPS) $(CHROMEVOX_INJECTED_macro_writer_SRCS)
 
-CHROMEVOX_INJECTED_event_watcher_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_keyboard_handler_FILES) $(CHROMEVOX_INJECTED_live_regions_FILES) $(CHROMEVOX_INJECTED_macro_writer_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
+CHROMEVOX_INJECTED_event_watcher_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_FILES) $(COMMON_focuser_FILES) $(COMMON_platform_util_FILES) $(COMMON_time_widget_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_keyboard_handler_FILES) $(CHROMEVOX_INJECTED_live_regions_FILES) $(CHROMEVOX_INJECTED_macro_writer_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
 CHROMEVOX_INJECTED_event_watcher_SRCS = chromevox/injected/event_watcher.js
 CHROMEVOX_INJECTED_event_watcher_FILES = $(CHROMEVOX_INJECTED_event_watcher_DEPS) $(CHROMEVOX_INJECTED_event_watcher_SRCS)
 
@@ -425,7 +468,7 @@ CHROMEVOX_BACKGROUND_options_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEV
 CHROMEVOX_BACKGROUND_options_SRCS = chromevox/background/options.js
 CHROMEVOX_BACKGROUND_options_FILES = $(CHROMEVOX_BACKGROUND_options_DEPS) $(CHROMEVOX_BACKGROUND_options_SRCS)
 
-CHROMEVOX_BACKGROUND_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(COMMON_chromevox_FILES) $(COMMON_composite_tts_FILES) $(COMMON_editable_text_FILES) $(HOST_CHROME_earcons_background_FILES) $(HOST_CHROME_extension_bridge_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_background_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_BACKGROUND_accessibility_api_handler_FILES) $(CHROMEVOX_BACKGROUND_injected_script_loader_FILES) $(CHROMEVOX_BACKGROUND_options_FILES) $(CHROMEVOX_BACKGROUND_prefs_FILES))
+CHROMEVOX_BACKGROUND_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(COMMON_chromevox_FILES) $(COMMON_composite_tts_FILES) $(COMMON_editable_text_FILES) $(HOST_CHROME_braille_background_FILES) $(HOST_CHROME_earcons_background_FILES) $(HOST_CHROME_extension_bridge_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_background_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_BACKGROUND_accessibility_api_handler_FILES) $(CHROMEVOX_BACKGROUND_injected_script_loader_FILES) $(CHROMEVOX_BACKGROUND_options_FILES) $(CHROMEVOX_BACKGROUND_prefs_FILES))
 CHROMEVOX_BACKGROUND_background_SRCS = chromevox/background/background.js
 CHROMEVOX_BACKGROUND_background_FILES = $(CHROMEVOX_BACKGROUND_background_DEPS) $(CHROMEVOX_BACKGROUND_background_SRCS)
 
@@ -451,6 +494,10 @@ chromeVoxChromeOptionsScript.js: $(chromeVoxChromeOptionsScript_DEPS)
 	@$(CLOSURE_COMPILER) --js $(chromeVoxChromeOptionsScript_DEPS) --js_output_file chromeVoxChromeOptionsScript.js
 
 
+HOST_CHROME_braille_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_braille_FILES) $(HOST_INTERFACE_host_factory_FILES))
+HOST_CHROME_braille_SRCS = host/chrome/braille.js
+HOST_CHROME_braille_FILES = $(HOST_CHROME_braille_DEPS) $(HOST_CHROME_braille_SRCS)
+
 CHROMEVOX_INJECTED_UI_filtering_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_navigation_manager_FILES) $(CHROMEVOX_MESSAGES_spoken_messages_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES))
 CHROMEVOX_INJECTED_UI_filtering_SRCS = chromevox/injected/ui/filtering.js
 CHROMEVOX_INJECTED_UI_filtering_FILES = $(CHROMEVOX_INJECTED_UI_filtering_DEPS) $(CHROMEVOX_INJECTED_UI_filtering_SRCS)
@@ -475,7 +522,7 @@ CHROMEVOX_INJECTED_init_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_IN
 CHROMEVOX_INJECTED_init_SRCS = chromevox/injected/init.js
 CHROMEVOX_INJECTED_init_FILES = $(CHROMEVOX_INJECTED_init_DEPS) $(CHROMEVOX_INJECTED_init_SRCS)
 
-CHROMEVOX_INJECTED_loader_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_CHROME_earcons_FILES) $(HOST_CHROME_host_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_FILES) $(CHROMEVOX_INJECTED_init_FILES))
+CHROMEVOX_INJECTED_loader_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_CHROME_braille_FILES) $(HOST_CHROME_earcons_FILES) $(HOST_CHROME_host_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_FILES) $(CHROMEVOX_INJECTED_init_FILES))
 CHROMEVOX_INJECTED_loader_SRCS = chromevox/injected/loader.js
 CHROMEVOX_INJECTED_loader_FILES = $(CHROMEVOX_INJECTED_loader_DEPS) $(CHROMEVOX_INJECTED_loader_SRCS)
 
@@ -500,14 +547,6 @@ chromeVoxKbExplorerScript.js: $(chromeVoxKbExplorerScript_DEPS)
 	@echo Building Javascript binary chromeVoxKbExplorerScript.js
 	@$(CLOSURE_COMPILER) --js $(chromeVoxKbExplorerScript_DEPS) --js_output_file chromeVoxKbExplorerScript.js
 
-
-CHROMEVOX_INJECTED_runner_interface_DEPS = $(CLOSURE_base_FILES)
-CHROMEVOX_INJECTED_runner_interface_SRCS = chromevox/injected/runner_interface.js
-CHROMEVOX_INJECTED_runner_interface_FILES = $(CHROMEVOX_INJECTED_runner_interface_DEPS) $(CHROMEVOX_INJECTED_runner_interface_SRCS)
-
-CHROMEVOX_TESTING_abstract_test_case_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_runner_interface_FILES))
-CHROMEVOX_TESTING_abstract_test_case_SRCS = chromevox/testing/abstract_test_case.js
-CHROMEVOX_TESTING_abstract_test_case_FILES = $(CHROMEVOX_TESTING_abstract_test_case_DEPS) $(CHROMEVOX_TESTING_abstract_test_case_SRCS)
 
 HOST_TESTING_host_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_host_FILES) $(HOST_INTERFACE_host_factory_FILES))
 HOST_TESTING_host_SRCS = host/testing/host.js
@@ -553,8 +592,8 @@ chromeVoxTestsScript.js: $(chromeVoxTestsScript_DEPS)
 CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES = $(wildcard chromevox/background/earcons/*.ogg)
 CHROMEVOX_BACKGROUND_EARCONS_ogg_files: $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES)
 
-CHROMEVOX_BACKGROUND_html_files_FILES = $(wildcard chromevox/background/*.html)
-CHROMEVOX_BACKGROUND_html_files: $(CHROMEVOX_BACKGROUND_html_files_FILES)
+CHROMEVOX_BACKGROUND_html_and_css_files_FILES = $(call uniq, $(wildcard chromevox/background/*.html) $(wildcard chromevox/background/*.css))
+CHROMEVOX_BACKGROUND_html_and_css_files: $(CHROMEVOX_BACKGROUND_html_and_css_files_FILES)
 
 CHROMEVOX_png_files_FILES = $(wildcard chromevox/*.png)
 CHROMEVOX_png_files: $(CHROMEVOX_png_files_FILES)
@@ -562,7 +601,7 @@ CHROMEVOX_png_files: $(CHROMEVOX_png_files_FILES)
 CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES = $(wildcard chromevox/background/keymaps/*.json)
 CHROMEVOX_BACKGROUND_KEYMAPS_json_files: $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES)
 
-chromevox_deploy_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) $(chromeVoxChromeBackgroundScript.js_FILES) $(chromeVoxChromeOptionsScript.js_FILES) $(chromeVoxChromePageScript.js_FILES) $(chromeVoxKbExplorerScript.js_FILES) $(chromeVoxTestsScript.js_FILES) closure/closure_preinit.js $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox/injected/api.js chromevox/injected/api_util.js $(CHROMEVOX_BACKGROUND_html_files_FILES) $(CHROMEVOX_png_files_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES))
+chromevox_deploy_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) $(chromeVoxChromeBackgroundScript.js_FILES) $(chromeVoxChromeOptionsScript.js_FILES) $(chromeVoxChromePageScript.js_FILES) $(chromeVoxKbExplorerScript.js_FILES) $(chromeVoxTestsScript.js_FILES) closure/closure_preinit.js $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox/injected/api.js chromevox/injected/api_util.js $(CHROMEVOX_BACKGROUND_html_and_css_files_FILES) $(CHROMEVOX_png_files_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES))
 chromevox_deploy_fs_out_FILES = chromevox_deploy_fs_out
 chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@echo Building Fileset chromevox_deploy_fs_out
@@ -583,7 +622,7 @@ chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@mkdir -p chromevox_deploy_fs_out/chromevox/injected
 	@cp chromevox/injected/api_util.js chromevox_deploy_fs_out/chromevox/injected
 	@mkdir -p chromevox_deploy_fs_out/chromevox/background
-	@cp $(CHROMEVOX_BACKGROUND_html_files_FILES) chromevox_deploy_fs_out/chromevox/background
+	@cp $(CHROMEVOX_BACKGROUND_html_and_css_files_FILES) chromevox_deploy_fs_out/chromevox/background
 	@mkdir -p chromevox_deploy_fs_out/chromevox
 	@cp $(CHROMEVOX_png_files_FILES) chromevox_deploy_fs_out/chromevox
 	@mkdir -p chromevox_deploy_fs_out/chromevox/background/keymaps
@@ -618,7 +657,7 @@ chromevox_deploy_uncompiled_fs_out: $(chromevox_deploy_uncompiled_fs_out_SRCS)
 
 chromevox_deploy_uncompiled_fs: chromevox_deploy_uncompiled_fs_out
 chromevox_deploy_uncompiled_fs_FILES = $(chromevox_deploy_uncompiled_fs_out_FILES)
-chromevox: deps.js chromevox_deploy_uncompiled_fs
+chromevox: host/testing/test_messages.js chromevox_deploy_uncompiled_fs deps.js
 	@echo Building unpacked Chrome extension for chromevox
 	@cp -a chromevox_deploy_uncompiled_fs_out/* .
 
@@ -877,7 +916,7 @@ chromevis_deploy_uncompiled_fs_out: $(chromevis_deploy_uncompiled_fs_out_SRCS)
 
 chromevis_deploy_uncompiled_fs: chromevis_deploy_uncompiled_fs_out
 chromevis_deploy_uncompiled_fs_FILES = $(chromevis_deploy_uncompiled_fs_out_FILES)
-chromevis: deps.js chromevis_deploy_uncompiled_fs
+chromevis: host/testing/test_messages.js chromevis_deploy_uncompiled_fs deps.js
 	@echo Building unpacked Chrome extension for chromevis
 	@cp -a chromevis_deploy_uncompiled_fs_out/* .
 
@@ -1020,7 +1059,7 @@ chromeshades_deploy_uncompiled_fs_out: $(chromeshades_deploy_uncompiled_fs_out_S
 
 chromeshades_deploy_uncompiled_fs: chromeshades_deploy_uncompiled_fs_out
 chromeshades_deploy_uncompiled_fs_FILES = $(chromeshades_deploy_uncompiled_fs_out_FILES)
-chromeshades: deps.js chromeshades_deploy_uncompiled_fs
+chromeshades: host/testing/test_messages.js chromeshades_deploy_uncompiled_fs deps.js
 	@echo Building unpacked Chrome extension for chromeshades
 	@cp -a chromeshades_deploy_uncompiled_fs_out/* .
 
@@ -1095,7 +1134,7 @@ caretbrowsing_deploy_uncompiled_fs_out: $(caretbrowsing_deploy_uncompiled_fs_out
 
 caretbrowsing_deploy_uncompiled_fs: caretbrowsing_deploy_uncompiled_fs_out
 caretbrowsing_deploy_uncompiled_fs_FILES = $(caretbrowsing_deploy_uncompiled_fs_out_FILES)
-caretbrowsing: deps.js caretbrowsing_deploy_uncompiled_fs
+caretbrowsing: host/testing/test_messages.js caretbrowsing_deploy_uncompiled_fs deps.js
 	@echo Building unpacked Chrome extension for caretbrowsing
 	@cp -a caretbrowsing_deploy_uncompiled_fs_out/* .
 
@@ -1193,112 +1232,12 @@ cvoxext_deploy_uncompiled_fs_out: $(cvoxext_deploy_uncompiled_fs_out_SRCS)
 
 cvoxext_deploy_uncompiled_fs: cvoxext_deploy_uncompiled_fs_out
 cvoxext_deploy_uncompiled_fs_FILES = $(cvoxext_deploy_uncompiled_fs_out_FILES)
-cvoxext: deps.js cvoxext_deploy_uncompiled_fs
+cvoxext: host/testing/test_messages.js cvoxext_deploy_uncompiled_fs deps.js
 	@echo Building unpacked Chrome extension for cvoxext
 	@cp -a cvoxext_deploy_uncompiled_fs_out/* .
 
-CVOXEXT_internal_manifestmanifest_gen_SRCS = cvoxext/internal_manifest.json
-CVOXEXT_internal_manifestmanifest_gen_FILES = cvoxext/internal_manifest_compiled_manifest/manifest.json
-cvoxext/internal_manifest_compiled_manifest/manifest.json: $(CVOXEXT_internal_manifestmanifest_gen_SRCS)
-	@echo Generating file cvoxext/internal_manifest_compiled_manifest/manifest.json
-	@mkdir -p $(dir cvoxext/internal_manifest_compiled_manifest/manifest.json)
-	@cat $< | sed -e 's/loader.js/LOADER.JS/' | grep -vE '^ *"[^ ]*.js"' | sed -e 's/LOADER.JS/binary.js/' >$@
-
-
-CVOXEXT_internal_manifest_compiled_manifest/manifest.json_FILES = $(CVOXEXT_internal_manifestmanifest_gen_FILES)
-CVOXEXT_internal_loader_SRCS = cvoxext/internal_loader.js
-CVOXEXT_internal_loader_FILES = $(CVOXEXT_internal_loader_SRCS)
-
-CVOXEXT_internal_binary_DEPS = $(CVOXEXT_internal_loader_FILES)
-cvoxext/internal_binary.js_FILES = cvoxext/internal_binary.js
-cvoxext/internal_binary.js: $(CVOXEXT_internal_binary_DEPS)
-	@echo Building Javascript binary cvoxext/internal_binary.js
-	@$(CLOSURE_COMPILER) --js $(CVOXEXT_internal_binary_DEPS) --js_output_file cvoxext/internal_binary.js
-
-
-CVOXEXT_internal_binary.js_FILES = cvoxext/internal_binary.js
-cvoxext_internal_deploy_fs_out_SRCS = $(call uniq, $(CVOXEXT_internal_manifest_compiled_manifest/manifest.json_FILES) $(CVOXEXT_internal_binary.js_FILES) cvoxext/common/main.js cvoxext/common/util.js cvoxext/common/speakable.js cvoxext/common/speakable_manager.js cvoxext/common/speakable_parser.js cvoxext/common/traverse_manager.js cvoxext/common/listeners.js cvoxext/common/extension.js cvoxext/extensions/buganizer.js cvoxext/extensions/books.js cvoxext/extensions/calculator.js cvoxext/extensions/calendar.js cvoxext/extensions/drive.js cvoxext/extensions/finance.js cvoxext/extensions/finance_stock_screener.js cvoxext/extensions/gmail.js cvoxext/extensions/news.js cvoxext/extensions/plus.js external/sprintf-0.7-beta1.js)
-cvoxext_internal_deploy_fs_out_FILES = cvoxext_internal_deploy_fs_out
-cvoxext_internal_deploy_fs_out: $(cvoxext_internal_deploy_fs_out_SRCS)
-	@echo Building Fileset cvoxext_internal_deploy_fs_out
-	@mkdir -p $(cvoxext_internal_deploy_fs_out_FILES)
-	@cp $(CVOXEXT_internal_manifest_compiled_manifest/manifest.json_FILES) cvoxext_internal_deploy_fs_out/
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext
-	@cp $(CVOXEXT_internal_binary.js_FILES) cvoxext_internal_deploy_fs_out/cvoxext
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/main.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/util.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/speakable.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/speakable_manager.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/speakable_parser.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/traverse_manager.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/listeners.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp cvoxext/common/extension.js cvoxext_internal_deploy_fs_out/cvoxext/common
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/buganizer.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/books.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/calculator.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/calendar.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/drive.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/finance.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/finance_stock_screener.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/gmail.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/news.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@cp cvoxext/extensions/plus.js cvoxext_internal_deploy_fs_out/cvoxext/extensions
-	@mkdir -p cvoxext_internal_deploy_fs_out/cvoxext/common
-	@cp external/sprintf-0.7-beta1.js cvoxext_internal_deploy_fs_out/cvoxext/common
-
-cvoxext_internal_deploy_fs: cvoxext_internal_deploy_fs_out
-cvoxext_internal_deploy_fs_FILES = $(cvoxext_internal_deploy_fs_out_FILES)
-cvoxext_internal_deploy_crx_SRCS = $(call uniq, $(cvoxext_internal_deploy_fs_FILES) private_keys/cvoxext_internal.pem external/package.sh)
-cvoxext_internal_deploy_crx_FILES = cvoxext_internal_deploy.crx
-cvoxext_internal_deploy.crx: $(cvoxext_internal_deploy_crx_SRCS)
-	@echo Generating file cvoxext_internal_deploy.crx
-	@external/package.sh --key private_keys/cvoxext_internal.pem --src $(cvoxext_internal_deploy_fs_FILES) --crx $@
-
-
-CVOXEXT_internal_manifest_uncompiled_manifest_gen_SRCS = cvoxext/internal_manifest.json
-CVOXEXT_internal_manifest_uncompiled_manifest_gen_FILES = cvoxext/internal_manifest_uncompiled_manifest/manifest.json
-cvoxext/internal_manifest_uncompiled_manifest/manifest.json: $(CVOXEXT_internal_manifest_uncompiled_manifest_gen_SRCS)
-	@echo Generating file cvoxext/internal_manifest_uncompiled_manifest/manifest.json
-	@mkdir -p $(dir cvoxext/internal_manifest_uncompiled_manifest/manifest.json)
-	@cat $< >$@
-
-
-CVOXEXT_internal_manifest_uncompiled_manifest/manifest.json_FILES = $(CVOXEXT_internal_manifest_uncompiled_manifest_gen_FILES)
-cvoxext_internal_deploy_uncompiled_fs_out_SRCS = $(call uniq, $(CVOXEXT_internal_manifest_uncompiled_manifest/manifest.json_FILES) external/sprintf-0.7-beta1.js)
-cvoxext_internal_deploy_uncompiled_fs_out_FILES = cvoxext_internal_deploy_uncompiled_fs_out
-cvoxext_internal_deploy_uncompiled_fs_out: $(cvoxext_internal_deploy_uncompiled_fs_out_SRCS)
-	@echo Building Fileset cvoxext_internal_deploy_uncompiled_fs_out
-	@mkdir -p $(cvoxext_internal_deploy_uncompiled_fs_out_FILES)
-	@cp $(CVOXEXT_internal_manifest_uncompiled_manifest/manifest.json_FILES) cvoxext_internal_deploy_uncompiled_fs_out/
-	@mkdir -p cvoxext_internal_deploy_uncompiled_fs_out/cvoxext/common
-	@cp external/sprintf-0.7-beta1.js cvoxext_internal_deploy_uncompiled_fs_out/cvoxext/common
-
-cvoxext_internal_deploy_uncompiled_fs: cvoxext_internal_deploy_uncompiled_fs_out
-cvoxext_internal_deploy_uncompiled_fs_FILES = $(cvoxext_internal_deploy_uncompiled_fs_out_FILES)
-cvoxext_internal: deps.js cvoxext_internal_deploy_uncompiled_fs
-	@echo Building unpacked Chrome extension for cvoxext_internal
-	@cp -a cvoxext_internal_deploy_uncompiled_fs_out/* .
-
 clean:
-	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json host/testing/test_messages.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromeshades/injected/binary.js chromeshades/injected/accesserrors_binary.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromevox/manifest_compiled_manifest/manifest.json chromevox/manifest_uncompiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis/background/background.js chromevis/injected/binary.js chromevis/i18n_messages_localized__en.js chromevis/_locales/en/messages.json chromevis/manifest_compiled_manifest/manifest.json chromevis/manifest_uncompiled_manifest/manifest.json chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing/injected/binary.js caretbrowsing/manifest_compiled_manifest/manifest.json caretbrowsing/manifest_uncompiled_manifest/manifest.json caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades/background/binary.js chromeshades/devtools/binary.js chromeshades/manifest_compiled_manifest/manifest.json chromeshades/manifest_uncompiled_manifest/manifest.json chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext/manifest_compiled_manifest/manifest.json cvoxext/manifest_uncompiled_manifest/manifest.json cvoxext/internal_manifest_compiled_manifest/manifest.json cvoxext/internal_manifest_uncompiled_manifest/manifest.json cvoxext/binary.js cvoxext/internal_binary.js cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx cvoxext_internal_deploy_fs_out cvoxext_internal_deploy_fs cvoxext_internal_deploy_uncompiled_fs_out cvoxext_internal_deploy_uncompiled_fs cvoxext_internal_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx cvoxext_internal_deploy_fs_out cvoxext_internal_deploy_fs cvoxext_internal_deploy_uncompiled_fs_out cvoxext_internal_deploy_uncompiled_fs cvoxext_internal_deploy.crx
+	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json host/testing/test_messages.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromeshades/injected/binary.js chromeshades/injected/accesserrors_binary.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromevox/manifest_compiled_manifest/manifest.json chromevox/manifest_uncompiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis/background/background.js chromevis/injected/binary.js chromevis/i18n_messages_localized__en.js chromevis/_locales/en/messages.json chromevis/manifest_compiled_manifest/manifest.json chromevis/manifest_uncompiled_manifest/manifest.json chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing/injected/binary.js caretbrowsing/manifest_compiled_manifest/manifest.json caretbrowsing/manifest_uncompiled_manifest/manifest.json caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades/background/binary.js chromeshades/devtools/binary.js chromeshades/manifest_compiled_manifest/manifest.json chromeshades/manifest_uncompiled_manifest/manifest.json chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext/manifest_compiled_manifest/manifest.json cvoxext/manifest_uncompiled_manifest/manifest.json cvoxext/binary.js cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx
 
-all: chromevox cvoxext_internal_deploy.crx cvoxext chromeshades_deploy.crx androidVoxDev.js chromevox_deploy.crx caretbrowsing chromeshades chromevis cvoxext_internal caretbrowsing_deploy.crx chromevis_deploy.crx clankVoxDev.js cvoxext_deploy.crx
+all: chromevox cvoxext chromeshades_deploy.crx androidVoxDev.js chromevox_deploy.crx caretbrowsing chromeshades chromevis caretbrowsing_deploy.crx chromevis_deploy.crx clankVoxDev.js cvoxext_deploy.crx
 

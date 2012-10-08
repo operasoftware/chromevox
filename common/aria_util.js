@@ -254,6 +254,28 @@ cvox.AriaUtil.getRoleNameForRole_ = function(role) {
 };
 
 /**
+ * Returns true is the node is any kind of button.
+ *
+ * @param {Node} node The node to check.
+ * @return {boolean} True if the node is a button.
+ */
+cvox.AriaUtil.isButton = function(node) {
+  var role = cvox.AriaUtil.getRoleAttribute(node);
+  if (role == 'button') {
+    return true;
+  }
+  if (node.tagName == 'BUTTON') {
+    return true;
+  }
+  if (node.tagName == 'INPUT') {
+    return (node.type == 'submit' ||
+            node.type == 'reset' ||
+            node.type == 'button');
+  }
+  return false;
+};
+
+/**
  * Returns a string to be presented to the user that identifies what the
  * targetNode's role is.
  *
@@ -264,6 +286,13 @@ cvox.AriaUtil.getRoleName = function(targetNode) {
   var roleName;
   if (targetNode && targetNode.getAttribute) {
     var role = cvox.AriaUtil.getRoleAttribute(targetNode);
+
+    // Special case for pop-up buttons.
+    if (targetNode.getAttribute('aria-haspopup') == 'true' &&
+        cvox.AriaUtil.isButton(targetNode)) {
+      return cvox.ChromeVox.msgs.getMsg('aria_role_popup_button');
+    }
+
     if (role) {
       roleName = cvox.AriaUtil.getRoleNameForRole_(role);
       if (!roleName) {
@@ -338,10 +367,12 @@ cvox.AriaUtil.getState = function(targetNode, primary) {
 
   var role = cvox.AriaUtil.getRoleAttribute(targetNode);
   if (targetNode.getAttribute('aria-haspopup') == 'true') {
-    if (role == 'menu') {
-      state = state + ' has submenu';
+    if (role == 'menuitem') {
+      state = state + ' ' + cvox.ChromeVox.msgs.getMsg('has_submenu');
+    } else if (cvox.AriaUtil.isButton(targetNode)) {
+      // Do nothing - the role name will be 'pop-up button'.
     } else {
-      state = state + ' has pop up';
+      state = state + ' ' + cvox.ChromeVox.msgs.getMsg('has_popup');
     }
   }
 

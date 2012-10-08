@@ -946,41 +946,6 @@ msgs.MSG_CHROMEVOX_OPTIONS_PAGE_SUMMARY =
 
 
 /**
- * @desc An options page section header for options about the magnifier.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_MAGNIFIER =
-    goog.getMsg('Magnifier');
-
-
-/**
- * @desc An option to show the magnifier.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_MAGNIFIER_SHOW_CHECKBOX =
-    goog.getMsg('Show Magnifier');
-
-
-/**
- * @desc An option to show the magnifier at the top of page.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_MAGNIFIER_TOP_OF_PAGE =
-    goog.getMsg('At top of page');
-
-
-/**
- * @desc An option to show the magnifier next to the focused element.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_MAGNIFIER_NEXT_FOCUSED =
-    goog.getMsg('Next to focused element');
-
-
-/**
- * @desc An options page section header for options about the mouse.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_MOUSE =
-    goog.getMsg('Mouse');
-
-
-/**
  * @desc An option to enable the page focus following the mouse.  Focus
  * represents the current HTML element or group of elements that are being
  * spoken and can be acted upon.  There is also a visual UI which highlights
@@ -990,58 +955,85 @@ msgs.MSG_CHROMEVOX_OPTIONS_MOUSE =
  * also be changed using the ChromeVox navigation keys and an API.
  */
 msgs.MSG_CHROMEVOX_OPTIONS_MOUSE_FOCUS_FOLLOWS =
-    goog.getMsg('Focus follows mouse');
+    goog.getMsg('Use the mouse to change focus.');
 
-
-/**
- * @desc An options page section header for options about verbosity.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_VERBOSITY =
-    goog.getMsg('Verbosity');
 
 /**
  * @desc An option to use more verbose feedback for the user.
  */
 msgs.MSG_CHROMEVOX_OPTIONS_VERBOSITY_VERBOSE =
-    goog.getMsg('Verbose');
-
-
-/**
- * @desc An option to use more succinct feedback for the user.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_VERBOSITY_BRIEF =
-    goog.getMsg('Brief');
-
-/**
- * @desc An options page section header for options about the cursor
- * position when editing text.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_CURSOR =
-    goog.getMsg('When editing text');
+    goog.getMsg('Enable verbose descriptions.');
 
 
 /**
  * @desc An option to show the cursor between characters.
  */
 msgs.MSG_CHROMEVOX_OPTIONS_CURSOR_BETWEEN_CHARACTERS =
-    goog.getMsg('The cursor is between characters (like on Mac OS X)');
+    goog.getMsg('Place cursor between characters when editing text (like Mac ' +
+                'OS X).');
 
 
 /**
- * @desc An option to show the cursor on the character being edited.
+ * @desc An option to show the magnifier.
  */
-msgs.MSG_CHROMEVOX_OPTIONS_CURSOR_ON_CHARACTER =
-    goog.getMsg('The cursor is on a character (like on Windows)');
+msgs.MSG_CHROMEVOX_OPTIONS_MAGNIFIER_SHOW_CHECKBOX =
+    goog.getMsg('Show a magnified view of the page content.');
 
 
 /**
- * @desc An options page section header for options about key assignments.
+ * @desc An options page section header for options about the ChromeVox voice.
+ * This section lets users change the voice by selecting a different voice from
+ * a listbox.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_VOICES = goog.getMsg('Voices');
+
+
+/**
+ * @desc Labels the voice selection list box.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_VOICES_DESCRIPTION = goog.getMsg('Change the ' +
+    'current voice by selecting an option from the list below.');
+
+
+/**
+ * @desc An options page section header for options about key shortcuts.
  * This section lets users change the key bindings for ChromeVox actions.
- * The section has a list of actions and a text feild to change the binding
+ * The section has a list of actions and a text field to change the binding
  * (e.g. Ctrl-B) for each action.
  */
-msgs.MSG_CHROMEVOX_OPTIONS_KEY_ASSIGNMENTS =
-    goog.getMsg('Key assignments');
+msgs.MSG_CHROMEVOX_OPTIONS_KEYBOARD_SHORTCUTS =
+    goog.getMsg('Keyboard shortcuts');
+
+
+/**
+ * @desc Labels the key map selection combo box. Key maps describe a pairing
+ * of keys users use to invoke a command.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_KEYMAP_DESCRIPTION =
+    goog.getMsg('Change the current keymap by selecting an option from the ' +
+                'list below.');
+
+
+/**
+ * @desc A button to reset the key assignments in the options page.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_SELECT_KEYS =
+    goog.getMsg('Select keymap');
+
+
+/**
+ * @desc Labels the keyboard shortcut section.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_SHORTCUTS_DESCRIPTION =
+    goog.getMsg('Customize keyboard shortcuts for frequently used commands ' +
+        'by typing them into the corresponding fields below.');
+
+
+/**
+ * @desc An options page section header for the modifier key section.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_MODIFIER_KEYS=
+    goog.getMsg('Modifier keys');
 
 
 /**
@@ -1049,22 +1041,11 @@ msgs.MSG_CHROMEVOX_OPTIONS_KEY_ASSIGNMENTS =
  * ChromeVox modifier key (aka, the 'Cvox' key).
  */
 msgs.MSG_CHROMEVOX_OPTIONS_CVOX_MODIFIER_KEY =
-    goog.getMsg('ChromeVox modifier key combination (Cvox)');
+    goog.getMsg('ChromeVox modifier key');
 
 
-/**
- * @desc A button to reset the key assignments in the options page.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_RESET_KEYS =
-    goog.getMsg('Select keymap');
+// The keyboard explorer.
 
-
-/**
- * @desc Labels the key map selection combo box. Key maps describe a pairing
- * of keys users use to invoke a command.
- */
-msgs.MSG_CHROMEVOX_OPTIONS_SELECT_KEYMAP =
-    goog.getMsg('Use the keymap:');
 
 /**
  * @desc The title of the ChromeOS Keyboard explorer page.  The keyboard
@@ -2031,6 +2012,11 @@ msgs.MSG_CHROMEVOX_ARIA_ROLE_MENUITEMRADIO =
 msgs.MSG_CHROMEVOX_ARIA_ROLE_OPTION = goog.getMsg(' ');
 
 /**
+ * @desc Describes an element with the ARIA role button, with a pop-up.
+ */
+msgs.MSG_CHROMEVOX_ARIA_ROLE_POPUP_BUTTON = goog.getMsg('Pop-up button');
+
+/**
  * @desc Describes an element with the ARIA role progressbar.
  */
 msgs.MSG_CHROMEVOX_ARIA_ROLE_PROGRESSBAR = goog.getMsg('Progress bar');
@@ -2607,6 +2593,18 @@ msgs.MSG_CHROMEVOX_STATE_PERCENT =
     goog.getMsg('{$num}%', {'num': '$1'});
 
 /**
+ * @desc Phrase indicating a menu item has a submenu.
+ */
+msgs.MSG_CHROMEVOX_HAS_SUBMENU =
+    goog.getMsg('with submenu');
+
+/**
+ * @desc Phrase indicating a control has a pop-up component to it.
+ */
+msgs.MSG_CHROMEVOX_HAS_POPUP =
+    goog.getMsg('has popup');
+
+/**
  * @desc Describes a collection of tags. e.g. A 'link collection'.
  */
 msgs.MSG_CHROMEVOX_COLLECTION = goog.getMsg(
@@ -2858,12 +2856,6 @@ msgs.MSG_CHROMEVOX_CHARACTER_GRANULARITY = goog.getMsg('Character');
 
 
 /**
- * @desc The text of the label for the choice of default voice. Shown in the
- * options page.
- */
-msgs.MSG_CHROMEVOX_TTS_VOICES = goog.getMsg('Speak using the voice');
-
-/**
  * @desc Spoken when the search widget first shows.
  */
 msgs.MSG_CHROMEVOX_SEARCH_WIDGET_INTRO = goog.getMsg('Find in page.');
@@ -2879,6 +2871,12 @@ msgs.MSG_CHROMEVOX_SEARCH_WIDGET_INTRO_HELP =
  */
 msgs.MSG_CHROMEVOX_SEARCH_WIDGET_OUTRO =
     goog.getMsg('Exiting find in page.');
+
+/**
+ * @desc Spoken message when the search widget has no more search results.
+ */
+msgs.MSG_CHROMEVOX_SEARCH_WIDGET_NO_RESULTS =
+    goog.getMsg('No more results.');
 
 /**
  * @desc Category displayed in the options page under keyboard commands.
@@ -2930,15 +2928,140 @@ msgs.MSG_CHROMEVOX_DEVELOPER = goog.getMsg('Developer');
 /**
  * @desc Name of the classic key map.
  */
-msgs.MSG_CHROMEVOX_KEYMAP_CLASSIC = goog.getMsg('Classic');
+msgs.MSG_CHROMEVOX_KEYMAP_CLASSIC = goog.getMsg('Classic keymap');
 
 /**
  * @desc Name of the alternate key map.
  */
-msgs.MSG_CHROMEVOX_KEYMAP_ALT1 = goog.getMsg('Alternate 1');
+msgs.MSG_CHROMEVOX_KEYMAP_ALT1 = goog.getMsg('Alternative keymap 1');
 
 /**
  * @desc Description of the TTS console logging command.
  * Displayed in the options page.
  */
 msgs.MSG_CHROMEVOX_ENABLE_TTS_LOG = goog.getMsg('Enable TTS logging');
+
+/**
+ * @desc Spoken when a user begins a selection on a webpage.
+ */
+msgs.MSG_CHROMEVOX_BEGIN_SELECTION = goog.getMsg('Start selection');
+
+/**
+ * @desc Spoken when a user ends a selection on a webpage.
+ */
+msgs.MSG_CHROMEVOX_END_SELECTION = goog.getMsg('End selection');
+
+/**
+ * @desc Spoken to describe the current selection.
+ */
+msgs.MSG_CHROMEVOX_SELECTION_IS = goog.getMsg('Selection is ');
+
+/**
+ * @desc Describes the toggle selection command.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_TOGGLE_SELECTION = goog.getMsg('Start or end selection.');
+
+/**
+ * @desc Spoken when the browser's copy command is invoked.
+ */
+msgs.MSG_CHROMEVOX_COPY = goog.getMsg('copy.');
+
+/**
+ * @desc Spoken when the browser's cut command is invoked.
+ *
+  */
+msgs.MSG_CHROMEVOX_CUT = goog.getMsg('cut.');
+
+/**
+ * @desc Spoken when the browser's paste command is invoked.
+ */
+msgs.MSG_CHROMEVOX_PASTE = goog.getMsg('paste.');
+
+/**
+ * @desc Spoken in place of characters typed in a password input field.
+ */
+msgs.MSG_CHROMEVOX_DOT = goog.getMsg('dot');
+
+/**
+ * @desc Spoken when additional characters are selected in editable text.
+ */
+msgs.MSG_CHROMEVOX_SELECTED = goog.getMsg('selected');
+
+/**
+ * @desc Spoken in editable text when text is unselected.
+ */
+msgs.MSG_CHROMEVOX_UNSELECTED = goog.getMsg('unselected');
+
+/**
+ * @desc Spoken when more than one character gets added to selection in editable
+ * text.
+ */
+msgs.MSG_CHROMEVOX_ADDED_TO_SELECTION = goog.getMsg('added to selection');
+
+/**
+ * @desc Spoken when more than one character gets removed from selection in
+ * editable text.
+ */
+msgs.MSG_CHROMEVOX_REMOVED_FROM_SELECTION =
+    goog.getMsg('removed from selection');
+
+/**
+ * @desc Spoken as the conjunction between hotkey combinations like ctrl then
+ * alt followed by a.
+ */
+msgs.MSG_CHROMEVOX_THEN = goog.getMsg('then');
+
+/**
+ * @desc Spoken as the conjunction between hotkey combinations like ctrl then
+ * alt followed by a.
+ */
+msgs.MSG_CHROMEVOX_FOLLOWED_BY = goog.getMsg('followed by');
+
+/**
+ * @desc Spoken to describe the ChromeVox modifier keys when describing a key
+ * combination.
+ */
+msgs.MSG_CHROMEVOX_MODIFIER_KEY = goog.getMsg('ChromeVox modifier');
+
+/**
+ * @desc Spoken when a key conflict occurs in the options page.
+ */
+msgs.MSG_CHROMEVOX_KEY_CONFLICT =
+    goog.getMsg('{$key} is already assigned to a command.', {'key': '$1'});
+
+/**
+ * @desc Time widget. Indicates the user is on the AM/PM field.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_AMPM = goog.getMsg('AM PM');
+
+/**
+ * @desc Time widget. Indicates the user is on the hours field.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_HOURS = goog.getMsg('hours');
+
+/**
+ * @desc Time widget. Indicates the user is on the minutes field.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_MINUTES = goog.getMsg('minutes');
+
+/**
+ * @desc Time widget. Indicates the user is on the seconds field.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_SECONDS = goog.getMsg('seconds');
+
+/**
+ * @desc Time widget. Indicates the user is on the milliseconds field.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_MILLISECONDS = goog.getMsg('milliseconds');
+
+/**
+ * @desc Time widget. Indicates the AM/PM is set to AM.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_AM = goog.getMsg('AM');
+
+/**
+ * @desc Time widget. Indicates the AM/PM is set to PM.
+ */
+msgs.MSG_CHROMEVOX_TIMEWIDGET_PM = goog.getMsg('PM');
+

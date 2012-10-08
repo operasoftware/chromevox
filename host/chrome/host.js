@@ -57,14 +57,15 @@ cvox.ChromeHost.prototype.init = function() {
       }
       if (message['prefs']) {
         var prefs = message['prefs'];
-        cvox.ChromeVoxEditableTextBase.cursorIsBlock =
-            (prefs['cursorIsBlock'] == 'true');
+        cvox.ChromeVoxEditableTextBase.useIBeamCursor =
+            (prefs['useIBeamCursor'] == 'true');
         cvox.ChromeVoxEventWatcher.focusFollowsMouse =
             (prefs['focusFollowsMouse'] == 'true');
 
         cvox.ChromeVox.version = prefs['version'];
 
         self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
+        self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
         if (!self.gotPrefsAtLeastOnce_) {
           cvox.ChromeVox.speakInitialMessages();
         }
@@ -82,7 +83,7 @@ cvox.ChromeHost.prototype.init = function() {
           cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == 'true');
         }
 
-        if (prefs['useBriefMode'] == 'true') {
+        if (prefs['useVerboseMode'] == 'false') {
           cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
         } else {
           cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
@@ -210,7 +211,7 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
   }
 
   cvox.ChromeVox.isActive = active;
-  cvox.ChromeVox.navigationManager.showOrHideIndicator();
+  cvox.ChromeVox.navigationManager.showOrHideIndicator(active);
 
   // If ChromeVox is inactive, the event watcher will only listen
   // for key events.
@@ -229,6 +230,14 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
   } else {
     this.unhidePageFromNativeScreenReaders();
   }
+};
+
+/**
+ * Activates or deactivates Sticky Mode.
+ * @param {boolean} sticky Whether sticky mode should be active.
+ */
+cvox.ChromeHost.prototype.activateOrDeactivateStickyMode = function(sticky) {
+  cvox.ChromeVox.isStickyOn = sticky;
 };
 
 /**

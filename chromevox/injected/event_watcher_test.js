@@ -337,12 +337,10 @@ cvox.EventWatcherTest.prototype.testListBoxOptionFeedback = function() {
 /**
  * Test feedback when the list box is setting focus in response to arrow
  * (or some other) keypress and the user is also using ChromeVox navigation.
- * @param {Object} queue An object that can defer execution and wait until
- * all callbacks have executed before the test is considered finished.
  * @export
  */
 cvox.EventWatcherTest.prototype.testListBoxOptionFeedbackWithFocus =
-    function(queue) {
+    function() {
   this.appendHtml('<div>' +
       '<p id="before">My listbox</p>' +
       '<div id="listbox" role="listbox">' +
@@ -360,9 +358,6 @@ cvox.EventWatcherTest.prototype.testListBoxOptionFeedbackWithFocus =
   this.waitForCalm(cvox.ChromeVoxTester.syncToFirstNode);
   this.waitForCalm(this.userCommand, 'forward');
   this.waitForCalm(this.assertSpoken, 'List box Red Selected 1 of 4');
-
-  queue.defer(function(callbackPool) {
-                window.setTimeout(callbackPool.add(function() {}), 500); });
 
   // Simulate the listbox setting focus on items in the listbox in response to
   // keypresses
@@ -530,13 +525,15 @@ cvox.EventWatcherTest.prototype.testMultilineNavigation = function() {
 
 
 cvox.EventWatcherTest.prototype.testShouldWaitToProcess = function() {
-  assertTrue('The focus event just happened, wait.',
-             cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 100, 100));
-  assertFalse('The focus event just happened, but the first event is ' +
-              'old, do not wait.',
-              cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 0, 100));
-  assertFalse('The focus event is old, do not wait.',
-              cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(0, 0, 100));
+  // The focus event just happened, wait.
+  this.assertTrue(
+      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 100, 100));
+  // The focus event just happened, but the first event is old, don't wait.
+  this.assertFalse(
+      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 0, 100));
+  // The focus event is old, don't wait.
+  this.assertFalse(
+      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(0, 0, 100));
 };
 
 
@@ -594,18 +591,100 @@ cvox.EventWatcherTest.prototype.testRadioButtonAnnouncements = function() {
 
   radio1.focus();
 
+  // TODO(dtseng): Repeated actual spoken text here; this is most certainly a
+  // test framework bug.
   this.waitForCalm(this.assertSpoken, 'green Radio button unselected')
       .waitForCalm(performKeyDown, 'Right') // right arrow
       // Moves to next radiobutton.
-      .waitForCalm(this.assertSpoken, 'blue Radio button selected')
+      .waitForCalm(this.assertSpoken,
+                   'blue Radio button selected blue Radio button selected')
       .waitForCalm(performKeyDown, 'Right') // right arrow
       // Arrowed beyond end. Should be quiet.
       .waitForCalm(this.assertSpoken, '');
 
   this.waitForCalm(performKeyDown, 'Left') // left arrow
       // Moves back to first radio.
-      .waitForCalm(this.assertSpoken, 'green Radio button selected')
+      .waitForCalm(this.assertSpoken,
+                   'green Radio button selected green Radio button selected')
       .waitForCalm(performKeyDown, 'Left') // left arrow
       // Arrowed beyond beginning. Should be quiet.
       .waitForCalm(this.assertSpoken, '');
+};
+
+
+/**
+ * Test time widget.
+ *
+ * @export
+ */
+cvox.EventWatcherTest.prototype.testTimeWidget = function() {
+  var chromeVer = -1;
+  var userAgent = window.navigator.userAgent;
+  var startIndex = userAgent.indexOf('Chrome/');
+  if (startIndex != -1){
+    userAgent = userAgent.substring(startIndex + 'Chrome/'.length);
+  }
+  var endIndex = userAgent.indexOf('.');
+  if (endIndex != -1){
+    userAgent = userAgent.substring(0, endIndex);
+  }
+  // This test will only work on Chrome 23 and higher.
+  if (userAgent >= 23){
+    this.appendHtml(
+      '<input id="timewidget" type="time" value="12:00">');
+    function performKeyDown(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keydown', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+    function performKeyUp(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keyup', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    timewidget.focus();
+
+    this.waitForCalm(this.assertSpoken, '12:00 12 hours 00 minutes PM');
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     '11 hours');
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     '10 hours');
+
+    this.waitForCalm(performKeyDown, 'Right') // right arrow
+        .waitForCalm(performKeyUp, 'Right') // right arrow
+        .waitForCalm(performKeyDown, 'Up') // right arrow
+        .waitForCalm(performKeyUp, 'Up') // right arrow
+        .waitForCalm(this.assertSpoken,
+                     '01 minutes');
+
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     '00 minutes');
+
+    this.waitForCalm(performKeyDown, 'Right') // right arrow
+        .waitForCalm(performKeyUp, 'Right') // right arrow
+        .waitForCalm(performKeyDown, 'Up') // right arrow
+        .waitForCalm(performKeyUp, 'Up') // right arrow
+        .waitForCalm(this.assertSpoken,
+                     'AM');
+
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     'PM');
+    }
 };

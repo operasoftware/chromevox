@@ -53,16 +53,16 @@ goog.provide('cvox.CommandStore');
  */
 cvox.CommandStore.store_ = [
 
+  // TODO(dtseng): Pending additional boolean flag to exclude from options page.
+  ['toggleStickyMode', 'toggle_sticky_mode', 'modifier_keys'],
+  ['toggleKeyPrefix', 'prefix_key', 'modifier_keys'],
+
   ['stopSpeech', 'stop_speech_key', 'controlling_speech'],
   ['toggleChromeVox', 'toggle_chromevox_active', 'controlling_speech'],
   ['increaseTtsRate', 'increase_tts_rate', 'controlling_speech'],
   ['decreaseTtsRate', 'decrease_tts_rate', 'controlling_speech'],
   ['increaseTtsPitch', 'increase_tts_pitch', 'controlling_speech'],
   ['decreaseTtsPitch', 'decrease_tts_pitch', 'controlling_speech'],
-
-  // TODO(dtseng): Pending additional boolean flag to exclude from options page.
-  ['toggleStickyMode', 'toggle_sticky_mode', 'modifier_keys'],
-  ['toggleKeyPrefix', 'prefix_key', 'modifier_keys'],
 
   ['handleTab', 'handle_tab_next', 'chromevox_navigation'],
   ['handleTabPrev', 'handle_tab_prev', 'chromevox_navigation'],
@@ -87,6 +87,7 @@ cvox.CommandStore.store_ = [
   ['readCurrentTitle', 'read_current_title', 'information'],
   ['toggleSearchWidget', 'toggle_search_widget', 'information'],
   ['fullyDescribe', 'fully_describe', 'information'],
+  ['toggleSelection', 'toggle_selection', 'information'],
 
   //  ['announcePosition', 'announce_position', 'information'],
   //  ['toggleFilteringWidget', 'toggle_filtering_widget', 'information'],

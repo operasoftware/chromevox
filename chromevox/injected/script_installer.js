@@ -65,8 +65,14 @@ cvox.ScriptInstaller.installScript = function(srcs, uid, opt_onload,
           cvox.DomUtil.addNodeToHead(apiScript);
         }
       };
-    xhr.open('GET', url, false);
-    xhr.send(null);
+    try {
+      xhr.open('GET', url, false);
+      xhr.send(null);
+    } catch (exception) {
+      window.console.log("Warning: ChromeVox external script loading for " +
+          document.location + " stopped after failing to install " + scriptSrc);
+      return false;
+    }
   }
   if (opt_onload) {
     opt_onload();

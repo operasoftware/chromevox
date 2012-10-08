@@ -93,7 +93,7 @@ cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
         context: cvox.ChromeVox.msgs.getMsg('table_location', locationInfo),
         annotation: summaryText ? summaryText + ' ' : ''
       }));
-      descs[0].pushEarcon(cvox.AbstractEarcons.WRAP);
+      descs[0].pushEarcon(cvox.AbstractEarcons.OBJECT_ENTER);
     }
 
     if (this.tt_.isSpanned()) {

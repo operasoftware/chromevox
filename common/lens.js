@@ -239,6 +239,11 @@ cvox.Lens.activeDoc = window.document;
  * @private
  */
 cvox.Lens.prototype.initializeLens_ = function() {
+  // Do not initialize the lens on documents with no body.
+  if (!cvox.Lens.activeDoc || !cvox.Lens.activeDoc.body) {
+    return;
+  }
+
   this.initializeLensCSS_();
 
   this.lens.style.display = 'none';

@@ -145,6 +145,7 @@ cvox.NavigationShifter.prototype.next = function(sel) {
  * predicate.
  */
 cvox.NavigationShifter.prototype.findNext = function(sel, predicate) {
+  this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
   return this.objectWalker_.findNext(sel, predicate);
 };
 
@@ -475,4 +476,3 @@ cvox.NavigationShifter.prototype.ensureNotTableMode = function() {
   this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.groupWalker_;
   this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
 };
-

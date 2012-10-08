@@ -96,17 +96,29 @@ cvox.AndroidVox.performAction = function(actionJson) {
   // return TRUE for using the default action (ie, ChromeVox was unable to
   // perform the action and is trying to let the default handler act).
   var actionPerformed = false;
-  if (action == ACTION_CLICK) {
-    actionPerformed =
-        !cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
-  } else if ((action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) ||
-      (action == ACTION_NEXT_HTML_ELEMENT)) {
-    actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
-  } else if ((action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) ||
-      (action == ACTION_PREVIOUS_HTML_ELEMENT)) {
-    actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
+  // Currently we are only using the element for special actions.
+  if (typeof(htmlElementName) != 'undefined') {
+    if (htmlElementName == 'TITLE') {
+      actionPerformed = !cvox.ChromeVoxUserCommands.commands.readCurrentTitle();
+    } else if (htmlElementName == 'CURRENT') {
+      actionPerformed = !cvox.ChromeVoxUserCommands.finishNavCommand('');
+    }
+  } else {
+    switch (action) {
+      case ACTION_CLICK:
+        actionPerformed =
+            !cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
+        break;
+      case ACTION_NEXT_HTML_ELEMENT:
+      case ACTION_NEXT_AT_MOVEMENT_GRANULARITY:
+        actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
+        break;
+      case ACTION_PREVIOUS_HTML_ELEMENT:
+      case ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY:
+        actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
+        break;
+    }
   }
-
   return actionPerformed;
 };
 goog.exportSymbol('cvox.AndroidVox.performAction', cvox.AndroidVox.performAction);

@@ -21,6 +21,7 @@
 goog.provide('cvox.AbstractTestCase');
 
 goog.require('cvox.RunnerInterface');
+goog.require('cvox.SpokenListBuilder');
 
 /**
  * @constructor
@@ -36,6 +37,8 @@ cvox.AbstractTestCase.prototype.assertEquals = goog.abstractFunction;
 /** @override */
 cvox.AbstractTestCase.prototype.assertSpoken = goog.abstractFunction;
 /** @override */
+cvox.AbstractTestCase.prototype.assertSpokenList = goog.abstractFunction;
+/** @override */
 cvox.AbstractTestCase.prototype.appendHtml = goog.abstractFunction;
 /** @override */
 cvox.AbstractTestCase.prototype.waitForCalm = goog.abstractFunction;
@@ -43,3 +46,11 @@ cvox.AbstractTestCase.prototype.waitForCalm = goog.abstractFunction;
 cvox.AbstractTestCase.prototype.setFocus = goog.abstractFunction;
 /** @override */
 cvox.AbstractTestCase.prototype.userCommand = goog.abstractFunction;
+
+/**
+ * @return {cvox.SpokenListBuilder} A new builder.
+ */
+cvox.AbstractTestCase.prototype.spokenList = function() {
+  return new cvox.SpokenListBuilder();
+};
+

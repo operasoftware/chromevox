@@ -32,6 +32,7 @@ goog.require('cvox.InjectedScriptLoader');
 goog.require('cvox.TtsBackground');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.CompositeTts');
+goog.require('cvox.BrailleBackground');
 
 // TODO(dtseng): This is required to prevent Closure from stripping our export
 // prefs on window.
@@ -65,6 +66,13 @@ cvox.ChromeVoxBackground.prototype.init = function() {
    * @private
    */
   this.backgroundTts_ = new cvox.TtsBackground();
+
+  /**
+   * The actual Braille service.
+   * @type {cvox.BrailleBackground}
+   * @private
+   */
+  this.backgroundBraille_ = new cvox.BrailleBackground();
 
   /**
    * @type {cvox.TtsInterface}
@@ -212,6 +220,16 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
   }
 };
 
+/**
+ * Called when a Braille message is received from a page content script.
+ * @param {Object} msg The Braille message.
+ */
+cvox.ChromeVoxBackground.prototype.onBrailleMessage = function(msg) {
+  if (msg['action'] == 'write') {
+    this.backgroundBraille_.write(msg['text']);
+  }
+};
+
 
 /**
  * Called when an earcon message is received from a page content script.
@@ -260,6 +278,16 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
             cvox.ChromeVox.isActive) {
           this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
         }
+        else if (msg['pref'] == 'sticky') {
+          if (msg['value'] && !cvox.ChromeVox.isStickyOn) {
+            this.tts.speak(cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled'));
+          } else if (!msg['value'] && cvox.ChromeVox.isStickyOn) {
+            this.tts.speak(
+                cvox.ChromeVox.msgs.getMsg('sticky_mode_disabled'));
+          } else {
+            console.log('Sticky mode not sent from prefs correctly.');
+          }
+        }
         this.prefs.setPref(msg['pref'], msg['value']);
         this.readPrefs();
       }
@@ -286,6 +314,13 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
     case 'EARCON':
       this.onEarconMessage(msg);
       break;
+    case 'BRAILLE':
+      try {
+        this.onBrailleMessage(msg);
+      } catch (err) {
+        console.log(err);
+      }
+      break;
     }
   }, this));
 };
@@ -296,6 +331,11 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
  * to the user.
  */
 cvox.ChromeVoxBackground.prototype.checkVersionNumber = function() {
+  // Don't update version or show release notes if the current tab is within an
+  // incognito window (which may occur on ChromeOS immediately after OOBE).
+  if (this.isIncognito_()) {
+    return;
+  }
   this.localStorageVersion = localStorage['versionString'];
   this.showNotesIfNewVersion();
 };
@@ -342,11 +382,28 @@ cvox.ChromeVoxBackground.prototype.showNotesIfNewVersion = function() {
  */
 cvox.ChromeVoxBackground.prototype.readPrefs = function() {
   var prefs = this.prefs.getPrefs();
-  cvox.ChromeVoxEditableTextBase.cursorIsBlock =
-      (prefs['cursorIsBlock'] == 'true');
-  cvox.ChromeVox.isActive = (prefs['active'] == 'true');
+  cvox.ChromeVoxEditableTextBase.useIBeamCursor =
+      (prefs['useIBeamCursor'] == 'true');
+  cvox.ChromeVox.isActive =
+      (prefs['active'] == 'true' || cvox.ChromeVox.isChromeOS);
+  cvox.ChromeVox.isStickyOn = (prefs['sticky'] == 'true');
 };
 
+/**
+ * Checks if we are currently in an incognito window.
+ * @return {boolean} True if incognito or not within a tab context, false
+ * otherwise.
+ * @private
+ */
+cvox.ChromeVoxBackground.prototype.isIncognito_ = function() {
+  var incognito = false;
+  chrome.tabs.getCurrent(function(tab) {
+    // Tab is null if not called from a tab context. In that case, also consider
+    // it incognito.
+    incognito = tab ? tab.incognito : true;
+  });
+  return incognito;
+};
 // Create the background page object and export a function window['speak']
 // so that other background pages can access it. Also export the prefs object
 // for access by the options page.

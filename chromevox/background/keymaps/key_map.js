@@ -224,7 +224,7 @@ cvox.KeyMap.prototype.keyForCommand = function(command) {
  * @return {boolean} Whether the rebinding succeeds.
  */
 cvox.KeyMap.prototype.rebind = function(command, newKey) {
-  if (this.commandToKey_[command]) {
+  if (this.commandToKey_[command] && !this.keyToCommand_[newKey]) {
     this.bind_(command, newKey);
     return true;
   }

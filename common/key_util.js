@@ -22,6 +22,7 @@
 goog.provide('cvox.KeyUtil');
 
 goog.require('cvox.ChromeVox');
+goog.require('cvox.KeySequence');
 
 
 /**
@@ -44,10 +45,11 @@ cvox.KeyUtil.modeKeyPressTime = 0;
 cvox.KeyUtil.sequencing = false;
 
 /**
- * The sequence buffer that holds the keys pressed when sequencing in ON.
- * @type {Array}
+ * The previous KeySequence when sequencing is ON.
+ * @type {cvox.KeySequence}
  */
-cvox.KeyUtil.sequenceBuffer = [];
+cvox.KeyUtil.prevKeySequence = null;
+
 
 /**
  * Maximum number of key codes the sequence buffer may hold. This is the max
@@ -59,132 +61,85 @@ cvox.KeyUtil.sequenceBuffer = [];
 cvox.KeyUtil.maxSeqLength = 2;
 
 
-// TODO(dtseng): Needs unit testing and cleanup; fairly brittle.
 /**
- * Convert a key event into an unambiguous string representation that's
- * unique but also human-readable enough for debugging.
- *
- * A key event with a keyCode of 76 ('L') and the control and alt keys down
- * would return the string 'Ctrl+Alt+L', for example. A key code that doesn't
- * correspond to a letter or number will return a string with a pound and
- * then its keyCode, like 'Ctrl+Alt+#39' for Right Arrow.
- *
- * The modifiers always come in this order:
- *
- *   Ctrl
- *   Alt
- *   Shift
- *   Meta
+ * Convert a key event into a Key Sequence representation.
  *
  * @param {Event} keyEvent The keyEvent to convert.
- * @return {string} A string representation of the key event.
+ * @return {cvox.KeySequence} A key sequence representation of the key event.
  */
-cvox.KeyUtil.keyEventToString = function(keyEvent) {
-  var str = '';
-
+cvox.KeyUtil.keyEventToKeySequence = function(keyEvent) {
   var util = cvox.KeyUtil;
-  if (util.maxSeqLength == util.sequenceBuffer.length) {
+  if (util.prevKeySequence &&
+      (util.maxSeqLength == util.prevKeySequence.length())) {
     // Reset the sequence buffer if max sequence length is reached.
     util.sequencing = false;
-    util.sequenceBuffer = [];
+    util.prevKeySequence = null;
   }
+  // Either we are in the middle of a key sequence (N > H), or the key prefix
+  // was pressed before (Ctrl+Z), or sticky mode is enabled
   var keyIsPrefixed = util.sequencing || keyEvent['keyPrefix'] ||
       keyEvent['stickyMode'];
 
+  // Create key sequence.
+  var keySequence = new cvox.KeySequence(keyEvent);
+
   // Check if the Cvox key should be considered as pressed because the
   // modifier key combination is active.
-  var keyWasCvox = false;
-  var modifierKeyCombo = cvox.ChromeVox.modKeyStr.replace(/\+/g, '');
+  var keyWasCvox = keySequence.cvoxModifier;
 
-  // For each modifier that is held down, remove it from the combo.
-  // If the combo string becomes empty, then the user has activated the combo.
-  // We need to check for the keyCode too since Linux will not set the
-  // keyEvent.modKey property if it is the modKey by itself.
-  if (keyEvent.ctrlKey || (keyEvent.keyCode == 17)) {
-    modifierKeyCombo = modifierKeyCombo.replace('Ctrl', '');
-    str += 'Ctrl+';
-  }
-  if (keyEvent.altKey || (keyEvent.keyCode == 18)) {
-    modifierKeyCombo = modifierKeyCombo.replace('Alt', '');
-    str += 'Alt+';
-  }
-  if (keyEvent.shiftKey || (keyEvent.keyCode == 16)) {
-    modifierKeyCombo = modifierKeyCombo.replace('Shift', '');
-    str += 'Shift+';
-  }
-  if (keyEvent.metaKey || (keyEvent.keyCode == 91) ||
-      (keyEvent.keyCode == 93) || keyEvent['searchKeyHeld']) {
-    var metaKeyName = cvox.KeyUtil.getReadableNameForKeyCode(91);
-    modifierKeyCombo = modifierKeyCombo.replace(metaKeyName, '');
-    str += metaKeyName + '+';
-  }
-
-  if (modifierKeyCombo.length == 0) {
-    keyWasCvox = true;
-    str = '';
-  }
-
-  if (keyIsPrefixed) {
-    str = 'Prefix>' + str;
-  } else if (modifierKeyCombo.length == 0) {
-    str = 'Cvox+' + str;
-  }
-
-  // Prefix followed by any modifier alone does not make sense.
-  // Return now and don't get out of sequencing mode; instead, wait for the
-  // user to hit a non-modifier key.
-  // TODO(dtseng): The one noteable exception is sticky mode, where we want a
-//  double tap of the modifier. Any future double tap modifiers should ensure
-  // exceptions here. Clean this up.
-  if (keyIsPrefixed &&
-      cvox.KeyUtil.isModifierKey(keyEvent.keyCode) &&
-      cvox.KeyUtil.getStickyKeyCode() != keyEvent.keyCode) {
-    util.sequencing = true;
-    return str;
-  }
-
-  // TODO (clchen): Make the sticky mode double tap key configurable.
+  // TODO (rshearer): Make the sticky mode double tap key configurable.
+  // Sticky mode is when a sequence contains two key events (where the sticky
+  // key is pressed) within a short duration.
   var currTime = new Date().getTime();
   var stickyKeyCode = cvox.KeyUtil.getStickyKeyCode();
   if (keyEvent.keyCode == stickyKeyCode) {
     // Only the modifier key was pressed. This is a sign that the user may
     // be toggling the sticky mode.
     var prevTime = util.modeKeyPressTime;
-    // TODO (chaitanyag,dmazzoni,clchen): Make double tap speed configurable
+    // TODO (clchen): Make double tap speed configurable
     // through ChromeVox setting?
     if (prevTime > 0 && currTime - prevTime < 300) {  // Double tap
-      var stickyKeyName =
-          cvox.KeyUtil.getReadableNameForKeyCode(stickyKeyCode);
-      return stickyKeyName + '>' + stickyKeyName + '+';
+      if (util.prevKeySequence.addKeyEvent(keyEvent)) {
+        keySequence = util.prevKeySequence;
+        util.prevKeySequence = null;
+        return keySequence;
+      } else {
+        throw 'Think sticky mode is enabled (by double-tapping), yet ' +
+            'util.prevKeySequence already has two key codes ' +
+                util.prevKeySequence;
+      }
     }
+    // The user double tapped the sticky key but didn't do it within the
+    // required time. It's possible they will try again, so keep track of the
+    // time the sticky key was pressed and keep track of the corresponding
+    // key sequence.
     util.modeKeyPressTime = currTime;
+    util.prevKeySequence = keySequence;
   } else {
     util.modeKeyPressTime = 0;
   }
-  if ((str == 'Cvox+') || (str == 'Prefix>')) {
+  // TODO (rshearer): Clean up this logic and give all key sequences a timer
+  // just like sticky mode.
+  if (keyIsPrefixed || keyWasCvox) {
     if (!util.sequencing && util.isSequenceSwitchKeyCode(keyEvent.keyCode)) {
+      // If this is the beginning of a sequence
       util.sequencing = true;
-      util.sequenceBuffer.push(keyEvent.keyCode);
+      util.prevKeySequence = keySequence;
     } else if (util.sequencing) {
-      util.sequenceBuffer.push(keyEvent.keyCode);
-    }
-    for (var i = 0; i < util.sequenceBuffer.length; i++) {
-      str += util.keyCodeToString(util.sequenceBuffer[i]) +
-          (i == util.sequenceBuffer.length - 1 ? '' : '>');
+      if (util.prevKeySequence.addKeyEvent(keyEvent)) {
+        keySequence = util.prevKeySequence;
+        util.prevKeySequence = null;
+        util.sequencing = false;
+        return keySequence;
+      } else {
+        throw 'Think sequencing is enabled, yet util.prevKeySequence already' +
+            'has two key codes' + util.prevKeySequence;
+      }
     }
   } else {
     util.sequencing = false;
-    util.sequenceBuffer = [];
   }
-
-  if (!util.sequencing && !util.isModifierKey(keyEvent.keyCode)) {
-    str += util.keyCodeToString(keyEvent.keyCode);
-  }
-  // Strip trailing +.
-  if (str[str.length - 1] == '+') {
-    str = str.slice(0, -1);
-  }
-  return str;
+  return keySequence;
 };
 
 /**
@@ -194,6 +149,30 @@ cvox.KeyUtil.keyEventToString = function(keyEvent) {
  * @return {string} A string representation of the key event.
  */
 cvox.KeyUtil.keyCodeToString = function(keyCode) {
+  if (keyCode == 17) {
+    return 'Ctrl';
+  }
+  if (keyCode == 18) {
+    return 'Alt';
+  }
+  if (keyCode == 16) {
+    return 'Shift';
+  }
+  if ((keyCode == 91) || (keyCode == 93)) {
+    if (cvox.ChromeVox.isChromeOS) {
+      return 'Search';
+    } else if (cvox.ChromeVox.isMac) {
+      return 'Cmd';
+    } else {
+      return 'Win';
+    }
+  }
+  // TODO(rshearer): This is a hack to work around the special casing of the
+  // sticky mode string that used to happen in keyEventToString. We won't need
+  // it once we move away from strings completely.
+  if (keyCode == 45) {
+    return 'Insert';
+  }
   if (keyCode >= 65 && keyCode <= 90) {
     // A - Z
     return String.fromCharCode(keyCode);
@@ -204,18 +183,6 @@ cvox.KeyUtil.keyCodeToString = function(keyCode) {
     // Anything else
     return '#' + keyCode;
   }
-};
-
-/**
- * Checks if the specified key code represents a modifier key, i.e. Ctrl, Alt,
- * Shift, Search (on ChromeOS) or Meta.
- *
- * @param {number} keyCode key code.
- * @return {boolean} true if it is a modifier keycode, false otherwise.
- */
-cvox.KeyUtil.isModifierKey = function(keyCode) {
-  // Shift, Ctrl, Alt, Search/LWin
-  return keyCode == 16 || keyCode == 17 || keyCode == 18 || keyCode == 91;
 };
 
 /**
@@ -322,6 +289,7 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
  * @return {number} The platform specific sticky key keycode.
  */
 cvox.KeyUtil.getStickyKeyCode = function() {
+  // TODO (rshearer): This should not be hard-coded here.
   var stickyKeyCode = 45; // Insert for Linux and Windows
   if (cvox.ChromeVox.isChromeOS || cvox.ChromeVox.isMac) {
     stickyKeyCode = 91; // GUI key (Search/Cmd) for ChromeOs and Mac
@@ -341,4 +309,104 @@ cvox.KeyUtil.getStickyKeyCode = function() {
 cvox.KeyUtil.getReadableNameForStr = function(keyStr) {
   // TODO (clchen): Refactor this function away since it is no longer used.
   return null;
+};
+
+
+/**
+ * Creates a string representation of a KeySequence.
+ * A KeySequence  with a keyCode of 76 ('L') and the control and alt keys down
+ * would return the string 'Ctrl+Alt+L', for example. A key code that doesn't
+ * correspond to a letter or number will return a string with a pound and
+ * then its keyCode, like 'Ctrl+Alt+#39' for Right Arrow.
+ *
+ * The modifiers always come in this order:
+ *
+ *   Ctrl
+ *   Alt
+ *   Shift
+ *   Meta
+ *
+ * @param {cvox.KeySequence} keySequence The KeySequence object.
+ * @return {string} Readable string representation of the KeySequence object.
+ */
+cvox.KeyUtil.keySequenceToString = function(keySequence) {
+  // TODO(rshearer): Move this method and the getReadableNameForKeyCode and the
+  // method to KeySequence after we refactor isModifierActive (when the modifie
+  // key becomes customizable and isn't stored as a string). We can't do it
+  // earlier because isModifierActive uses KeyUtil.getReadableNameForKeyCode,
+  // and I don't want KeySequence to depend on KeyUtil.
+  var str = '';
+
+  var numKeys = keySequence.length();
+
+  for (var index = 0 ; index < numKeys ; index++) {
+    if (str != '') {
+      str += '>';
+    }
+    // This iterates through the sequence. Either we're on the first key
+    // pressed or the second
+    var tempStr = '';
+    for (var keyPressed in keySequence.keys) {
+      // This iterates through the actual key, taking into account any
+      // modifiers.
+      if (!keySequence.keys[keyPressed][index]) {
+        continue;
+      }
+        if (keyPressed == 'ctrlKey') {
+          // TODO(rshearer): This is a hack to work around the special casing
+          // of the Ctrl key that used to happen in keyEventToString. We won't
+          // need it once we move away from strings completely.
+          tempStr += 'Ctrl+';
+        }
+        if (keyPressed == 'searchKeyHeld') {
+          var searchKey = cvox.KeyUtil.getReadableNameForKeyCode(91) + '+';
+          tempStr += searchKey;
+        }
+        if (keyPressed == 'altKey') {
+          tempStr += 'Alt+';
+        }
+        if (keyPressed == 'altGraphKey') {
+          tempStr += 'AltGraph+';
+        }
+        if (keyPressed == 'shiftKey') {
+          tempStr += 'Shift+';
+        }
+        if (keyPressed == 'metaKey') {
+          var metaKey = cvox.KeyUtil.getReadableNameForKeyCode(91) + '+';
+          tempStr += metaKey;
+        }
+      var keyCode = keySequence.keys[keyPressed][index];
+      // We make sure the keyCode isn't for a modifier key. If it is, then
+      // we've already added that into the string above.
+      if (keyPressed == 'keyCode' && !keySequence.isModifierKey(keyCode)) {
+        tempStr += cvox.KeyUtil.keyCodeToString(keyCode);
+      }
+    }
+    str += tempStr;
+
+    // Strip trailing +.
+    if (str[str.length - 1] == '+') {
+      str = str.slice(0, -1);
+    }
+  }
+
+  // TODO(rshearer): This is a hack to work around the special casing of the
+  // sticky mode key that used to happen in keyEventToString. We won't need it
+  // once we move away from strings completely.
+  var stickyKeyCode = cvox.KeyUtil.getStickyKeyCode();
+  var stickyKeyName = cvox.KeyUtil.getReadableNameForKeyCode(stickyKeyCode);
+  var stickyString = stickyKeyName + '>' + stickyKeyName;
+  if (str == stickyString) {
+    str += '+';
+  } else {
+    if (keySequence.cvoxModifier || keySequence.stickyMode ||
+        keySequence.prefixKey) {
+      if (str != '') {
+        str = 'Cvox+' + str;
+      } else {
+        str = 'Cvox' + str;
+      }
+    }
+  }
+  return str;
 };

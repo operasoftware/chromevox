@@ -39,7 +39,7 @@ goog.inherits(cvox.ChromeTts, cvox.AbstractTts);
  * Current call id, used for matching callback functions.
  * @type {number}
  */
-cvox.ChromeTts.callId = 0;
+cvox.ChromeTts.callId = 1;
 
 /**
  * Maps call ids to callback functions.
@@ -49,8 +49,9 @@ cvox.ChromeTts.functionMap = new Object();
 
 /** @override */
 cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
-  if (!properties)
+  if (!properties) {
     properties = {};
+  }
 
   properties['lang'] = cvox.ChromeVox.msgs.getLocale();
 
@@ -77,26 +78,22 @@ cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
   textString =
       cvox.AbstractTts.preprocessWithProperties(textString, properties);
 
-  cvox.ChromeTts.superClass_.speak.call(this, textString, queueMode, properties);
+  goog.base(this, 'speak', textString, queueMode, properties);
 
-  var message = {'target': 'TTS',
-                 'action': 'speak',
-                 'text': textString,
-                 'queueMode': queueMode,
-                 'properties': properties};
+  var splitTextString = textString.split(/[,.!?]\W/);
 
-  if (properties && properties['startCallback'] != undefined) {
-    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
-        properties['startCallback'];
-    message['startCallbackId'] = cvox.ChromeTts.callId++;
+  // Save callbacks for first and last utterance.
+  var startCallback = properties['startCallback'];
+  var endCallback = properties['endCallback'];
+
+  for (var i = 0; i < splitTextString.length; i++) {
+    properties['startCallback'] = i == 0 ? startCallback : null;
+    properties['endCallback'] = i == (splitTextString.length - 1) ?
+        endCallback : null;
+    queueMode = i > 0 ? cvox.AbstractTts.QUEUE_MODE_QUEUE : queueMode;
+    cvox.ExtensionBridge.send(this.createMessageForProperties_(
+        splitTextString[i], queueMode, properties));
   }
-  if (properties && properties['endCallback'] != undefined) {
-    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
-        properties['endCallback'];
-    message['endCallbackId'] = cvox.ChromeTts.callId++;
-  }
-
-  cvox.ExtensionBridge.send(message);
 };
 
 /** @override */
@@ -130,7 +127,7 @@ cvox.ChromeTts.prototype.increaseOrDecreaseProperty =
  * changing.
  */
 cvox.ChromeTts.prototype.increaseProperty = function(property_name, announce) {
-  cvox.ChromeTts.superClass_.increaseProperty.call(this, property_name, announce);
+  goog.base(this, 'increaseProperty', property_name, announce);
   cvox.ExtensionBridge.send(
       {'target': 'TTS',
        'action': 'increase' + property_name,
@@ -154,5 +151,35 @@ cvox.ChromeTts.prototype.addBridgeListener = function() {
         }
       });
 };
+
+/**
+ * Creates a message suitable for sending as a speak action to background tts.
+ * @param {string} textString The string of text to be spoken.
+ * @param {number=} queueMode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH,
+ *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
+ * @param {Object=} properties Speech properties to use for this utterance.
+ * @return {Object} A message.
+ * @private
+ */
+cvox.ChromeTts.prototype.createMessageForProperties_ =
+    function(textString, queueMode, properties) {
+  var message = {'target': 'TTS',
+                 'action': 'speak',
+                 'text': textString,
+                 'queueMode': queueMode,
+                 'properties': properties};
+
+  if (properties['startCallback'] != undefined) {
+    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
+        properties['startCallback'];
+    message['startCallbackId'] = cvox.ChromeTts.callId++;
+  }
+  if (properties['endCallback'] != undefined) {
+    cvox.ChromeTts.functionMap[cvox.ChromeTts.callId] =
+        properties['endCallback'];
+    message['endCallbackId'] = cvox.ChromeTts.callId++;
+  }
+  return message;
+    };
 
 cvox.HostFactory.ttsConstructor = cvox.ChromeTts;

@@ -92,6 +92,7 @@ var checkChromeVoxAndLoad = function() {
   };
   var port = chrome.extension.connect(chromeVoxIDs.webstore);
   window.setTimeout(
+    /** @suppress {checkTypes} postMessage requires 1 argument. */
     function() {
       try {
         port.postMessage();

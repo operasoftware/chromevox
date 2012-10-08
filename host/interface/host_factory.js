@@ -25,6 +25,7 @@ goog.require('cvox.AbstractEarcons');
 goog.require('cvox.AbstractHost');
 goog.require('cvox.AbstractMsgs');
 goog.require('cvox.AbstractTts');
+goog.require('cvox.AbstractBraille');
 
 
 
@@ -48,6 +49,14 @@ cvox.HostFactory.getHost = function() {
  */
 cvox.HostFactory.getTts = function() {
   return new cvox.HostFactory.ttsConstructor;
+};
+
+/**
+ * Returns the Braille interface.
+ * @return {cvox.BrailleInterface} The Braille interface.
+ */
+cvox.HostFactory.getBraille = function() {
+  return new cvox.HostFactory.brailleConstructor;
 };
 
 /**
@@ -75,6 +84,11 @@ cvox.HostFactory.hostConstructor;
  * @type {function (new:cvox.TtsInterface)}
  */
 cvox.HostFactory.ttsConstructor;
+
+/**
+ * @type {function (new:cvox.BrailleInterface)}
+ */
+cvox.HostFactory.brailleConstructor;
 
 /**
  * @type {function (new:cvox.AbstractMsgs)}

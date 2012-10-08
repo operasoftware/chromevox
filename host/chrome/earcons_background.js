@@ -107,6 +107,8 @@ cvox.EarconsBackground.prototype.getEarconMap = function() {
   this.earconMap[cvox.AbstractEarcons.OBJECT_DELETE] = 'object_delete.ogg';
   this.earconMap[cvox.AbstractEarcons.OBJECT_DESELECT] =
       'object_deselect.ogg';
+  this.earconMap[cvox.AbstractEarcons.OBJECT_ENTER] = 'object_enter.ogg';
+  this.earconMap[cvox.AbstractEarcons.OBJECT_EXIT] = 'object_exit.ogg';
   this.earconMap[cvox.AbstractEarcons.OBJECT_OPEN] = 'object_open.ogg';
   this.earconMap[cvox.AbstractEarcons.OBJECT_SELECT] = 'object_select.ogg';
   this.earconMap[cvox.AbstractEarcons.PARAGRAPH_BREAK] =

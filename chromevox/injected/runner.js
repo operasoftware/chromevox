@@ -19,10 +19,13 @@
 
 goog.provide('cvox.AutoRunner');
 
+goog.require('cvox.AbstractTestCase');
 goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.History');
 goog.require('cvox.NodeBreadcrumb');
+goog.require('cvox.RunnerInterface');
+goog.require('cvox.SpokenListBuilder');
 goog.require('cvox.TestTts');
 
 /* Runner state
@@ -43,6 +46,40 @@ cvox.AutoRunner = function() {
 
   /** @type {cvox.TtsInterface} */
   this.oldTts_ = cvox.ChromeVox.tts;
+
+  /** @type {Array} */
+  this.testsQueue_ = new Array();
+
+  /**
+   * @type {Array}
+   * @private JsDoc
+   */
+  this.results_ = new Array();
+
+  /**
+   * @type {cvox.AutoRunner.TestSummary}
+   * @private JsDoc
+   */
+  this.currentTestSummary = null;
+};
+
+/**
+ * Encapsulates a human readable tag for the test case, the test case function,
+ * and an optional status string if the test has been run.
+ * @param {string} tagStr A tag, typically the name of the test function.
+ * @param {Function} testFunc The test function.
+ * @param {string} status The current status of the test.
+ * @param {*} scope The scope that the test should be run in.
+ * @constructor
+ */
+cvox.AutoRunner.TestSummary = function(tagStr, testFunc, status, scope) {
+  /** @type {string} */
+  this.tag = tagStr;
+  /** @type {Function} */
+  this.func = testFunc;
+  /** @type {string} */
+  this.status = status;
+  this.scope = scope;
 };
 
 /**
@@ -57,12 +94,18 @@ cvox.AutoRunner.PASS = 'pass';
  */
 cvox.AutoRunner.FAIL = 'fail';
 
+
 cvox.AutoRunner.prototype.maybeDone_ = function() {
   if (this.actualCallbacks_ != this.expectedCallbacks_) {
     return;
   }
   cvox.ChromeVox.tts = this.oldTts_;
-  window.console.log('AutoRunner test end with status: ' + this.status);
+  window.console.log(this.currentTestSummary.tag + ' test ended with status: ' +
+      this.status);
+  this.currentTestSummary.status = this.status;
+  this.results_.push(this.currentTestSummary);
+  this.currentTestSummary = null;
+  this.runTests();
 };
 
 
@@ -141,6 +184,36 @@ cvox.AutoRunner.prototype.assertSpoken = function(expected) {
 
 
 /**
+ * Asserts a list of utterances are in the correct queue mode.
+ * @param {cvox.SpokenListBuilder|Array} expectedList A list
+ *     of [text, queueMode] tuples OR a SpokenListBuilder with the expected
+ *     utterances.
+ * @return {cvox.AutoRunner} this.
+ */
+cvox.AutoRunner.prototype.assertSpokenList = function(expectedList) {
+  if (expectedList instanceof cvox.SpokenListBuilder) {
+    expectedList = expectedList.build();
+  }
+
+  var ulist = this.testTts_.getUtteranceInfoList();
+  for (var i = 0; i < expectedList.length; i++) {
+    var text = expectedList[i][0];
+    var queueMode = expectedList[i][1];
+    this.assertSingleUtterance_(text, queueMode,
+                                ulist[i].text, ulist[i].queueMode);
+  }
+  this.testTts_.clearUtterances();
+  return this; // for chaining.
+};
+
+cvox.AutoRunner.prototype.assertSingleUtterance_ = function(
+    expectedText, expectedQueueMode, text, queueMode) {
+  this.assertEquals(expectedQueueMode, queueMode);
+  this.assertEquals(expectedText, text);
+};
+
+
+/**
  * Waits for the queued events in ChromeVoxEventWatcher to be
  * handled. Very useful for asserting the results of events.
  *
@@ -150,11 +223,20 @@ cvox.AutoRunner.prototype.assertSpoken = function(expected) {
  * @return {cvox.AutoRunner} this.
  */
 cvox.AutoRunner.prototype.waitForCalm = function(func, var_args) {
+  if (!func) {
+    // This is a programming error, not a test failure.  Blow up!
+    throw new Error('waitForCalm needs a valid function');
+  }
   this.expectedCallbacks_++;
   var calmArgs = Array.prototype.slice.call(arguments, 1);
   cvox.ChromeVoxEventWatcher.addReadyCallback(goog.bind(function() {
+      var scope = this.currentTestSummary ?
+          this.currentTestSummary.scope : this;
       try {
-        func.apply(this, calmArgs);
+        func.apply(scope, calmArgs);
+      } catch (e) {
+        window.console.log(e, e.stack);
+        this.status = cvox.AutoRunner.FAIL;
       } finally {
         this.actualCallbacks_++;
         this.maybeDone_();
@@ -195,17 +277,86 @@ cvox.AutoRunner.prototype.userCommand = function(command) {
  */
 cvox.AutoRunner.prototype.runTest_ = function(func) {
   // Set up the tts.
-
   this.status = cvox.AutoRunner.PASS;
 
   cvox.ChromeVox.tts = new cvox.CompositeTts()
       .add(this.oldTts_).add(this.testTts_);
-  cvox.History.getInstance().startRecording();
   window.console.log('AutoRunner test start');
+  var scope = this.currentTestSummary ?
+      this.currentTestSummary.scope : this;
   try {
-    func.apply(this);
+    func.apply(scope);
+  } catch (e) {
+    window.console.log(e, e.stack);
+    this.status = cvox.AutoRunner.FAIL;
   } finally {
     this.maybeDone_();
+  }
+};
+
+/**
+ * Adds a test case to be run in the test queue.
+ * @param {string} tag The tag for the test case.
+ * @param {Function} func The function for the test case.
+ * @param {Object} scope The scope to run the test in.
+ */
+cvox.AutoRunner.prototype.addTest = function(tag, func, scope) {
+  var summary = new cvox.AutoRunner.TestSummary(tag, func, '', scope);
+  this.testsQueue_.push(summary);
+};
+
+/**
+ * Runs all the tests added to the autorunner with addTest.
+ */
+cvox.AutoRunner.prototype.runTests = function() {
+  if (this.testsQueue_.length < 1) {
+    this.displayResults();
+    return;
+  }
+  this.testTts_.clearUtterances();
+  document.body.innerHTML = '';
+  cvox.ChromeVox.init();
+  this.currentTestSummary = this.testsQueue_.shift();
+  this.runTest_(this.currentTestSummary.func);
+};
+
+
+/**
+ * Displays the results of running the tests.
+ */
+cvox.AutoRunner.prototype.displayResults = function() {
+  document.body.innerHTML = '<h1>Tests Done</h1><br>';
+  for (var i = 0, result; result = this.results_[i]; i++) {
+    document.body.innerHTML = document.body.innerHTML + result.tag + ': ' +
+        result.status + '<br>';
+  }
+};
+
+
+/**
+ * Runs all the test cases in a test.
+ * @param {cvox.AbstractTestCase} testcase The test case constructor.
+ */
+cvox.AutoRunner.prototype.runTestCase = function(testcase) {
+  this.mixOurselfIn_(testcase);
+  for (var propertyName in testcase) {
+    if (propertyName.search('test') == 0) {
+      this.addTest(propertyName,
+                   testcase[propertyName], testcase);
+    }
+  }
+  this.runTests();
+};
+
+
+/**
+ * Mixes a bound cvox.AutoRunner into the test case.
+ * @param {Object} obj The test case to mix into.
+ * @private
+ */
+cvox.AutoRunner.prototype.mixOurselfIn_ = function(obj) {
+  for (var propertyName in cvox.RunnerInterface.prototype) {
+    obj[propertyName] = goog.bind(this[propertyName], this);
   }
 };
 

@@ -66,12 +66,6 @@ cvox.ActiveIndicator = function() {
   this.rects_ = null;
 
   /**
-   * Whether the indicator is visible at all.
-   * @private
-   */
-  this.visible_ = true;
-
-  /**
    * An element used to measure the current zoom level.
    * @type {?Element}
    * @private
@@ -122,9 +116,6 @@ cvox.ActiveIndicator.STYLE =
     '  pointer-events: none !important;' +
     '}' +
     '.cvox_indicator_window_not_focused {' +
-    '  visibility: hidden !important;' +
-    '}' +
-    '.cvox_indicator_invisible {' +
     '  visibility: hidden !important;' +
     '}' +
     '.cvox_indicator_pulsing {' +
@@ -288,21 +279,6 @@ cvox.ActiveIndicator.prototype.syncToCursorSelection = function(sel) {
 };
 
 /**
- * Make the indicator visible or invisible.
- * @param {boolean} visible Whether the indicator should be visible.
- */
-cvox.ActiveIndicator.prototype.setVisible = function(visible) {
-  this.visible_ = visible;
-  if (this.container_) {
-    if (visible) {
-      this.container_.classList.remove('cvox_indicator_invisible');
-    } else {
-      this.container_.classList.add('cvox_indicator_invisible');
-    }
-  }
-};
-
-/**
  * Move the indicator from its current location, if any, to surround
  * the given set of rectanges.
  *
@@ -371,9 +347,6 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
   this.container_.className = 'cvox_indicator_container';
   if (!document.hasFocus()) {
     this.container_.classList.add('cvox_indicator_window_not_focused');
-  }
-  if (!this.visible_) {
-    this.container_.classList.add('cvox_indicator_invisible');
   }
   if (delta > cvox.ActiveIndicator.NORMAL_ANIM_DELAY_MS) {
     this.container_.classList.add('cvox_indicator_animate_normal');

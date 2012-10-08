@@ -42,7 +42,7 @@ cvox.TestsPage = function() {
  * Runs the tests.
  * @export
  */
-// TODO (clchen): Add notion of a test queue to run tests sequentially.
+// TODO (clchen, deboer): Add the test case classes that we want to run here.
 cvox.TestsPage.runTests = function() {
   if ((typeof(cvox) == 'undefined') ||
       (typeof(cvox.ChromeVox) == 'undefined') ||
@@ -52,9 +52,7 @@ cvox.TestsPage.runTests = function() {
   }
   cvox.ChromeVox.init();
   var runner = new cvox.AutoRunner();
-  var testCases = new cvox.EventWatcherTest();
-  goog.bind(runner.runTest_, runner, testCases.testButtonFocusFeedback);
-  runner.runTest_(testCases.testButtonFocusFeedback);
+  runner.runTestCase(new cvox.EventWatcherTest());
 };
 
 cvox.TestsPage.runTests();

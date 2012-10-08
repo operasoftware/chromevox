@@ -25,13 +25,18 @@ goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxEventSuspender');
+goog.require('cvox.ChromeVoxHTMLTimeWidget');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.DomUtil');
+goog.require('cvox.Focuser');
 goog.require('cvox.History');
 goog.require('cvox.LiveRegions');
-// Find a better place for these..
+
+// Find a better place for these.
 goog.require('cvox.MacroWriter');
+
+goog.require('cvox.PlatformFilter');
 
 /**
  * @constructor
@@ -364,6 +369,12 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'change', cvox.ChromeVoxEventWatcher.changeEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'copy', cvox.ChromeVoxEventWatcher.clipboardEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'cut', cvox.ChromeVoxEventWatcher.clipboardEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'paste', cvox.ChromeVoxEventWatcher.clipboardEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'select', cvox.ChromeVoxEventWatcher.selectEventWatcher, true);
   cvox.ChromeVoxEventWatcher.addEventListener_(doc, 'DOMSubtreeModified',
       cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher, true);
@@ -390,6 +401,9 @@ cvox.ChromeVoxEventWatcher.cleanup = function(doc) {
         listener.type, listener.listener, listener.useCapture);
   }
   cvox.ChromeVoxEventWatcher.listeners_ = [];
+  if (cvox.ChromeVoxEventWatcher.currentTimeHandler) {
+    cvox.ChromeVoxEventWatcher.currentTimeHandler.shutdown();
+  }
 };
 
 /**
@@ -434,13 +448,14 @@ cvox.ChromeVoxEventWatcher.setLastFocusedNode_ = function(element) {
  * Mouseclick events are only triggered if the user touches the mouse;
  * we use it to determine whether or not we should bother trying to sync to a
  * selection.
- * TODO (clchen, dmazzoni): Change logic here to make it immediately sync and
- * speak.
- *
  * @param {Event} evt The mouseclick event to process.
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.mouseClickEventWatcher = function(evt) {
+  if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WML) &&
+      !evt.fromCvox) {
+    cvox.ApiImplementation.syncToNode(/** @type {Node} */(evt.target), true);
+  }
   if (cvox.ChromeVox.host.mustRedispatchClickEvent() && !evt.fromCvox) {
     cvox.ChromeVoxUserCommands.wasMouseClicked = true;
     evt.stopPropagation();
@@ -451,7 +466,7 @@ cvox.ChromeVoxEventWatcher.mouseClickEventWatcher = function(evt) {
     // Failing to restore focus before clicking can cause odd problems such as
     // the soft IME not coming up in Android (it only shows up if the click
     // happens in a focused text field).
-    cvox.DomUtil.setFocus(cvox.ChromeVox.navigationManager.getCurrentNode());
+    cvox.Focuser.setFocus(cvox.ChromeVox.navigationManager.getCurrentNode());
     cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem']();
     return false;
   }
@@ -503,7 +518,7 @@ cvox.ChromeVoxEventWatcher.mouseOverEventWatcher = function(evt) {
         }
         cvox.ChromeVox.navigationManager.keepReading_ = false;
         var target = /** @type {Node} */(evt.target);
-        cvox.DomUtil.setFocus(target);
+        cvox.Focuser.setFocus(target);
         cvox.ApiImplementation.syncToNode(target, true,
             cvox.AbstractTts.QUEUE_MODE_FLUSH);
         cvox.ChromeVoxEventWatcher.announcedMouseOverNode = target;
@@ -538,6 +553,11 @@ cvox.ChromeVoxEventWatcher.mouseOutEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
+  // First remove any dummy spans. We create dummy spans in UserCommands in
+  // order to sync the browser's default tab action with the user's current
+  // navigation position.
+  cvox.ChromeVoxUserCommands.removeTabDummySpan();
+
   if (!cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
     cvox.ChromeVoxEventWatcher.addEvent(evt);
   }
@@ -586,6 +606,11 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
         cvox.NavigationShifter.GRANULARITIES.OBJECT);
     cvox.ApiImplementation.syncToNode(target, true, queueMode);
 
+    if (evt.target.hasAttribute &&
+        evt.target.getAttribute('type') == 'time') {
+      cvox.ChromeVoxEventWatcher.setUpTimeHandler_();
+      return;
+    }
     cvox.ChromeVoxEventWatcher.setUpTextHandler_();
   } else {
     cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
@@ -695,6 +720,30 @@ cvox.ChromeVoxEventWatcher.keyPressEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.changeEventWatcher = function(evt) {
   cvox.ChromeVoxEventWatcher.addEvent(evt);
+  return true;
+};
+
+// TODO(dtseng): ChromeVoxEditableText interrupts cut and paste announcements.
+/**
+ * Watches for cut, copy, and paste events.
+ *
+ * @param {Event} evt The event to process.
+ * @return {boolean} True if the default action should be performed.
+ */
+cvox.ChromeVoxEventWatcher.clipboardEventWatcher = function(evt) {
+  cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg(evt.type).toLowerCase());
+  var text = '';
+  switch (evt.type) {
+  case 'paste':
+    text = evt.clipboardData.getData('text');
+    break;
+  case 'copy':
+  case 'cut':
+    text = window.getSelection().toString();
+    break;
+  }
+  cvox.ChromeVox.tts.speak(text, cvox.AbstractTts.QUEUE_MODE_QUEUE);
+  cvox.ChromeVox.navigationManager.clearPageSel();
   return true;
 };
 
@@ -1207,4 +1256,28 @@ cvox.ChromeVoxEventWatcher.handleEvent_ = function(evt) {
       cvox.ChromeVoxEventWatcher.subtreeModifiedHandler(evt);
       break;
   }
+};
+
+
+/**
+ * Sets up the time handler.
+ * @return {boolean} True if a time control has focus.
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.setUpTimeHandler_ = function() {
+  var currentFocus = document.activeElement;
+  if (currentFocus &&
+      currentFocus.hasAttribute &&
+      currentFocus.getAttribute('aria-hidden') == 'true' &&
+      currentFocus.getAttribute('chromevoxignoreariahidden') != 'true') {
+    currentFocus = null;
+  }
+  if (currentFocus.constructor == HTMLInputElement &&
+      currentFocus.type && (currentFocus.type == 'time')) {
+    cvox.ChromeVoxEventWatcher.currentTimeHandler =
+        new cvox.ChromeVoxHTMLTimeWidget(currentFocus, cvox.ChromeVox.tts);
+    } else {
+      cvox.ChromeVoxEventWatcher.currentTimeHandler = null;
+    }
+  return (null != cvox.ChromeVoxEventWatcher.currentTimeHandler);
 };

@@ -192,12 +192,13 @@ cvox.AndroidHost.prototype.activateOrDeactivateChromeVox = function(active) {
   }
   cvox.ChromeVox.tts.stop();
   cvox.ChromeVox.isActive = active;
-  cvox.ChromeVox.navigationManager.showOrHideIndicator();
+  cvox.ChromeVox.navigationManager.showOrHideIndicator(active);
 
   // If ChromeVox is inactive, the event watcher will only listen
   // for key events.
   cvox.ChromeVoxEventWatcher.cleanup(window);
   cvox.ChromeVoxEventWatcher.init(window);
+  this.onPageLoad();
 
   if (document.activeElement) {
     var speakNodeAlso = document.hasFocus();

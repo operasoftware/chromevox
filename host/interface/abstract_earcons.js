@@ -74,6 +74,8 @@ cvox.AbstractEarcons.prototype.getEarconName = function(earcon) {
     this.earconNames.push('OBJECT_CLOSE');
     this.earconNames.push('OBJECT_DELETE');
     this.earconNames.push('OBJECT_DESELECT');
+    this.earconNames.push('OBJECT_ENTER');
+    this.earconNames.push('OBJECT_EXIT');
     this.earconNames.push('OBJECT_OPEN');
     this.earconNames.push('OBJECT_SELECT');
     this.earconNames.push('PARAGRAPH_BREAK');
@@ -123,6 +125,8 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
     this.earconNamesToIds['OBJECT_DELETE'] = cvox.AbstractEarcons.OBJECT_DELETE;
     this.earconNamesToIds['OBJECT_DESELECT'] =
         cvox.AbstractEarcons.OBJECT_DESELECT;
+    this.earconNamesToIds['OBJECT_ENTER'] = cvox.AbstractEarcons.OBJECT_ENTER;
+    this.earconNamesToIds['OBJECT_EXIT'] = cvox.AbstractEarcons.OBJECT_EXIT;
     this.earconNamesToIds['OBJECT_OPEN'] = cvox.AbstractEarcons.OBJECT_OPEN;
     this.earconNamesToIds['OBJECT_SELECT'] = cvox.AbstractEarcons.OBJECT_SELECT;
     this.earconNamesToIds['PARAGRAPH_BREAK'] =
@@ -248,54 +252,64 @@ cvox.AbstractEarcons.OBJECT_DESELECT = 20;
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_OPEN = 21;
+cvox.AbstractEarcons.OBJECT_ENTER = 21;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_SELECT = 22;
+cvox.AbstractEarcons.OBJECT_EXIT = 22;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.PARAGRAPH_BREAK = 23;
+cvox.AbstractEarcons.OBJECT_OPEN = 23;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SEARCH_HIT = 24;
+cvox.AbstractEarcons.OBJECT_SELECT = 24;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SEARCH_MISS = 25;
+cvox.AbstractEarcons.PARAGRAPH_BREAK = 25;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SECTION = 26;
+cvox.AbstractEarcons.SEARCH_HIT = 26;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SELECTION = 27;
+cvox.AbstractEarcons.SEARCH_MISS = 27;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SELECTION_REVERSE = 28;
+cvox.AbstractEarcons.SECTION = 28;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.TASK_SUCCESS = 29;
+cvox.AbstractEarcons.SELECTION = 29;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP = 30;
+cvox.AbstractEarcons.SELECTION_REVERSE = 30;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP_EDGE = 31;
+cvox.AbstractEarcons.TASK_SUCCESS = 31;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP = 32;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP_EDGE = 33;

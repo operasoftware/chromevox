@@ -30,6 +30,7 @@ goog.require('cvox.CommandStore');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.KeyMap');
+goog.require('cvox.PlatformUtil');
 
 
 /**
@@ -44,6 +45,7 @@ cvox.OptionsPage = function() {
  * @type {cvox.ChromeVoxPrefs}
  */
 cvox.OptionsPage.prefs;
+
 
 /**
  * A mapping from keycodes to their human readable text equivalents.
@@ -101,6 +103,7 @@ cvox.OptionsPage.init = function() {
   cvox.OptionsPage.addKeys();
   cvox.OptionsPage.populateVoicesSelect();
   cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
+
   cvox.OptionsPage.update();
 
   document.addEventListener('change', cvox.OptionsPage.eventListener, false);
@@ -113,14 +116,18 @@ cvox.OptionsPage.init = function() {
     }
   });
 
-  document.getElementById('resetToDefaultKeys').addEventListener('click',
+  document.getElementById('selectKeys').addEventListener('click',
       function() {
         var selectKeyMap = document.getElementById('cvox_keymaps');
         cvox.OptionsPage.prefs.switchToKeyMap(selectKeyMap.selectedIndex);
         document.getElementById('keysContainer').innerHTML = '';
+
         cvox.OptionsPage.addKeys();
         cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
       }, false);
+
+  document.getElementById('version').textContent =
+      chrome.app.getDetails().version;
 };
 
 /**
@@ -131,6 +138,8 @@ cvox.OptionsPage.init = function() {
 cvox.OptionsPage.update = function() {
   var prefs = cvox.OptionsPage.prefs.getPrefs();
   for (var key in prefs) {
+    // TODO(rshearer): 'active' is a pref, but there's no place in the
+    // options page to specify whether you want ChromeVox active.
     var elements = document.querySelectorAll('*[name="' + key + '"]');
     for (var i = 0; i < elements.length; i++) {
       cvox.OptionsPage.setValue(elements[i], prefs[key]);
@@ -161,24 +170,67 @@ cvox.OptionsPage.populateSelectKeyMap = function() {
  */
 cvox.OptionsPage.addKeys = function() {
   var container = document.getElementById('keysContainer');
+  var modifier_keys_container =
+      document.getElementById('modifier_keys_container');
   var keyMap = cvox.OptionsPage.prefs.getKeyMap();
+
+  // TODO(dtseng): Using string representation until KeySequence is ready.
+  this.prevTime = new Date().getTime();
+  this.keyCount = 0;
+  container.addEventListener('keypress', goog.bind(function(evt) {
+    this.keyCount++;
+    var newKey = String.fromCharCode(evt.charCode).toUpperCase();
+    var currentTime = new Date().getTime();
+    if (currentTime - this.prevTime > 1000 || this.keyCount > 2) {
+      this.keySequence = 'Cvox+' + newKey;
+      this.keyCount = 1;
+    } else {
+      this.keySequence += '>' + newKey;
+    }
+
+    var announce = this.keySequence.replace(/\+/g,
+        ' ' + cvox.ChromeVox.msgs.getMsg('then') + ' ');
+    announce = announce.replace(/>/g,
+        ' ' + cvox.ChromeVox.msgs.getMsg('followed_by') + ' ');
+    announce = announce.replace('Cvox',
+        ' ' + cvox.ChromeVox.msgs.getMsg('modifier_key') + ' ');
+
+    // TODO(dtseng): Only basic conflict detection; it does not speak the
+    // conflicting command. Nor does it detect prefix conflicts like Cvox+L vs
+    // Cvox+L>L.
+    if (cvox.OptionsPage.prefs.setKey(document.activeElement.id,
+                                      this.keySequence)) {
+      document.activeElement.value = this.keySequence;
+    } else {
+      announce = cvox.ChromeVox.msgs.getMsg('key_conflict', [announce]);
+    }
+    chrome.extension.getBackgroundPage().speak(announce);
+    this.prevTime = currentTime;
+
+    evt.preventDefault();
+    evt.stopPropagation();
+  }, cvox.OptionsPage), true);
 
   // TODO(dtseng): Requires cleanup.
   keyMap.resetModifier();
-  document.getElementById('cvoxKey').disabled = true;
-  document.getElementById('cvoxKey').textContent = localStorage['cvoxKey'];
 
   var categories = cvox.CommandStore.categories();
   for (var i = 0; i < categories.length; i++) {
     var headerElement = document.createElement('h3');
     headerElement.className = 'i18n';
     headerElement.setAttribute('msgid', categories[i]);
+    headerElement.id = categories[i];
     container.appendChild(headerElement);
-
     var commands = cvox.CommandStore.commandsForCategory(categories[i]);
     for (var j = 0; j < commands.length; j++) {
       var command = commands[j];
       var key = keyMap.keyForCommand(command);
+
+      // Explicitly skip toggleChromeVox in ChromeOS.
+      if (command == 'toggleChromeVox' &&
+          cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.CHROMEOS)) {
+        continue;
+      }
 
       // TODO(dtseng): Decide what to do lack of key binding.
       if (!key) {
@@ -186,14 +238,14 @@ cvox.OptionsPage.addKeys = function() {
       }
       var inputElement = document.createElement('input');
       inputElement.type = 'text';
-      inputElement.className = 'key';
+      inputElement.className = 'key active-key';
       inputElement.id = command;
       var displayedCombo = cvox.OptionsPage.convertBetweenCodesAndText(key,
           cvox.OptionsPage.KEYCODE_TO_TEXT);
       inputElement.value = displayedCombo;
 
-      // Don't allow the user to change the sticky mode key.
-      if (command == 'toggleStickyMode') {
+      // Don't allow the user to change the sticky mode or stop speaking key.
+      if (command == 'toggleStickyMode' || command == 'stopSpeech') {
         inputElement.disabled = true;
       }
       var message = cvox.CommandStore.messageForCommand(command);
@@ -208,10 +260,34 @@ cvox.OptionsPage.addKeys = function() {
       labelElement.setAttribute('for', inputElement.id);
 
       var divElement = document.createElement('div');
+      divElement.className = 'key-container';
       container.appendChild(divElement);
       divElement.appendChild(inputElement);
       divElement.appendChild(labelElement);
     }
+      var brElement = document.createElement('br');
+      container.appendChild(brElement);
+  }
+
+  if (document.getElementById('cvoxKey') == null) {
+    // Add the cvox key field
+    var inputElement = document.createElement('input');
+    inputElement.type = 'text';
+    inputElement.className = 'key';
+    inputElement.id = 'cvoxKey';
+
+    var labelElement = document.createElement('label');
+    labelElement.className = 'i18n';
+    labelElement.setAttribute('msgid', 'options_cvox_modifier_key');
+    labelElement.setAttribute('for', 'cvoxKey');
+
+    var modifierSectionSibling =
+        document.getElementById('modifier_keys').nextSibling;
+    var modifierSectionParent = modifierSectionSibling.parentNode;
+    modifierSectionParent.insertBefore(labelElement, modifierSectionSibling);
+    modifierSectionParent.insertBefore(inputElement, labelElement);
+    document.getElementById('cvoxKey').disabled = true;
+    document.getElementById('cvoxKey').value = localStorage['cvoxKey'];
   }
 };
 

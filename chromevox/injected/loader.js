@@ -24,4 +24,5 @@ goog.require('cvox.ChromeEarcons');
 goog.require('cvox.ChromeHost');
 goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeTts');
+goog.require('cvox.ChromeBraille');
 goog.require('cvox.ChromeVoxInit');

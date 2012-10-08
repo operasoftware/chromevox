@@ -39,6 +39,7 @@ goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
 goog.require('cvox.KeyboardHelpWidget');
 goog.require('cvox.NodeChooserWidget');
+goog.require('cvox.PlatformUtil');
 goog.require('cvox.SearchWidget');
 
 
@@ -51,7 +52,9 @@ goog.require('cvox.SearchWidget');
  * @type {Object.<string, {forward: (undefined|boolean),
  *                         backward: (undefined|boolean),
  *                         announce: boolean,
- *                         findNext: (undefined|string)
+ *                         findNext: (undefined|string),
+ *                         doDefault: (undefined|boolean),
+ *platformFilter: (undefined|cvox.PlatformFilter)
  *                         }>}
  *  forward: Whether this command points forward.
  *  backward: Whether this command points backward. If neither forward or
@@ -60,6 +63,10 @@ goog.require('cvox.SearchWidget');
  *    position after the command is done.
  *  findNext: The id from the map above if this command is used for
  *    finding next/previous of something
+ *  doDefault: Whether to do the default action. This means that keys will be
+ *             passed through to the usual DOM capture/bubble phases.
+ * platformFilter: Specifies to which platforms this command applies. If left
+ *                 undefined, the command applies to all platforms.
  * @private
  */
 cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
@@ -73,7 +80,7 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'nextGranularity': {announce: true},
   'jumpToTop': {forward: true, announce: true},
   'readFromHere': {forward: true, announce: false},
-  'stopSpeech': {announce: false},
+  'stopSpeech': {announce: false, doDefault: true},
   'showPowerKey': {announce: false},
   'nextTtsEngine': {announce: false},
   'help': {announce: false},
@@ -87,10 +94,9 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'speakTableLocation': {announce: false},
   'actOnCurrentItem': {announce: false},
   'forceClickOnCurrentItem': {announce: false},
-  'toggleChromeVox': {announce: false},
+  'toggleChromeVox': {announce: false, platformFilter: cvox.PlatformFilter.WML},
   'fullyDescribe': {announce: false},
-  'beginSelection': {announce: true},
-  'finishSelection': {announce: true},
+  'toggleSelection': {announce: true},
   'filterLikeCurrentItem': {announce: false},
   'startHistoryRecording': {announce: false},
   'stopHistoryRecording': {announce: false},
@@ -293,9 +299,6 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate, errorStr) {
 cvox.ChromeVoxUserCommands.handleTabAction_ = function() {
   cvox.ChromeVox.tts.stop();
 
-  // Clean up after any previous runs
-  cvox.ChromeVoxUserCommands.removeTabDummySpan_();
-
   // If we are tabbing from an invalid location, prevent the default action.
   // We pass the isFocusable function as a predicate to specify we only want to
   // revert to focusable nodes.
@@ -381,11 +384,10 @@ cvox.ChromeVoxUserCommands.isFocusedOnLinkControl_ = function() {
 
 /**
  * If a lingering tab dummy span exists, remove it.
- * @private
  */
-cvox.ChromeVoxUserCommands.removeTabDummySpan_ = function() {
+cvox.ChromeVoxUserCommands.removeTabDummySpan = function() {
   var previousDummySpan = document.getElementById('ChromeVoxTabDummySpan');
-  if (previousDummySpan) {
+  if (previousDummySpan && document.activeElement != previousDummySpan) {
     previousDummySpan.parentNode.removeChild(previousDummySpan);
   }
 };
@@ -529,6 +531,10 @@ cvox.ChromeVoxUserCommands.doCommand_ =
   var cmdStruct = cvox.ChromeVoxUserCommands.CMD_WHITELIST_[cmd];
   if (!cmdStruct) {
     throw 'Invalid command: ' + cmd;
+  }
+
+  if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter)) {
+    return true;
   }
 
   if (cmdStruct.forward) {
@@ -699,11 +705,10 @@ cvox.ChromeVoxUserCommands.doCommand_ =
           cvox.AbstractTts.QUEUE_MODE_FLUSH,
           null);
       break;
-    case 'beginSelection':
-      cvox.ChromeVox.navigationManager.beginSel();
-    break;
-    case 'finishSelection':
-      cvox.ChromeVox.navigationManager.finishSel();
+    case 'toggleSelection':
+      var selState = cvox.ChromeVox.navigationManager.togglePageSel();
+      prefixMsg = cvox.ChromeVox.msgs.getMsg(
+          selState ? 'begin_selection' : 'end_selection');
     break;
     case 'filterLikeCurrentItem':
       // Compute the CSS selector based on the current node.
@@ -813,13 +818,12 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       }
       break;
     case 'toggleStickyMode':
-      cvox.ChromeVox.isStickyOn = !cvox.ChromeVox.isStickyOn;
-      cvox.ChromeVox.tts.speak(
-          cvox.ChromeVox.isStickyOn ?
-              cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled') :
-              cvox.ChromeVox.msgs.getMsg('sticky_mode_disabled'),
-          cvox.AbstractTts.QUEUE_MODE_FLUSH,
-          cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      cvox.ChromeVox.host.sendToBackgroundPage({
+        'target': 'Prefs',
+        'action': 'setPref',
+        'pref': 'sticky',
+        'value': !cvox.ChromeVox.isStickyOn
+      });
       break;
     case 'toggleKeyPrefix':
       cvox.ChromeVox.keyPrefixOn = !cvox.ChromeVox.keyPrefixOn;
@@ -976,7 +980,7 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVoxUserCommands.finishNavCommand(prefixMsg);
     }
   }
-  return ret;
+  return !!cmdStruct.doDefault || ret;
 });
 
 cvox.ChromeVoxUserCommands.init_();

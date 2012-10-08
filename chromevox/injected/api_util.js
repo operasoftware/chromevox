@@ -64,6 +64,7 @@ cvox.ApiUtils.makeNodeReference = function(targetNode) {
     for (var i = 0; i < parent.childNodes.length; i++) {
       if (parent.childNodes[i] == targetNode) {
         childIndex = i;
+        break;
       }
     }
     if (childIndex >= 0) {
@@ -88,6 +89,9 @@ cvox.ApiUtils.getNodeFromRef = function(nodeRef) {
   } else if (nodeRef['cvoxid']) {
     var selector = '*[cvoxid="' + nodeRef['cvoxid'] + '"]';
     var element = document.querySelector(selector);
+    if (element && element.removeAttribute) {
+      element.removeAttribute('cvoxid');
+    }
     if (nodeRef['childIndex'] != null) {
       return element.childNodes[nodeRef['childIndex']];
     } else {

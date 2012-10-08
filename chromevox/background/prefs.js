@@ -63,21 +63,22 @@ cvox.ChromeVoxPrefs = function() {
  */
 cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'active': true,
-  'lensVisible': false,
-  'lensAnchored': true,
-  'focusFollowsMouse': false,
-  'useBriefMode': false,
-  'cursorIsBlock': false,
+  // TODO(dtseng): Leaking state about multiple key maps here until we have a
+  // class to manage multiple key maps. Also, this doesn't belong as a pref;
+  // should just store in local storage.
+  'currentKeyMap' : cvox.KeyMap.DEFAULT_KEYMAP,
+  'useIBeamCursor': cvox.ChromeVox.isMac,
   'cvoxKey': '',
+  'filterMap': '{}',
+  'focusFollowsMouse': false,
+  'lensAnchored': true,
+  'lensVisible': false,
   'siteSpecificScriptBase':
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
       'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
-  'filterMap': '{}',
-  // TODO(dtseng): Leaking state about multiple key maps here until we have a
-  // class to manage multiple key maps. Also, this doesn't belong as a pref;
-  // should just store in local storage.
-  'currentKeyMap' : cvox.KeyMap.DEFAULT_KEYMAP
+  'sticky': false,
+  'useVerboseMode': true
 };
 
 
@@ -185,7 +186,7 @@ cvox.ChromeVoxPrefs.prototype.sendPrefsToAllTabs =
     for (var i = 0; i < windows.length; i++) {
       var tabs = windows[i].tabs;
       for (var j = 0; j < tabs.length; j++) {
-        chrome.tabs.sendRequest(tabs[j].id, message);
+        chrome.tabs.sendMessage(tabs[j].id, message);
       }
     }
   });

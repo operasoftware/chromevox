@@ -228,10 +228,15 @@ cvox.CursorSelection.prototype.directedBefore = function(rhs) {
  * @return {!cvox.CursorSelection} The normalized selection.
  */
 cvox.CursorSelection.prototype.normalize = function() {
-  if (this.absEnd().index == 0) {
-    this.absEnd().index = this.absEnd().node.nodeType == Node.TEXT_NODE ?
-      this.absEnd().text.length :
-      this.absEnd().node.children.length;
+  if (this.absEnd().index == 0 && this.absEnd().node) {
+    var node = this.absEnd().node;
+
+    // DOM ranges use different conventions when surrounding a node. For
+    // instance, input nodes endOffset is always 0 while h1's endOffset is 1
+    //with both having no children. Use a range to compute the endOffset.
+    var testRange = document.createRange();
+    testRange.selectNodeContents(node);
+    this.absEnd().index = testRange.endOffset;
   }
   return this;
 };

@@ -42,8 +42,7 @@ cvox.PageSelection = function(sel) {
 
 
 /**
- * Gets a description for the DOM selection taking into account the previous
- * and current CursorSelection's.
+ * Gets a description for the DOM selection during the course of navigation.
  * @param {cvox.NavigationShifter} navShifter Used to obtain walker-based
  * descriptions.
  * @param {!cvox.CursorSelection} prevSel Previous CursorSelection in
@@ -75,6 +74,20 @@ cvox.PageSelection.prototype.getDescription =
     }
   }
   return desc;
+};
+
+
+/**
+ * Gets a full description for the entire DOM selection.
+ * Use this description when you want to describe the entire selection
+ * represented by this instance.
+ *
+ * @return {Array.<cvox.NavDescription>} The new description.
+ */
+cvox.PageSelection.prototype.getFullDescription = function() {
+  return [new cvox.NavDescription(
+      {text: window.getSelection().toString(),
+       context: cvox.ChromeVox.msgs.getMsg('selection_is')})];
 };
 
 

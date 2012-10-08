@@ -23,10 +23,8 @@ goog.provide('cvox.SearchWidget');
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.Cursor');
+goog.require('cvox.CursorSelection');
 goog.require('cvox.NavigationManager');
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.TraverseUtil');
 goog.require('cvox.Widget');
 
 
@@ -60,62 +58,28 @@ cvox.SearchWidget = function() {
    * @private
    */
   this.caseSensitive_ = false;
-
-  /**
-   * @type {Node}
-   * @private
-   */
-  this.initialNode_ = null;
-
-  /**
-   * @type {Range}
-   * @private
-   */
-  this.initialRange_ = null;
-
-  /**
-   * @type {Node}
-   * @private
-   */
-  this.initialFocus_ = null;
-
-  /**
-   * @type {Range}
-   * @private
-   */
-  this.startingRange_ = null;
 };
 goog.inherits(cvox.SearchWidget, cvox.Widget);
 goog.addSingletonGetter(cvox.SearchWidget);
 
 
 /**
- * Displays the search widget.
  * @override
  */
 cvox.SearchWidget.prototype.show = function() {
   goog.base(this, 'show');
+  this.initialGranularity_ = cvox.ChromeVox.navigationManager.getGranularity();
+  cvox.ChromeVox.navigationManager.setGranularity(
+      cvox.NavigationShifter.GRANULARITIES.OBJECT);
+
+  // During profiling, NavigationHistory was found to have a serious performance
+  // impact on search.
+  cvox.ChromeVox.navigationManager.disableNavigationHistory();
 
   this.initialNode_ =
       cvox.ChromeVox.navigationManager.getCurrentNode();
-  var sel = window.getSelection();
-  if (sel.rangeCount >= 1) {
-    this.initialRange_ = sel.getRangeAt(0);
-  } else {
-    this.initialRange_ = null;
-  }
 
-  if (this.initialRange_) {
-    this.startingRange_ = this.initialRange_;
-  } else if (this.initialNode_) {
-    this.startingRange_ = document.createRange();
-    this.startingRange_.selectNodeContents(this.initialNode_);
-  } else {
-    this.startingRange_ = document.createRange();
-    this.startingRange_.selectNodeContents(cvox.DomUtil.getFirstLeafNode());
-  }
   this.initialFocus_ = document.activeElement;
-
   var containerNode = this.createContainerNode_();
   this.containerNode_ = containerNode;
 
@@ -136,8 +100,8 @@ cvox.SearchWidget.prototype.show = function() {
   }, 0);
 };
 
+
 /**
- * Dismisses the search widget
  * @override
  */
 cvox.SearchWidget.prototype.hide = function() {
@@ -149,11 +113,15 @@ cvox.SearchWidget.prototype.hide = function() {
     }, 1000);
     this.txtNode_ = null;
     cvox.SearchWidget.containerNode = null;
+    cvox.ChromeVox.navigationManager.enableNavigationHistory();
+    cvox.ChromeVox.navigationManager.setGranularity(this.initialGranularity_);
+    cvox.ChromeVox.navigationManager.syncAll();
   }
   cvox.$m('search_widget_outro').speakFlush();
 
   goog.base(this, 'hide', true);
 };
+
 
 /**
  * @override
@@ -162,6 +130,7 @@ cvox.SearchWidget.prototype.getNameMsg = function() {
   return 'search_widget_intro';
 };
 
+
 /**
  * @override
  */
@@ -169,9 +138,8 @@ cvox.SearchWidget.prototype.getHelp = function() {
   return 'search_widget_intro_help';
 };
 
+
 /**
- * Handles the keyDown event when the search widget is active.
- *
  * @override
  */
 cvox.SearchWidget.prototype.onKeyDown = function(evt) {
@@ -180,51 +148,43 @@ cvox.SearchWidget.prototype.onKeyDown = function(evt) {
   }
 
   var searchStr = this.txtNode_.textContent;
-  var handled = false;
   if (evt.keyCode == 8) { // Backspace
     if (searchStr.length > 0) {
       searchStr = searchStr.substring(0, searchStr.length - 1);
       this.txtNode_.textContent = searchStr;
       this.beginSearch_(searchStr);
+    } else {
+      cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
+          this.initialNode_);
+      cvox.ChromeVox.navigationManager.syncAll();
     }
-    handled = true;
   } else if (evt.keyCode == 40) { // Down arrow
     this.next_(searchStr);
-    handled = true;
   } else if (evt.keyCode == 38) { // Up arrow
     this.prev_(searchStr);
-    handled = true;
   } else if (evt.keyCode == 13) { // Enter
     this.hide();
-    handled = true;
   } else if (evt.keyCode == 27) { // Escape
     this.hide();
     cvox.ApiImplementation.syncToNode(this.initialNode_,
                                       true,
                                       cvox.AbstractTts.QUEUE_MODE_QUEUE);
-    window.getSelection().removeAllRanges();
-    if (this.initialRange_) {
-      window.getSelection().addRange(this.initialRange_);
-    }
     if (this.initialFocus_) {
       cvox.ChromeVox.markInUserCommand();
-      cvox.DomUtil.setFocus(this.initialFocus_);
+      cvox.Focuser.setFocus(this.initialFocus_);
     } else if (document.activeElement) {
       document.activeElement.blur();
     }
-    handled = true;
   } else if (evt.ctrlKey && evt.keyCode == 67) { // ctrl + c
     this.toggleCaseSensitivity_();
-    handled = true;
   } else {
     return goog.base(this, 'onKeyDown', evt);
   }
-  if (handled) {
-    evt.preventDefault();
-    evt.stopPropagation();
-  }
-  return handled;
+  evt.preventDefault();
+  evt.stopPropagation();
+  return true;
 };
+
 
 /**
  * Adds the letter the user typed to the search string and updates the search.
@@ -246,6 +206,7 @@ cvox.SearchWidget.prototype.onKeyPress = function(evt) {
   return true;
 };
 
+
 /**
  * Create the container node for the search overlay.
  *
@@ -262,6 +223,7 @@ cvox.SearchWidget.prototype.createContainerNode_ = function() {
   containerNode.setAttribute('aria-hidden', 'true');
   return containerNode;
 };
+
 
 /**
  * Create the search overlay. This should be a child of the node
@@ -286,6 +248,7 @@ cvox.SearchWidget.prototype.createOverlayNode_ = function() {
   return overlayNode;
 };
 
+
 /**
  * Toggles whether or not searches are case sensitive.
  * @private
@@ -300,93 +263,46 @@ cvox.SearchWidget.prototype.toggleCaseSensitivity_ = function() {
   }
 };
 
+
 /**
  * Gets the next result.
  *
  * @param {string} searchStr The text to search for.
- * @param {Range} startRange The range where the search should begin.
- * @param {boolean} forwards Search forwards (true) or backwards (false).
- * @return {Range} The next result, if any, or null if none were found.
+ * @return {Array.<cvox.NavDescription>} The next result, in the form of
+ * NavDescriptions.
  * @private
  */
-cvox.SearchWidget.prototype.getNextResult_ = function(
-    searchStr, startRange, forwards) {
+cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
   if (!this.caseSensitive_) {
     searchStr = searchStr.toLowerCase();
   }
 
-  // Special case: search for the next result within the same text node.
-  if (startRange.endContainer.constructor == Text && forwards) {
-    var node = startRange.endContainer;
-    var index = startRange.endOffset;
-    var remainder = node.data.substr(index);
-    if (!this.caseSensitive_) {
-      remainder = remainder.toLowerCase();
-    }
-    var found = remainder.indexOf(searchStr);
-    if (found >= 0) {
-      var result = document.createRange();
-      result.setStart(node, index + found);
-      result.setEnd(node, index + found + searchStr.length);
-      return result;
-    }
-  }
+  do {
+    cvox.ChromeVox.navigationManager.setGranularity(
+        cvox.NavigationShifter.GRANULARITIES.OBJECT);
+    var descriptions = cvox.ChromeVox.navigationManager.getDescription();
+    for (var i = 0; i < descriptions.length; i++) {
+      var targetStr = this.caseSensitive_ ? descriptions[i].text :
+          descriptions[i].text.toLowerCase();
+      var targetIndex = targetStr.indexOf(searchStr);
 
-  // Special case: search for the previous result within the same text node.
-  if (startRange.startContainer.constructor == Text && !forwards) {
-    var node = startRange.startContainer;
-    var index = startRange.startOffset;
-    var remainder = node.data.substr(0, index);
-    if (!this.caseSensitive_) {
-      remainder = remainder.toLowerCase();
-    }
-    var found = remainder.indexOf(searchStr);
-    if (found >= 0) {
-      var result = document.createRange();
-      result.setStart(node, found);
-      result.setEnd(node, found + searchStr.length);
-      return result;
-    }
-  }
-
-  // Otherwise, start searching for a match.
-  var current =
-      forwards ?
-      cvox.DomUtil.directedNextLeafNode(startRange.endContainer) :
-      cvox.DomUtil.previousLeafNode(startRange.startContainer);
-  while (current && current != document.body) {
-    if (cvox.DomUtil.hasContent(current)) {
-      var text = current.constructor == Text ? current.data :
-          cvox.DomUtil.getName(current);
-
-      if (!this.caseSensitive_) {
-        text = text.toLowerCase();
+      // Surround search hit with pauses.
+      if (targetIndex != -1 && targetStr.length > searchStr.length) {
+        descriptions[i].text =
+            cvox.DomUtil.collapseWhitespace(
+                targetStr.substring(0, targetIndex)) +
+            ', ' + searchStr + ', ' +
+            targetStr.substring(targetIndex + searchStr.length);
+        descriptions[i].text =
+            cvox.DomUtil.collapseWhitespace(descriptions[i].text);
       }
-      var found = forwards ?
-                  text.indexOf(searchStr) :
-                  text.lastIndexOf(searchStr);
-
-      if (found >= 0) {
-        var result = document.createRange();
-        if (current.constructor == Text) {
-          result.setStart(current, found);
-          result.setEnd(current, found + searchStr.length);
-        } else {
-          result.setStartBefore(current);
-          result.setEndAfter(current);
-        }
-        return result;
+      if (targetIndex != -1) {
+        return descriptions;
       }
     }
-    if (forwards) {
-      current = cvox.DomUtil.directedNextLeafNode(current);
-    } else {
-      current = cvox.DomUtil.previousLeafNode(current);
-    }
-  }
-  // Edge of document reached, no matches found.
-  return null;
+  } while (cvox.ChromeVox.navigationManager.navigate(true));
 };
+
 
 /**
  * Performs the search starting from the initial position.
@@ -395,9 +311,10 @@ cvox.SearchWidget.prototype.getNextResult_ = function(
  * @private
  */
 cvox.SearchWidget.prototype.beginSearch_ = function(searchStr) {
-  var result = this.getNextResult_(searchStr, this.startingRange_, true);
+  var result = this.getNextResult_(searchStr);
   this.outputSearchResult_(result);
 };
+
 
 /**
  * Goes to the next matching result.
@@ -406,10 +323,12 @@ cvox.SearchWidget.prototype.beginSearch_ = function(searchStr) {
  * @private
  */
 cvox.SearchWidget.prototype.next_ = function(searchStr) {
-  var range = window.getSelection().getRangeAt(0);
-  var result = this.getNextResult_(searchStr, range, true);
+  cvox.ChromeVox.navigationManager.setReversed(false);
+  cvox.ChromeVox.navigationManager.navigate();
+  var result = this.getNextResult_(searchStr);
   this.outputSearchResult_(result);
 };
+
 
 /**
  * Goes to the previous matching result.
@@ -418,81 +337,42 @@ cvox.SearchWidget.prototype.next_ = function(searchStr) {
  * @private
  */
 cvox.SearchWidget.prototype.prev_ = function(searchStr) {
-  var range = window.getSelection().getRangeAt(0);
-  var result = this.getNextResult_(searchStr, range, false);
+  cvox.ChromeVox.navigationManager.setReversed(true);
+  cvox.ChromeVox.navigationManager.navigate();
+  var result = this.getNextResult_(searchStr);
   this.outputSearchResult_(result);
 };
+
 
 /**
  * Given a range corresponding to a search result, highlight the result,
  * speak it, focus the node if applicable, and speak some instructions
  * at the end.
  *
- * @param {Range?} result The DOM range where the next result was found.
- *     If null, no more results were found and an error will be presented.
+ * @param {Array.<cvox.NavDescription>} result The description of the next
+ * result. If null, no more results were found and an error will be presented.
  * @private
  */
 cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
   if (!result) {
     cvox.ChromeVox.tts.stop();
+    cvox.$m('search_widget_no_results').speakFlush();
     cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
     return;
   }
 
-  // Extend to the end of the sentence or to the end of the text block.
-  var prefix = document.createRange();
-  var suffix = result.cloneRange();
-  prefix.setStart(result.startContainer, 0);
-  prefix.setEnd(result.startContainer, result.startOffset);
-  suffix.setStart(result.endContainer, result.endOffset);
-  var endCursor = new cvox.Cursor(
-      result.endContainer,
-      result.endOffset,
-      result.endContainer.data);
-  var startCursor = endCursor.clone();
-  if (cvox.TraverseUtil.getNextSentence(startCursor, endCursor, [], [], {}) &&
-      endCursor.node == result.endContainer) {
-    suffix.setEnd(endCursor.node, endCursor.index);
-  } else {
-    suffix.setEndAfter(result.endContainer);
-  }
-
-  // Sync to the original node and then to the current search result
-  // so that the previous node is set correctly for ancestor calculations.
-  cvox.ChromeVox.navigationManager.updateSel(
-      cvox.CursorSelection.fromNode(this.initialNode_));
-  cvox.ChromeVox.navigationManager.updateSel(
-      cvox.CursorSelection.fromNode(result.endContainer));
-  var description = cvox.ChromeVox.navigationManager.getDescription();
-
-  // Now set the selection.
-  var sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(result);
-  cvox.SelectionUtil.scrollToSelection(sel);
-  var anchorNode = sel.anchorNode;
-
-  // Construct the utterance so the search hit is surrounded by pauses.
-  description[0].text = cvox.DomUtil.collapseWhitespace(prefix.toString()) +
-      ', ' +
-      cvox.DomUtil.collapseWhitespace(result.toString()) +
-      ', ' +
-      cvox.DomUtil.collapseWhitespace(suffix.toString());
-
-    // Speak the description and some instructions.
+  // Speak the modified description and some instructions.
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
-      description,
+      result,
       cvox.AbstractTts.QUEUE_MODE_FLUSH,
       null);
-  cvox.ChromeVox.tts.speak(
-      'Press enter to accept or escape to cancel, ' +
-          'down for next and up for previous.',
-      cvox.AbstractTts.QUEUE_MODE_QUEUE,
-      cvox.AbstractTts.PERSONALITY_ANNOTATION);
 
-  // Try to set focus if possible (ie, if the user lands on a link).
-  window.setTimeout(function() {
-    cvox.ChromeVox.markInUserCommand();
-    cvox.DomUtil.setFocus(anchorNode);
-  }, 0);
+  cvox.ChromeVox.tts.speak('Press enter to accept or escape to cancel, ' +
+      'down for next and up for previous.',
+                           cvox.AbstractTts.QUEUE_MODE_QUEUE,
+                           cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
+  cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
+    cvox.ChromeVox.navigationManager.syncAll();
+  });
 };

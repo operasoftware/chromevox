@@ -78,9 +78,18 @@ cvox.ChoiceWidget = function(descriptions, functions) {
     completionActionMap[description.toLowerCase()] = action;
   }
   this.powerKey_.setCompletionActionMap(completionActionMap);
-  this.powerKey_.setBrowseCallback(function(text) {
+  this.prevIndex_ = 0;
+
+  // Not binding since the callback belongs to PowerKey.
+  var self = this;
+  this.powerKey_.setBrowseCallback(function(text, index) {
     cvox.ChromeVox.tts.speak(text, cvox.AbstractTts.QUEUE_MODE_FLUSH,
         null);
+    if ((index == 0 && self.prevIndex_ == dedupped.length - 1) ||
+        index == dedupped.length - 1 && self.prevIndex_ == 0) {
+      cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+    }
+    self.prevIndex_ = index;
   });
 
   // TODO(dtseng): PowerKey doesn't have a clear distinction between intro and

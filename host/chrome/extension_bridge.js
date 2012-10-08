@@ -1,4 +1,4 @@
-// Copyright 2010 Google Inc.
+// Copyright 2012 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -215,7 +215,13 @@ cvox.ExtensionBridge.initBackground = function() {
 cvox.ExtensionBridge.initContentScript = function() {
   var self = cvox.ExtensionBridge;
 
-  var onRequestHandler = function(request, sender, sendResponse) {
+  var onMessageHandler = function(request, sender, sendResponse) {
+    if (request && request['srcFile']) {
+      // TODO (clchen, deboer): Investigate this further and come up with a
+      // cleaner solution. The root issue is that this should never be run on
+      // the background page, but it is in the Chrome OS case.
+      return;
+    }
     for (var i = 0; i < self.messageListeners.length; i++) {
       self.messageListeners[i](request, self.backgroundPort);
     }
@@ -227,7 +233,7 @@ cvox.ExtensionBridge.initContentScript = function() {
 
   // Listen to requests from the background that don't come from
   // our connection port.
-  chrome.extension.onRequest.addListener(onRequestHandler);
+  chrome.extension.onMessage.addListener(onMessageHandler);
 
   // Listen to events on the main window and wait for a port setup message
   // from the page to continue.
@@ -327,7 +333,7 @@ cvox.ExtensionBridge.sendContentScriptToBackground = function(message) {
   if (cvox.ExtensionBridge.backgroundPort) {
     cvox.ExtensionBridge.backgroundPort.postMessage(message);
   } else {
-    chrome.extension.sendRequest(message);
+    chrome.extension.sendMessage(message);
   }
 };
 
@@ -341,7 +347,7 @@ cvox.ExtensionBridge.sendBackgroundToContentScript = function(message) {
   chrome.tabs.getSelected(
       null,
       function(tab) {
-        chrome.tabs.sendRequest(tab.id, message, function() {});
+        chrome.tabs.sendMessage(tab.id, message);
       });
 };
 
