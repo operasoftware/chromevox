@@ -174,10 +174,23 @@ cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab =
         }, this));
   }, this);
 
-  // INJECTED_AFTER_LOAD is set true to prevent ChromeVox from giving
-  // the same feedback as a page loading.
-  executeScript(
-      'window.INJECTED_AFTER_LOAD = true; window.CLOSURE_NO_DEPS = true');
+  // There is a scenario where two copies of the content script can get
+  // loaded into the same tab on browser startup - one automatically
+  // and one because the background page injects the content script into
+  // every tab on startup. To work around potential bugs resulting from this,
+  // ChromeVox exports a global function called disableChromeVox() that can
+  // be used here to disable any existing running instance before we inject
+  // a new instance of the content script into this tab.
+  //
+  // It's harmless if there wasn't a copy of ChromeVox already running.
+  //
+  // Also, set some variables so that Closure deps work correctly and so
+  // that ChromeVox knows not to announce feedback as if a page just loaded.
+  executeScript('try { window.disableChromeVox(); } catch(e) { }\n' +
+		'window.INJECTED_AFTER_LOAD = true;\n' +
+		'window.CLOSURE_NO_DEPS = true\n');
+
+  // Now inject the ChromeVox content script code into the tab.
   files.forEach(function(file) { executeScript(code[file]); });
 };
 
@@ -217,6 +230,10 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
                      cvox.AbstractTts.QUEUE_MODE_FLUSH,
                      cvox.AbstractTts.PERSONALITY_ANNOTATION);
     }
+  } else if (msg['action'] == 'cyclePunctuationLevel') {
+    this.tts.speak(cvox.ChromeVox.msgs.getMsg(
+            cvox.AbstractTts.cyclePunctuationLevel()),
+                   cvox.AbstractTts.QUEUE_MODE_FLUSH);
   }
 };
 
@@ -226,7 +243,7 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
  */
 cvox.ChromeVoxBackground.prototype.onBrailleMessage = function(msg) {
   if (msg['action'] == 'write') {
-    this.backgroundBraille_.write(msg['text']);
+    this.backgroundBraille_.write(msg['params']);
   }
 };
 
@@ -278,14 +295,12 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
             cvox.ChromeVox.isActive) {
           this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
         }
-        else if (msg['pref'] == 'sticky') {
-          if (msg['value'] && !cvox.ChromeVox.isStickyOn) {
+        else if (msg['pref'] == 'sticky' && msg['announce']) {
+          if (msg['value']) {
             this.tts.speak(cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled'));
-          } else if (!msg['value'] && cvox.ChromeVox.isStickyOn) {
+          } else {
             this.tts.speak(
                 cvox.ChromeVox.msgs.getMsg('sticky_mode_disabled'));
-          } else {
-            console.log('Sticky mode not sent from prefs correctly.');
           }
         }
         this.prefs.setPref(msg['pref'], msg['value']);
@@ -343,15 +358,10 @@ cvox.ChromeVoxBackground.prototype.checkVersionNumber = function() {
 
 /**
  * Display release notes to the user.
- * @param {string} version The version number string.
  */
-cvox.ChromeVoxBackground.prototype.displayReleaseNotes = function(version) {
+cvox.ChromeVoxBackground.prototype.displayReleaseNotes = function() {
   chrome.tabs.create(
       {'url': 'http://chromevox.com/release_notes.html'});
-
-  // Update version number in local storage
-  localStorage['versionString'] = version;
-  this.localStorageVersion = version;
 };
 
 
@@ -367,9 +377,24 @@ cvox.ChromeVoxBackground.prototype.showNotesIfNewVersion = function() {
     if (xhr.readyState == 4) {
       var manifest = JSON.parse(xhr.responseText);
       console.log('Version: ' + manifest.version);
-      if (context.localStorageVersion != manifest.version) {
-        context.displayReleaseNotes(manifest.version);
+
+      var shouldShowReleaseNotes =
+          (context.localStorageVersion != manifest.version);
+
+      // On Chrome OS, don't show the release notes the first time, only
+      // after a version upgrade.
+      if (navigator.userAgent.indexOf('CrOS') != -1 &&
+          context.localStorageVersion == undefined) {
+        shouldShowReleaseNotes = false;
       }
+
+      if (shouldShowReleaseNotes) {
+        context.displayReleaseNotes();
+      }
+
+      // Update version number in local storage
+      localStorage['versionString'] = manifest.version;
+      this.localStorageVersion = manifest.version;
     }
   };
   xhr.open('GET', url);

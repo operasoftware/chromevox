@@ -17,10 +17,13 @@
  * @fileoverview Defines the AndroidVox app.
  * @author deboer@google.com (James deBoer)
  */
-
-goog.require('androidvoxnav');
 goog.require('cvox.AndroidEarcons');
 goog.require('cvox.AndroidTts');
+goog.require('cvox.AndroidBraille');
 goog.require('cvox.ChromeVoxInit');
 goog.require('cvox.ClankHost');
 goog.require('cvox.TestMsgs');
+
+// NOTE(deboer): This is called when this script is loaded, automatically
+// starting ChromeVox.
+cvox.ChromeVox.initDocument();

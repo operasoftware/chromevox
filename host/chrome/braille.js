@@ -29,24 +29,27 @@ goog.require('cvox.HostFactory');
  * @extends {cvox.AbstractBraille}
  */
 cvox.ChromeBraille = function() {
-  cvox.AbstractBraille.call(this);
+  goog.base(this);
 };
 goog.inherits(cvox.ChromeBraille, cvox.AbstractBraille);
 
 /** @override */
-cvox.ChromeBraille.prototype.write = function(textString) {
-  cvox.ChromeBraille.superClass_.write.call(this, textString);
+cvox.ChromeBraille.prototype.write = function(params) {
+  // Hack to ensure text survives across the JSON stringify/parse and the
+  // XMLHttpRequest.
+  params.text = params.text.replace(/[\"\'&]/g, '');
 
   var message = {'target': 'BRAILLE',
                  'action': 'write',
-                 'text': textString};
+                 'params': JSON.stringify(params)};
 
   cvox.ExtensionBridge.send(message);
 };
 
 /** @override */
 cvox.ChromeBraille.prototype.setPanOutListener = function(func) {
-  cvox.ChromeBraille.superClass_.setPanOutListener.call(this, func);
   // TODO (clchen, plundblad): Implement this.
 };
 
+/** Export platform constructor. */
+cvox.HostFactory.brailleConstructor = cvox.ChromeBraille;

@@ -26,3 +26,10 @@ goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeTts');
 goog.require('cvox.ChromeBraille');
 goog.require('cvox.ChromeVoxInit');
+
+if (COMPILED) {
+  // NOTE(deboer): This is called when this script is loaded, automatically
+  // starting ChromeVox. If this isn't the compiled script, it will be
+  // called in init_document.js.
+  cvox.ChromeVox.initDocument();
+}

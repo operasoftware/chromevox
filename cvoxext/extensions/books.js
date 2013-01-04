@@ -56,7 +56,7 @@ booksvox.preprocess = {
 
   /**
    * @param {Object} values tree.
-   * @param {String} speakable name focused from.
+   * @param {string} speakable name focused from.
    * @return {Object} done flag.
    */
   page: function(values, focusedFrom) {

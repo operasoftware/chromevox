@@ -80,16 +80,16 @@ ShadowTableNode.prototype.activeCell;
 
 /**
  * The cells that are row headers of the corresponding active table cell
- * @type {Array}
+ * @type {!Array}
  */
-ShadowTableNode.prototype.rowHeaderCells;
+ShadowTableNode.prototype.rowHeaderCells = [];
 
 
 /**
  * The cells that are column headers of the corresponding active table cell
- * @type {Array}
+ * @type {!Array}
  */
-ShadowTableNode.prototype.colHeaderCells;
+ShadowTableNode.prototype.colHeaderCells = [];
 
 
 
@@ -125,7 +125,7 @@ cvox.TraverseTable = function(tableNode) {
    * the (1,3) position, eliminating the need to check for predecessor cells
    * with rowspan/colspan every time we traverse the table.
    *
-   * @type {Array.<Array.<ShadowTableNode>>}
+   * @type {!Array.<Array.<ShadowTableNode>>}
    * @private
    */
   this.shadowTable_ = [];
@@ -261,6 +261,10 @@ cvox.TraverseTable.prototype.initialize = function(tableNode) {
         this.tableColHeaders = [];
         this.findHeaderCells_();
 
+        if (this.colCount == 0 && this.rowCount == 0) {
+          return;
+        }
+
         if (this.getCell(this.currentCellCursor) == null) {
           this.attachCursorToNearestCell_();
         }
@@ -318,6 +322,13 @@ cvox.TraverseTable.prototype.findNearestCursor = function(node) {
  * @private
  */
 cvox.TraverseTable.prototype.attachCursorToNearestCell_ = function() {
+  if (!this.currentCellCursor) {
+    // We have no idea.  Just go 'somewhere'. Other code paths in this
+    // function go to the last cell, so let's do that!
+    this.goToLastCell();
+    return;
+  }
+
   var currentCursor = this.currentCellCursor;
 
   // Does the current row still exist in the table?
@@ -350,6 +361,7 @@ cvox.TraverseTable.prototype.attachCursorToNearestCell_ = function() {
 /**
  * Builds or rebuilds the shadow table by iterating through all of the cells
  * ( <TD> or <TH> or role='gridcell' nodes) of the active table.
+ * @return {!Array} The shadow table.
  * @private
  */
 cvox.TraverseTable.prototype.buildShadowTable_ = function() {
@@ -505,6 +517,7 @@ cvox.TraverseTable.prototype.buildShadowTable_ = function() {
       }
     }
   }
+  return this.shadowTable_;
 };
 
 
@@ -837,10 +850,14 @@ cvox.TraverseTable.prototype.findAttrbDescribedBy_ =
 
 
 /**
- * Gets the current cell.
+ * Gets the current cell or null if there is no current cell.
  * @return {?Node} The cell <TD> or <TH> or role='gridcell' node.
  */
 cvox.TraverseTable.prototype.getCell = function() {
+  if (!this.currentCellCursor) {
+    return null;
+  }
+
   var shadowEntry =
       this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
 
@@ -868,7 +885,7 @@ cvox.TraverseTable.prototype.getCellAt = function(index) {
 
 /**
  * Gets the cells that are row headers of the current cell.
- * @return {?Array} The cells that are row headers of the current cell. Null if
+ * @return {!Array} The cells that are row headers of the current cell. Empty if
  * the current cell does not have row headers.
  */
 cvox.TraverseTable.prototype.getCellRowHeaders = function() {
@@ -881,7 +898,7 @@ cvox.TraverseTable.prototype.getCellRowHeaders = function() {
 
 /**
  * Gets the cells that are col headers of the current cell.
- * @return {?Array} The cells that are col headers of the current cell. Null if
+ * @return {!Array} The cells that are col headers of the current cell. Empty if
  * the current cell does not have col headers.
  */
 cvox.TraverseTable.prototype.getCellColHeaders = function() {
@@ -1242,6 +1259,9 @@ cvox.TraverseTable.prototype.goToCell = function(index) {
  */
 cvox.TraverseTable.prototype.goToLastCell = function() {
   var numRows = this.shadowTable_.length;
+  if (numRows == 0) {
+    return false;
+  }
   var lastRow = this.shadowTable_[numRows - 1];
   var lastIndex = [(numRows - 1), (lastRow.length - 1)];
   var cell =

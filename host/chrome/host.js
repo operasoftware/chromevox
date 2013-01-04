@@ -28,6 +28,7 @@ goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
+goog.require('cvox.InitialSpeech');
 goog.require('cvox.PdfProcessor');
 
 /**
@@ -43,8 +44,6 @@ cvox.ChromeHost = function() {
 goog.inherits(cvox.ChromeHost, cvox.AbstractHost);
 
 cvox.ChromeHost.prototype.init = function() {
-  cvox.ExtensionBridge.setupBackgroundPort();
-
   // TODO(deboer): This pattern is relatively painful since it
   // must be duplicated in all host.js files. It also causes odd
   // dependencies.
@@ -67,7 +66,7 @@ cvox.ChromeHost.prototype.init = function() {
         self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
         self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
         if (!self.gotPrefsAtLeastOnce_) {
-          cvox.ChromeVox.speakInitialMessages();
+          cvox.InitialSpeech.speak();
         }
         self.gotPrefsAtLeastOnce_ = true;
 
@@ -178,6 +177,14 @@ cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
 
 cvox.ChromeHost.prototype.onPageLoad = function() {
   cvox.PdfProcessor.processEmbeddedPdfs();
+
+  // If Chrome is used to directly open media content, embed this content into
+  // an HTML page so that ChromeVox's media controls will take over.
+  var videoElem = document.getElementsByTagName('VIDEO')[0];
+  if (videoElem && (videoElem.currentSrc == document.location)) {
+    document.location = window.chrome.extension.getURL(
+        'chromevox/background/mediaplayer.html#' + videoElem.currentSrc);
+  }
 
   cvox.ExtensionBridge.addDisconnectListener(goog.bind(function() {
     cvox.ChromeVox.isActive = false;

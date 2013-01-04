@@ -223,7 +223,7 @@ cvox.ApiImplementation.syncToNode = function(
     opt_queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
   }
 
-  cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(targetNode);
+  cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(targetNode, true);
   cvox.ChromeVox.navigationManager.updateIndicator();
 
   if (speakNode == undefined) {
@@ -238,6 +238,8 @@ cvox.ApiImplementation.syncToNode = function(
   if (speakNode) {
     cvox.ChromeVox.navigationManager.speakDescriptionArray(
         cvox.ApiImplementation.getDesc_(targetNode), opt_queueMode, null);
+
+    cvox.ChromeVox.navigationManager.getBraille().write();
   }
 };
 

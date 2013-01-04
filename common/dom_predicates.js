@@ -236,7 +236,7 @@ cvox.DomPredicates.heading6Predicate = function(nodes) {
 cvox.DomPredicates.linkPredicate = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
     if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'link') ||
-        nodes[i].tagName == 'A') {
+        (nodes[i].tagName == 'A' && nodes[i].href)) {
       return nodes[i];
     }
   }
@@ -382,3 +382,12 @@ cvox.DomPredicates.containsTagName_ = function(arr, tagName) {
   return null;
 };
 
+
+/**
+ * MathML expression
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a math expression.
+ */
+cvox.DomPredicates.mathPredicate = function(nodes) {
+  return cvox.DomUtil.findMathNodeInList(nodes, {allowMathJax: false});
+};

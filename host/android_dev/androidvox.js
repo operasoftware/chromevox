@@ -45,6 +45,10 @@ cvox.AndroidVox.performAction = function(actionJson) {
   var ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY = 512;
   var ACTION_PREVIOUS_HTML_ELEMENT = 2048;
 
+  var FAKE_GRANULARITY_READ_CURRENT = -1;
+  var FAKE_GRANULARITY_READ_TITLE = -2;
+  var FAKE_GRANULARITY_STOP_SPEECH = -3;
+
   // The accessibility framework in Android will send commands to AndroidVox
   // using a JSON object that contains the action, granularity, and element
   // to use for navigation.
@@ -73,6 +77,31 @@ cvox.AndroidVox.performAction = function(actionJson) {
     return true;
   }
 
+  // Stop speech before doing anything else. Note that this will also stop
+  // any continuous reading that may be happening.
+  cvox.ChromeVoxUserCommands.commands['stopSpeech']();
+
+  // Hack: Using fake granularities for commands. We were using NEXT_HTML, but
+  // it is unsafe for TalkBack to do this since TalkBack has no way to check if
+  // ChromeVox is actually active.
+  if (granularity == FAKE_GRANULARITY_READ_CURRENT) {
+    cvox.ChromeVoxUserCommands.finishNavCommand('');
+    return true;
+  }
+  if (granularity == FAKE_GRANULARITY_READ_TITLE) {
+    cvox.ChromeVoxUserCommands.commands.readCurrentTitle();
+    return true;
+  }
+  if (granularity == FAKE_GRANULARITY_STOP_SPEECH) {
+    // Speech was already stopped, nothing more to do.
+    return true;
+  }
+
+  // Drop unknown fake granularities.
+  if (granularity < 0) {
+    return false;
+  }
+
   // Default to Android line navigation / ChromeVox DOM object navigation.
   if (!granularity) {
     granularity = MOVEMENT_GRANULARITY_LINE;
@@ -96,28 +125,26 @@ cvox.AndroidVox.performAction = function(actionJson) {
   // return TRUE for using the default action (ie, ChromeVox was unable to
   // perform the action and is trying to let the default handler act).
   var actionPerformed = false;
-  // Currently we are only using the element for special actions.
-  if (typeof(htmlElementName) != 'undefined') {
-    if (htmlElementName == 'TITLE') {
-      actionPerformed = !cvox.ChromeVoxUserCommands.commands.readCurrentTitle();
-    } else if (htmlElementName == 'CURRENT') {
-      actionPerformed = !cvox.ChromeVoxUserCommands.finishNavCommand('');
-    }
-  } else {
-    switch (action) {
-      case ACTION_CLICK:
-        actionPerformed =
-            !cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
-        break;
-      case ACTION_NEXT_HTML_ELEMENT:
-      case ACTION_NEXT_AT_MOVEMENT_GRANULARITY:
-        actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
-        break;
-      case ACTION_PREVIOUS_HTML_ELEMENT:
-      case ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY:
-        actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
-        break;
-    }
+
+  switch (action) {
+    case ACTION_CLICK:
+      // A click will always be dispatched; whether or not it actually does
+      // anything useful is up to the page. There is no point in waiting for
+      // a click and waiting would actually risk a potential lockup if
+      // ChromeVox/the wrapper is removed before it can return.
+      actionPerformed = true;
+      window.setTimeout(function(){
+            cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
+          }, 0);
+      break;
+    case ACTION_NEXT_HTML_ELEMENT:
+    case ACTION_NEXT_AT_MOVEMENT_GRANULARITY:
+      actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
+      break;
+    case ACTION_PREVIOUS_HTML_ELEMENT:
+    case ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY:
+      actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
+      break;
   }
   return actionPerformed;
 };

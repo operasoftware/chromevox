@@ -240,3 +240,21 @@ cvox.CursorSelection.prototype.normalize = function() {
   }
   return this;
 };
+
+/**
+ * Collapses to the directed start of the selection.
+ */
+cvox.CursorSelection.prototype.collapse = function() {
+  this.end.copyFrom(this.start);
+  if (this.start.text.length == 0 || this.end.text.length == 0) {
+    return;
+  }
+  if (this.isReversed()) {
+    if (this.end.index > 0) {
+      this.end.index--;
+    }
+  } else {
+    this.start.index = 0;
+    this.end.index = 1;
+  }
+};

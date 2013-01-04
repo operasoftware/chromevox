@@ -28,16 +28,13 @@ goog.require('cvox.ChromeVox');
  * @extends {cvox.AbstractBraille}
  */
 cvox.BrailleBackground = function() {
-  //Inherit AbstractBraille
-  cvox.AbstractBraille.call(this);
+  goog.base(this);
 };
 goog.inherits(cvox.BrailleBackground, cvox.AbstractBraille);
 
 
 /** @override */
-cvox.BrailleBackground.prototype.write = function(textString) {
-  cvox.BrailleBackground.superClass_.write.call(this, textString);
-
+cvox.BrailleBackground.prototype.write = function(params) {
   // To quickly prototype this, we will use a local http server that
   // will output to the Braille display.
   // TODO (clchen, plundblad): Replace this with the actual NaCl interface once
@@ -46,12 +43,10 @@ cvox.BrailleBackground.prototype.write = function(textString) {
   xhr.overrideMimeType('text/xml');
   xhr.open('POST', 'http://127.0.0.1:8000', true);
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-  xhr.send('write=' + textString);
+  xhr.send('write=' + params);
 };
 
 /** @override */
 cvox.BrailleBackground.prototype.setPanOutListener = function(func) {
-  cvox.BrailleBackground.superClass_.setPanOutListener.call(this, func);
   // TODO (clchen, plundblad): Implement this.
 };
-

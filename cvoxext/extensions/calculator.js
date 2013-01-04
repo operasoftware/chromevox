@@ -21,8 +21,8 @@
 var calculatorvox = {};
 
 /** replace symbols with text ChromeVox can read
- * @param {String} speechString the string to replace.
- * @return {String} string without math symbols. */
+ * @param {string} speechString the string to replace.
+ * @return {string} string without math symbols. */
 calculatorvox.speakSymbols = function(speechString) {
   speechString = speechString.replace(/√/g, ' square root ').replace(/\(/g,
     ' open parenthesis ').replace(/\)/g, ' close parenthesis ').replace(/\!/g,

@@ -102,7 +102,7 @@ cvox.ChromeVoxPrefs.prototype.init = function(pullFromLocalStorage) {
 
 /**
  * Switches to another key map.
- * @param {number} selectedKeyMap The index of the keymap in
+ * @param {string} selectedKeyMap The id of the keymap in
  * cvox.KeyMap.AVAIABLE_KEYMAP_INFO.
 */
 cvox.ChromeVoxPrefs.prototype.switchToKeyMap = function(selectedKeyMap) {
@@ -218,7 +218,7 @@ cvox.ChromeVoxPrefs.prototype.setPref = function(key, value) {
 /**
  * Delegates to cvox.KeyMap.
  * @param {string} command The command to set.
- * @param {string} newKey The new key to assign it to.
+ * @param {cvox.KeySequence} newKey The new key to assign it to.
  * @return {boolean} True if the key was bound to the command.
  */
 cvox.ChromeVoxPrefs.prototype.setKey = function(command, newKey) {

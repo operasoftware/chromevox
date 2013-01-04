@@ -15,9 +15,7 @@
 /**
  * @fileoverview Earcons library for the Android platform.
  *
- * @author svetoslavganov@google.com (Svetoslav Ganov)
- *
- * TODO(svetoslavganov): Implement. For now this is a place holder.
+ * @author clchen@google.com (Charles L. Chen)
  */
 
 goog.provide('cvox.AndroidEarcons');
@@ -31,7 +29,41 @@ goog.require('cvox.HostFactory');
  */
 cvox.AndroidEarcons = function() {
   cvox.AbstractEarcons.call(this);
+  this.audioMap = new Object();
 };
 goog.inherits(cvox.AndroidEarcons, cvox.AbstractEarcons);
+
+/**
+ * The base URL for  loading eracons.
+ * @type {string}
+ */
+cvox.AndroidEarcons.BASE_URL =
+    'https://ssl.gstatic.com/accessibility/javascript/android/earcons/';
+
+/**
+ * Plays the specified earcon.
+ * @param {number} earcon The earcon to be played.
+ */
+cvox.AndroidEarcons.prototype.playEarcon = function(earcon) {
+  if (navigator.userAgent.indexOf('Chrome') == -1) {
+    // Don't try to play earcons on WebView Classic since there it has an audio
+    // focus bug that will cause the earcon to repeat when audio focus changes.
+    return;
+  }
+  cvox.AndroidEarcons.superClass_.playEarcon.call(this, earcon);
+  this.currentAudio = this.audioMap[earcon];
+  if (!this.currentAudio) {
+    this.currentAudio = new Audio(cvox.AndroidEarcons.BASE_URL +
+        this.getEarconFilename(earcon));
+    this.audioMap[earcon] = this.currentAudio;
+  }
+  try {
+    this.currentAudio.currentTime = 0;
+  } catch (e) {
+  }
+  if (this.currentAudio.paused) {
+    this.currentAudio.play();
+  }
+};
 
 cvox.HostFactory.earconsConstructor = cvox.AndroidEarcons;

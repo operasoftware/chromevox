@@ -209,7 +209,7 @@ AxsJAX.prototype.speakNode = function(targetNode, opt_noFocusChange){
  * A good example would be when content has loaded or is changed from
  * being hidden to being displayed; it is visually obvious, but there may not
  * be any audio cue.
- * @param {String} textString The text to be spoken.
+ * @param {string} textString The text to be spoken.
  */
 AxsJAX.prototype.speakText = function(textString){
   //Use the main window's document directly here to ensure the AT
@@ -369,13 +369,13 @@ AxsJAX.prototype.clickElem = function(targetNode, shiftKey){
 /**
  * Dispatches a key event on the element that is the targetNode.
  * @param {Node} targetNode The target node of this operation.
- * @param {String} theKey The key to use for this operation.
+ * @param {string} theKey The key to use for this operation.
  *                        This can be any single printable character or ENTER.
- * @param {Boolean} holdCtrl Whether or not the Ctrl key should be held for
+ * @param {boolean} holdCtrl Whether or not the Ctrl key should be held for
  *                        this operation.
- * @param {Boolean} holdAlt Whether or not the Alt key should be held for
+ * @param {boolean} holdAlt Whether or not the Alt key should be held for
  *                       this operation.
- * @param {Boolean} holdShift Whether or not the Shift key should be held
+ * @param {boolean} holdShift Whether or not the Shift key should be held
  *                         for this operation.
  */
 AxsJAX.prototype.sendKey = function(targetNode, theKey,
@@ -401,7 +401,7 @@ AxsJAX.prototype.sendKey = function(targetNode, theKey,
  * Always returns the ID of targetNode.
  * If targetNode is null, we return ''
  * @param {Node} targetNode The target node of this operation.
- * @param {String} opt_prefixString
+ * @param {string} opt_prefixString
  * Prefix to help ensure the uniqueness of the ID.
  * This is optional; if null, it will use "AxsJAX_ID_".
  * @return {string} The ID that the targetNode now has.
@@ -495,7 +495,7 @@ AxsJAX.prototype.goTo = function(targetNode){
  * naming changes.
  * @param {Node} targetNode The HTML node to have the attribute set on.
  * @param {string} attribute The attribute to set.
- * @param {string?} value The value the attribute should be set to.
+ * @param {?string} value The value the attribute should be set to.
  */
 AxsJAX.prototype.setAttributeOf = function(targetNode, attribute, value){
   if (!targetNode){

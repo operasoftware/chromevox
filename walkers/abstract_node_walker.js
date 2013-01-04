@@ -32,7 +32,7 @@ goog.require('cvox.DomUtil');
  * @extends {cvox.AbstractWalker}
  */
 cvox.AbstractNodeWalker = function() {
-  cvox.AbstractWalker.call(this);
+  goog.base(this);
 
   /**
    * To keep track of and break infinite loops when trying to call next on
@@ -93,7 +93,8 @@ cvox.AbstractNodeWalker.prototype.privateSync_ = function(sel) {
 
   var node = sel.start.node;
 
-  while (node != document.body && this.stopNodeDescent(node.parentNode)) {
+  while (node != document.body && node.parentNode &&
+      this.stopNodeDescent(node.parentNode)) {
     node = node.parentNode;
   }
 
@@ -117,7 +118,7 @@ cvox.AbstractNodeWalker.prototype.privateSync_ = function(sel) {
  * it is at the lowest valid level or lower for this granularity.
  * RESTRICTION: true for a node => true for all child nodes
  * RESTRICTION: true if node has no children
- * @param {Node} node The node to check.
+ * @param {!Node} node The node to check.
  * @return {boolean} true if this is at the "leaf node" level or lower
  * for this granularity.
  * @protected

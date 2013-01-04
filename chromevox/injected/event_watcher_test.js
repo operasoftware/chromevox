@@ -48,7 +48,7 @@ goog.inherits(cvox.EventWatcherTest, cvox.AbstractTestCase);
  * @param {string=} opt_type The event type (i.e. 'keydown' or
  *  'focus').
  * @param {number=} opt_timeStamp The event timeStamp.
- * @return {Object} The mock event.
+ * @return {Event} The mock event.
  */
 cvox.EventWatcherTest.prototype.createMockEvent =
     function(target, opt_keyCode, opt_type, opt_timeStamp) {
@@ -64,7 +64,7 @@ cvox.EventWatcherTest.prototype.createMockEvent =
     mockEvent.timeStamp = opt_timeStamp;
   }
 
-  return mockEvent;
+  return /** @type {Event} */ (mockEvent);
 };
 
 
@@ -173,7 +173,7 @@ cvox.EventWatcherTest.prototype.testDialogFeedback = function() {
   this.setFocus('ok');
 
   this.waitForCalm(this.assertSpoken,
-                   'Entering dialog DialogLabel. OK Button');
+                   'Entered dialog OK Button Cancel Button OK Button');
 
   // After we've entered a dialog, temporarily moving focus away shouldn't
   // have any effect if we move it right back. (Allow apps to trap focus.)
@@ -186,7 +186,7 @@ cvox.EventWatcherTest.prototype.testDialogFeedback = function() {
 
   // Now move focus away and leave it there.
   this.waitForCalm(this.setFocus, 'show');
-  this.waitForCalm(this.assertSpoken, 'Exiting dialog. Show Button');
+  this.waitForCalm(this.assertSpoken, 'Exited dialog. Show Button');
 };
 
 
@@ -206,11 +206,10 @@ cvox.EventWatcherTest.prototype.testAlertDialogFeedback = function() {
   // Enter the dialog by focusing an element inside it.
   this.setFocus('no');
   this.waitForCalm(this.assertSpoken,
-          'Entering dialog Confirmation. ' +
-          'Are you sure you want to install Windows? Yes No ' +
+          'Entered dialog ' +
+          'Are you sure you want to install Windows? Yes Button No Button ' +
           'No Button');
 };
-
 
 /**
  * Test feedback when focus moves to two different items in a dialog
@@ -224,7 +223,9 @@ cvox.EventWatcherTest.prototype.testDoubleFocusDialogFeedback = function() {
       '  <p>Are these the droids you\'re looking for?</p>' +
       '  <button id="yes">Yes</button>' +
       '  <button id="no">No</button>' +
-      '</div> </div>');
+      '</div>' +
+      '<button id="outside">Outside</button>' +
+      '</div>');
 
 
   // Enter the dialog by focusing an element inside it, but then the Jedi
@@ -234,9 +235,14 @@ cvox.EventWatcherTest.prototype.testDoubleFocusDialogFeedback = function() {
 
   this.waitForCalm(this.assertSpokenList,
                    this.spokenList()
-                       .flush('Entering dialog Jedi question.')
-                       .queue('No')
+                       .flush('Entered dialog')
+                       .queue('Are these the droids you\'re looking for?')
+                       .queue('Yes')
                        .queue('Button'));
+
+  // Unfocus the dialog so we don't effect other tests.
+  this.waitForCalm(this.setFocus, 'outside');
+  this.waitForCalm(this.assertSpoken, 'Exited dialog. Outside Button');
 };
 
 
@@ -252,7 +258,6 @@ cvox.EventWatcherTest.prototype.testCloseDialogTabRecovery = function() {
       '<p id="dialog">invalid after click</p>' +
       '<p id="last">valid text after</p>' +
       '</div>');
-
 
   var first = document.getElementById('first');
   var dialog = document.getElementById('dialog');
@@ -271,8 +276,8 @@ cvox.EventWatcherTest.prototype.testCloseDialogTabRecovery = function() {
 
   // Invalidate the dialog box.
   this.waitForCalm(displayNone);
-  this.waitForCalm(this.userCommand, 'handleTab');
-  this.waitForCalm(this.assertSpoken, 'valid button before Button');
+  this.waitForCalm(this.userCommand, 'forward');
+  this.waitForCalm(this.assertSpoken, 'valid text after');
 };
 
 
@@ -300,10 +305,11 @@ cvox.EventWatcherTest.prototype.testListBoxFeedback = function() {
           // Set the activeDescendant and fire a keydown event.
           // TODO(dmazzoni): replace with a higher-level API that's
           // less brittle.
+          var listbox = document.getElementById('listbox');
           listbox.setAttribute('aria-activeDescendant', 'yellow');
-          cvox.ChromeVoxEventWatcher.keyDownEventWatcher(
+          cvox.ChromeVoxEventWatcher.keyDownEventWatcher(/** @type {Event} */ (
               { 'target': listbox,
-                'type': 'keydown' });
+                'type': 'keydown' }));
         })
       .waitForCalm(this.assertSpoken, 'Yellow 2 of 3');
 };
@@ -451,7 +457,8 @@ cvox.EventWatcherTest.prototype.testEditableTextListbox = function() {
  * a higher-level test of how that code interacts with the event watcher.
  * @export
  */
-cvox.EventWatcherTest.prototype.testEditableTextListboxUpdatingInput = function() {
+cvox.EventWatcherTest.prototype.testEditableTextListboxUpdatingInput =
+    function() {
   this.appendHtml('<div>' +
       '<button id="before">Before</button>' +
       '<label for="input">Query</label>' +
@@ -496,9 +503,9 @@ cvox.EventWatcherTest.prototype.testMultilineNavigation = function() {
 
   function setAreaCursor(pos) {
     area.setSelectionRange(pos, pos);
-    cvox.ChromeVoxEventWatcher.keyDownEventWatcher(
+    cvox.ChromeVoxEventWatcher.keyDownEventWatcher(/** @type {Event} */ (
         { 'target': area,
-          'type': 'keydown' });
+          'type': 'keydown' }));
   }
 
   area.focus();
@@ -527,13 +534,13 @@ cvox.EventWatcherTest.prototype.testMultilineNavigation = function() {
 cvox.EventWatcherTest.prototype.testShouldWaitToProcess = function() {
   // The focus event just happened, wait.
   this.assertTrue(
-      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 100, 100));
+      cvox.ChromeVoxEventWatcherUtil.shouldWaitToProcess(100, 100, 100));
   // The focus event just happened, but the first event is old, don't wait.
   this.assertFalse(
-      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(100, 0, 100));
+      cvox.ChromeVoxEventWatcherUtil.shouldWaitToProcess(100, 0, 100));
   // The focus event is old, don't wait.
   this.assertFalse(
-      cvox.ChromeVoxEventWatcher.shouldWaitToProcess_(0, 0, 100));
+      cvox.ChromeVoxEventWatcherUtil.shouldWaitToProcess(0, 0, 100));
 };
 
 
@@ -589,6 +596,7 @@ cvox.EventWatcherTest.prototype.testRadioButtonAnnouncements = function() {
     document.activeElement.dispatchEvent(evt);
   };
 
+  var radio1 = document.getElementById('radio1');
   radio1.focus();
 
   // TODO(dtseng): Repeated actual spoken text here; this is most certainly a
@@ -621,15 +629,17 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
   var chromeVer = -1;
   var userAgent = window.navigator.userAgent;
   var startIndex = userAgent.indexOf('Chrome/');
-  if (startIndex != -1){
+  if (startIndex != -1) {
     userAgent = userAgent.substring(startIndex + 'Chrome/'.length);
   }
   var endIndex = userAgent.indexOf('.');
-  if (endIndex != -1){
+  if (endIndex != -1) {
     userAgent = userAgent.substring(0, endIndex);
   }
   // This test will only work on Chrome 23 and higher.
-  if (userAgent >= 23){
+  if (userAgent >= 23) {
+    this.appendHtml(
+      '<label for="timewidget">Set alarm for:</label>');
     this.appendHtml(
       '<input id="timewidget" type="time" value="12:00">');
     function performKeyDown(dir) {
@@ -647,9 +657,11 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
       document.activeElement.dispatchEvent(evt);
     };
 
+    var timewidget = document.getElementById('timewidget');
     timewidget.focus();
 
-    this.waitForCalm(this.assertSpoken, '12:00 12 hours 00 minutes PM');
+    this.waitForCalm(this.assertSpoken,
+        'Set alarm for: 12:00 Set alarm for: 12 hours 00 minutes PM');
 
     this.waitForCalm(performKeyDown, 'Down') // down arrow
         .waitForCalm(performKeyUp, 'Down') // down arrow
@@ -667,7 +679,6 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
         .waitForCalm(performKeyUp, 'Up') // right arrow
         .waitForCalm(this.assertSpoken,
                      '01 minutes');
-
 
     this.waitForCalm(performKeyDown, 'Down') // down arrow
         .waitForCalm(performKeyUp, 'Down') // down arrow
@@ -688,3 +699,92 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
                      'PM');
     }
 };
+
+/**
+ * Test video widget.
+ *
+ * @export
+ */
+cvox.EventWatcherTest.prototype.testVideoWidget = function() {
+    this.appendHtml('<video id="chromevideo" poster="http://www.html5rocks.com/en/tutorials/video/basics/star.png" controls>');
+    this.appendHtml('<source src="http://www.html5rocks.com/en/tutorials/video/basics/Chrome_ImF.mp4" type=\'video/mp4; codecs="avc1.42E01E, mp4a.40.2"\' />');
+    this.appendHtml('<source src="http://www.html5rocks.com/en/tutorials/video/basics/Chrome_ImF.webm" type=\'video/webm; codecs="vp8, vorbis"\' />');
+    this.appendHtml('<source src="http://www.html5rocks.com/en/tutorials/video/basics/Chrome_ImF.ogv" type=\'video/ogg; codecs="theora, vorbis"\' />');
+
+    function performKeyDown(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keydown', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    function performKeyUp(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keyup', true, true, window, dir, 0, false, false, false, false);
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    var self = this;
+    var videowidget = document.getElementById('chromevideo');
+
+    videowidget.onload = function() {
+      videowidget.focus();
+      self.waitForCalm(performKeyDown, 'Enter')
+          .waitForCalm(performKeyUp, 'Enter')
+          .waitForCalm(self.assertEquals, videowidget.paused, false);
+
+      self.waitForCalm(performKeyDown, 'Right')
+          .waitForCalm(performKeyUp, 'Right')
+          .waitForCalm(self.assertEquals, videowidget.currentTime, 0);
+
+      self.waitForCalm(performKeyDown, 'Down')
+          .waitForCalm(performKeyUp, 'Down')
+          .waitForCalm(self.assertEquals, videowidget.volume, 0);
+    };
+}
+
+/**
+ * Test audio widget.
+ *
+ * @export
+ */
+cvox.EventWatcherTest.prototype.testAudioWidget = function() {
+    this.appendHtml('<audio id="chromeaudio" controls>');
+    this.appendHtml('<source src="http://www.html5rocks.com/en/tutorials/audio/quick/test.mp3" type="audio/mpeg" />');
+    this.appendHtml('<source src="http://www.html5rocks.com/en/tutorials/audio/quick/test.ogg" type="audio/ogg" />');
+
+    function performKeyDown(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keydown', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    function performKeyUp(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keyup', true, true, window, dir, 0, false, false, false, false);
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    var self = this;
+    var audiowidget = document.getElementById('chromeaudio');
+
+    audiowidget.onload = function() {
+      audiowidget.focus();
+      self.waitForCalm(performKeyDown, 'Enter')
+          .waitForCalm(performKeyUp, 'Enter')
+          .waitForCalm(self.assertEquals, audiowidget.paused, false);
+
+      self.waitForCalm(performKeyDown, 'Right')
+          .waitForCalm(performKeyUp, 'Right')
+          .waitForCalm(self.assertEquals, audiowidget.currentTime, 0);
+
+      self.waitForCalm(performKeyDown, 'Down')
+          .waitForCalm(performKeyUp, 'Down')
+          .waitForCalm(self.assertEquals, audiowidget.volume, 0);
+    };
+}

@@ -19,6 +19,14 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
+if (typeof(goog) != 'undefined' && goog.provide) {
+  goog.provide('cvox.Api');
+}
+
+if (typeof(goog) != 'undefined' && goog.require) {
+  goog.require('cvox.ApiImplementation');
+}
+
 (function() {
    /*
     * Private data and methods.
@@ -54,6 +62,12 @@
    var channel_;
 
    /**
+    * Tracks whether or not the ChromeVox API should be considered active.
+    * @type {boolean}
+    */
+   var isActive_ = false;
+
+   /**
     * The next id to use for async callbacks.
     * @type {number}
     */
@@ -61,7 +75,7 @@
 
    /**
     * Map from callback ID to callback function.
-    * @type {Object.<number, function(Object)>}
+    * @type {Object.<number, function(*)>}
     */
    var callbackMap_ = {};
 
@@ -70,7 +84,10 @@
     */
    function connect_() {
      if (channel_) {
-       return;
+       // If there is already an existing channel, close the existing ports.
+       channel_.port1.close();
+       channel_.port2.close();
+       channel_ = null;
      }
 
      channel_ = new MessageChannel();
@@ -94,7 +111,7 @@
     * Internal function to send a message to the content script and
     * call a callback with the response.
     * @param {Object} message A serializable message.
-    * @param {function(Object)} callback A callback that will be called
+    * @param {function(*)} callback A callback that will be called
     *     with the response message.
     */
    function callAsync_(message, callback) {
@@ -118,6 +135,20 @@
    }
    var cvox = window.cvox;
 
+
+   /**
+    * ApiImplementation - this is only visible if all the scripts are compiled
+    * together like in the Android case. Otherwise, implementation will remain
+    * null which means communication must happen over the bridge.
+    *
+    * @type {*}
+    */
+   var implementation_ = null;
+   if (typeof(cvox.ApiImplementation) != 'undefined') {
+     implementation_ = cvox.ApiImplementation;
+   }
+
+
    /**
     * @constructor
     */
@@ -129,7 +160,10 @@
     * Enables the API and connects to the content script.
     */
    cvox.Api.internalEnable = function() {
-     connect_();
+     isActive_ = true;
+     if (!implementation_) {
+       connect_();
+     }
      var event = document.createEvent('UIEvents');
      event.initEvent('chromeVoxLoaded', true, false);
      document.dispatchEvent(event);
@@ -140,6 +174,7 @@
     * Disables the ChromeVox API.
     */
    cvox.Api.internalDisable = function() {
+     isActive_ = false;
      channel_ = null;
      var event = document.createEvent('UIEvents');
      event.initEvent('chromeVoxUnloaded', true, false);
@@ -157,6 +192,9 @@
     * @return {boolean} True if ChromeVox is currently active.
     */
    cvox.Api.isChromeVoxActive = function() {
+     if (implementation_) {
+       return isActive_;
+     }
      return !!channel_;
    };
 
@@ -172,11 +210,15 @@
        return;
      }
 
-     var message = {
-       'cmd': 'speak',
-       'args': [textString, queueMode, properties]
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       implementation_.speak(textString, queueMode, properties);
+     } else {
+       var message = {
+         'cmd': 'speak',
+         'args': [textString, queueMode, properties]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -191,12 +233,17 @@
        return;
      }
 
-     var message = {
-       'cmd': 'speakNodeRef',
-       'args': [cvox.ApiUtils.makeNodeReference(targetNode), queueMode,
-           properties]
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       implementation_.speak(cvox.DomUtil.getName(targetNode),
+           queueMode, properties);
+     } else {
+       var message = {
+         'cmd': 'speakNodeRef',
+         'args': [cvox.ApiUtils.makeNodeReference(targetNode), queueMode,
+             properties]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -207,10 +254,14 @@
        return;
      }
 
-     var message = {
-       'cmd': 'stop'
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       implementation_.stop();
+     } else {
+       var message = {
+         'cmd': 'stop'
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -254,12 +305,15 @@
      if (!cvox.Api.isChromeVoxActive()) {
        return;
      }
-
-     var message = {
-       'cmd': 'playEarcon',
-       'args': [earcon]
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       implementation_.playEarcon(earcon);
+     } else {
+       var message = {
+         'cmd': 'playEarcon',
+         'args': [earcon]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -277,11 +331,15 @@
        return;
      }
 
-     var message = {
-       'cmd': 'syncToNodeRef',
-       'args': [cvox.ApiUtils.makeNodeReference(targetNode), speakNode]
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       implementation_.syncToNode(targetNode, speakNode);
+     } else {
+       var message = {
+         'cmd': 'syncToNodeRef',
+         'args': [cvox.ApiUtils.makeNodeReference(targetNode), speakNode]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -293,9 +351,14 @@
      if (!cvox.Api.isChromeVoxActive() || !callback) {
        return;
      }
-     callAsync_({'cmd': 'getCurrentNode'}, function(response) {
-       callback(cvox.ApiUtils.getNodeFromRef(response['currentNode']));
-     });
+
+     if (implementation_) {
+       callback(cvox.ChromeVox.navigationManager.getCurrentNode());
+     } else {
+       callAsync_({'cmd': 'getCurrentNode'}, function(response) {
+         callback(cvox.ApiUtils.getNodeFromRef(response['currentNode']));
+       });
+     }
    };
 
    /**
@@ -304,7 +367,7 @@
     *
     * @param {Node} targetNode The node that the NodeDescriptions should be
     * spoken using the given NodeDescriptions.
-    * @param {Array.<cvox.NodeDescription>} nodeDescriptions The Array of
+    * @param {Array.<Object>} nodeDescriptions The Array of
     * NodeDescriptions for the given node.
     */
    cvox.Api.setSpeechForNode = function(targetNode, nodeDescriptions) {
@@ -318,18 +381,22 @@
     * Simulate a click on an element.
     *
     * @param {Element} targetElement The element that should be clicked.
-    * @param {boolean=} shiftKey Specifies if shift is held down.
+    * @param {boolean} shiftKey Specifies if shift is held down.
     */
    cvox.Api.click = function(targetElement, shiftKey) {
      if (!cvox.Api.isChromeVoxActive() || !targetElement) {
        return;
      }
 
-     var message = {
-       'cmd': 'clickNodeRef',
-       'args': [cvox.ApiUtils.makeNodeReference(targetElement), shiftKey]
-     };
-     channel_.port1.postMessage(JSON.stringify(message));
+     if (implementation_) {
+       cvox.DomUtil.clickElem(targetElement, shiftKey);
+     } else {
+       var message = {
+         'cmd': 'clickNodeRef',
+         'args': [cvox.ApiUtils.makeNodeReference(targetElement), shiftKey]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
    };
 
    /**
@@ -338,9 +405,16 @@
     * @param {function(string)} callback Function to receive the build info.
     */
    cvox.Api.getBuild = function(callback) {
-     callAsync_({'cmd': 'getBuild'}, function(response) {
-       callback(response['build']);
-     });
+     if (!cvox.Api.isChromeVoxActive() || !callback) {
+       return;
+     }
+     if (implementation_) {
+       callback(cvox.BuildInfo.build);
+     } else {
+       callAsync_({'cmd': 'getBuild'}, function(response) {
+           callback(response['build']);
+       });
+     }
    };
 
    /**
@@ -350,17 +424,26 @@
     * @param {function(string)} callback Function to receive the version.
     */
    cvox.Api.getVersion = function(callback) {
-     callAsync_({'cmd': 'getVersion'}, function(response) {
-       callback(response['version']);
-     });
+     if (!cvox.Api.isChromeVoxActive() || !callback) {
+       return;
+     }
+     if (implementation_) {
+       callback(cvox.ChromeVox.version + '');
+     } else {
+       callAsync_({'cmd': 'getVersion'}, function(response) {
+           callback(response['version']);
+       });
+     }
    };
 
    cvox.Api.internalEnable();
 
    /*
     * Utility functions. Should these be part of the API?
+    * @constructor
     */
-   cvox.XpathUtil = {};
+   cvox.XpathUtil = function() {
+   };
 
    /**
     * Given an XPath expression and rootNode, it returns an array of

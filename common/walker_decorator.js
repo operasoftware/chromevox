@@ -181,7 +181,7 @@ cvox.WalkerDecorator.prototype.reinitialize = function(filterMap) {
   if (filterMap) {
     try {
       this.filterMap_ = /** @type {!Object.<string, !Array.<string>>} */
-          cvox.ChromeVoxJSON.parse(filterMap);
+          (cvox.ChromeVoxJSON.parse(filterMap));
       if (window.location.href && this.filterMap_[window.location.href])
         this.filters = this.filterMap_[window.location.href];
     } catch (e) {

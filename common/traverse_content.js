@@ -74,13 +74,6 @@ cvox.TraverseContent.prototype.lastSelectionWasWhitespace = false;
 cvox.TraverseContent.prototype.skipWhitespace = false;
 
 /**
- * The maximum number of characters that can be on one line when doing
- * line-based traversal.
- * @type {number}
- */
-cvox.TraverseContent.prototype.lineLength = 40;
-
-/**
  * If moveNext and movePrev should skip past an invalid selection,
  * so the user never gets stuck. Ideally the navigation code should never
  * return a range that's not a valid selection, but this keeps the user from
@@ -261,7 +254,7 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
     } else if (grain === cvox.TraverseContent.kLine) {
       str = cvox.TraverseUtil.getNextLine(
           this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
-          this.lineLength, breakTags);
+          breakTags);
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
@@ -343,7 +336,7 @@ cvox.TraverseContent.prototype.movePrev = function(grain) {
     } else if (grain === cvox.TraverseContent.kLine) {
       str = cvox.TraverseUtil.getPreviousLine(
           this.startCursor_, this.endCursor_, elementsEntered, elementsLeft,
-          this.lineLength, breakTags);
+          breakTags);
     } else {
       // User has provided an invalid string.
       // Fall through to default: extend by sentence
@@ -390,7 +383,11 @@ cvox.TraverseContent.prototype.movePrev = function(grain) {
  *     it should break a sentence or line.
  */
 cvox.TraverseContent.prototype.getBreakTags = function() {
-  return this.breakAtLinks ? {'A': true} : {};
+  return {
+    'A': this.breakAtLinks,
+    'BR': true,
+    'HR': true
+  };
 };
 
 /**

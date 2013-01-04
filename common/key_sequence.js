@@ -22,7 +22,7 @@
 goog.provide('cvox.KeySequence');
 
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxJSON');
+
 
 /**
  * A class to represent a sequence of keys entered by a user or affiliated with
@@ -72,6 +72,13 @@ cvox.KeySequence = function(originalEvent, opt_cvoxModifier) {
    * TODO(rshearer): Consider making this structure an array of minimal
    * keyEvent-like objects instead so we don't have to worry about what happens
    * when ctrlKey.length is different from altKey.length.
+   *
+   * NOTE: If a modifier key is pressed by itself, we will store the keyCode
+   * *and* set the appropriate modKey to be true. This mirrors the way key
+   * events are created on Mac and Windows. For example, if the Meta key was
+   * pressed by itself, the keys object will have:
+   * {metaKey: [true], keyCode:[91]}
+   *
    * @type {Object}
    */
   this.keys = {
@@ -88,13 +95,31 @@ cvox.KeySequence = function(originalEvent, opt_cvoxModifier) {
 };
 
 
+// TODO(dtseng): This is incomplete; pull once we have appropriate libs.
+/**
+ * Maps a keypress keycode to a keydown or keyup keycode.
+ * @type {Object.<number, number>}
+ */
+cvox.KeySequence.KEY_PRESS_CODE = {
+  39: 222,
+  44: 188,
+  45: 189,
+  46: 190,
+  47: 191,
+  59: 186,
+  91: 219,
+  92: 220,
+  93: 221
+};
+
+
 /**
  * Adds an additional key onto the original sequence, for use when the user
  * is entering two shortcut keys. This happens when the user presses a key,
  * releases it, and then presses a second key. Those two keys together are
  * considered part of the sequence.
- * @param {Event|Object} additionalKeyEvent The additional key to be added to the
- * original event. Should be an event or an event-shaped object.
+ * @param {Event|Object} additionalKeyEvent The additional key to be added to
+ * the original event. Should be an event or an event-shaped object.
  * @return {boolean} Whether or not we were able to add a key. Returns false
  * if there are already two keys attached to this event.
  */
@@ -152,7 +177,17 @@ cvox.KeySequence.prototype.equals = function(rhs) {
 cvox.KeySequence.prototype.extractKey_ = function(keyEvent) {
   for (var prop in this.keys) {
     if (prop == 'keyCode') {
-      this.keys[prop].push(keyEvent[prop]);
+      var keyCode;
+      // TODO (rshearer): This is temporary until we find a library that can
+      // convert between ASCII charcodes and keycodes.
+      if (keyEvent.type == 'keypress' && keyEvent[prop] >= 97 &&
+          keyEvent[prop] <= 122) {
+        // Alphabetic keypress. Convert to the upper case ASCII code.
+        keyCode = keyEvent[prop] - 32;
+      } else if (keyEvent.type == 'keypress') {
+        keyCode = cvox.KeySequence.KEY_PRESS_CODE[keyEvent[prop]];
+      }
+      this.keys[prop].push(keyCode || keyEvent[prop]);
     } else {
       if (this.isKeyModifierActive(keyEvent, prop)) {
         this.keys[prop].push(true);
@@ -346,36 +381,51 @@ cvox.KeySequence.prototype.isKeyModifierActive = function(keyEvent, modifier) {
   return false;
 };
 
+/**
+ * Returns if any modifier is active in this sequence.
+ * @return {boolean} The result.
+ */
+cvox.KeySequence.prototype.isAnyModifierActive = function() {
+  for (var modifierType in this.keys) {
+    for (var i = 0; i < this.length(); i++) {
+      if (this.keys[modifierType][i] && modifierType != 'keyCode') {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 
 /**
- * Creates a KeySequence event from JSON text
- * @param {string} json The JSON text.
+ * Creates a KeySequence event from a generic object.
+ * @param {Object} sequenceObject The object.
  * @return {cvox.KeySequence} The created KeySequence object.
  */
-cvox.KeySequence.deserialize = function(json) {
-  var sequenceObject;
-  try {
-    sequenceObject = cvox.ChromeVoxJSON.parse(json);
-  } catch (e) {
-      throw 'Cannot parse KeySequence string' + json;
-  }
+cvox.KeySequence.deserialize = function(sequenceObject) {
+  var firstSequenceEvent = {};
 
-  var sequenceEvent = {};
-  sequenceEvent['stickyMode'] = sequenceObject.stickyMode;
-  sequenceEvent['prefixKey'] = sequenceObject.prefixKey;
+  firstSequenceEvent['stickyMode'] = (sequenceObject.stickyMode == undefined) ?
+      false : sequenceObject.stickyMode;
+  firstSequenceEvent['prefixKey'] = (sequenceObject.prefixKey == undefined) ?
+      false : sequenceObject.prefixKey;
+
 
   var secondKeyPressed = sequenceObject.keys.keyCode.length > 1;
   var secondSequenceEvent = {};
 
   for (var keyPressed in sequenceObject.keys) {
-    sequenceEvent[keyPressed] = sequenceObject.keys[keyPressed][0];
+    firstSequenceEvent[keyPressed] = sequenceObject.keys[keyPressed][0];
     if (secondKeyPressed) {
       secondSequenceEvent[keyPressed] = sequenceObject.keys[keyPressed][1];
     }
   }
 
-  var keySeq = new cvox.KeySequence(sequenceEvent, sequenceObject.cvoxModifier);
+  var keySeq = new cvox.KeySequence(firstSequenceEvent,
+                                    sequenceObject.cvoxModifier);
   if (secondKeyPressed) {
+    cvox.ChromeVox.sequenceSwitchKeyCodes.push(
+        new cvox.KeySequence(firstSequenceEvent, sequenceObject.cvoxModifier));
     keySeq.addKeyEvent(secondSequenceEvent);
   }
 
@@ -388,8 +438,7 @@ cvox.KeySequence.deserialize = function(json) {
  * standard key sequence format described in keyUtil.keySequenceToString and
  * used in the key map JSON files.
  * @param {string} keyStr The string representation of a key sequence.
- * @return {!cvox.KeySequence} The created KeySequence object. Or null if we
- * could not parse the string.
+ * @return {!cvox.KeySequence} The created KeySequence object.
  */
 cvox.KeySequence.fromStr = function(keyStr) {
   var sequenceEvent = {};

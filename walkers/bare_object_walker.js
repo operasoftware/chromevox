@@ -31,7 +31,7 @@ goog.require('cvox.AbstractNodeWalker');
  * @extends {cvox.AbstractNodeWalker}
  */
 cvox.BareObjectWalker = function() {
-  cvox.AbstractNodeWalker.call(this);
+  goog.base(this);
 };
 goog.inherits(cvox.BareObjectWalker, cvox.AbstractNodeWalker);
 

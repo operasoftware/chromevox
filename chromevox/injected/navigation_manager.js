@@ -33,6 +33,7 @@ goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
 goog.require('cvox.Focuser');
 goog.require('cvox.Interframe');
+goog.require('cvox.NavBraille');
 goog.require('cvox.NavDescription');
 goog.require('cvox.NavigationHistory');
 goog.require('cvox.NavigationShifter');
@@ -126,10 +127,10 @@ cvox.NavigationManager.prototype.reset = function() {
    */
   this.recovered_ = false;
 
-  // TODO(stoarca): Make private when external calls are gone.
   /**
    * True if in "reading from here" mode.
    * @type {boolean}
+   * @private
    */
   this.keepReading_ = false;
 
@@ -174,7 +175,7 @@ cvox.NavigationManager.prototype.reset = function() {
   this.navigationHistory_ = new cvox.NavigationHistory();
 
   /** @type {boolean} */
-  this.disableNavigationHistory_ = false;
+  this.focusRecovery_ = window.location.protocol != 'chrome:';
 
   this.iframeIdMap = {};
   this.nextIframeId = 1;
@@ -196,11 +197,19 @@ cvox.NavigationManager.prototype.reset = function() {
  * @return {boolean} True if we should continue navigation normally.
  */
 cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
-  if (this.disableNavigationHistory_) {
+  if (!this.getFocusRecovery()) {
     return true;
   }
+
   var current = this.getCurrentNode();
+
   if (!this.navigationHistory_.becomeInvalid(current)) {
+    return true;
+  }
+
+  // Only attempt to revert if going next will cause us to restart at the top
+  // of the page.
+  if (this.peekNext_()) {
     return true;
   }
 
@@ -208,7 +217,7 @@ cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
   var revert = this.navigationHistory_.revert(opt_predicate);
 
   // If the history is empty, revert.current will be null.  In that case,
-  // it is best to continue navigationg normally.
+  // it is best to continue navigating normally.
   if (!revert.current) {
     return true;
   }
@@ -229,18 +238,20 @@ cvox.NavigationManager.prototype.resolve = function(opt_predicate) {
 
 
 /**
- * Disables NavigationHistory.
+ * Gets the state of focus recovery.
+ * @return {boolean} True if focus recovery is on; false otherwise.
  */
-cvox.NavigationManager.prototype.disableNavigationHistory = function() {
-  this.disableNavigationHistory_ = true;
+cvox.NavigationManager.prototype.getFocusRecovery = function() {
+  return this.focusRecovery_;
 };
 
 
 /**
- * Enables NavigationHistory.
+ * Enables or disables focus recovery.
+ * @param {boolean} value True to enable, false to disable.
  */
-cvox.NavigationManager.prototype.enableNavigationHistory = function() {
-  this.disableNavigationHistory_ = false;
+cvox.NavigationManager.prototype.setFocusRecovery = function(value) {
+  this.focusRecovery_ = value;
 };
 
 
@@ -260,6 +271,24 @@ cvox.NavigationManager.prototype.next_ = function(iframes) {
   return false;
 };
 
+/**
+ * Looks ahead to see if it is possible to navigate forward from the current
+ * position.
+ * @return {boolean} True if it is possible to navigate forward.
+ * @private
+ */
+cvox.NavigationManager.prototype.peekNext_ = function() {
+  var dummySel = this.curSel_.clone();
+  var result = false;
+  var dummyNavShifter = new cvox.NavigationShifter();
+  dummyNavShifter.setGranularity(this.navShifter_.getGranularity());
+  dummyNavShifter.sync(dummySel);
+  if (dummyNavShifter.next(dummySel)) {
+    result = true;
+  }
+  return result;
+};
+
 
 /**
  * Delegates to NavigationShifter with current page state.
@@ -270,9 +299,21 @@ cvox.NavigationManager.prototype.next_ = function(iframes) {
  */
 cvox.NavigationManager.prototype.findNext = function(predicate) {
   this.resolve();
+
+  // The table predicate assumes that it is dealing with an ancestor chain while
+  // not in table mode.
+  if (predicate == cvox.DomPredicates.tablePredicate) {
+    this.tryExitTable();
+  }
   var ret = this.navShifter_.findNext(this.curSel_, predicate);
   if (ret) {
-    return this.tryTable_(ret);
+    // Try to enter the table, which also updates the selection.
+    if (predicate == cvox.DomPredicates.tablePredicate) {
+      return this.tryTable_(ret, true);
+    }
+    // Otherwise, update selection to the found node.
+    this.updateSelToArbitraryNode(ret.start.node);
+    return true;
   }
   return false;
 };
@@ -303,11 +344,27 @@ cvox.NavigationManager.prototype.sync = function() {
  * - focus
  * - ActiveIndicator
  * - CursorSelection
+ * @param {boolean=} opt_skipText Skips focus on text nodes; defaults to false.
  */
-cvox.NavigationManager.prototype.syncAll = function() {
+cvox.NavigationManager.prototype.syncAll = function(opt_skipText) {
   this.sync();
-  this.setFocus();
+  this.setFocus(opt_skipText);
   this.updateIndicator();
+};
+
+
+/**
+ * Delegates to NavigationShifter with current page state.
+ * Sync's to the selection's node and infers which of the node granularities
+ * to shift to.
+ * @private
+ */
+cvox.NavigationManager.prototype.syncNode_ = function() {
+  this.resolve();
+  var ret = this.navShifter_.syncNode(this.curSel_);
+  if (ret) {
+    this.curSel_ = ret;
+  }
 };
 
 
@@ -364,6 +421,22 @@ cvox.NavigationManager.prototype.getDescription = function() {
     });
   }
   return desc;
+};
+
+
+/**
+ * Delegates to NavigationShifter with the current page state.
+ * @return {cvox.NavBraille} The braille description.
+ */
+cvox.NavigationManager.prototype.getBraille = function() {
+  // TODO(dtseng): Prototype braille on development versions of ChromeVox only.
+  // This prevents the construction of NavBraille objects which isn't necessary
+  // with the lack of an active braille connection, but may be desirable for
+  // testing. Replace with a check for such a connection in the future.
+  if (cvox.ChromeVox.version != '1.0') {
+    return new cvox.NavBraille({});
+  }
+  return this.navShifter_.getBraille(this.prevSel_, this.curSel_);
 };
 
 
@@ -462,8 +535,9 @@ cvox.NavigationManager.prototype.nextRow = function() {
  * either we were already on the last col or not in table.
  */
 cvox.NavigationManager.prototype.nextCol = function() {
-  this.updateSel(this.navShifter_.nextCol(this.curSel_));
+  this.updateSel(this.navShifter_.nextCol(this.curSel_) || this.curSel_);
   this.bumpedEdge_ = false;
+  return false;
 };
 
 
@@ -571,16 +645,68 @@ cvox.NavigationManager.prototype.speakDescriptionArray = function(
 
 // TODO(stoarca): The stuff below belongs in its own layer.
 /**
+ * Perform all of the actions that should happen at the end of any
+ * navigation operation: update the lens, play earcons, and speak the
+ * description of the object that was navigated to.
+ *
+ * @param {string=} opt_prefix The string to be prepended to what
+ * is spoken to the user.
+ * @param {boolean=} opt_setFocus Whether or not to focus the current node.
+ * Defaults to true.
+ */
+cvox.NavigationManager.prototype.finishNavCommand = function(
+    opt_prefix, opt_setFocus) {
+  if (this.pageEnd_) {
+    cvox.ChromeVox.tts.stop();
+    cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+    return;
+  }
+  var descriptionArray = cvox.ChromeVox.navigationManager.getDescription();
+
+  opt_setFocus = opt_setFocus === undefined ? true : opt_setFocus;
+
+  if (opt_setFocus) {
+    this.setFocus();
+  }
+  this.updateIndicator();
+
+  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
+
+  if (opt_prefix) {
+    cvox.ChromeVox.tts.speak(
+        opt_prefix, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  }
+  this.speakDescriptionArray(descriptionArray, queueMode, null);
+
+  this.getBraille().write();
+};
+
+
+/**
  * Moves forward. Stops any subnavigation.
  * @param {boolean=} opt_ignoreIframes Ignore iframes when navigating. Defaults
  * to not ignore iframes.
+ * @param {number} opt_granularity Optionally, switches to granularity before
+ * navigation.
  * @return {boolean} False if end of document reached.
  */
-cvox.NavigationManager.prototype.navigate = function(opt_ignoreIframes) {
+cvox.NavigationManager.prototype.navigate = function(
+    opt_ignoreIframes, opt_granularity) {
+  if (this.pageEnd_) {
+    this.pageEnd_ = false;
+    this.syncToPageBeginning();
+    return true;
+  }
   if (!this.resolve()) {
     return false;
   }
   this.ensureNotSubnavigating();
+  if (opt_granularity !== undefined &&
+      opt_granularity !== this.getGranularity()) {
+    this.setGranularity(opt_granularity);
+    this.sync();
+  }
   return this.next_(!opt_ignoreIframes);
 };
 
@@ -626,6 +752,18 @@ cvox.NavigationManager.prototype.startReading = function(queueMode) {
     this.startCallbackReading_(queueMode);
   } else {
     this.startNonCallbackReading_(queueMode);
+  }
+};
+
+/**
+ * Stops continuous read.
+ * @param {boolean} stopTtsImmediately True if the TTS should immediately stop
+ * speaking.
+ */
+cvox.NavigationManager.prototype.stopReading = function(stopTtsImmediately) {
+  this.keepReading_ = false;
+  if (stopTtsImmediately) {
+    cvox.ChromeVox.tts.stop();
   }
 };
 
@@ -692,12 +830,15 @@ cvox.NavigationManager.prototype.getFullDescription = function() {
 
 /**
  * Sets the browser's focus to the current node.
+ * @param {boolean=} opt_skipText Skips focusing text nodes or any of their
+ * ancestors; defaults to false.
  */
-cvox.NavigationManager.prototype.setFocus = function() {
+cvox.NavigationManager.prototype.setFocus = function(opt_skipText) {
   // TODO(dtseng): cvox.DomUtil.setFocus() totally destroys DOM ranges that have
   // been set on the page; this requires further investigation, but
   // PageSelection won't work without this.
-  if (this.pageSel_) {
+  if (this.pageSel_ ||
+      (opt_skipText && this.curSel_.start.node.constructor == Text)) {
     return;
   }
   if (this.isTableMode()) {
@@ -775,8 +916,10 @@ cvox.NavigationManager.prototype.addInterframeListener_ = function() {
 
 /**
  * Tries to enter a table.
- * @param {{force: (undefined|boolean)}=} kwargs Extra arguments.
+ * @param {{force: (undefined|boolean),
+ *          fromTop: (undefined|boolean)}=} kwargs Extra arguments.
  *  force: If true, enters table even if it's a layout table. False by default.
+ *  fromTop: If true, enters table from the first cell. False by default.
  */
 cvox.NavigationManager.prototype.tryEnterTable = function(kwargs) {
   var ret = this.navShifter_.tryEnterTable(this.curSel_, kwargs);
@@ -855,20 +998,33 @@ cvox.NavigationManager.prototype.showOrHideIndicator = function(active) {
 
 
 /**
- * This is used to update the selection to arbitrary nodes because there are
- * some callers who have the expectation that this works. The caller should
- * expect the CursorSelection to sync to a node that we can describe. This may
- * not be the same node given.
- * @param {Node} node The node to update to.
+ * Collapses the selection to directed cursor start.
  */
-cvox.NavigationManager.prototype.updateSelToArbitraryNode = function(node) {
-  // We assume ObjectWalker is magical and does what we want (and is the
-  // only one with such properties). This assumption is wrong, but we'll
-  // have to make it until we have a better way to do this.
-  this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
+cvox.NavigationManager.prototype.collapseSelection = function() {
+  this.curSel_.collapse();
+};
+
+
+/**
+ * This is used to update the selection to arbitrary nodes because there are
+ * browser events, cvox API's, and user commands that require selection around a
+ * precise node. As a consequence, calling this method will result in a shift to
+ * object granularity without explicit user action or feedback. Also, note that
+ * this selection will be sync'ed to ObjectWalker by default unless explicitly
+ * ttold not to. We assume object walker can describe the node in the latter
+ * case.
+ * @param {Node} node The node to update to.
+ * @param {boolean} opt_precise Whether selection will sync exactly to the given
+ * node. Defaults to false (and selection will sync according to object walker).
+ */
+cvox.NavigationManager.prototype.updateSelToArbitraryNode = function(
+    node, opt_precise) {
   if (node) {
+    this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
     this.updateSel(cvox.CursorSelection.fromNode(node));
-    this.sync();
+    if (!opt_precise) {
+      this.sync();
+    }
   } else {
     this.syncToPageBeginning();
   }
@@ -888,10 +1044,9 @@ cvox.NavigationManager.prototype.updateSel = function(sel, opt_context) {
     this.prevSel_ = opt_context || this.curSel_;
     this.curSel_ = sel;
   }
-  // Always update the navigation history.
+  // Only update the history if we aren't just trying to peek ahead.
   var currentNode = this.getCurrentNode();
   this.navigationHistory_.update(currentNode);
-
   return !!sel;
 };
 
@@ -922,12 +1077,14 @@ cvox.NavigationManager.prototype.isReversed = function() {
  * @private
  */
 cvox.NavigationManager.prototype.tryBoundaries_ = function(sel, iframes) {
-  this.pageEnd_ = false;
   iframes = (!!iframes && !this.ignoreIframesNoMatterWhat_) || false;
+  this.pageEnd_ = false;
   if (iframes && this.tryIframe_(sel && sel.start.node)) {
     return true;
   }
-  if (this.tryTable_(sel)) {
+  if (this.tryTable_(sel) || this.tryMath_(sel)) {
+    // TODO (sorge) Need refactoring when math walker is more advanced!
+    this.tryEnterMath();
     return true;
   }
   this.syncToPageBeginning();
@@ -988,10 +1145,12 @@ cvox.NavigationManager.prototype.tryIframe_ = function(node) {
 /**
  * Enters or exits a table (updates the selection) if sel is significant.
  * @param {cvox.CursorSelection} sel The selection (possibly null).
+ * @param {boolean} opt_findingTables Whether or not we are entering/exiting a
+ * table because we are trying to find the next/previous table on the page.
  * @return {boolean} False means the end of the page was reached.
  * @private
  */
-cvox.NavigationManager.prototype.tryTable_ = function(sel) {
+cvox.NavigationManager.prototype.tryTable_ = function(sel, opt_findingTables) {
   if (this.isTableMode()) {
     if (sel) {
       this.updateSel(sel);
@@ -1005,7 +1164,13 @@ cvox.NavigationManager.prototype.tryTable_ = function(sel) {
       return false;
     }
     this.updateSel(sel);
-    this.tryEnterTable();
+
+    if (opt_findingTables) {
+      this.tryEnterTable({fromTop: true});
+    } else {
+      this.tryEnterTable();
+    }
+
     return true;
   }
 };
@@ -1031,4 +1196,111 @@ cvox.NavigationManager.prototype.syncToPageBeginning = function() {
  */
 cvox.NavigationManager.prototype.ignoreIframesNoMatterWhat = function() {
   this.ignoreIframesNoMatterWhat_ = true;
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ * @return {boolean} true if in math mode.
+ */
+cvox.NavigationManager.prototype.isMathMode = function() {
+  return this.navShifter_.isMathMode();
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ */
+cvox.NavigationManager.prototype.cycleDomain = function() {
+  this.navShifter_.cycleDomain();
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ */
+cvox.NavigationManager.prototype.cycleTraversalMode = function() {
+  this.navShifter_.cycleTraversalMode();
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ * @return {boolean} true if in math mode.
+ */
+cvox.NavigationManager.prototype.toggleExplore = function() {
+  if (this.isMathMode()) {
+    this.navShifter_.toggleExplore();
+    this.sync();
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ *
+ * @return {string} The name of the current Math Domain.
+ */
+cvox.NavigationManager.prototype.getDomainMsg = function() {
+  return this.navShifter_.getDomainMsg();
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ *
+ * @return {string} The name of the current Math Domain.
+ */
+cvox.NavigationManager.prototype.getTraversalModeMsg = function() {
+  return this.navShifter_.getTraversalModeMsg();
+};
+
+
+/**
+ * Tries to enter a math expression.
+ */
+cvox.NavigationManager.prototype.tryEnterMath = function() {
+  var ret = this.navShifter_.tryEnterMath(this.curSel_);
+  if (ret) {
+    this.curSel_ = ret;
+  }
+};
+
+
+/**
+ * Delegates to NavigationShifter.
+ *
+ */
+cvox.NavigationManager.prototype.tryExitMath = function() {
+  var sel = this.navShifter_.tryExitMath(this.curSel_, this.isReversed());
+  this.tryBoundaries_(sel, true);
+  this.sync();
+};
+
+
+/**
+ * Enters or exits a math expression (updates the selection) if sel is
+ * significant.
+ * @param {cvox.CursorSelection} sel The selection (possibly null).
+ * @return {boolean} False means the end of the page was reached.
+ * @private
+ */
+cvox.NavigationManager.prototype.tryMath_ = function(sel) {
+  if (this.isMathMode()) {
+    if (sel) {
+      this.updateSel(sel);
+      return true;
+    }
+    this.tryExitMath();
+    return true;
+  } else {
+    if (!sel) {
+      return false;
+    }
+    this.updateSel(sel);
+    this.tryEnterMath();
+    return true;
+  }
 };

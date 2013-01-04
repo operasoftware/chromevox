@@ -36,7 +36,7 @@ goog.require('cvox.TraverseContent');
  */
 cvox.AbstractSelectionWalker = function() {
   cvox.AbstractWalker.call(this);
-  this.jumper_ = new cvox.BareObjectWalker();
+  this.objWalker_ = new cvox.BareObjectWalker();
   this.tc_ = new cvox.TraverseContent();
   this.grain /** @protected */ = ''; // child must override
 };
@@ -48,31 +48,30 @@ goog.inherits(cvox.AbstractSelectionWalker, cvox.AbstractWalker);
 cvox.AbstractSelectionWalker.prototype.next = function(sel) {
   var r = sel.isReversed();
   this.tc_.syncToCursorSelection(sel.clone().setReversed(false));
-  var ret;
-  if (r) {
-    ret = this.tc_.prevElement(this.grain);
-  } else {
-    ret = this.tc_.nextElement(this.grain);
-  }
+  var ret = r ? this.tc_.prevElement(this.grain) :
+      this.tc_.nextElement(this.grain);
   if (ret == null) {
     return null;
   }
-  var retsel = this.tc_.getCurrentCursorSelection().setReversed(r);
-  if (!cvox.DomUtil.isDescendantOfNode(retsel.end.node, sel.end.node)) {
-    var temp = this.jumper_.next(sel);
-    while (temp && temp.start.node != retsel.end.node) {
-      if (temp && cvox.DomUtil.isControl(temp.start.node)) {
-        temp.start.node.focus();
-        return temp;
-      }
-      temp = this.jumper_.next(temp);
-    }
+  var retSel = this.tc_.getCurrentCursorSelection().setReversed(r);
+  var objSel = this.objWalker_.next(sel);
+
+  // ObjectWalker wins when there's a discrepancy between it and
+  // TraverseContent. The only exception is with an end cursor on a text node.
+  // In all other cases, this makes sure we visit the same selections as
+  // object walker.
+  if (objSel &&
+      (retSel.end.node.constructor != Text ||
+          objSel.end.node.constructor != Text) &&
+      !cvox.DomUtil.isDescendantOfNode(retSel.end.node, sel.end.node) &&
+      !cvox.DomUtil.isDescendantOfNode(retSel.end.node, objSel.end.node)) {
+    return objSel;
   }
   // TODO(stoarca): This doesn't belong here. We shouldn't know anything about
   // when the selection should be highlighted. Move this up to
   // NavigationManager.
   this.tc_.updateSelection();
-  return retsel;
+  return retSel;
 };
 
 /**
@@ -110,6 +109,17 @@ cvox.AbstractSelectionWalker.prototype.getDescription = function(prevSel, sel) {
       cvox.DomUtil.getUniqueAncestors(prevSel.end.node, sel.start.node),
       true,
       cvox.ChromeVox.verbosity);
-  description.text = sel.getText();
+  description.text = sel.getText() || description.text;
   return [description];
+};
+
+/**
+ * @override
+ */
+cvox.AbstractSelectionWalker.prototype.getBraille = function(prevSel, sel) {
+  return new cvox.NavBraille({
+      text: cvox.TraverseUtil.getNodeText(sel.absStart().node),
+      startIndex: sel.absStart().index,
+      endIndex: sel.absEnd().index
+    });
 };

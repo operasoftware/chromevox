@@ -30,6 +30,7 @@ goog.require('cvox.CommandStore');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.KeyMap');
+goog.require('cvox.KeySequence');
 goog.require('cvox.PlatformUtil');
 
 
@@ -66,40 +67,14 @@ cvox.OptionsPage.TEXT_TO_KEYCODE = {
 /**
  * Initialize the options page by setting the current value of all prefs,
  * building the key bindings table, and adding event listeners.
+ * @suppress {missingProperties} Property prefs never defined on Window
  */
 cvox.OptionsPage.init = function() {
   cvox.CommandStore.init();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
 
-  cvox.OptionsPage.KEYCODE_TO_TEXT = {
-    '#8' : cvox.ChromeVox.msgs.getMsg('backspace_key'),
-    '#9' : cvox.ChromeVox.msgs.getMsg('tab_key'),
-    '#13' : cvox.ChromeVox.msgs.getMsg('enter_key'),
-    '#32' : cvox.ChromeVox.msgs.getMsg('space_key'),
-    '#37' : cvox.ChromeVox.msgs.getMsg('left_key'),
-    '#38' : cvox.ChromeVox.msgs.getMsg('up_key'),
-    '#39' : cvox.ChromeVox.msgs.getMsg('right_key'),
-    '#40' : cvox.ChromeVox.msgs.getMsg('down_key'),
-    '#186' : ';',
-    '#187' : '=',
-    '#188' : ',',
-    '#189' : '-',
-    '#190' : '.',
-    '#191' : '/',
-    '#192' : '`',
-    '#219' : '[',
-    '#220' : '\\',
-    '#221' : ']',
-    '#222' : '\''
-  };
-
-  for (var key in cvox.OptionsPage.KEYCODE_TO_TEXT) {
-    cvox.OptionsPage.TEXT_TO_KEYCODE[cvox.OptionsPage.KEYCODE_TO_TEXT[key]] =
-        key;
-  }
-
   cvox.OptionsPage.prefs = chrome.extension.getBackgroundPage().prefs;
-  cvox.OptionsPage.populateSelectKeyMap();
+  cvox.OptionsPage.populateKeyMapSelect();
   cvox.OptionsPage.addKeys();
   cvox.OptionsPage.populateVoicesSelect();
   cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
@@ -116,15 +91,8 @@ cvox.OptionsPage.init = function() {
     }
   });
 
-  document.getElementById('selectKeys').addEventListener('click',
-      function() {
-        var selectKeyMap = document.getElementById('cvox_keymaps');
-        cvox.OptionsPage.prefs.switchToKeyMap(selectKeyMap.selectedIndex);
-        document.getElementById('keysContainer').innerHTML = '';
-
-        cvox.OptionsPage.addKeys();
-        cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
-      }, false);
+  document.getElementById('selectKeys').addEventListener(
+      'click', cvox.OptionsPage.reset, false);
 
   document.getElementById('version').textContent =
       chrome.app.getDetails().version;
@@ -150,18 +118,21 @@ cvox.OptionsPage.update = function() {
 /**
  * Populate the keymap select element with stored keymaps
  */
-cvox.OptionsPage.populateSelectKeyMap = function() {
-  var selectKeyMap = document.getElementById('cvox_keymaps');
-  for (var i = 0; i < cvox.KeyMap.AVAILABLE_MAP_INFO.length; i++) {
-    var availableMapInfo = cvox.KeyMap.AVAILABLE_MAP_INFO[i];
+cvox.OptionsPage.populateKeyMapSelect = function() {
+  var select = document.getElementById('cvox_keymaps');
+  for (var id in cvox.KeyMap.AVAILABLE_MAP_INFO) {
+    var info = cvox.KeyMap.AVAILABLE_MAP_INFO[id];
     var option = document.createElement('option');
+    option.id = id;
     option.className = 'i18n';
-    option.setAttribute('msgid', availableMapInfo.id);
-    if (cvox.OptionsPage.prefs.getPrefs()['currentKeyMap'] == i) {
+    option.setAttribute('msgid', id);
+    if (cvox.OptionsPage.prefs.getPrefs()['currentKeyMap'] == id) {
       option.setAttribute('selected', '');
     }
-    selectKeyMap.appendChild(option);
+    select.appendChild(option);
   }
+
+  select.addEventListener('change', cvox.OptionsPage.reset, true);
 };
 
 /**
@@ -174,21 +145,29 @@ cvox.OptionsPage.addKeys = function() {
       document.getElementById('modifier_keys_container');
   var keyMap = cvox.OptionsPage.prefs.getKeyMap();
 
-  // TODO(dtseng): Using string representation until KeySequence is ready.
   this.prevTime = new Date().getTime();
   this.keyCount = 0;
   container.addEventListener('keypress', goog.bind(function(evt) {
+    if (evt.target.id == 'cvoxKey') {
+      return;
+    }
     this.keyCount++;
-    var newKey = String.fromCharCode(evt.charCode).toUpperCase();
     var currentTime = new Date().getTime();
     if (currentTime - this.prevTime > 1000 || this.keyCount > 2) {
-      this.keySequence = 'Cvox+' + newKey;
+      if (document.activeElement.id == 'toggleKeyPrefix') {
+        this.keySequence = new cvox.KeySequence(evt, false);
+        this.keySequence.keys['ctrlKey'][0] = true;
+      } else {
+        this.keySequence = new cvox.KeySequence(evt, true);
+      }
+
       this.keyCount = 1;
     } else {
-      this.keySequence += '>' + newKey;
+      this.keySequence.addKeyEvent(evt);
     }
 
-    var announce = this.keySequence.replace(/\+/g,
+    var keySeqStr = cvox.KeyUtil.keySequenceToString(this.keySequence, true);
+    var announce = keySeqStr.replace(/\+/g,
         ' ' + cvox.ChromeVox.msgs.getMsg('then') + ' ');
     announce = announce.replace(/>/g,
         ' ' + cvox.ChromeVox.msgs.getMsg('followed_by') + ' ');
@@ -199,8 +178,8 @@ cvox.OptionsPage.addKeys = function() {
     // conflicting command. Nor does it detect prefix conflicts like Cvox+L vs
     // Cvox+L>L.
     if (cvox.OptionsPage.prefs.setKey(document.activeElement.id,
-                                      this.keySequence)) {
-      document.activeElement.value = this.keySequence;
+        this.keySequence)) {
+      document.activeElement.value = keySeqStr;
     } else {
       announce = cvox.ChromeVox.msgs.getMsg('key_conflict', [announce]);
     }
@@ -210,9 +189,6 @@ cvox.OptionsPage.addKeys = function() {
     evt.preventDefault();
     evt.stopPropagation();
   }, cvox.OptionsPage), true);
-
-  // TODO(dtseng): Requires cleanup.
-  keyMap.resetModifier();
 
   var categories = cvox.CommandStore.categories();
   for (var i = 0; i < categories.length; i++) {
@@ -224,7 +200,10 @@ cvox.OptionsPage.addKeys = function() {
     var commands = cvox.CommandStore.commandsForCategory(categories[i]);
     for (var j = 0; j < commands.length; j++) {
       var command = commands[j];
-      var key = keyMap.keyForCommand(command);
+      // TODO: Someday we may want to have more than one key
+      // mapped to a command, so we'll need to figure out how to display
+      // that. For now, just take the first key.
+      var keySeqObj = keyMap.keyForCommand(command)[0];
 
       // Explicitly skip toggleChromeVox in ChromeOS.
       if (command == 'toggleChromeVox' &&
@@ -232,16 +211,17 @@ cvox.OptionsPage.addKeys = function() {
         continue;
       }
 
-      // TODO(dtseng): Decide what to do lack of key binding.
-      if (!key) {
-        key = '';
-      }
       var inputElement = document.createElement('input');
       inputElement.type = 'text';
       inputElement.className = 'key active-key';
       inputElement.id = command;
-      var displayedCombo = cvox.OptionsPage.convertBetweenCodesAndText(key,
-          cvox.OptionsPage.KEYCODE_TO_TEXT);
+
+      var displayedCombo;
+      if (keySeqObj != null) {
+        displayedCombo = cvox.KeyUtil.keySequenceToString(keySeqObj, true);
+      } else {
+        displayedCombo = '';
+      }
       inputElement.value = displayedCombo;
 
       // Don't allow the user to change the sticky mode or stop speaking key.
@@ -286,8 +266,53 @@ cvox.OptionsPage.addKeys = function() {
     var modifierSectionParent = modifierSectionSibling.parentNode;
     modifierSectionParent.insertBefore(labelElement, modifierSectionSibling);
     modifierSectionParent.insertBefore(inputElement, labelElement);
-    document.getElementById('cvoxKey').disabled = true;
-    document.getElementById('cvoxKey').value = localStorage['cvoxKey'];
+    var cvoxKey = document.getElementById('cvoxKey');
+    cvoxKey.value = localStorage['cvoxKey'];
+
+    cvoxKey.addEventListener('keydown', function(evt) {
+      if (!this.modifierSeq_) {
+        this.modifierCount_ = 0;
+        this.modifierSeq_ = new cvox.KeySequence(evt, false);
+      } else {
+        this.modifierSeq_.addKeyEvent(evt);
+      }
+
+      //  Never allow non-modified keys.
+      if (!this.modifierSeq_.isAnyModifierActive()) {
+        // Indicate error and instructions excluding tab.
+        if (evt.keyCode != 9) {
+          chrome.extension.getBackgroundPage().speak(
+              cvox.ChromeVox.msgs.getMsg('modifier_entry_error'), 0, {});
+        }
+        this.modifierSeq_ = null;
+      } else {
+        this.modifierCount_++;
+      }
+
+      // Don't trap tab or shift.
+      if (!evt.shiftKey && evt.keyCode != 9) {
+        evt.preventDefault();
+        evt.stopPropagation();
+      }
+    }, true);
+
+    cvoxKey.addEventListener('keyup', function(evt) {
+      if (this.modifierSeq_) {
+        this.modifierCount_--;
+
+        if (this.modifierCount_ == 0) {
+          var modifierStr =
+              cvox.KeyUtil.keySequenceToString(this.modifierSeq_, true, true);
+          evt.target.value = modifierStr;
+          chrome.extension.getBackgroundPage().speak(
+              cvox.ChromeVox.msgs.getMsg('modifier_entry_set', [modifierStr]));
+          localStorage['cvoxKey'] = modifierStr;
+          this.modifierSeq_ = null;
+        }
+        evt.preventDefault();
+        evt.stopPropagation();
+      }
+    }, true);
   }
 };
 
@@ -352,16 +377,15 @@ cvox.OptionsPage.eventListener = function(event) {
         }
       }
     } else if (target.classList.contains('key')) {
-      var keyCode = cvox.OptionsPage.convertBetweenCodesAndText(target.value,
-          cvox.OptionsPage.TEXT_TO_KEYCODE);
+      var keySeq = cvox.KeySequence.fromStr(target.value);
       var success = false;
       if (target.id == 'cvoxKey') {
-        // TODO (clchen): Implement a check when setting the modifier key.
-        // TODO(dtseng): This is horribly conflict ridden.
-        // cvox.OptionsPage.prefs.setPref(target.id, keyCode);
+        cvox.OptionsPage.prefs.setPref(target.id, target.value);
+        cvox.OptionsPage.prefs.sendPrefsToAllTabs(true, true);
         success = true;
       } else {
-        success = cvox.OptionsPage.prefs.setKey(target.id, keyCode);
+        success =
+            cvox.OptionsPage.prefs.setKey(target.id, keySeq);
 
         // TODO(dtseng): Don't surface conflicts until we have a better
         // workflow.
@@ -372,40 +396,25 @@ cvox.OptionsPage.eventListener = function(event) {
 };
 
 /**
- * Converts between keycodes and their human readable text equivalents.
- * For example, this can convert Ctrl+#186 to Ctrl+; and vice versa.
- *
- * @param {string} input The input string which is either a keycode
- * string or a human readable text string.
- * @param {Object} conversionTable The conversion table to use. This
- * will determine which way the conversion is going. Valid conversion
- * tables are:
- * cvox.OptionsPage.KEYCODE_TO_TEXT
- * and
- * cvox.OptionsPage.TEXT_TO_KEYCODE.
- * @return {string} The converted string.
+ * Refreshes all dynamic content on the page.
+This includes all key related information.
  */
-cvox.OptionsPage.convertBetweenCodesAndText = function(input, conversionTable) {
-  var output = '';
-  var keySequences = input.split('>');
+cvox.OptionsPage.reset = function() {
+  var selectKeyMap = document.getElementById('cvox_keymaps');
+  var id = selectKeyMap.options[selectKeyMap.selectedIndex].id;
 
-  for (var i = 0, keySequence; keySequence = keySequences[i]; i++) {
-    var keys = keySequence.split('+');
-    for (var j = 0, key; key = keys[j]; j++) {
-      if (conversionTable[key] != null) {
-        key = conversionTable[key];
-      }
-      output = output + key + '+';
-    }
-    // Remove the extra + at the end.
-    output = output.substring(0, output.length - 1);
-    output = output + '>';
-  }
-  // Remove the extra > at the end.
-  output = output.substring(0, output.length - 1);
+  var msgs = cvox.ChromeVox.msgs;
+  var announce = cvox.OptionsPage.prefs.getPrefs()['currentKeyMap'] == id ?
+      msgs.getMsg('keymap_reset', [msgs.getMsg(id)]) :
+      msgs.getMsg('keymap_switch', [msgs.getMsg(id)]);
+  chrome.extension.getBackgroundPage().speak(announce);
 
-  return output;
+  cvox.OptionsPage.prefs.switchToKeyMap(id);
+  document.getElementById('keysContainer').innerHTML = '';
+  cvox.OptionsPage.addKeys();
+  cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
 };
+
 
 document.addEventListener('DOMContentLoaded', function() {
   cvox.OptionsPage.init();

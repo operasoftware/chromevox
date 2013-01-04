@@ -31,6 +31,8 @@ goog.require('cvox.TtsInterface');
 cvox.AbstractTts = function() {
   this.ttsProperties = new Object();
 
+  /** @private */
+
   if (cvox.AbstractTts.pronunciationDictionaryRegexp_ == undefined) {
     // Create an expression that matches all words in the pronunciation
     // dictionary on word boundaries, ignoring case.
@@ -182,6 +184,19 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 
 
 /**
+ * Method that cycles among the available punctuation levels.
+ * @return {string} The resulting punctuation level message id.
+ */
+cvox.AbstractTts.cyclePunctuationLevel = function() {
+  cvox.AbstractTts.currentPunctuationLevel_ =
+      (cvox.AbstractTts.currentPunctuationLevel_ + 1) %
+          cvox.AbstractTts.punctuationLevels_.length;
+  return cvox.AbstractTts.punctuationLevels_[
+      cvox.AbstractTts.currentPunctuationLevel_].msg;
+};
+
+
+/**
  * Static method to preprocess text to be spoken properly by a speech
  * engine.
  *
@@ -207,45 +222,8 @@ cvox.AbstractTts.preprocess_ = function(text) {
 
   // Handle single characters that we want to make sure we pronounce.
   if (text.length == 1) {
-    switch (text) {
-    case ' ': return 'space';
-    case '`': return 'backtick';
-    case '~': return 'tilde';
-    case '!': return 'exclamation point';
-    case '@': return 'at';
-    case '#': return 'pound';
-    case '$': return 'dollar';
-    case '%': return 'percent';
-    case '^': return 'caret';
-    case '&': return 'ampersand';
-    case '*': return 'asterisk';
-    case '(': return 'open paren';
-    case ')': return 'close paren';
-    case '-': return 'hyphen';
-    case '_': return 'underscore';
-    case '=': return 'equals';
-    case '+': return 'plus';
-    case '[': return 'left bracket';
-    case ']': return 'right bracket';
-    case '{': return 'left brace';
-    case '}': return 'right brace';
-    case '|': return 'pipe';
-    case ';': return 'semicolon';
-    case ':': return 'colon';
-    case ',': return 'comma';
-    case '.': return 'period';
-    case '<': return 'less than';
-    case '>': return 'greater than';
-    case '/': return 'slash';
-    case '?': return 'question mark';
-    case '"': return 'quote';
-    case '\'': return 'single quote';
-    case '\t': return 'tab';
-    case '\r': return 'return';
-    case '\n': return 'new line';
-    case '\\': return 'backslash';
-    default: return text.toUpperCase() + '.';
-    }
+    return cvox.AbstractTts.CHARACTER_DICTIONARY[text] ||
+          text.toUpperCase() + '.';
   }
 
   // Substitute all words in the pronunciation dictionary. This is pretty
@@ -259,37 +237,46 @@ cvox.AbstractTts.preprocess_ = function(text) {
       });
 
   // Special case for google+, where the punctuation must be pronounced.
-  text = text.replace(/google\+/ig, 'google-plus');
+  text = text.replace(/google\+/ig, 'google plus');
+
+  text = text.replace(
+      cvox.AbstractTts.repetitionRegexp_, cvox.AbstractTts.repetitionReplace_);
+
+  var pL = cvox.AbstractTts.punctuationLevels_[
+      cvox.AbstractTts.currentPunctuationLevel_];
+  text = text.replace(pL.regexp,
+      cvox.AbstractTts.createPunctuationReplace_(pL.clear));
+
+  // If there's no lower case letters, and at least two spaces, skip spacing
+  // text.
+  var skipSpacing = false;
+  if (!text.match(/[a-z]+/) && text.indexOf(' ') != text.lastIndexOf(' ')) {
+    skipSpacing = true;
+  }
 
   // Convert all-caps words to lowercase if they don't look like acronyms,
   // otherwise add a space before all-caps words so that all-caps words in
   // the middle of camelCase will be separated.
-  var allCapsWords = text.match(/([A-Z]+)/g);
-  if (allCapsWords) {
-    for (var word, i = 0; word = allCapsWords[i]; i++) {
-      var replacement;
-      // If a word contains vowels and is more than 3 letters long,
-      // it is probably a real word and not just an abbreviation.
-      // Convert it to lower case and speak it normally.
-      if ((word.length > 3) && word.match(/([AEIOUY])/g)) {
-        replacement = word.toLowerCase();
-      } else {
-        // This regex will space out any camelCased/all CAPS words
-        // so they sound better when spoken by TTS engines.
-        replacement = word.replace(/([A-Z])/g, ' $1');
-      }
-      text = text.replace(word, replacement);
+  text = text.replace(/[A-Z]+/g, function(word) {
+    // If a word contains vowels and is more than 3 letters long, it is
+    // probably a real word and not just an abbreviation. Convert it to lower
+    // case and speak it normally.
+    if ((word.length > 3) && word.match(/([AEIOUY])/g)) {
+      return word.toLowerCase();
+    } else if (!skipSpacing) {
+      // Builds spaced-out camelCased/all CAPS words so they sound better when
+      // spoken by TTS engines.
+      return ' ' + word.split('').join(' ');
+    } else {
+      return word;
     }
-  }
+  });
 
   //  Remove all whitespace from the beginning and end, and collapse all
   // inner strings of whitespace to a single space.
   text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
 
-  if (text.length > 0)
-    return text;
-  else
-    return 'blank';
+  return text;
 };
 
 
@@ -312,6 +299,16 @@ cvox.AbstractTts.preprocessWithProperties = function(text, properties) {
     for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
       properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
   }
+
+  if (properties && properties[cvox.AbstractTts.PUNCTUATION_LEVEL]) {
+    for (var i = 0, pL; pL = cvox.AbstractTts.punctuationLevels_[i]; i++) {
+      if (properties[cvox.AbstractTts.PUNCTUATION_LEVEL] == pL.name) {
+        cvox.AbstractTts.currentPunctuationLevel_ = i;
+        break;
+      }
+    }
+  }
+
   return cvox.AbstractTts.preprocess_(text);
 };
 
@@ -337,6 +334,8 @@ cvox.AbstractTts.COLOR = 'color';
 /** TTS CSS font-weight property (for the lens display). @type {string} */
 cvox.AbstractTts.FONT_WEIGHT = 'fontWeight';
 
+/** TTS punctuation-level property. @type {string} */
+cvox.AbstractTts.PUNCTUATION_LEVEL = 'punctuationLevel';
 
 /**
  * TTS personality for annotations - text spoken by ChromeVox that
@@ -404,60 +403,6 @@ cvox.AbstractTts.PERSONALITY_EMPHASIS = {
 
 
 /**
- * TTS personality for H1 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H1 = {
-  'relativePitch': -0.3
-};
-
-
-/**
- * TTS personality for H2 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H2 = {
-  'relativePitch': -0.25
-};
-
-
-/**
- * TTS personality for H3 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H3 = {
-  'relativePitch': -0.2
-};
-
-
-/**
- * TTS personality for H4 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H4 = {
-  'relativePitch': -0.15
-};
-
-
-/**
- * TTS personality for H5 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H5 = {
-  'relativePitch': -0.10
-};
-
-
-/**
- * TTS personality for H6 headings
- * @type {Object}
- */
-cvox.AbstractTts.PERSONALITY_H6 = {
-  'relativePitch': -0.05
-};
-
-
-/**
  * Flag indicating if the TTS is being debugged.
  * @type {boolean}
  */
@@ -479,6 +424,51 @@ cvox.AbstractTts.QUEUE_MODE_QUEUE = 1;
 
 
 /**
+ * Character dictionary. These symbols are replaced with their human readable
+ * equivalents. This replacement only occurs for single character utterances.
+ * @type {Object.<string, string>}
+ */
+cvox.AbstractTts.CHARACTER_DICTIONARY = {
+  ' ': 'space',
+  '`': 'backtick',
+  '~': 'tilde',
+  '!': 'exclamation point',
+  '@': 'at',
+  '#': 'pound',
+  '$': 'dollar',
+  '%': 'percent',
+  '^': 'caret',
+  '&': 'ampersand',
+  '*': 'asterisk',
+  '(': 'open paren',
+  ')': 'close paren',
+  '-': 'hyphen',
+  '_': 'underscore',
+  '=': 'equals',
+  '+': 'plus',
+  '[': 'left bracket',
+  ']': 'right bracket',
+  '{': 'left brace',
+  '}': 'right brace',
+  '|': 'pipe',
+  ';': 'semicolon',
+  ':': 'colon',
+  ',': 'comma',
+  '.': 'period',
+  '<': 'less than',
+  '>': 'greater than',
+  '/': 'slash',
+  '?': 'question mark',
+  '"': 'quote',
+  '\'': 'single quote',
+  '\t': 'tab',
+  '\r': 'return',
+  '\n': 'new line',
+  '\\': 'backslash'
+};
+
+
+/**
  * Pronunciation dictionary. Each key must be lowercase, its replacement
  * should be spelled out the way most TTS engines will pronounce it
  * correctly. This particular dictionary only handles letters and numbers,
@@ -492,7 +482,7 @@ cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
   'angularjs': 'angular j s',
   'bcc': 'B C C',
   'cc': 'C C',
-  'chromevox': 'chrome-vox',
+  'chromevox': 'chrome vox',
   'cr48': 'C R 48',
   'ctrl': 'control',
   'doubleclick': 'double-click',
@@ -509,6 +499,14 @@ cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
 
 
 /**
+ * Pronunciation dictionary regexp.
+ * @type {RegExp};
+ * @private
+ */
+cvox.AbstractTts.pronunciationDictionaryRegexp_;
+
+
+/**
  * Substitution dictionary. These symbols or patterns are ALWAYS substituted
  * whenever they occur, so this should be reserved only for unicode characters
  * and characters that never have any different meaning in context.
@@ -519,6 +517,9 @@ cvox.AbstractTts.PRONUNCIATION_DICTIONARY = {
  */
 cvox.AbstractTts.SUBSTITUTION_DICTIONARY = {
   '://': 'colon slash slash',
+  '\u00bc': 'one fourth',
+  '\u00bd': 'one half',
+  '\u200e': 'left to right mark',
   '\u2190': 'left arrow',
   '\u2191': 'up arrow',
   '\u2192': 'right arrow',
@@ -559,16 +560,103 @@ cvox.AbstractTts.SUBSTITUTION_DICTIONARY = {
 
 
 /**
- * Pronunciation dictionary regexp.
- * @type {RegExp};
- * @private
- */
-cvox.AbstractTts.pronunciationDictionaryRegexp_;
-
-
-/**
  * Substitution dictionary regexp.
  * @type {RegExp};
  * @private
  */
 cvox.AbstractTts.substitutionDictionaryRegexp_;
+
+
+/**
+ * repetition filter regexp.
+ * @type {RegExp}
+ * @private
+ */
+cvox.AbstractTts.repetitionRegexp_ =
+    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>])\1{2,}/g;
+
+
+/**
+ * Constructs a description of a repeated character. Use as a param to
+ * string.replace.
+ * @param {string} match The matching string.
+ * @return {string} The description.
+ * @private
+ */
+cvox.AbstractTts.repetitionReplace_ = function(match) {
+  var count = match.length;
+  return count + ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match[0]];
+};
+
+
+/**
+ * Constructs a function for string.replace that handles description of a
+ *  punctuation character.
+ * @param {boolean} clear Whether we want to use whitespace in place of match.
+ * @return {function(string): string} The replacement function.
+ * @private
+ */
+cvox.AbstractTts.createPunctuationReplace_ = function(clear) {
+  return function(match) {
+    var retain = cvox.AbstractTts.retainPunctuation_.indexOf(match) != -1 ?
+        match : ' ';
+    return clear ? retain :
+        ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match] + retain + ' ';
+  }
+};
+
+
+/**
+ * @type {!Array.<{name:(string),
+ * msg:(string),
+ * regexp:(RegExp),
+ * clear:(boolean)}>}
+ * @private
+ */
+cvox.AbstractTts.punctuationLevels_ = [
+  /**
+   * Punctuation belonging to the 'none' level.
+   */
+  {
+    name: 'none',
+    msg: 'no_punctuation',
+    regexp: /[-$#"()*;:<>\n\\\/+='~`@_]/g,
+    clear: true
+  },
+
+  /**
+   * Punctuation belonging to the 'some' level.
+   */
+  {
+    name: 'some',
+    msg: 'some_punctuation',
+    regexp: /[-$#"()*:<>\\\/+=~`%]/g,
+    clear: false
+  },
+
+  /**
+   * Punctuation belonging to the 'all' level.
+   */
+  {
+    name: 'all',
+    msg: 'all_punctuation',
+    regexp: /[-$#"()*;:<>\n\\\/+='~`!@_.,?%]/g,
+    clear: false
+  }
+];
+
+/**
+ * A list of punctuation characters that should always be spliced into output
+ * even with literal word substitutions.
+ * This is important for tts prosity.
+ * @type {!Array.<string>}
+ * @private
+ */
+cvox.AbstractTts.retainPunctuation_ = ['.', ',', ';', '?', '!', '\''];
+
+
+/**
+ * @type {number}'
+ @private
+ */
+cvox.AbstractTts.currentPunctuationLevel_ = 1;

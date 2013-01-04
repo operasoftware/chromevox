@@ -37,8 +37,9 @@ goog.require('cvox.ConsoleTts');
 goog.require('cvox.CssSpace');
 goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
+goog.require('cvox.FocusUtil');
 goog.require('cvox.KeyboardHelpWidget');
-goog.require('cvox.NodeChooserWidget');
+goog.require('cvox.NodeSearchWidget');
 goog.require('cvox.PlatformUtil');
 goog.require('cvox.SearchWidget');
 
@@ -54,19 +55,25 @@ goog.require('cvox.SearchWidget');
  *                         announce: boolean,
  *                         findNext: (undefined|string),
  *                         doDefault: (undefined|boolean),
- *platformFilter: (undefined|cvox.PlatformFilter)
+ *                         nodeList: (undefined|string),
+ *                         platformFilter: (undefined|cvox.PlatformFilter),
+ *                         skipInput: (undefined|boolean)
  *                         }>}
  *  forward: Whether this command points forward.
  *  backward: Whether this command points backward. If neither forward or
- *    backward are specified, it stays facing in the current direction.
+ *            backward are specified, it stays facing in the current direction.
  *  announce: Whether to call finishNavCommand and announce the current
- *    position after the command is done.
+ *            position after the command is done.
  *  findNext: The id from the map above if this command is used for
- *    finding next/previous of something
+ *            finding next/previous of something.
  *  doDefault: Whether to do the default action. This means that keys will be
  *             passed through to the usual DOM capture/bubble phases.
- * platformFilter: Specifies to which platforms this command applies. If left
- *                 undefined, the command applies to all platforms.
+ *  nodeList: The id from the map above if this command is used for
+ *            showing a list of nodes.
+ *  platformFilter: Specifies to which platforms this command applies. If left
+ *                  undefined, the command applies to all platforms.
+ *  skipInput: Explicitly skips this command when text input has focus.
+ *             Defaults to false.
  * @private
  */
 cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
@@ -78,10 +85,27 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'skipBackward': {backward: true, announce: false},
   'previousGranularity': {announce: true},
   'nextGranularity': {announce: true},
+
+  'previousCharacter': {backward: true, announce: true, skipInput: true},
+  'nextCharacter': {forward: true, announce: true, skipInput: true},
+  'previousWord': {backward: true, announce: true, skipInput: true},
+  'nextWord': {forward: true, announce: true, skipInput: true},
+  'previousLine': {backward: true, announce: true},
+  'nextLine': {forward: true, announce: true},
+  'previousSentence': {backward: true, announce: true, skipInput: true},
+  'nextSentence': {forward: true, announce: true, skipInput: true},
+  'previousObject': {backward: true, announce: true},
+  'nextObject': {forward: true, announce: true},
+  'previousGroup': {backward: true, announce: true, skipInput: true},
+  'nextGroup': {forward: true, announce: true, skipInput: true},
+
   'jumpToTop': {forward: true, announce: true},
+  'jumpToBottom': {backward: true, announce: true},
+  'moveToStartOfLine': {forward: true, announce: true},
+  'moveToEndOfLine': {backward: true, announce: true},
   'readFromHere': {forward: true, announce: false},
   'stopSpeech': {announce: false, doDefault: true},
-  'showPowerKey': {announce: false},
+  'toggleKeyboardHelp': {announce: false},
   'nextTtsEngine': {announce: false},
   'help': {announce: false},
   'showBookmarkManager': {announce: false},
@@ -111,12 +135,18 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'skipToColBeginning': {announce: true},
   'skipToColEnd': {announce: true},
 
+  // Math stuff (sorge@google.com)
+  'cycleDomain': {announce: true},
+  'cycleTraversalMode': {announce: true},
+  'toggleExplore': {announce: true},
+
   'decreaseTtsRate': {announce: false},
   'increaseTtsRate': {announce: false},
   'decreaseTtsPitch': {announce: false},
   'increaseTtsPitch': {announce: false},
   'decreaseTtsVolume': {announce: false},
   'increaseTtsVolume': {announce: false},
+  'cyclePunctuationLevel': {announce: false},
 
   'toggleTable': {announce: true},
   'toggleStickyMode': {announce: false},
@@ -127,14 +157,11 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'floatLens': {announce: false},
   'anchorLens': {announce: false},
 
-  'showHeadingsList': {announce: false},
-  'showLinksList': {announce: false},
-  'showFormsList': {announce: false},
-  'showTablesList': {announce: false},
-  'showLandmarksList': {announce: false},
-  'showJumpsList': {announce: false},
-
-
+  'showHeadingsList': {announce: false, nodeList: 'heading'},
+  'showLinksList': {announce: false, nodeList: 'link'},
+  'showFormsList': {announce: false, nodeList: 'formField'},
+  'showTablesList': {announce: false, nodeList: 'table'},
+  'showLandmarksList': {announce: false, nodeList: 'landmark'},
 
 
   'nextCheckbox': {forward: true, findNext: 'checkbox'},
@@ -235,28 +262,14 @@ cvox.ChromeVoxUserCommands.wasMouseClicked = false;
 
 /**
  * Perform all of the actions that should happen at the end of any
- * navigation operation: update the lens, play earcons, and speak the
+ * navigation operation: update the lens, play earcons, speak and braille the
  * description of the object that was navigated to.
  *
  * @param {string} messagePrefixStr The string to be prepended to what
  * is spoken to the user.
  */
 cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
-  var descriptionArray = cvox.ChromeVox.navigationManager.getDescription();
-
-  cvox.ChromeVox.navigationManager.setFocus();
-  cvox.ChromeVox.navigationManager.updateIndicator();
-
-  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
-
-  if (messagePrefixStr) {
-    cvox.ChromeVox.tts.speak(
-        messagePrefixStr, queueMode, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-  }
-
-  cvox.ChromeVox.navigationManager.speakDescriptionArray(descriptionArray,
-    queueMode, null);
+  cvox.ChromeVox.navigationManager.finishNavCommand(messagePrefixStr);
 };
 
 
@@ -282,7 +295,8 @@ cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate, errorStr) {
     return;
   }
 
-  cvox.ChromeVox.navigationManager.sync();
+  // Don't sync in find, since the resulting CursorSelection wrapped node may
+  // not be visited by any walker.
   cvox.ChromeVoxUserCommands.finishNavCommand('');
 };
 
@@ -407,32 +421,6 @@ cvox.ChromeVoxUserCommands.createTabDummySpan_ = function() {
 
 
 /**
- * Uses PowerKey to show a list of elements that can be navigated to.
- *
- * @param {string} errorStr A string to speak if there is nothing in the list.
- * @param {Array.<Node>} nodes The array of elements to populate the navigation
- * list.
- * @param {Array.<String>} opt_descriptionsArray Optional array of descriptions
- * for the elements; if this is null, the text of the elements will be used.
- * @private
- */
-cvox.ChromeVoxUserCommands.showNavigationList_ = function(errorStr,
-    nodes, opt_descriptionsArray) {
-  // Do not include empty nodes in the list.
-  nodes = nodes.filter(cvox.DomUtil.hasContent);
-  if (nodes.length < 1) {
-    cvox.ChromeVox.tts.speak(errorStr, 0,
-        cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-
-  var widget =
-      new cvox.NodeChooserWidget(nodes, opt_descriptionsArray);
-  widget.show();
-};
-
-
-/**
  * List of find next commands and their associated data.
  * @type {Object.<string, {predicate: string,
  *                         forwardError: string,
@@ -442,34 +430,39 @@ cvox.ChromeVoxUserCommands.showNavigationList_ = function(errorStr,
  *  backwardError: The message id of the error string when moving backward.
  * @private
  */
-cvox.ChromeVoxUserCommands.FIND_NEXT_MAP_ = {
+cvox.ChromeVoxUserCommands.NODE_INFO_MAP_ = {
   'checkbox': {predicate: 'checkboxPredicate',
                forwardError: 'no_next_checkbox',
-               backwardError: 'no_previous_checkbox'},
+               backwardError: 'no_previous_checkbox',
+               typeMsg: 'aria_role_checkbox'},
   'radio': {predicate: 'radioPredicate',
             forwardError: 'no_next_radio_button',
-            backwardError: 'no_previous_radio_button'},
+            backwardError: 'no_previous_radio_button',
+            typeMsg: 'aria_role_radio'},
   'slider': {predicate: 'sliderPredicate',
              forwardError: 'no_next_slider',
-             backwardError: 'no_previous_slider'},
+             backwardError: 'no_previous_slider',
+             typeMsg: 'aria_role_slider'},
   'graphic': {predicate: 'graphicPredicate',
               forwardError: 'no_next_graphic',
-              backwardError: 'no_previous_graphic'},
+              backwardError: 'no_previous_graphic',
+              typeMsg: 'UNUSED'},
   'button': {predicate: 'buttonPredicate',
              forwardError: 'no_next_button',
-             backwardError: 'no_previous_button'},
+             backwardError: 'no_previous_button',
+             typeMsg: 'aria_role_button'},
   'combobox': {predicate: 'comboBoxPredicate',
                forwardError: 'no_next_combo_box',
-               backwardError: 'no_previous_combo_box'},
+               backwardError: 'no_previous_combo_box',
+               typeMsg: 'aria_role_combobox'},
   'editText': {predicate: 'editTextPredicate',
                forwardError: 'no_next_edit_text',
-               backwardError: 'no_previous_edit_text'},
+               backwardError: 'no_previous_edit_text',
+               typeMsg: 'input_type_text'},
   'heading': {predicate: 'headingPredicate',
               forwardError: 'no_next_heading',
-              backwardError: 'no_previous_heading'},
-
-  // TODO(stoarca): This is just goofy. How the hell is a user supposed to
-  // know what heading a website uses?
+              backwardError: 'no_previous_heading',
+              typeMsg: 'aria_role_heading'},
   'heading1': {predicate: 'heading1Predicate',
                forwardError: 'no_next_heading_1',
                backwardError: 'no_previous_heading_1'},
@@ -491,23 +484,33 @@ cvox.ChromeVoxUserCommands.FIND_NEXT_MAP_ = {
 
   'link': {predicate: 'linkPredicate',
            forwardError: 'no_next_link',
-           backwardError: 'no_previous_link'},
+           backwardError: 'no_previous_link',
+           typeMsg: 'aria_role_link'},
   'table': {predicate: 'tablePredicate',
             forwardError: 'no_next_table',
-            backwardError: 'no_previous_table'},
+            backwardError: 'no_previous_table',
+            typeMsg: 'table_strategy'},
   'list': {predicate: 'listPredicate',
            forwardError: 'no_next_list',
-           backwardError: 'no_previous_list'},
+           backwardError: 'no_previous_list',
+           typeMsg: 'aria_role_list'},
   'listItem': {predicate: 'listItemPredicate',
                forwardError: 'no_next_list_item',
-               backwardError: 'no_previous_list_item'},
+               backwardError: 'no_previous_list_item',
+               typeMsg: 'aria_role_listitem'},
   'formField': {predicate: 'formFieldPredicate',
                 forwardError: 'no_next_form_field',
-                backwardError: 'no_previous_form_field'},
+                backwardError: 'no_previous_form_field',
+                typeMsg: 'aria_role_form'},
   'landmark': {predicate: 'landmarkPredicate',
                forwardError: 'no_next_landmark',
-               backwardError: 'no_previous_landmark'}
+               backwardError: 'no_previous_landmark',
+               typeMsg: 'role_landmark'},
+  'math': {predicate: 'mathPredicate',
+           forwardError: 'no_next_math',
+           backwardError: 'no_previous_math'}
 };
+
 
 
 /**
@@ -528,12 +531,16 @@ cvox.ChromeVoxUserCommands.createCommand_ = function(cmd) {
  */
 cvox.ChromeVoxUserCommands.doCommand_ =
     cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(cmd) {
+  if (cvox.Widget.isActive()) {
+    return true;
+  }
   var cmdStruct = cvox.ChromeVoxUserCommands.CMD_WHITELIST_[cmd];
   if (!cmdStruct) {
     throw 'Invalid command: ' + cmd;
   }
 
-  if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter)) {
+  if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter) ||
+      (cmdStruct.skipInput && cvox.FocusUtil.isFocusInTextInputField())) {
     return true;
   }
 
@@ -544,15 +551,16 @@ cvox.ChromeVoxUserCommands.doCommand_ =
   }
 
   if (cmdStruct.findNext) {
-    var findNextStruct =
-        cvox.ChromeVoxUserCommands.FIND_NEXT_MAP_[cmdStruct.findNext];
-    var predicate = cvox.DomPredicates[findNextStruct.predicate];
+    var NodeInfoStruct =
+        cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.findNext];
+    var predicate = cvox.DomPredicates[NodeInfoStruct.predicate];
     var error = '';
     if (cmdStruct.forward) {
-      error = cvox.ChromeVox.msgs.getMsg(findNextStruct.forwardError);
-    } else {
-      error = cvox.ChromeVox.msgs.getMsg(findNextStruct.backwardError);
+      error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.forwardError);
+    } else if (cmdStruct.backward) {
+      error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.backwardError);
     }
+
     cvox.ChromeVoxUserCommands.findNextAndSpeak_(predicate, error);
     return false;
   }
@@ -568,7 +576,7 @@ cvox.ChromeVoxUserCommands.doCommand_ =
           cvox.ChromeVox.navigationManager.tryExitTable();
         }
       } else {
-        cvox.ChromeVox.navigationManager.navigate();
+        ret = !cvox.ChromeVox.navigationManager.navigate();
       }
       break;
     case 'right':
@@ -592,6 +600,69 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVox.navigationManager.makeMoreGranular();
       prefixMsg = cvox.ChromeVox.navigationManager.getGranularityMsg();
       break;
+
+    case 'previousCharacter':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.CHARACTER);
+      break;
+    case 'nextCharacter':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.CHARACTER);
+      break;
+
+    case 'previousWord':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.WORD);
+      break;
+    case 'nextWord':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.WORD);
+      break;
+
+    case 'previousSentence':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.SENTENCE);
+      break;
+    case 'nextSentence':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.SENTENCE);
+      break;
+
+    case 'previousLine':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.LINE);
+      break;
+    case 'nextLine':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.LINE);
+      break;
+
+    case 'previousObject':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.OBJECT);
+      break;
+    case 'nextObject':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.OBJECT);
+      break;
+
+    case 'previousGroup':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.GROUP);
+      break;
+    case 'nextGroup':
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.GROUP);
+      break;
+
+    case 'moveToStartOfLine':
+    case 'moveToEndOfLine':
+      cvox.ChromeVox.navigationManager.setGranularity(
+          cvox.NavigationShifter.GRANULARITIES.LINE);
+      cvox.ChromeVox.navigationManager.sync();
+      cvox.ChromeVox.navigationManager.collapseSelection();
+      break;
+
     case 'readFromHere':
       cvox.ChromeVox.navigationManager.startReading(
           cvox.AbstractTts.QUEUE_MODE_FLUSH);
@@ -599,13 +670,14 @@ cvox.ChromeVoxUserCommands.doCommand_ =
     case 'jumpToTop':
       cvox.ChromeVox.navigationManager.syncToPageBeginning();
       break;
-    case 'stopSpeech':
-      cvox.ChromeVox.tts.stop();
+    case 'jumpToBottom':
+      cvox.ChromeVox.navigationManager.syncToPageBeginning();
       break;
-    case 'showPowerKey':
-      // TODO(stoarca): There seems to not be a symmetrical command.
-      // Is this supposed to live forever?
-      cvox.KeyboardHelpWidget.getInstance().show();
+    case 'stopSpeech':
+      cvox.ChromeVox.navigationManager.stopReading(true);
+      break;
+    case 'toggleKeyboardHelp':
+      cvox.KeyboardHelpWidget.getInstance().toggle();
       break;
     case 'nextTtsEngine':
       // TODO(stoarca): Implement.
@@ -687,8 +759,15 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVox.tts.speak(
           cvox.ChromeVox.msgs.getMsg('element_clicked'),
           0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-      cvox.DomUtil.clickElem(
-          cvox.ChromeVox.navigationManager.getCurrentNode(), false);
+      // TODO(clchen,dtseng): Determine if it would be safe to always click
+      // on the activeDescendant rather than the focused element. If so, then
+      // refactor this into the clickElem method itself.
+      var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+      var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
+      if (activeDescendant) {
+        targetNode = activeDescendant;
+      }
+      cvox.DomUtil.clickElem(targetNode, false);
       break;
     case 'toggleChromeVox':
       cvox.ChromeVox.host.sendToBackgroundPage({
@@ -775,7 +854,23 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       if (!cvox.ChromeVox.navigationManager.goToColLastCell()) {
         errorMsg = 'not_inside_table';
       }
+    break;
+
+    // Math stuff
+    case 'cycleDomain':
+      cvox.ChromeVox.navigationManager.cycleDomain();
+      prefixMsg = cvox.ChromeVox.navigationManager.getDomainMsg();
       break;
+    case 'cycleTraversalMode':
+      cvox.ChromeVox.navigationManager.cycleTraversalMode();
+      prefixMsg = cvox.ChromeVox.navigationManager.getTraversalModeMsg();
+      break;
+    case 'toggleExplore':
+      if (!cvox.ChromeVox.navigationManager.toggleExplore()) {
+        errorMsg = 'not_inside_math';
+      }
+      break;
+
 
     // TODO(stoarca): Code repetition.
     case 'decreaseTtsRate':
@@ -803,6 +898,12 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVox.tts.increaseOrDecreaseProperty(
           cvox.AbstractTts.VOLUME, true);
       break;
+      case 'cyclePunctuationLevel':
+        cvox.ChromeVox.host.sendToBackgroundPage({
+            'target': 'TTS',
+            'action': 'cyclePunctuationLevel'
+          });
+        break;
 
     case 'toggleTable':
       if (cvox.ChromeVox.navigationManager.isTableMode()) {
@@ -822,7 +923,8 @@ cvox.ChromeVoxUserCommands.doCommand_ =
         'target': 'Prefs',
         'action': 'setPref',
         'pref': 'sticky',
-        'value': !cvox.ChromeVox.isStickyOn
+        'value': !cvox.ChromeVox.isStickyOn,
+        'announce': true
       });
       break;
     case 'toggleKeyPrefix':
@@ -872,92 +974,18 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       break;
 
     case 'showHeadingsList':
-      var xpath =
-          '//*[@role="heading"] | //h1 | //h2 | //h3 | //h4 | //h5 | //h6';
-      cvox.ChromeVoxUserCommands.showNavigationList_(
-          cvox.ChromeVox.msgs.getMsg('powerkey_no_headings'),
-          cvox.XpathUtil.evalXPath(xpath, document.body), null);
-      break;
     case 'showLinksList':
-      var xpath = '//a';
-        cvox.ChromeVoxUserCommands.showNavigationList_(
-            cvox.ChromeVox.msgs.getMsg('powerkey_no_links'),
-            cvox.XpathUtil.evalXPath(xpath, document.body), null);
-      break;
     case 'showFormsList':
-      var xpath = '//form';
-      cvox.ChromeVoxUserCommands.showNavigationList_(
-          cvox.ChromeVox.msgs.getMsg('powerkey_no_forms'),
-          cvox.XpathUtil.evalXPath(xpath, document.body), null);
-      break;
     case 'showTablesList':
-      var xpath = '//table';
-      var tableNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
-      var descriptions = new Array();
-      var tableCount = 1;
-      for (var i = 0, node; node = tableNodes[i]; i++) {
-        var description = '';
-        if (node.getAttribute('title')) {
-          description = description + node.getAttribute('title') + ' ';
-        }
-        if (node.getAttribute('summary')) {
-          description = description + node.getAttribute('summary') + ' ';
-        }
-        if (node.getAttribute('caption')) {
-          description = description + node.getAttribute('caption') + ' ';
-        }
-        if (description.length < 1) {
-          description = 'Table ' + tableCount;
-          tableCount++;
-        }
-        descriptions.push(description);
-      }
-      cvox.ChromeVoxUserCommands.showNavigationList_(
-          cvox.ChromeVox.msgs.getMsg('powerkey_no_tables'),
-          cvox.XpathUtil.evalXPath(xpath, document.body), null);
-      break;
     case 'showLandmarksList':
-      var xpath = '//*[@role="application"] | //*[@role="banner"] | ' +
-          '//*[@role="complementary"] | //*[@role="contentinfo"] | ' +
-          '//*[@role="form"] | //*[@role="main"] | //*[@role="navigation"] | ' +
-          '//*[@role="search"]';
-      var landmarkNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
-      var descriptions = new Array();
-      for (var i = 0, node; node = landmarkNodes[i]; i++) {
-        var description = cvox.AriaUtil.getRoleName(node);
-        if (node.getAttribute('title')) {
-          description = node.getAttribute('title') + ' ' + description;
-        }
-        descriptions.push(description);
+      if (!cmdStruct.nodeList) {
+        break;
       }
-      cvox.ChromeVoxUserCommands.showNavigationList_(
-          cvox.ChromeVox.msgs.getMsg('powerkey_no_landmarks'),
-          landmarkNodes, descriptions);
-      break;
-    case 'showJumpsList':
-      var xpath = '//*[@role="application"] | //*[@role="banner"] | ' +
-          '//*[@role="complementary"] | //*[@role="contentinfo"] | ' +
-          '//*[@role="form"] | //*[@role="main"] | //*[@role="navigation"] | ' +
-          '//*[@role="search"] | //*[@role="heading"] | //h1 | //h2 | //h3 | ' +
-          '//h4 | //h5 | //h6';
-      var jumpNodes = cvox.XpathUtil.evalXPath(xpath, document.body);
-      var descs = new Array();
-      for (var i = 0, node; node = jumpNodes[i]; i++) {
-        var description = '';
-        if (cvox.AriaUtil.isLandmark(node)) {
-          description = cvox.AriaUtil.getRoleName(node);
-          var text = cvox.DomUtil.getName(node);
-          if (text) {
-            description = text + ' ' + description;
-          }
-        } else {
-          description = cvox.DomUtil.collapseWhitespace(
-              cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node));
-        }
-        descs.push(description);
-      }
-      cvox.ChromeVoxUserCommands.showNavigationList_(
-          cvox.ChromeVox.msgs.getMsg('powerkey_no_jumps'), jumpNodes, descs);
+      var nodeListStruct =
+          cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.nodeList];
+
+      cvox.NodeSearchWidget.create(nodeListStruct.typeMsg,
+                  cvox.DomPredicates[nodeListStruct.predicate]).show();
       break;
 
     case 'debug':

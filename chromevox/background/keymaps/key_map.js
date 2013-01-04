@@ -33,37 +33,49 @@
 
 goog.provide('cvox.KeyMap');
 
-
 // TODO(dtseng): Only needed for sticky mode.
 goog.require('cvox.KeyUtil');
 
 /**
- * @param {Object.<string, string>} map Valid map from key binding to command.
+ * @param {Array.<Object.<string,
+ *         {command: string, sequence: cvox.KeySequence}>>}
+ * commandsAndKeySequences An array of pairs - KeySequences and commands.
+ * @param {boolean=} opt_complete Whether the given keySequence collection is
+ * complete. Defaults to false.
  * @constructor
  */
-cvox.KeyMap = function(map) {
+cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
+  // TODO(dtseng): Add a check to remove duplicate entries so we can remove
+  // opt_complete.
+
   /**
-   * Maps a key to a command.
-   * @type {Object.<string, string>}
+   * An array of bindings - commands and KeySequences.
+   * @type {Array.<Object.<string,
+   *        {command: string, sequence: cvox.KeySequence}>>}
    * @private
    */
-  this.keyToCommand_ = map;
+  this.bindings_ = commandsAndKeySequences;
 
-  // TODO(dtseng): Sticky key is platform dependent, so making this ugly
-  // exception.
-  var stickyKey =
-      cvox.KeyUtil.getReadableNameForKeyCode(cvox.KeyUtil.getStickyKeyCode());
-  this.keyToCommand_[(stickyKey + '>' + stickyKey + '+')] = 'toggleStickyMode';
+  if (!opt_complete) {
+    // TODO(dtseng): Sticky key is platform dependent, so making this ugly
+    // exception.
+    var stickyKey = cvox.KeyUtil.getStickyKeySequence();
+    var stickyKeyBinding = {
+      command: 'toggleStickyMode',
+      sequence: stickyKey
+    };
+    this.bindings_.push(stickyKeyBinding);
+  }
 
   /**
-   * Maps a command to a key.
-   * @type {Object.<string, string>}
+   * Maps a command to a key. This optimizes the process of searching for a
+   * key sequence when you already know the command. This will not be created
+   * if there is more than one key sequence mapped to a command.
+   * @type {Object.<string, cvox.KeySequence>}
    * @private
    */
   this.commandToKey_ = {};
-  for (var key in this.keyToCommand_) {
-    this.commandToKey_[this.keyToCommand_[key]] = key;
-  }
+  this.buildCommandToKey_();
 };
 
 
@@ -82,19 +94,23 @@ cvox.KeyMap.KEYMAP_PATH = 'chromevox/background/keymaps/';
  * user configurable, so it doesn't make sense to json-stringify it.
  * Should have class to siwtch among and manage multiple key maps.
  * TODO(dtseng): Document the JSON format (it's just a map).
- * @type {Array.<Object.<string, string>>}
+ * @type {Object.<string, Object.<string, string>>}
  * @const
  */
-cvox.KeyMap.AVAILABLE_MAP_INFO = [
-  {
-    'id': 'keymap_classic',
+cvox.KeyMap.AVAILABLE_MAP_INFO = {
+'keymap_classic': {
     'file': 'classic_keymap.json'
   },
-  {
-    'id': 'keymap_alt1',
+'keymap_flat': {
+    'file': 'flat_keymap.json'
+  },
+'keymap_alt1': {
     'file': 'alt_keymap_1.json'
+  },
+'keymap_experimental': {
+    'file': 'experimental.json'
   }
-];
+};
 
 
 /**
@@ -106,43 +122,32 @@ cvox.KeyMap.DEFAULT_KEYMAP = 0;
 
 
 /**
- * Merges an input map with this one. The merge preserves this instance's
- * mappings. It only adds new bindings if there isn't one already.
- * If either the incoming binding's command or key exist in this, it will be
- * ignored.
- * @param {!cvox.KeyMap} inputMap The map to merge with this.
- * @return {boolean} True if there were no merge conflicts.
+ * The number of mappings in the keymap.
+ * @return {number} The number of mappings.
  */
-cvox.KeyMap.prototype.merge = function(inputMap) {
-  var keys = inputMap.keys();
-  var cleanMerge = true;
-  for (var i = 0; i < keys.length; ++i) {
-    var key = keys[i];
-    var command = inputMap.commandForKey(key);
-    if (command == 'toggleStickyMode') {
-      // TODO(dtseng): More uglyness because of sticky key.
-      continue;
-    } else if (key && command &&
-               !this.hasKey(key) && !this.hasCommand(command)) {
-      this.bind_(command, key);
-    } else {
-      cleanMerge = false;
-    }
-  }
-  return cleanMerge;
+cvox.KeyMap.prototype.length = function() {
+  return this.bindings_.length;
 };
 
 
 /**
- * Returns all of the keys in the table as an array.
- * @return {Array.<string>} The collection of keys.
+ * Returns a copy of all KeySequences in this map.
+ * @return {Array.<cvox.KeySequence>} Array of all keys.
  */
 cvox.KeyMap.prototype.keys = function() {
-  var ret = [];
-  for (var key in this.keyToCommand_) {
-    ret.push(key);
-  }
-  return ret;
+  return this.bindings_.map(function(binding) {
+    return binding.sequence;
+  });
+};
+
+
+/**
+ * Returns a collection of command, KeySequence bindings.
+ * @return {Array.<Object.<string, cvox.KeySequence>>} Array of all command,
+ * key bindings.
+ */
+cvox.KeyMap.prototype.bindings = function() {
+  return this.bindings_;
 };
 
 
@@ -152,7 +157,7 @@ cvox.KeyMap.prototype.keys = function() {
  * @return {string} The JSON representation of this instance.
  */
 cvox.KeyMap.prototype.toJSON = function() {
-  return JSON.stringify(this.keyToCommand_);
+  return JSON.stringify({bindings: this.bindings_});
 };
 
 
@@ -167,12 +172,21 @@ cvox.KeyMap.prototype.toLocalStorage = function() {
 /**
  * Checks if this key map has a given binding.
  * @param {string} command The command.
- * @param {string} key The key.
+ * @param {cvox.KeySequence} sequence The key sequence.
  * @return {boolean} Whether the binding exists.
  */
-cvox.KeyMap.prototype.hasBinding = function(command, key) {
-  return this.commandToKey_[command] == key &&
-      this.keyToCommand_[key] == command;
+cvox.KeyMap.prototype.hasBinding = function(command, sequence) {
+  if (this.commandToKey_ != null) {
+    return this.commandToKey_[command] == sequence;
+  } else {
+    for (var i = 0; i < this.bindings_.length; i++) {
+      var binding = this.bindings_[i];
+      if (binding.command == command && binding.sequence == sequence) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 
@@ -182,37 +196,73 @@ cvox.KeyMap.prototype.hasBinding = function(command, key) {
  * @return {boolean} Whether 'command' has a binding.
  */
 cvox.KeyMap.prototype.hasCommand = function(command) {
-  return this.commandToKey_[command] != undefined;
+  if (this.commandToKey_ != null) {
+    return this.commandToKey_[command] != undefined;
+  } else {
+    for (var i = 0; i < this.bindings_.length; i++) {
+      var binding = this.bindings_[i];
+      if (binding.command == command) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 
 /**
  * Checks if this key map has a given key.
- * @param {string} key The key to check.
+ * @param {cvox.KeySequence} key The key to check.
  * @return {boolean} Whether 'key' has a binding.
  */
 cvox.KeyMap.prototype.hasKey = function(key) {
-  return this.keyToCommand_[key] != undefined;
+  for (var i = 0; i < this.bindings_.length; i++) {
+    var binding = this.bindings_[i];
+    if (binding.sequence.equals(key)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 
 /**
  * Gets a command given a key.
- * @param {string} key The key to query.
+ * @param {cvox.KeySequence} key The key to query.
  * @return {?string} The command, if any.
  */
 cvox.KeyMap.prototype.commandForKey = function(key) {
-  return this.keyToCommand_[key];
+  if (key != null) {
+    for (var i = 0; i < this.bindings_.length; i++) {
+      var binding = this.bindings_[i];
+      if (binding.sequence.equals(key)) {
+      return binding.command;
+      }
+    }
+  }
+  return null;
 };
 
 
 /**
  * Gets a key given a command.
  * @param {string} command The command to query.
- * @return {?string} The key, if any.
+ * @return {!Array.<cvox.KeySequence>} The keys associated with that command,
+ * if any.
  */
 cvox.KeyMap.prototype.keyForCommand = function(command) {
-  return this.commandToKey_[command];
+  if (this.commandToKey_ != null) {
+    return [this.commandToKey_[command]];
+  } else {
+    var keySequenceArray = [];
+     for (var i = 0; i < this.bindings_.length; i++) {
+      var binding = this.bindings_[i];
+       if (binding.command == command) {
+         keySequenceArray.push(binding.sequence);
+       }
+     }
+  }
+  return (keySequenceArray.length > 0) ? keySequenceArray : [];
 };
 
 
@@ -220,11 +270,11 @@ cvox.KeyMap.prototype.keyForCommand = function(command) {
  * Changes an existing key binding to a new key. If the key is already bound to
  * a command, the rebind will fail.
  * @param {string} command The command to set.
- * @param {string} newKey The new key to assign it to.
+ * @param {cvox.KeySequence} newKey The new key to assign it to.
  * @return {boolean} Whether the rebinding succeeds.
  */
 cvox.KeyMap.prototype.rebind = function(command, newKey) {
-  if (this.commandToKey_[command] && !this.keyToCommand_[newKey]) {
+  if (this.hasCommand(command) && !this.hasKey(newKey)) {
     this.bind_(command, newKey);
     return true;
   }
@@ -236,16 +286,33 @@ cvox.KeyMap.prototype.rebind = function(command, newKey) {
  * Changes a key binding. Any existing bindings to the given key will be
  * deleted. Use this.rebind to have non-overwrite behavior.
  * @param {string} command The command to set.
- * @param {string} newKey The new key to assign it to.
+ * @param {cvox.KeySequence} newKey The new key to assign it to.
  * @private
  */
 cvox.KeyMap.prototype.bind_ = function(command, newKey) {
   // TODO(dtseng): Need unit test to ensure command is valid for every *.json
   // keymap.
-  var oldKey = this.commandToKey_[command];
-  delete this.keyToCommand_[oldKey];
-  this.keyToCommand_[newKey] = command;
-  this.commandToKey_[command] = newKey;
+  var bound = false;
+  for (var i = 0; i < this.bindings_.length; i++) {
+    var binding = this.bindings_[i];
+    if (binding.command == command) {
+      // Replace the key with the new key.
+      delete binding.sequence;
+      binding.sequence = newKey;
+      if (this.commandToKey_ != null) {
+        this.commandToKey_[binding.command] = newKey;
+      }
+      bound = true;
+    }
+  }
+  if (!bound) {
+    var binding = {
+      'command': command,
+      'sequence': newKey
+    };
+    this.bindings_.push(binding);
+    this.commandToKey_[binding.command] = binding.sequence;
+  }
 };
 
 
@@ -257,7 +324,7 @@ cvox.KeyMap.prototype.bind_ = function(command, newKey) {
 cvox.KeyMap.fromDefaults = function() {
   return /** @type {!cvox.KeyMap} */ (
     cvox.KeyMap.fromPath(cvox.KeyMap.KEYMAP_PATH +
-                         cvox.KeyMap.AVAILABLE_MAP_INFO[0].file));
+        cvox.KeyMap.AVAILABLE_MAP_INFO['keymap_classic'].file));
 };
 
 
@@ -265,27 +332,39 @@ cvox.KeyMap.fromDefaults = function() {
  * Convenience method for creating a key map based on a JSON (key, value) Object
  * where the key is a literal keyboard string and value is a command string.
  * @param {string} json The JSON.
+ * @param {boolean=} opt_complete Whether the JSON is complete; defaults to
+ * false.
  * @return {cvox.KeyMap} The resulting object; null if unable to parse.
  */
-cvox.KeyMap.fromJSON = function(json) {
+cvox.KeyMap.fromJSON = function(json, opt_complete) {
   try {
-    var map = /** @type {Object.<string, string>} */ JSON.parse(json);
+    var commandsAndKeySequences =
+        /** @type {Array.<Object.<string,
+         *          {command: string, sequence: cvox.KeySequence}>>} */
+    (JSON.parse(json).bindings);
   } catch (e) {
     return null;
   }
 
-  // Validate the type of the map is Object.<string, string>.
-  for (var key in map) {
-    if (typeof(key) != 'string' || typeof(map[key]) != 'string') {
+  // Validate the type of the commandsAndKeySequences array.
+  if (typeof(commandsAndKeySequences) != 'object') {
+    return null;
+  }
+  for (var i = 0; i < commandsAndKeySequences.length; i++) {
+    if (commandsAndKeySequences[i].command == undefined ||
+        commandsAndKeySequences[i].sequence == undefined) {
       return null;
+    } else {
+      commandsAndKeySequences[i].sequence = /** @type {cvox.KeySequence} */
+        (cvox.KeySequence.deserialize(commandsAndKeySequences[i].sequence));
     }
   }
-  return new cvox.KeyMap(map);
+  return new cvox.KeyMap(commandsAndKeySequences, opt_complete);
 };
 
 
 /**
- * Convenience method for creating a map from local storage.
+ * Convenience method for creating a map local storage.
  * @return {cvox.KeyMap} A map that reads from local storage.
  */
 cvox.KeyMap.fromLocalStorage = function() {
@@ -313,10 +392,10 @@ cvox.KeyMap.fromPath = function(path) {
  * @return {!cvox.KeyMap} The currently selected key map.
  */
 cvox.KeyMap.fromCurrentKeyMap = function() {
-  if (localStorage['currentKeyMap'] < cvox.KeyMap.AVAILABLE_MAP_INFO.length) {
+  var map = localStorage['currentKeyMap'];
+  if (map && cvox.KeyMap.AVAILABLE_MAP_INFO[map]) {
     return /** @type {!cvox.KeyMap} */ (cvox.KeyMap.fromPath(
-        cvox.KeyMap.KEYMAP_PATH + cvox.KeyMap.AVAILABLE_MAP_INFO[
-            localStorage['currentKeyMap']].file));
+        cvox.KeyMap.KEYMAP_PATH + cvox.KeyMap.AVAILABLE_MAP_INFO[map].file));
   } else {
     return cvox.KeyMap.fromDefaults();
   }
@@ -354,5 +433,24 @@ cvox.KeyMap.prototype.resetModifier = function() {
     localStorage['cvoxKey'] = 'Ctrl+Cmd';
   } else {
     localStorage['cvoxKey'] = 'Ctrl+Alt';
+  }
+};
+
+
+/**
+ * Builds the map of commands to keys.
+ * @private
+ */
+cvox.KeyMap.prototype.buildCommandToKey_ = function() {
+  // TODO (dtseng): What about more than one sequence mapped to the same
+  // command?
+  for (var i = 0; i < this.bindings_.length; i++) {
+    var binding = this.bindings_[i];
+    if (this.commandToKey_[binding.command] != undefined) {
+      // There's at least two key sequences mapped to the same command. Break.
+      this.commandToKey_ = null;
+      return;
+    }
+    this.commandToKey_[binding.command] = binding.sequence;
   }
 };

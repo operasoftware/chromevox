@@ -78,6 +78,8 @@ goog.provide('cvox.NavigationShifter');
 
 goog.require('cvox.CharacterWalker');
 goog.require('cvox.GroupWalker');
+goog.require('cvox.LineWalker');
+goog.require('cvox.MathWalker');
 goog.require('cvox.ObjectWalker');
 goog.require('cvox.SentenceWalker');
 goog.require('cvox.TableWalker');
@@ -101,10 +103,11 @@ cvox.NavigationShifter = function() {
 cvox.NavigationShifter.GRANULARITIES = {
   'CHARACTER': 0,
   'WORD': 1,
-  'SENTENCE': 2,
-  'OBJECT': 3,
-  'GROUP': 4,
-  'VISUAL': 5
+  'LINE': 2,
+  'SENTENCE': 3,
+  'OBJECT': 4,
+  'GROUP': 5,
+  'VISUAL': 6
 };
 
 
@@ -145,7 +148,6 @@ cvox.NavigationShifter.prototype.next = function(sel) {
  * predicate.
  */
 cvox.NavigationShifter.prototype.findNext = function(sel, predicate) {
-  this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
   return this.objectWalker_.findNext(sel, predicate);
 };
 
@@ -180,6 +182,33 @@ cvox.NavigationShifter.prototype.sync = function(sel) {
 };
 
 /**
+ * Sync to a node of the given selection.
+ * The caller should ensure that the selection does not span more than one node
+ * as this routine only uses the start node. Additionally, this routine
+ * potentially shifts to either group or object granularity (side-effect).
+ * This is to better match the given node which may not perfectly sync to either
+ * granularity.
+ * We use group granularity if there is one or no focusable descendants.
+ * Otherwise, we use object granularity.
+ * @param {!cvox.CursorSelection} sel The selection to sync to.
+ * @return {cvox.CursorSelection} The resulting selection.
+ */
+cvox.NavigationShifter.prototype.syncNode = function(sel) {
+  var group = this.groupWalker_.sync(sel.clone());
+  var object = this.objectWalker_.sync(sel.clone());
+  if (group &&
+      cvox.DomUtil.countFocusableDescendants(group.start.node) > 1) {
+    this.setGranularity(cvox.NavigationShifter.GRANULARITIES.OBJECT);
+    this.sync(object);
+    return object;
+  } else {
+    this.setGranularity(cvox.NavigationShifter.GRANULARITIES.GROUP);
+    this.sync(group);
+    return group;
+  }
+};
+
+/**
  * Delegates to currentWalker_.
  * @param {!cvox.CursorSelection} prevSel The previous selection, for context.
  * @param {!cvox.CursorSelection} sel The current selection.
@@ -188,6 +217,18 @@ cvox.NavigationShifter.prototype.sync = function(sel) {
 cvox.NavigationShifter.prototype.getDescription = function(prevSel, sel) {
   return this.currentWalker_.getDescription(prevSel, sel);
 };
+
+
+/**
+ * Delegates to currentWalker_.
+ * @param {!cvox.CursorSelection} prevSel The previous selection, for context.
+ * @param {!cvox.CursorSelection} sel The current selection.
+ * @return {cvox.NavBraille} The braille description.
+ */
+cvox.NavigationShifter.prototype.getBraille = function(prevSel, sel) {
+  return this.currentWalker_.getBraille(prevSel, sel);
+};
+
 
 /**
  * Delegates to currentWalker_.
@@ -391,20 +432,22 @@ cvox.NavigationShifter.prototype.isTableMode = function() {
  * @param {!cvox.CursorSelection} sel The selection.
  * @param {{force: (undefined|boolean)}=} kwargs Extra arguments.
  *  force: If true, enters table even if it's a layout table. False by default.
+ *  fromTop: If true, enters table from the first cell. False by default.
  * @return {cvox.CursorSelection} A selection, or null if we did nothing.
  */
 cvox.NavigationShifter.prototype.tryEnterTable = function(sel, kwargs) {
-  kwargs = kwargs || {force: false};
-
+  kwargs = kwargs || {force: false, fromTop: false};
   // Don't enter a table if we are already in one.
   if (this.isTableMode_) {
     return null;
   }
-
   var tableNode = cvox.DomUtil.getContainingTable(sel.start.node);
   if (tableNode) {
     if (kwargs.force || !cvox.DomUtil.isLayoutTable(tableNode)) {
       this.ensureTableMode_();
+      if (kwargs.fromTop) {
+        return this.tableWalker_.goToFirstCell(sel);
+      }
       return this.sync(sel);
     }
   }
@@ -418,13 +461,16 @@ cvox.NavigationShifter.prototype.tryEnterTable = function(sel, kwargs) {
 cvox.NavigationShifter.prototype.reset_ = function() {
   this.isSubnavigating_ = false;
   this.isTableMode_ = false;
+  this.isMathMode_ = false;
 
+  this.mathWalker_ = new cvox.MathWalker();
 
   this.tableWalker_ = new cvox.TableWalker();
   this.visualWalker_ = new cvox.VisualWalker();
   this.groupWalker_ = new cvox.GroupWalker();
   this.objectWalker_ = new cvox.ObjectWalker();
   this.sentenceWalker_ = new cvox.SentenceWalker();
+  this.lineWalker_ = new cvox.LineWalker();
   this.wordWalker_ = new cvox.WordWalker();
   this.characterWalker_ = new cvox.CharacterWalker();
 
@@ -436,12 +482,14 @@ cvox.NavigationShifter.prototype.reset_ = function() {
   this.filteredWalker.decorate(this.groupWalker_);
   this.filteredWalker.decorate(this.objectWalker_);
   this.filteredWalker.decorate(this.sentenceWalker_);
+  this.filteredWalker.decorate(this.lineWalker_);
   this.filteredWalker.decorate(this.wordWalker_);
   this.filteredWalker.decorate(this.characterWalker_);
 
   this.walkers_ = [
       this.characterWalker_,
       this.wordWalker_,
+      this.lineWalker_,
       this.sentenceWalker_,
       this.objectWalker_,
       this.groupWalker_,
@@ -474,5 +522,135 @@ cvox.NavigationShifter.prototype.ensureTableMode_ = function() {
 cvox.NavigationShifter.prototype.ensureNotTableMode = function() {
   this.isTableMode_ = false;
   this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.groupWalker_;
+  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
+};
+
+
+/**
+ * Returns true if the shifter is currently in math mode.
+ * @return {boolean} true if in math mode.
+ */
+cvox.NavigationShifter.prototype.isMathMode = function() {
+  return this.isMathMode_ && (this.currentWalker_ == this.mathWalker_);
+};
+
+
+/**
+ * Delegates to MathWalker.
+ */
+cvox.NavigationShifter.prototype.cycleDomain = function() {
+  this.mathWalker_.cycleDomain();
+};
+
+/**
+ * Delegates to MathWalker.
+ */
+cvox.NavigationShifter.prototype.cycleTraversalMode = function() {
+  this.mathWalker_.cycleTraversalMode();
+};
+
+/**
+ * Delegates to MathWalker.
+ */
+cvox.NavigationShifter.prototype.toggleExplore = function() {
+  this.mathWalker_.toggleExplore();
+};
+
+
+/**
+ * Delegates to MathWalker.
+ *
+ * @return {string} The name of the current Math Domain.
+ */
+cvox.NavigationShifter.prototype.getDomainMsg = function() {
+  return this.mathWalker_.getDomainMsg();
+};
+
+
+/**
+ * Delegates to MathWalker.
+ *
+ * @return {string} The name of the current Math Traversal Mode.
+ */
+cvox.NavigationShifter.prototype.getTraversalModeMsg = function() {
+  return this.mathWalker_.getTraversalModeMsg();
+};
+
+
+/**
+ * Tries to enter a math expression.
+ * @param {!cvox.CursorSelection} sel The selection.
+ * @return {cvox.CursorSelection} A selection, or null if we did nothing.
+ */
+cvox.NavigationShifter.prototype.tryEnterMath = function(sel) {
+  // Don't enter math expression again if we are already in one.
+  if (this.isMathMode_) {
+    return null;
+  }
+  var mathNode = cvox.DomUtil.getContainingMath(sel.start.node);
+  if (mathNode) {
+    this.ensureMathMode_();
+    return this.sync(sel);
+  }
+  return null;
+};
+
+
+/**
+ * Exits a math expression in the direction of sel.
+ * @param {cvox.CursorSelection} sel The cursor selection.
+ * @param {boolean} rev A flag for reverse.
+ * @return {cvox.CursorSelection} A cursor selection.
+ */
+cvox.NavigationShifter.prototype.tryExitMath = function(sel, rev) {
+  this.ensureNotMathMode();
+  if (this.isInMath(sel)) {
+    var node = cvox.DomUtil.getContainingMath(sel.start.node);
+    if (!node) {
+      return null;
+    }
+    do {
+      node = cvox.DomUtil.directedNextLeafNode(node, rev);
+    } while (node && !cvox.DomUtil.hasContent(node));
+    var sel = cvox.CursorSelection.fromNode(node);
+    if (sel) {
+      sel.setReversed(rev);
+      return this.sync(sel);
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Returns true if the selection is inside a math expression.
+ * @param {cvox.CursorSelection} sel The selection.
+ * @return {boolean} true if inside a math.
+ */
+cvox.NavigationShifter.prototype.isInMath = function(sel) {
+  return this.mathWalker_.isInMath(sel);
+};
+
+
+/**
+ * Switches off math mode.
+ */
+cvox.NavigationShifter.prototype.ensureNotMathMode = function() {
+  this.isMathMode_ = false;
+  this.mathWalker_.reset();
+  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.groupWalker_;
+  this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
+};
+
+
+/**
+ * Forces math mode.
+ * @private
+ */
+cvox.NavigationShifter.prototype.ensureMathMode_ = function() {
+  this.isMathMode_ = true;
+  this.walkers_[cvox.NavigationShifter.GRANULARITIES.GROUP] = this.mathWalker_;
+  this.mathWalker_.setSavedGranularity(this.currentWalkerIndex_);
+  this.currentWalkerIndex_ = cvox.NavigationShifter.GRANULARITIES.GROUP;
   this.currentWalker_ = this.walkers_[this.currentWalkerIndex_];
 };

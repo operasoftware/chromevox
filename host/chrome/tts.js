@@ -75,25 +75,10 @@ cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
       break;
   }
 
-  textString =
-      cvox.AbstractTts.preprocessWithProperties(textString, properties);
-
   goog.base(this, 'speak', textString, queueMode, properties);
 
-  var splitTextString = textString.split(/[,.!?]\W/);
-
-  // Save callbacks for first and last utterance.
-  var startCallback = properties['startCallback'];
-  var endCallback = properties['endCallback'];
-
-  for (var i = 0; i < splitTextString.length; i++) {
-    properties['startCallback'] = i == 0 ? startCallback : null;
-    properties['endCallback'] = i == (splitTextString.length - 1) ?
-        endCallback : null;
-    queueMode = i > 0 ? cvox.AbstractTts.QUEUE_MODE_QUEUE : queueMode;
-    cvox.ExtensionBridge.send(this.createMessageForProperties_(
-        splitTextString[i], queueMode, properties));
-  }
+  cvox.ExtensionBridge.send(
+      this.createMessageForProperties_(textString, queueMode, properties));
 };
 
 /** @override */

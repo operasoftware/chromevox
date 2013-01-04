@@ -68,22 +68,24 @@ cvox.SpokenMessages.speak = function(mode) {
       if (message.count <= 0) {
         try {
           finalText +=
-              cvox.ChromeVox.msgs.getMsg(message.id + '_optional_default');
+              cvox.ChromeVox.msgs.getMsg(message.id[0] + '_optional_default');
         } catch(e) {
           // The message doesn't exist.
           continue;
         }
       } else if (message.count == 1) {
-        finalText += cvox.ChromeVox.msgs.getMsg(message.id + '_singular');
+        finalText += cvox.ChromeVox.msgs.getMsg(message.id[0] + '_singular');
       } else {
-        finalText += cvox.ChromeVox.msgs.getMsg(message.id + '_plural',
+        finalText += cvox.ChromeVox.msgs.getMsg(message.id[0] + '_plural',
                                                 [message.count]);
       }
     } else {
-      if (message.raw)
+      if (message.raw) {
         finalText += message.raw;
-      else
-        finalText += cvox.ChromeVox.msgs.getMsg(message.id);
+      } else {
+        finalText +=
+            cvox.ChromeVox.msgs.getMsg.apply(cvox.ChromeVox.msgs, message.id);
+      }
     }
 
     cvox.ChromeVox.tts.speak(finalText, mode);
@@ -143,12 +145,12 @@ cvox.SpokenMessages.andEnd = function() {
 
 /**
  * Adds a message.
- * @param {string} messageId The id of the message.
+ * @param {string|Array} messageId The id of the message.
  * @return {Object} This object, useful for chaining.
  */
 cvox.SpokenMessages.andMessage = function(messageId) {
   var newMessage = new cvox.SpokenMessage();
-  newMessage.id = messageId;
+  newMessage.id = typeof(messageId) == 'string' ? [messageId] : messageId;
   cvox.SpokenMessages.messages.push(newMessage);
   return cvox.SpokenMessages;
 };

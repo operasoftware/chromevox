@@ -22,91 +22,49 @@ goog.provide('cvox.KeyboardHelpWidget');
 goog.require('cvox.ChoiceWidget');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.CommandStore');
+goog.require('cvox.KeyUtil');
 
 /**
  * @constructor
- * @param {Object.<string, string>} map Object with keyboard shortcut ->
- * function mappings.
  * @extends {cvox.ChoiceWidget}
  */
-cvox.KeyboardHelpWidget = function(map) {
+cvox.KeyboardHelpWidget = function() {
   cvox.CommandStore.init();
   var list = [];
   var callbacks = [];
+  var keymap = cvox.ChromeVoxKbHandler.handlerKeyMap;
 
-  for (var key in map) {
-    var command = map[key];
+  keymap.bindings().forEach(goog.bind(function(pair) {
+    var command = pair.command;
+    var keySeq = pair.sequence;
     var message = command;
     try {
       var id = cvox.CommandStore.messageForCommand(command);
       if (!id) {
-        continue;
+        return;
       }
       message = cvox.ChromeVox.msgs.getMsg(id);
     } catch (e) {
       // TODO(dtseng): We have some commands that don't have valid message id's.
     }
 
-    list.push(message + ' - ' + this.getReadableShortcut(key));
+    list.push(message + ' - ' + cvox.KeyUtil.keySequenceToString(keySeq, true));
     callbacks.push(this.createCallback_(command));
-  }
+  }, this));
 
   return goog.base(this, list, callbacks);
 };
 goog.inherits(cvox.KeyboardHelpWidget, cvox.ChoiceWidget);
+goog.addSingletonGetter(cvox.KeyboardHelpWidget);
 
 
 /**
  * @override
  */
 cvox.KeyboardHelpWidget.prototype.getNameMsg = function() {
-  return 'keyboard_help_intro';
+  return ['keyboard_help_intro'];
 };
 
-
-/**
- * Gets the singleton instance.
- * @param {Object.<string, string>} opt_map An optional map to initialize the
- * singleton.
- * @return {!cvox.KeyboardHelpWidget} The widget.
- */
-cvox.KeyboardHelpWidget.getInstance = function(opt_map) {
-  if (opt_map) {
-    cvox.KeyboardHelpWidget.instance_ =
-        new cvox.KeyboardHelpWidget(opt_map);
-  }
-  return cvox.KeyboardHelpWidget.instance_;
-};
-
-
-/**
- * Returns a readable form of the specified keyboard shortcut.
- *
- * @param {string} key String form of a keyboard shortcut.
- * @return {string} Readable string representation.
- */
-cvox.KeyboardHelpWidget.prototype.getReadableShortcut = function(key) {
-  var tokens = key.split('+');
-  for (var i = 0; i < tokens.length; i++) {
-    if (tokens[i].charAt(0) == '#' && tokens[i].indexOf('>') == -1) {
-      var keyCode = parseInt(tokens[i].substr(1), 10);
-      tokens[i] = cvox.KeyUtil.getReadableNameForKeyCode(keyCode);
-    } else {
-      var seqs = tokens[i].split('>');
-      for (var j = 0; j < seqs.length; j++) {
-        if (seqs[j].charAt(0) == '#') {
-          var keyCode = parseInt(seqs[j].substr(1), 10);
-          seqs[j] = cvox.KeyUtil.getReadableNameForKeyCode(keyCode);
-        }
-        seqs[j] = cvox.KeyUtil.getReadableNameForStr(seqs[j]) || seqs[j];
-      }
-      tokens[i] = seqs.join(', ');
-    }
-    tokens[i] = cvox.KeyUtil.getReadableNameForStr(tokens[i]) || tokens[i];
-  }
-  // trim '+'s, ' 's and return
-  return tokens.join(' + ').replace(/^[\+\s]*/, '').replace(/[\+\s]*$/, '');
-};
 
 /**
  * Helper to create callbacks for power key.

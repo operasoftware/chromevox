@@ -116,7 +116,7 @@ cvox.AutoRunner.prototype.maybeDone_ = function() {
 cvox.AutoRunner.prototype.assertTrue = function(val) {
   if (!val) {
     this.status = cvox.AutoRunner.FAIL;
-    throw this.status;
+    throw new Error('assertTrue');
   }
 }
 
@@ -276,11 +276,14 @@ cvox.AutoRunner.prototype.userCommand = function(command) {
  * @param {Function} func The test case.
  */
 cvox.AutoRunner.prototype.runTest_ = function(func) {
-  // Set up the tts.
   this.status = cvox.AutoRunner.PASS;
 
+  // Set up the tts.
   cvox.ChromeVox.tts = new cvox.CompositeTts()
       .add(this.oldTts_).add(this.testTts_);
+
+  cvox.ChromeVox.navigationManager.reset();
+
   window.console.log('AutoRunner test start');
   var scope = this.currentTestSummary ?
       this.currentTestSummary.scope : this;
@@ -309,13 +312,16 @@ cvox.AutoRunner.prototype.addTest = function(tag, func, scope) {
  * Runs all the tests added to the autorunner with addTest.
  */
 cvox.AutoRunner.prototype.runTests = function() {
+  // Tests are already running, ignore this call.
+  if (this.actualCallbacks_ != this.expectedCallbacks_) {
+    return;
+  }
   if (this.testsQueue_.length < 1) {
     this.displayResults();
     return;
   }
   this.testTts_.clearUtterances();
   document.body.innerHTML = '';
-  cvox.ChromeVox.init();
   this.currentTestSummary = this.testsQueue_.shift();
   this.runTest_(this.currentTestSummary.func);
 };

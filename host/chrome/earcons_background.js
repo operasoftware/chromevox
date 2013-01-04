@@ -57,11 +57,8 @@ cvox.EarconsBackground.prototype.playEarcon = function(earcon) {
   cvox.EarconsBackground.superClass_.playEarcon.call(this, earcon);
   this.currentAudio = this.audioMap[earcon];
   if (!this.currentAudio) {
-    var earconMap = this.getEarconMap();
-    if (!earconMap || !earconMap[earcon]) {
-      return;
-    }
-    this.currentAudio = new Audio(this.getBaseUrl() + earconMap[earcon]);
+    this.currentAudio = new Audio(this.getBaseUrl() +
+        this.getEarconFilename(earcon));
     this.audioMap[earcon] = this.currentAudio;
   }
   try {
@@ -71,59 +68,6 @@ cvox.EarconsBackground.prototype.playEarcon = function(earcon) {
   if (this.currentAudio.paused) {
     this.currentAudio.play();
   }
-};
-
-/**
- * @return {Object} The earcon map which is lazy initialized.
- */
-cvox.EarconsBackground.prototype.getEarconMap = function() {
-  if (this.earconMap) {
-    return this.earconMap;
-  }
-  this.earconMap = new Object();
-  this.earconMap[cvox.AbstractEarcons.ALERT_MODAL] = 'alert_modal.ogg';
-  this.earconMap[cvox.AbstractEarcons.ALERT_NONMODAL] =
-      'alert_nonmodal.ogg';
-  this.earconMap[cvox.AbstractEarcons.BULLET] = 'bullet.ogg';
-  this.earconMap[cvox.AbstractEarcons.BUSY_PROGRESS_LOOP] =
-      'busy_progress_loop.ogg';
-  this.earconMap[cvox.AbstractEarcons.BUSY_WORKING_LOOP] =
-      'busy_working_loop.ogg';
-  this.earconMap[cvox.AbstractEarcons.BUTTON] = 'button.ogg';
-  this.earconMap[cvox.AbstractEarcons.CHECK_OFF] = 'check_off.ogg';
-  this.earconMap[cvox.AbstractEarcons.CHECK_ON] = 'check_on.ogg';
-  this.earconMap[cvox.AbstractEarcons.COLLAPSED] = 'collapsed.ogg';
-  this.earconMap[cvox.AbstractEarcons.EDITABLE_TEXT] = 'editable_text.ogg';
-  this.earconMap[cvox.AbstractEarcons.ELLIPSIS] = 'ellipsis.ogg';
-  this.earconMap[cvox.AbstractEarcons.EXPANDED] = 'expanded.ogg';
-  this.earconMap[cvox.AbstractEarcons.FONT_CHANGE] = 'font_change.ogg';
-  this.earconMap[cvox.AbstractEarcons.INVALID_KEYPRESS] =
-      'invalid_keypress.ogg';
-  this.earconMap[cvox.AbstractEarcons.LINK] = 'link.ogg';
-  this.earconMap[cvox.AbstractEarcons.LISTBOX] = 'listbox.ogg';
-  this.earconMap[cvox.AbstractEarcons.LIST_ITEM] = 'bullet.ogg';
-  this.earconMap[cvox.AbstractEarcons.NEW_MAIL] = 'new_mail.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_CLOSE] = 'object_close.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_DELETE] = 'object_delete.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_DESELECT] =
-      'object_deselect.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_ENTER] = 'object_enter.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_EXIT] = 'object_exit.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_OPEN] = 'object_open.ogg';
-  this.earconMap[cvox.AbstractEarcons.OBJECT_SELECT] = 'object_select.ogg';
-  this.earconMap[cvox.AbstractEarcons.PARAGRAPH_BREAK] =
-      'paragraph_break.ogg';
-  this.earconMap[cvox.AbstractEarcons.SEARCH_HIT] = 'search_hit.ogg';
-  this.earconMap[cvox.AbstractEarcons.SEARCH_MISS] = 'search_miss.ogg';
-  this.earconMap[cvox.AbstractEarcons.SECTION] = 'section.ogg';
-  this.earconMap[cvox.AbstractEarcons.SELECTION] = 'selection.ogg';
-  this.earconMap[cvox.AbstractEarcons.SELECTION_REVERSE] =
-      'selection_reverse.ogg';
-  this.earconMap[cvox.AbstractEarcons.TASK_SUCCESS] = 'task_success.ogg';
-  this.earconMap[cvox.AbstractEarcons.WRAP] = 'wrap.ogg';
-  this.earconMap[cvox.AbstractEarcons.WRAP_EDGE] = 'wrap_edge.ogg';
-
-  return this.earconMap;
 };
 
 /**

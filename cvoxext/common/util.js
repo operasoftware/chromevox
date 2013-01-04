@@ -41,7 +41,7 @@ Util.KEY_CODES = {
 };
 
 /**
- * @param {String} key key of shortcut.
+ * @param {string} key key of shortcut.
  * @param {function} functionToImplement the function
      that will be run when key is pressed.
  */
@@ -58,7 +58,7 @@ Util.addKeyboardShortcut = function(key, functionToImplement)  {
 };
 
 /**
- * @param {String} key key of shortcut.
+ * @param {string} key key of shortcut.
  * @param {Object} obj object to click on shortcut
      that will be run when key is pressed.
  */

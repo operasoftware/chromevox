@@ -29,7 +29,7 @@ goog.require('cvox.DomUtil');
  * @param {string} uid A unique id.  This function won't install the same set of
  *      scripts twice.
  * @param {function()?} opt_onload A function called when the script has loaded.
- * @param {string?} opt_chromevoxScriptBase An optional chromevoxScriptBase
+ * @param {?string} opt_chromevoxScriptBase An optional chromevoxScriptBase
  *     attribute to add.
  * @return {boolean} False if the script already existed and this function
  * didn't do anything.

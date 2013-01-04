@@ -57,6 +57,11 @@ cvox.ChromeVoxHTMLTimeWidget = function(timeElem, tts){
     }
   }
 
+  // Ensure we have a reasonable value to start with.
+  if (this.timeElem_.value.length == 0) {
+    this.forceInitTime_();
+  }
+
   // Move the cursor to the first position so that we are guaranteed to start
   // off at the hours position.
   for (var i = 0; i < this.maxPos_; i++) {
@@ -73,7 +78,7 @@ cvox.ChromeVoxHTMLTimeWidget = function(timeElem, tts){
   this.timeElem_.addEventListener('keydown', this.keyListener_, false);
   this.timeElem_.addEventListener('keyup', this.keyListener_, false);
   this.timeElem_.addEventListener('blur', this.blurListener_, false);
-  this.update_();
+  this.update_(true);
 };
 
 /**
@@ -90,39 +95,37 @@ cvox.ChromeVoxHTMLTimeWidget.prototype.forceInitTime_ = function() {
   this.timeElem_.setAttribute('value', '12:00');
 };
 
-cvox.ChromeVoxHTMLTimeWidget.prototype.speakPosChange_ = function() {
+cvox.ChromeVoxHTMLTimeWidget.prototype.handlePosChange_ = function() {
   if (this.pos_ < 0){
     this.pos_ = 0;
   }
   if (this.pos_ > this.maxPos_){
     this.pos_ = this.maxPos_;
   }
+  // Reset the cached state of the new field so that the field will be spoken
+  // in the update.
   if (this.pos_ == this.maxPos_){
-    this.timeTts_.speak(cvox.ChromeVox.msgs.getMsg('timewidget_ampm'), 0, null);
+    this.pAmpm_ = '';
     return;
   }
-
   switch (this.pos_){
     case 0:
-      this.timeTts_.speak(
-          cvox.ChromeVox.msgs.getMsg('timewidget_hours'), 0, null);
+      this.pHours_ = -1;
       break;
     case 1:
-      this.timeTts_.speak(
-          cvox.ChromeVox.msgs.getMsg('timewidget_minutes'), 0, null);
+      this.pMinutes_ = -1;
       break;
     case 2:
-      this.timeTts_.speak(
-          cvox.ChromeVox.msgs.getMsg('timewidget_seconds'), 0, null);
+      this.pSeconds_ = -1;
       break;
     case 3:
-      this.timeTts_.speak(
-          cvox.ChromeVox.msgs.getMsg('timewidget_milliseconds'), 0, null);
+      this.pMilliseconds_ = -1;
       break;
   }
 };
 
-cvox.ChromeVoxHTMLTimeWidget.prototype.update_ = function() {
+
+cvox.ChromeVoxHTMLTimeWidget.prototype.update_ = function(shouldSpeakLabel) {
   var splitTime = this.timeElem_.value.split(":");
   if (splitTime.length < 1){
     this.forceInitTime_();
@@ -158,57 +161,58 @@ cvox.ChromeVoxHTMLTimeWidget.prototype.update_ = function() {
 
   var changeMessage = '';
 
-  if (hours != this.pHours_){
+  if (shouldSpeakLabel) {
+    changeMessage = cvox.DomUtil.getName(this.timeElem_, true, true) + '\n';
+  }
+
+  if (hours != this.pHours_) {
     changeMessage = changeMessage + hours + ' ' +
         cvox.ChromeVox.msgs.getMsg('timewidget_hours') + '\n';
     this.pHours_ = hours;
   }
 
-  if (minutes != this.pMinutes_){
+  if (minutes != this.pMinutes_) {
     changeMessage = changeMessage + minutes + ' ' +
         cvox.ChromeVox.msgs.getMsg('timewidget_minutes') + '\n';
     this.pMinutes_ = minutes;
   }
 
-  if (seconds != this.pSeconds_){
+  if (seconds != this.pSeconds_) {
     changeMessage = changeMessage + seconds + ' ' +
         cvox.ChromeVox.msgs.getMsg('timewidget_seconds') + '\n';
     this.pSeconds_ = seconds;
   }
 
-  if (milliseconds != this.pMilliseconds_){
+  if (milliseconds != this.pMilliseconds_) {
     changeMessage = changeMessage + milliseconds + ' ' +
         cvox.ChromeVox.msgs.getMsg('timewidget_milliseconds') + '\n';
     this.pMilliseconds_ = milliseconds;
   }
 
-  if (ampm != this.pAmpm_){
+  if (ampm != this.pAmpm_) {
     changeMessage = changeMessage + ampm;
     this.pAmpm_ = ampm;
   }
 
-  if (changeMessage.length > 0){
+  if (changeMessage.length > 0) {
     this.timeTts_.speak(changeMessage, 0, null);
   }
 };
 
 cvox.ChromeVoxHTMLTimeWidget.prototype.eventHandler_ = function(evt) {
-  if (this.timeElem_.value.length == 0) {
-    this.forceInitTime_();
-    return;
-  }
+  var shouldSpeakLabel = false;
   if (evt.type == 'keydown') {
     if (((evt.keyCode == 9) && !evt.shiftKey) || (evt.keyCode == 39)) {
       this.pos_++;
-      this.speakPosChange_();
-      return;
+      this.handlePosChange_();
+      shouldSpeakLabel = true;
     }
     if (((evt.keyCode == 9) && evt.shiftKey) || (evt.keyCode == 37)) {
       this.pos_--;
-      this.speakPosChange_();
-      return;
+      this.handlePosChange_();
+      shouldSpeakLabel = true;
     }
   }
-  this.update_();
+  this.update_(shouldSpeakLabel);
 };
 

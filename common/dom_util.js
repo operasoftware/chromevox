@@ -24,6 +24,7 @@ goog.provide('cvox.DomUtil');
 goog.require('cvox.AbstractTts');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.NodeState');
 goog.require('cvox.XpathUtil');
 
 
@@ -37,6 +38,9 @@ cvox.DomUtil = function() {
 
 
 /**
+ * Note: If you are adding a new mapping, the new message identifier needs a
+ * corresponding braille message. For example, a message id 'tag_button'
+ * requires another message 'tag_button_brl' within messages.js.
  * @type {Object}
  */
 cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG = {
@@ -65,6 +69,9 @@ cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG = {
 
 
 /**
+ * Note: If you are adding a new mapping, the new message identifier needs a
+ * corresponding braille message. For example, a message id 'tag_button'
+ * requires another message 'tag_button_brl' within messages.js.
  * @type {Object}
  */
 cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
@@ -89,7 +96,9 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
   'HEADER' : 'tag_header',
   'FOOTER' : 'tag_footer',
   'TIME' : 'tag_time',
-  'MARK' : 'tag_mark'
+  'MARK' : 'tag_mark',
+  'AUDIO' : 'tag_audio',
+  'VIDEO' : 'tag_video'
 };
 
 /**
@@ -99,7 +108,9 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
 cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG = {
   'BUTTON' : 'tag_button',
   'SELECT' : 'tag_select',
-  'TEXTAREA' : 'tag_textarea'
+  'TEXTAREA' : 'tag_textarea',
+  'AUDIO' : 'tag_audio',
+  'VIDEO' : 'tag_video'
 };
 
 
@@ -125,6 +136,11 @@ cvox.DomUtil.isVisible = function(node, opt_options) {
   }
   if (typeof(opt_options.checkDescendants) === 'undefined') {
     opt_options.checkDescendants = true;
+  }
+
+  // If the node is being forced visible by ARIA, ARIA wins.
+  if (cvox.AriaUtil.isForcedVisibleRecursive(node)) {
+    return true;
   }
 
   // Confirm that no subtree containing node is invisible.
@@ -237,20 +253,22 @@ cvox.DomUtil.isInvisibleStyle = function(style, opt_strict) {
 
 
 /**
- * Determines whether a control is disabled.
+ * Determines whether a control should be announced as disabled.
  *
  * @param {Node} node The node to be examined.
  * @return {boolean} Whether or not the node is disabled.
  */
 cvox.DomUtil.isDisabled = function(node) {
-  // TODO (gkonyukh) When http://b/issue?id=5021204 is fixed in Chrome, do the
-  // respective fix here. For spec, see http://dev.w3.org/html5/
-  // spec-author-view/attributes-common-to-form-controls.html#attr-fe-disabled
-  if (node.getAttribute('disabled') != null) {
+  if (node.disabled) {
     return true;
-  } else {
-    return false;
   }
+  var ancestor = node;
+  while (ancestor = ancestor.parentElement) {
+    if (ancestor.tagName == 'FIELDSET' && ancestor.disabled) {
+      return true;
+    }
+  }
+  return false;
 };
 
 
@@ -310,17 +328,7 @@ cvox.DomUtil.isLeafNode = function(node) {
   }
 
   if (element.tagName == 'A' && element.getAttribute('href')) {
-    var children = element.childNodes;
-    var noChildrenWithContent = true;
-    for (var i = 0; i < children.length; i++) {
-      if (cvox.DomUtil.hasContent(children[i])) {
-        noChildrenWithContent = false;
-        break;
-      }
-    }
-    if (noChildrenWithContent) {
-      return true;
-    }
+    return true;
   }
   if (cvox.DomUtil.isLeafLevelControl(element)) {
     return true;
@@ -412,7 +420,7 @@ cvox.DomUtil.getBaseLabel_ = function(node, recursive, includeControls) {
         var labelNode = document.getElementById(labelNodeId);
         if (labelNode) {
           label += ' ' + cvox.DomUtil.getName(
-              labelNode, recursive, includeControls);
+              labelNode, true, includeControls);
         }
       }
     } else if (node.hasAttribute('aria-label')) {
@@ -439,7 +447,7 @@ cvox.DomUtil.getBaseLabel_ = function(node, recursive, includeControls) {
       }
     }
   }
-  return label;
+  return cvox.DomUtil.collapseWhitespace(label);
 };
 
 /**
@@ -506,6 +514,25 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
   return ret;
 };
 
+// TODO(dtseng): Seems like this list should be longer...
+/**
+ * Determines if a node has a name obtained from concatinating the names of its
+ * children.
+ * @param {!Node} node The node under consideration.
+ * @return {boolean} True if node has name based on children.
+ * @private
+ */
+cvox.DomUtil.hasChildrenBasedName_ = function(node) {
+  if (node.tagName == 'A' ||
+      node.tagName == 'BUTTON' ||
+      cvox.AriaUtil.isControlWidget(node) ||
+      !cvox.DomUtil.isLeafNode(node)) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
 /**
  * Get the name of a node: this includes all static text content and any
  * HTML-author-specified label, title, alt text, aria-label, etc. - but
@@ -541,7 +568,7 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
   }
 
   if (node.constructor == Text) {
-    return cvox.DomUtil.collapseWhitespace(node.data);
+    return node.data;
   }
 
   var label = cvox.DomUtil.getBaseLabel_(node, recursive, includeControls);
@@ -554,7 +581,7 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
     label = cvox.DomUtil.getInputName_(node);
   }
 
-  label = cvox.DomUtil.collapseWhitespace(label);
+  label = label;
   if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
     var placeholder = node.getAttribute('placeholder');
     if (label.length > 0) {
@@ -575,9 +602,7 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
   if (cvox.AriaUtil.isCompositeControl(node)) {
     return '';
   }
-  if (node.tagName == 'BUTTON' ||
-      cvox.AriaUtil.isControlWidget(node) ||
-      !cvox.DomUtil.isLeafNode(node)) {
+  if (cvox.DomUtil.hasChildrenBasedName_(node)) {
     return cvox.DomUtil.getNameFromChildren(node, includeControls);
   }
   return '';
@@ -597,14 +622,20 @@ cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
     includeControls = true;
   }
   var name = '';
+  var delimiter = '';
   for (var i = 0; i < node.childNodes.length; i++) {
     var child = node.childNodes[i];
+    var prevChild = node.childNodes[i - 1] || child;
     if (!includeControls && cvox.DomUtil.isControl(child)) {
       continue;
     }
     var isVisible = cvox.DomUtil.isVisible(child, {checkAncestors: false});
     if (isVisible && !cvox.AriaUtil.isHidden(child)) {
-      name += ' ' + cvox.DomUtil.getName(child, true, includeControls);
+      delimiter = (prevChild.tagName == 'SPAN' ||
+                   child.tagName == 'SPAN' ||
+                   child.parentNode.tagName == 'SPAN') ?
+          '' : ' ';
+      name += delimiter + cvox.DomUtil.getName(child, true, includeControls);
     }
   }
 
@@ -837,6 +868,17 @@ cvox.DomUtil.hasContent = function(node) {
     return true;
   }
 
+  // Videos are always considered to have content so that we can navigate to
+  // and use the controls of the video widget.
+  if (cvox.DomUtil.isDescendantOf(node, 'VIDEO')) {
+    return true;
+  }
+  // Audio elements are always considered to have content so that we can
+  // navigate to and use the controls of the audio widget.
+  if (cvox.DomUtil.isDescendantOf(node, 'AUDIO')) {
+    return true;
+  }
+
   // We want to try to jump into an iframe iff it has a src attribute.
   // For right now, we will avoid iframes without any content in their src since
   // ChromeVox is not being injected in those cases and will cause the user to
@@ -973,6 +1015,45 @@ cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
 
 
 /**
+ * Returns a role message identifier for a node.
+ * For a localized string, see cvox.DomUtil.getRole.
+ * @param {Node} targetNode The node to get the role name for.
+ * @param {number} verbosity The verbosity setting to use.
+ * @return {string} The role message identifier for the targetNode.
+ */
+cvox.DomUtil.getRoleMsg = function(targetNode, verbosity) {
+  var info;
+  info = cvox.AriaUtil.getRoleNameMsg(targetNode);
+  if (!info) {
+    if (targetNode.tagName == 'INPUT') {
+      info = cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG[targetNode.type];
+    } else if (targetNode.tagName == 'A' &&
+        cvox.DomUtil.isInternalLink(targetNode)) {
+      info = 'internal_link';
+    } else if (targetNode.tagName == 'A' &&
+        targetNode.getAttribute('name')) {
+      info = ''; // Don't want to add any role to anchors.
+    } else if (targetNode.isContentEditable) {
+      info = 'input_type_text';
+    } else {
+      if (verbosity == cvox.VERBOSITY_BRIEF) {
+        info =
+            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG[targetNode.tagName];
+      } else {
+        info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG[
+          targetNode.tagName];
+
+        if (!info && targetNode.onclick)
+          info = 'clickable';
+      }
+    }
+  }
+
+  return info;
+};
+
+
+/**
  * Returns a string to be presented to the user that identifies what the
  * targetNode's role is.
  * ARIA roles are given priority; if there is no ARIA role set, the role
@@ -983,48 +1064,10 @@ cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
  * @return {string} The role name for the targetNode.
  */
 cvox.DomUtil.getRole = function(targetNode, verbosity) {
-  var info;
-  info = cvox.AriaUtil.getRoleName(targetNode);
-  if (!info) {
-    if (targetNode.tagName == 'INPUT') {
-      var msg =
-          cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG[targetNode.type];
-      if (msg) {
-        info = cvox.ChromeVox.msgs.getMsg(msg);
-      }
-    } else if (targetNode.tagName == 'A' &&
-        cvox.DomUtil.isInternalLink(targetNode)) {
-      info = cvox.ChromeVox.msgs.getMsg('internal_link');
-    } else if (targetNode.tagName == 'A' &&
-        targetNode.getAttribute('name')) {
-      info = ''; // Don't want to add any role to anchors.
-    } else if (targetNode.isContentEditable) {
-      info = cvox.ChromeVox.msgs.getMsg('input_type_text');
-    } else {
-      if (verbosity == cvox.VERBOSITY_BRIEF) {
-        var msg =
-            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG[
-                targetNode.tagName];
-        if (msg) {
-          info = cvox.ChromeVox.msgs.getMsg(msg);
-        }
-      } else {
-        var msg =
-            cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG[
-                targetNode.tagName];
-        if (msg) {
-          info = cvox.ChromeVox.msgs.getMsg(msg);
-        }
-
-        if (!info && targetNode.onclick)
-          info = 'clickable';
-      }
-    }
-  }
-  if (!info) {
-    info = '';
-  }
-  return info;
+  var roleMsg = cvox.DomUtil.getRoleMsg(targetNode, verbosity) || '';
+  var role = roleMsg && roleMsg != ' ' ?
+      cvox.ChromeVox.msgs.getMsg(roleMsg) : '';
+  return role ? role : roleMsg;
 };
 
 
@@ -1041,10 +1084,69 @@ cvox.DomUtil.getListLength = function(targetNode) {
        node = node.nextSibling) {
     if (node.tagName == 'LI' ||
         (node.getAttribute && node.getAttribute('role') == 'listitem')) {
+      if (node.hasAttribute('aria-setsize')) {
+        var ariaLength = parseInt(node.getAttribute('aria-setsize'), 10);
+        if (!isNaN(ariaLength)) {
+          return ariaLength;
+        }
+      }
       count++;
     }
   }
   return count;
+};
+
+
+/**
+ * Returns a NodeState that gives information about the state of the targetNode.
+ *
+ * @param {Node} targetNode The node to get the state information for.
+ * @param {boolean} primary Whether this is the primary node we're
+ *     interested in, where we might want extra information - as
+ *     opposed to an ancestor, where we might be more brief.
+ * @return {cvox.NodeState} The status information about the node.
+ */
+cvox.DomUtil.getStateMsgs = function(targetNode, primary) {
+  var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
+  if (activeDescendant) {
+    return cvox.DomUtil.getStateMsgs(activeDescendant, primary);
+  }
+  var info = [];
+  var role = targetNode.getAttribute ? targetNode.getAttribute('role') : '';
+  info = cvox.AriaUtil.getStateMsgs(targetNode, primary);
+  if (!info) {
+    info = [];
+  }
+
+  if (targetNode.tagName == 'INPUT') {
+    var INPUT_MSGS = {
+      'checkbox-true': 'checkbox_checked_state',
+      'checkbox-false': 'checkbox_unchecked_state',
+      'radio-true': 'radio_selected_state',
+      'radio-false': 'radio_unselected_state' };
+    var msgId = INPUT_MSGS[targetNode.type + '-' + !!targetNode.checked];
+    if (msgId) {
+      info.push([msgId]);
+    }
+  } else if (targetNode.tagName == 'SELECT') {
+    info.push(['list_position',
+               cvox.ChromeVox.msgs.getNumber(targetNode.selectedIndex + 1),
+               cvox.ChromeVox.msgs.getNumber(targetNode.options.length)]);
+  } else if (targetNode.tagName == 'UL' ||
+             targetNode.tagName == 'OL' ||
+             role == 'list') {
+    info.push(['list_with_items',
+               cvox.ChromeVox.msgs.getNumber(
+                   cvox.DomUtil.getListLength(targetNode))]);
+  } else if (targetNode.tagName == 'MATH') {
+    info.push(['math_expr']);
+  }
+
+  if (cvox.DomUtil.isDisabled(targetNode)) {
+    info.push(['aria_disabled_true']);
+  }
+
+  return info;
 };
 
 
@@ -1058,71 +1160,8 @@ cvox.DomUtil.getListLength = function(targetNode) {
  * @return {string} The status information about the node.
  */
 cvox.DomUtil.getState = function(targetNode, primary) {
-  var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
-  if (activeDescendant) {
-    return cvox.DomUtil.getState(activeDescendant, primary);
-  }
-  var info;
-  var role = targetNode.getAttribute ? targetNode.getAttribute('role') : '';
-  info = cvox.AriaUtil.getState(targetNode, primary);
-  if (!info) {
-    info = '';
-  }
-
-  if (targetNode.tagName == 'INPUT') {
-    var INPUT_MSGS = {
-      'checkbox-true': 'checkbox_checked_state',
-      'checkbox-false': 'checkbox_unchecked_state',
-      'radio-true': 'radio_selected_state',
-      'radio-false': 'radio_unselected_state' };
-    var msgId = INPUT_MSGS[targetNode.type + '-' + !!targetNode.checked];
-    if (msgId) {
-      info += ' ' + cvox.ChromeVox.msgs.getMsg(msgId);
-    }
-    if (cvox.DomUtil.isDisabled(targetNode)) {
-      info += ' ' + cvox.ChromeVox.msgs.getMsg('aria_disabled_true');
-    }
-  } else if (targetNode.tagName == 'SELECT') {
-    info += ' ' + cvox.ChromeVox.msgs.getMsg('list_position',
-        [cvox.ChromeVox.msgs.getNumber(targetNode.selectedIndex + 1),
-         cvox.ChromeVox.msgs.getNumber(targetNode.options.length)]);
-  } else if (targetNode.tagName == 'UL' ||
-             targetNode.tagName == 'OL' ||
-             role == 'list') {
-    info += ' ' + cvox.ChromeVox.msgs.getMsg('list_with_items',
-        [cvox.ChromeVox.msgs.getNumber(
-            cvox.DomUtil.getListLength(targetNode))]);
-  }
-
-  return info;
-};
-
-
-/**
- * Returns the personality for a node.
- *
- * @param {Node} node The node to get the personality for.
- * @return {Object?} The personality, or null if none applies.
- */
-cvox.DomUtil.getPersonalityForNode = function(node) {
-  switch (node.tagName) {
-    case 'H1':
-      return cvox.AbstractTts.PERSONALITY_H1;
-    case 'H2':
-      return cvox.AbstractTts.PERSONALITY_H2;
-    case 'H3':
-      return cvox.AbstractTts.PERSONALITY_H3;
-    case 'H4':
-      return cvox.AbstractTts.PERSONALITY_H4;
-    case 'H5':
-      return cvox.AbstractTts.PERSONALITY_H5;
-    case 'H6':
-      return cvox.AbstractTts.PERSONALITY_H6;
-  }
-  if (cvox.DomUtil.isSemanticElt(node)) {
-    return cvox.AbstractTts.PERSONALITY_ANNOTATION;
-  }
-  return null;
+  return cvox.NodeStateUtil.expand(
+      cvox.DomUtil.getStateMsgs(targetNode, primary));
 };
 
 
@@ -1141,6 +1180,12 @@ cvox.DomUtil.getPersonalityForNode = function(node) {
  */
 cvox.DomUtil.isFocusable = function(targetNode) {
   if (!targetNode || typeof(targetNode.tabIndex) != 'number') {
+    return false;
+  }
+
+  // Workaround for http://code.google.com/p/chromium/issues/detail?id=153904
+  if ((targetNode.tagName == 'A') && !targetNode.hasAttribute('href') &&
+      !targetNode.hasAttribute('tabindex')) {
     return false;
   }
 
@@ -1178,6 +1223,19 @@ cvox.DomUtil.findFocusableDescendant = function(targetNode) {
     }
   }
   return null;
+};
+
+
+/**
+ * Returns the number of focusable nodes in root's subtree. The count does not
+ * include root.
+ *
+ * @param {Node} targetNode The node whose descendants to check are focusable.
+ * @return {number} The number of focusable descendants.
+ */
+cvox.DomUtil.countFocusableDescendants = function(targetNode) {
+  return targetNode ?
+      cvox.DomUtil.countNodes(targetNode, cvox.DomUtil.isFocusable) : 0;
 };
 
 
@@ -1376,9 +1434,9 @@ cvox.DomUtil.getSurroundingControl = function(node) {
  * descent, return the next leaf-like node.
  *
  * @param {!Node} node The node from which to start looking,
- * this node *must not* be above document.body
+ * this node *must not* be above document.body.
  * @param {boolean} r True if reversed. False by default.
- * @param {function(Node):boolean} isLeaf A function that
+ * @param {function(!Node):boolean} isLeaf A function that
  *   returns true if we should stop descending.
  * @return {Node} The next leaf-like node or null if there is no next
  *   leaf-like node.  This function will always return a node below
@@ -1390,9 +1448,12 @@ cvox.DomUtil.directedNextLeafLikeNode = function(node, r, isLeaf) {
     // branch forward in the dom, so we climb up the parents until we find a
     // node that has a nextSibling
     while (!cvox.DomUtil.directedNextSibling(node, r)) {
+      if (!node) {
+        return null;
+      }
       // since node is never above document.body, it always has a parent.
       // so node.parentNode will never be null.
-      node = /** @type {!Node} */node.parentNode;
+      node = /** @type {!Node} */(node.parentNode);
       if (node == document.body) {
         // we've readed the end of the document.
         return null;
@@ -1400,13 +1461,13 @@ cvox.DomUtil.directedNextLeafLikeNode = function(node, r, isLeaf) {
     }
     if (cvox.DomUtil.directedNextSibling(node, r)) {
       // we just checked that next sibling is non-null.
-      node = /** @type {!Node} */cvox.DomUtil.directedNextSibling(node, r);
+      node = /** @type {!Node} */(cvox.DomUtil.directedNextSibling(node, r));
     }
   }
   // once we're at our next sibling, we want to descend down into it as
   // far as the child class will allow
   while (cvox.DomUtil.directedFirstChild(node, r) && !isLeaf(node)) {
-    node = /** @type {!Node} */cvox.DomUtil.directedFirstChild(node, r);
+    node = /** @type {!Node} */(cvox.DomUtil.directedFirstChild(node, r));
   }
 
   // after we've done all that, if we are still at document.body, this must
@@ -1444,6 +1505,99 @@ cvox.DomUtil.directedNextLeafNode = function(node, reverse) {
  */
 cvox.DomUtil.previousLeafNode = function(node) {
   return cvox.DomUtil.directedNextLeafNode(node, true);
+};
+
+
+/**
+ * Computes the outer most leaf node of a given node, depending on value
+ * of the reverse flag r.
+ * @param {!Node} node in the DOM.
+ * @param {boolean} r True if reversed. False by default.
+ * @param {function(!Node):boolean} pred Predicate to decide
+ * what we consider a leaf.
+ * @return {Node} The outer most leaf node of that node.
+ */
+cvox.DomUtil.directedFindFirstNode = function(node, r, pred) {
+  var child = cvox.DomUtil.directedFirstChild(node, r);
+  while (child) {
+    if (pred(child)) {
+      return child;
+    } else {
+      var leaf = cvox.DomUtil.directedFindFirstNode(child, r, pred);
+      if (leaf) {
+        return leaf;
+      }
+    }
+    child = cvox.DomUtil.directedNextSibling(child, r);
+  }
+  return null;
+};
+
+
+/**
+ * Moves to the deepest node satisfying a given predicate under the given node.
+ * @param {!Node} node in the DOM.
+ * @param {boolean} r True if reversed. False by default.
+ * @param {function(!Node):boolean} pred Predicate deciding what a leaf is.
+ * @return {Node} The deepest node satisfying pred.
+ */
+cvox.DomUtil.directedFindDeepestNode = function(node, r, pred) {
+  var next = cvox.DomUtil.directedFindFirstNode(node, r, pred);
+  if (!next) {
+    if (pred(node)) {
+      return node;
+    } else {
+      return null;
+    }
+  } else {
+    return cvox.DomUtil.directedFindDeepestNode(next, r, pred);
+  }
+};
+
+
+/**
+ * Computes the next node wrt. a predicate that is a descendant of ancestor.
+ * @param {!Node} node in the DOM.
+ * @param {!Node} ancestor of the given node.
+ * @param {boolean} r True if reversed. False by default.
+ * @param {function(!Node):boolean} pred Predicate to decide
+ * what we consider a leaf.
+ * @param {boolean=} above True if the next node can live in the subtree
+ * directly above the start node. False by default.
+ * @param {boolean=} deep True if we are looking for the next node that is
+ * deepest in the tree. Otherwise the next shallow node is returned.
+ * False by default.
+ * @return {Node} The next node in the DOM that satisfies the predicate.
+ */
+cvox.DomUtil.directedFindNextNode = function(
+    node, ancestor, r, pred, above, deep) {
+  above = !!above;
+  deep = !!deep;
+  if (!cvox.DomUtil.isDescendantOfNode(node, ancestor) || node == ancestor) {
+    return null;
+  }
+  var next = cvox.DomUtil.directedNextSibling(node, r);
+  while (next) {
+    if (!deep && pred(next)) {
+      return next;
+    }
+    var leaf = (deep ?
+                cvox.DomUtil.directedFindDeepestNode :
+                cvox.DomUtil.directedFindFirstNode)(next, r, pred);
+    if (leaf) {
+      return leaf;
+    }
+    if (deep && pred(next)) {
+      return next;
+    }
+    next = cvox.DomUtil.directedNextSibling(next, r);
+  }
+  var parent = /** @type {!Node} */(node.parentNode);
+  if (above && pred(parent)) {
+    return parent;
+  }
+  return cvox.DomUtil.directedFindNextNode(
+      parent, ancestor, r, pred, above, deep);
 };
 
 
@@ -1493,7 +1647,7 @@ cvox.DomUtil.getLinkURL = function(node) {
   if (node.tagName == 'A') {
     if (node.getAttribute('href')) {
       if (cvox.DomUtil.isInternalLink(node)) {
-        return 'Internal link';
+        return cvox.ChromeVox.msgs.getMsg('internal_link');
       } else {
         return node.getAttribute('href');
       }
@@ -1502,7 +1656,7 @@ cvox.DomUtil.getLinkURL = function(node) {
     }
   } else if (cvox.AriaUtil.getRoleName(node) ==
              cvox.ChromeVox.msgs.getMsg('aria_role_link')) {
-    return 'Unknown link';
+    return cvox.ChromeVox.msgs.getMsg('unknown_link');
   }
 
   return '';
@@ -1752,6 +1906,19 @@ cvox.DomUtil.findNode = function(root, p) {
 
 
 /**
+ * Finds the number of nodes matching the filter.
+ * @param {Node} root The root of the tree to search.
+ * @param {function(Node) : boolean} p The filter function.
+ * @return {number} The number of nodes selected by filter.
+ */
+cvox.DomUtil.countNodes = function(root, p) {
+  var rv = [];
+  cvox.DomUtil.findNodes_(root, p, rv, false, 10000);
+  return rv.length;
+};
+
+
+/**
  * Finds the first or all the descendant nodes that match the filter function,
  * using a depth first search.
  * @param {Node} root The root of the tree to search.
@@ -1868,6 +2035,9 @@ cvox.DomUtil.directedFirstChild = function(node, reverse) {
  *   no more siblings in that direction.
  */
 cvox.DomUtil.directedNextSibling = function(node, reverse) {
+  if (!node) {
+    return null;
+  }
   if (reverse) {
     return node.previousSibling;
   }
@@ -1900,4 +2070,40 @@ cvox.DomUtil.addNodeToHead = function(node, opt_id) {
   }
   var p = document.head || document.body;
   p.appendChild(node);
+};
+
+
+/**
+ * Checks if a given node is inside a math expressions and
+ * returns the math node if one exists.
+ * @param {Node} node The node.
+ * @param {{allowMathJax: (undefined|boolean)}=} kwargs Optional named args.
+ *  allowMathJax: If true, will return true even if inside a caption. False
+ *    by default.
+ * @return {Node} The math node, if the node is inside a math expression.
+ * Null if it is not.
+ */
+cvox.DomUtil.getContainingMath = function(node, kwargs) {
+  var ancestors = cvox.DomUtil.getAncestors(node);
+  return cvox.DomUtil.findMathNodeInList(ancestors, kwargs);
+};
+
+/**
+ * Extracts a math node from a list of nodes.
+ * @param {Array.<Node>} nodes The list of nodes.
+ * @param {{allowMathJax: (undefined|boolean)}=} kwargs Optional named args.
+ *  allowMathJax: If true, will return true even if inside a caption. False
+ *    by default.
+ * @return {Node} The math node if the list of nodes contains a math node.
+ * Null if it does not.
+ */
+cvox.DomUtil.findMathNodeInList = function(nodes, kwargs) {
+  kwargs = kwargs || {allowMathJax: false};
+  for (var i = 0, node; node = nodes[i]; i++) {
+    if (node.tagName &&
+        (node.tagName.toLowerCase() == 'math' || cvox.AriaUtil.isMath(node))) {
+      return node;
+    }
+  }
+  return null;
 };

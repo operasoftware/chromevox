@@ -27,7 +27,7 @@ cvox.SpokenMessage = function() {
   /** @type {?Number} */
   this.count = null;
 
-  /** @type {?string} */
+  /** @type {Array} */
   this.id = null;
 
   /**

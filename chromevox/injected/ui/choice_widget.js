@@ -95,10 +95,15 @@ cvox.ChoiceWidget = function(descriptions, functions) {
   // TODO(dtseng): PowerKey doesn't have a clear distinction between intro and
   // help announcements.
   // Also, fix this for i18n.
-  var prompt = cvox.ChromeVox.msgs.getMsg(this.getNameMsg()) +
+  var prompt =
+      cvox.ChromeVox.msgs.getMsg.apply(cvox.ChromeVox.msgs, this.getNameMsg()) +
       '. ' +
-      cvox.ChromeVox.msgs.getMsg(this.getHelp());
+      cvox.ChromeVox.msgs.getMsg(this.getHelpMsg());
   this.powerKey_.setCompletionPromptStr(prompt);
+
+  // Ensure the backing PowerKey is hidden.
+  this.powerKey_.updateCompletionField(window.PowerKey.status.HIDDEN);
+  goog.base(this);
 };
 goog.inherits(cvox.ChoiceWidget, cvox.Widget);
 
@@ -118,6 +123,10 @@ cvox.ChoiceWidget.prototype.show = function() {
  */
 cvox.ChoiceWidget.prototype.hide = function(opt_noSync) {
   this.powerKey_.updateCompletionField(window.PowerKey.status.HIDDEN);
+  cvox.$m('choice_widget_exited')
+      .andPause()
+      .andMessage(this.getNameMsg())
+      .speakFlush();
   goog.base(this, 'hide', opt_noSync);
 };
 
@@ -135,14 +144,15 @@ cvox.ChoiceWidget.prototype.isActive = function() {
 /**
  * @override
  */
-cvox.ChoiceWidget.prototype.getNameMsg = function() {
-  return 'choice_widget_name';
+cvox.ChoiceWidget.prototype.getHelpMsg = function() {
+  return 'choice_widget_help';
 };
 
 
 /**
- * @override
+ * The type of of items contained within this ChoiceWidget.
+ * @return {string} The type.
  */
-cvox.ChoiceWidget.prototype.getHelp = function() {
-  return 'choice_widget_help';
+cvox.ChoiceWidget.prototype.getType = function() {
+  return cvox.ChromeVox.msgs.getMsg('choice_Widget_type_generic');
 };

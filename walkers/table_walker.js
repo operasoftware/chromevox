@@ -25,6 +25,7 @@
 goog.provide('cvox.TableWalker');
 
 goog.require('cvox.AbstractWalker');
+goog.require('cvox.BrailleUtil');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
 goog.require('cvox.NavDescription');
@@ -67,11 +68,7 @@ cvox.TableWalker.prototype.sync = function(sel) {
  * @override
  */
 cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
-  var tableNode = this.getTableNode_(sel);
-  this.tt_.initialize(tableNode);
-  // we need to align the TraverseTable with our sel because our description
-  // uses parts of it (for example isSpanned relies on being at a specific cell)
-  var position = this.tt_.findNearestCursor(sel.end.node);
+  var position = this.syncPosition_(sel);
   if (!position) {
     return [];
   }
@@ -82,7 +79,8 @@ cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
       annotation: cvox.ChromeVox.msgs.getMsg('empty_cell')
     }));
   }
-  // if prevSel isn't in this table, we should announce the table
+  // if prevSel isn't in this table, we should announce the table.
+  var tableNode = this.getTableNode_(sel);
   if (cvox.DomUtil.getContainingTable(prevSel.start.node) != tableNode ||
       cvox.DomUtil.getContainingTable(prevSel.end.node) != tableNode) {
     var len = descs.length;
@@ -101,14 +99,6 @@ cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
         annotation: cvox.ChromeVox.msgs.getMsg('spanned')
       }));
     }
-
-    // TODO (stoarca): descriptions shouldn't be dependent on one another.
-    if (this.tt_.isRowHeader() ||
-        this.tt_.isColHeader()) {
-      descs.push(new cvox.NavDescription({
-        personality: cvox.AbstractTts.PERSONALITY_H2
-      }));
-    }
   } else {
     // if prevsel was in this table and the next selection (in the direction
     // we were headed) is the same selection or outside of the table, then add
@@ -118,6 +108,19 @@ cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
     }
   }
   return descs;
+};
+
+/**
+ * @override
+ */
+cvox.TableWalker.prototype.getBraille = function(prevSel, sel) {
+  var ret = new cvox.NavBraille({});
+  var position = this.syncPosition_(sel);
+  if (position) {
+    ret = cvox.BrailleUtil.getBraille(prevSel, sel);
+    ret.text += ' ' + ++position[0] + '/' + ++position[1];
+  }
+  return ret;
 };
 
 /**
@@ -267,7 +270,7 @@ cvox.TableWalker.prototype.getRowHeaderText_ = function(position) {
   var rowHeaderText = '';
 
   var rowHeaders = this.tt_.getCellRowHeaders();
-  if (!rowHeaders) {
+  if (rowHeaders.length == 0) {
     var firstCellInRow = this.tt_.getCellAt([position[0], 0]);
     rowHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInRow) + ' ' +
@@ -297,7 +300,7 @@ cvox.TableWalker.prototype.getColHeaderText_ = function(position) {
   var colHeaderText = '';
 
   var colHeaders = this.tt_.getCellColHeaders();
-  if (!colHeaders) {
+  if (colHeaders.length == 0) {
     var firstCellInCol = this.tt_.getCellAt([0, position[1]]);
     colHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInCol) + ' ' +
@@ -378,4 +381,18 @@ cvox.TableWalker.prototype.goTo_ = function(sel, f) {
  */
 cvox.TableWalker.prototype.getTableNode_ = function(sel) {
   return cvox.DomUtil.getContainingTable(sel.end.node);
+};
+
+/**
+ * Sync the backing traversal utility to the given selection.
+ * @param {!cvox.CursorSelection} sel The selection.
+ * @return {Array.<number>} The position [x, y] of the selection.
+ * @private
+ */
+cvox.TableWalker.prototype.syncPosition_ = function(sel) {
+  var tableNode = this.getTableNode_(sel);
+  this.tt_.initialize(tableNode);
+  // we need to align the TraverseTable with our sel because our walker
+  // uses parts of it (for example isSpanned relies on being at a specific cell)
+  return this.tt_.findNearestCursor(sel.end.node);
 };

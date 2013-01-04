@@ -37,6 +37,11 @@ goog.addDependency(
     []);
 
 goog.addDependency(
+    '../host/interface/braille_interface.js',
+    ['cvox.BrailleInterface'],
+    []);
+
+goog.addDependency(
     '../host/interface/abstract_msgs.js',
     ['cvox.AbstractMsgs'],
     []);
@@ -49,6 +54,11 @@ goog.addDependency(
 goog.addDependency(
     '../host/interface/abstract_earcons.js',
     ['cvox.AbstractEarcons'],
+    []);
+
+goog.addDependency(
+    '../chromevox/common/key_sequence.js',
+    ['cvox.KeySequence'],
     []);
 
 goog.addDependency(
@@ -89,6 +99,10 @@ cvox.ChromeVox.host = null;
  * @type {cvox.TtsInterface}
  */
 cvox.ChromeVox.tts;
+/**
+ * @type {cvox.BrailleInterface}
+ */
+cvox.ChromeVox.braille;
 /**
  * @type {cvox.AbstractMsgs}
  */
@@ -155,9 +169,9 @@ else
  * where the subsequent independent key downs (while modifier keys are down)
  * are a part of the same shortcut. This array is populated in
  * cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable().
- * @type {Object.<string, number>}
+ * @type {!Array.<cvox.KeySequence>}
  */
-cvox.ChromeVox.sequenceSwitchKeyCodes = {};
+cvox.ChromeVox.sequenceSwitchKeyCodes = [];
 /**
  * This function can be called before doing an operation that may trigger
  * focus events and other events that would normally be announced. This
@@ -184,12 +198,6 @@ cvox.ChromeVox.syncToNode = function(
  * @param {string} commandName The command name as a string.
  */
 cvox.ChromeVox.executeUserCommand = function(commandName) {};
-
-/**
- * Speak messages when the page loads. This only happens after preferences
- * have loaded so we don't speak if ChromeVox is installed but inactive.
- */
-cvox.ChromeVox.speakInitialMessages = function() {};
 
 /**
  * True if the document body has aria-hidden='true' when we first load.

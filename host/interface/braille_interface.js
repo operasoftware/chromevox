@@ -22,17 +22,24 @@
 
 goog.provide('cvox.BrailleInterface');
 
+goog.require('cvox.NavBraille');
+
 /**
  * @interface
  */
 cvox.BrailleInterface = function() { };
 
 /**
- * Writes the given string to the Braille display.
- * @param {string} textString The text to be output to the Braille display.
+ * Sends the given params to the Braille display for output.
+ * @param {cvox.NavBraille} params Parameters to send to the
+ * platform braille service.
+ *  text The text of the object itself, including text from
+ *     titles, labels, etc.
+ *  startIndex The beginning of a selection within text.
+ *  endIndex The end of a selection within text.
  */
 cvox.BrailleInterface.prototype.write =
-    function(textString) { };
+    function(params) { };
 
 /**
  * Sets a callback for when the user pans beyond either edge of the current
@@ -44,4 +51,3 @@ cvox.BrailleInterface.prototype.write =
  */
 cvox.BrailleInterface.prototype.setPanOutListener =
     function(func) { };
-

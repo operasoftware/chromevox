@@ -70,6 +70,9 @@ cvox.GroupUtil.BREAKOUT_SELECTOR_ = 'blockquote,' +
     'table,' +
     'tr,' +
     'ul,' +
+    'math,' +
+// TODO (sorge) Do we want to group all math or only display math?
+//    '[mode="display"],' +
     // Aria widget roles
     '[role~="alert ' +
     'alertdialog ' +
@@ -110,7 +113,7 @@ cvox.GroupUtil.BREAKOUT_SELECTOR_ = 'blockquote,' +
  * Returns true if this is a leaf node for groups.
  * true for a node => true for all child nodes
  * true if node has no children
- * @param {Node} node The node to check.
+ * @param {!Node} node The node to check.
  * @return {boolean} true if this is at the "leaf node" level or lower
  * for this granularity.
  */

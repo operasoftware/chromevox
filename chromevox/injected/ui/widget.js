@@ -23,6 +23,7 @@
 goog.provide('cvox.Widget');
 
 goog.require('cvox.AbstractEarcons');
+goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.SpokenMessages');
 
@@ -43,15 +44,23 @@ cvox.Widget = function() {
    * @type {boolean}
    * @protected
    */
-  this.active_ = false;
+  this.active = false;
 
 
   /**
    * Keeps a reference to a node which should receive focus once a widget hides.
    * @type {Node}
-   * @private
+   * @protected
    */
-  this.lastFocusedNode_ = null;
+  this.initialFocus = null;
+
+  /**
+   * Keeps a reference to a node which should receive selection once a widget
+   * hides.
+   * @type {Node}
+   * @protected
+   */
+  this.initialNode = null;
 
   // Checks to see if there is a current widget in use.
   if (!cvox.Widget.ref_ || !cvox.Widget.ref_.isActive()) {
@@ -65,7 +74,7 @@ cvox.Widget = function() {
  * @return {boolean} Whether the widget is active.
  */
 cvox.Widget.prototype.isActive = function() {
-  return this.active_;
+  return this.active;
 };
 
 
@@ -82,16 +91,28 @@ cvox.Widget.prototype.show = function() {
   document.addEventListener('keydown', this.onKeyDown, true);
   document.addEventListener('keypress', this.onKeyPress, true);
 
-  if (this.getNameMsg() && this.getHelp()) {
+  this.initialNode =
+      cvox.ChromeVox.navigationManager.getCurrentNode();
+  this.initialFocus = document.activeElement;
+  this.isStickyOn = cvox.ChromeVox.isStickyOn;
+
+  // Widgets do not respond to sticky key.
+  cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'sticky',
+      'value': false,
+      'announce': false});
+
+  if (this.getNameMsg() && this.getHelpMsg()) {
     cvox.$m(this.getNameMsg())
         .andPause()
-        .andMessage(this.getHelp())
+        .andMessage(this.getHelpMsg())
         .speakFlush();
   }
   cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
 
-  this.lastFocusedNode_ = document.activeElement;
-  this.active_ = true;
+  this.active = true;
 };
 
 
@@ -104,13 +125,24 @@ cvox.Widget.prototype.show = function() {
 cvox.Widget.prototype.hide = function(opt_noSync) {
   document.removeEventListener('keypress', this.onKeyPress, true);
   document.removeEventListener('keydown', this.onKeyDown, true);
+
+  cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'sticky',
+      'value': this.isStickyOn,
+      'announce': false});
+
   cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
   if (!opt_noSync) {
-    cvox.ChromeVox.syncToNode(
-        this.lastFocusedNode_, true, cvox.AbstractTts.QUEUE_MODE_FLUSH);
+    this.initialNode = this.initialNode.nodeType == 1 ?
+        this.initialNode : this.initialNode.parentNode;
+    cvox.ApiImplementation.syncToNode(this.initialNode,
+                                      true,
+                                      cvox.AbstractTts.QUEUE_MODE_QUEUE);
   }
 
-  this.active_ = false;
+  this.active = false;
 };
 
 
@@ -128,7 +160,8 @@ cvox.Widget.prototype.toggle = function() {
 
 /**
  * The name of the widget.
- * @return {string} The message id referencing the name of the widget.
+ * @return {!Array} The message id referencing the name of the widget in an
+ * array argument form passable to cvox.ChromeVox.msgs.getMsg.apply.
  */
 cvox.Widget.prototype.getNameMsg = goog.abstractMethod;
 
@@ -138,7 +171,7 @@ cvox.Widget.prototype.getNameMsg = goog.abstractMethod;
  * The help message succintly describes how to use the widget.
  * @return {string} The message id referencing the help for the widget.
  */
-cvox.Widget.prototype.getHelp = goog.abstractMethod;
+cvox.Widget.prototype.getHelpMsg = goog.abstractMethod;
 
 
 /**
@@ -152,10 +185,14 @@ cvox.Widget.prototype.getHelp = goog.abstractMethod;
 cvox.Widget.prototype.onKeyDown = function(evt) {
   if (evt.keyCode == 27) { // Escape
     this.hide();
+    evt.preventDefault();
+    evt.stopPropagation();
     return true;
   } else if (evt.keyCode == 9) { // Tab
     this.hide();
     return true;
+  } else if (evt.keyCode == 17) {
+    cvox.ChromeVox.tts.stop();
   }
 
   return false;
@@ -172,4 +209,10 @@ cvox.Widget.prototype.onKeyDown = function(evt) {
  */
 cvox.Widget.prototype.onKeyPress = function(evt) {
   return false;
+};
+/**
+ * @return {boolean} True if any widget is currently active.
+ */
+cvox.Widget.isActive = function() {
+  return (cvox.Widget.ref_ && cvox.Widget.ref_.isActive()) || false;
 };

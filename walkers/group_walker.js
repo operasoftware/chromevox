@@ -23,6 +23,7 @@
 goog.provide('cvox.GroupWalker');
 
 goog.require('cvox.AbstractNodeWalker');
+goog.require('cvox.BrailleUtil');
 goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DescriptionUtil');
@@ -76,6 +77,14 @@ cvox.GroupWalker.prototype.act = function(sel) {
  */
 cvox.GroupWalker.prototype.getDescription = function(prevSel, sel) {
   return cvox.DescriptionUtil.getCollectionDescription(prevSel, sel);
+};
+
+
+/**
+ * @override
+ */
+cvox.GroupWalker.prototype.getBraille = function(prevSel, sel) {
+  return cvox.BrailleUtil.getBraille(prevSel, sel);
 };
 
 /**

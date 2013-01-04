@@ -18,41 +18,23 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
-goog.provide('cvox.TestsPage');
-
 goog.require('cvox.AutoRunner');
+goog.require('cvox.ChromeBraille');
 goog.require('cvox.ChromeEarcons');
 goog.require('cvox.ChromeHost');
 goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeTts');
 goog.require('cvox.ChromeVox');
-goog.require('cvox.ChromeVoxInit');
+goog.require('cvox.InitGlobals');
 goog.require('cvox.EventWatcherTest');
+goog.require('cvox.NavigationManagerTest');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 
-/**
- * Class to manage the tests page.
- * @constructor
- */
-cvox.TestsPage = function() {
-};
-
-/**
- * Runs the tests.
- * @export
- */
-// TODO (clchen, deboer): Add the test case classes that we want to run here.
-cvox.TestsPage.runTests = function() {
-  if ((typeof(cvox) == 'undefined') ||
-      (typeof(cvox.ChromeVox) == 'undefined') ||
-      cvox.ChromeVox.host == null) {
-    window.setTimeout(cvox.TestsPage.runTests, 100);
-    return;
-  }
-  cvox.ChromeVox.init();
+document.addEventListener('DOMContentLoaded', function() {
+  cvox.InitGlobals.initGlobals();
   var runner = new cvox.AutoRunner();
   runner.runTestCase(new cvox.EventWatcherTest());
-};
+  runner.runTestCase(new cvox.NavigationManagerTest());
+}, false);
 
-cvox.TestsPage.runTests();

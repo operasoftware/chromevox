@@ -63,6 +63,7 @@ cvox.NavDescription = function(kwargs) {
  */
 cvox.NavDescription.prototype.isEmpty = function() {
   return (this.context.length == 0 &&
+          this.earcons.length == 0 &&
           this.text.length == 0 &&
           this.userValue.length == 0 &&
           this.annotation.length == 0);
@@ -117,15 +118,16 @@ cvox.NavDescription.prototype.speak = function(
     speakArgs.push([this.context, queueMode, makeAnnotationProps()]);
     queueMode = 1;
   }
-  if (this.text) {
-    speakArgs.push([this.text, queueMode,
-        this.personality ? this.personality : {}]);
-    queueMode = 1;
-  }
+
+  speakArgs.push([this.text,
+                  queueMode,
+                  this.personality ? this.personality : {}]);
+  queueMode = 1;
+
   if (this.userValue) {
     speakArgs.push([this.userValue, queueMode, {}]);
-    queueMode = 1;
   }
+
   if (this.annotation) {
     speakArgs.push([this.annotation, queueMode, makeAnnotationProps()]);
   }

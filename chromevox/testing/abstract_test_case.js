@@ -29,23 +29,23 @@ goog.require('cvox.SpokenListBuilder');
  */
 cvox.AbstractTestCase = function() { };
 /** @override */
-cvox.AbstractTestCase.prototype.assertTrue = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.assertTrue = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.assertFalse = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.assertFalse = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.assertEquals = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.assertEquals = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.assertSpoken = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.assertSpoken = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.assertSpokenList = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.assertSpokenList = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.appendHtml = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.appendHtml = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.waitForCalm = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.waitForCalm = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.setFocus = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.setFocus = goog.abstractMethod;
 /** @override */
-cvox.AbstractTestCase.prototype.userCommand = goog.abstractFunction;
+cvox.AbstractTestCase.prototype.userCommand = goog.abstractMethod;
 
 /**
  * @return {cvox.SpokenListBuilder} A new builder.
@@ -53,4 +53,3 @@ cvox.AbstractTestCase.prototype.userCommand = goog.abstractFunction;
 cvox.AbstractTestCase.prototype.spokenList = function() {
   return new cvox.SpokenListBuilder();
 };
-

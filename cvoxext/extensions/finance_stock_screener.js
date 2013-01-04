@@ -90,7 +90,7 @@ financeStockScreenerVox.preprocess = {
   yields. also calculates which one has the highest and lowest market caps
   * @param {Object} values the values tree of companies table, including
   * stock price and market cap of each company.
-  * @param {String} focusedFrom where object is focused from.
+  * @param {string} focusedFrom where object is focused from.
   * @param {HTMLElement} target the companies table .
   * @return {Object} the values tree including the companies with highest and
   * lowest market caps, highest price change and highest dividend yield and the
@@ -158,7 +158,7 @@ financeStockScreenerVox.preprocess = {
   /**
    * custom read the minimum filter text field
    * @param {Object} values value in text field.
-   * @param {String} focusedFrom speakable name focused from.
+   * @param {string} focusedFrom speakable name focused from.
    * @param {HTMLElement} target focused text field.
    * @return {Object} value binded with formatter for minimum filter.
    */
@@ -177,7 +177,7 @@ financeStockScreenerVox.preprocess = {
   /**
    * custom read the maximum filter text field
    * @param {Object} values value in text field.
-   * @param {String} focusedFrom speakable name focused from.
+   * @param {string} focusedFrom speakable name focused from.
    * @param {HTMLElement} target focused text field.
    * @return {Object} value binded with formatter for minimum filter.
    */
@@ -198,7 +198,7 @@ financeStockScreenerVox.preprocess = {
    * versus the total pixels to calculate what percent of companies are filtered
    * out
    * @param {Object} values the pixel values of each column.
-   * @param {String} focusedFrom speakable name focused from.
+   * @param {string} focusedFrom speakable name focused from.
    * @param {HTMLElement} target the graph as DOM element.
    * @return {Object} the percent of companies filtered binded with formatter.
    */
@@ -300,7 +300,7 @@ financeStockScreenerVox.preprocess = {
   /**
    * descriptively read when an input box is focused
    * @param {Object} values value of text field.
-   * @param {String} focusedFrom Speakable focused from.
+   * @param {string} focusedFrom Speakable focused from.
    * @param {HTMLElement} target the input box DOM element.
    * @return {Object} the text field value and the formatter of the appropriate
    * filter type.

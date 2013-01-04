@@ -18,8 +18,8 @@
  * and a boolean to tell whether the type is going to be read.
  * @constructor
  * @this {cvoxExt.Speakable}
- * @param {String} name name of the speakable.
- * @param {String} formatters formatters is the description of the way
+ * @param {string} name name of the speakable.
+ * @param {string} formatters formatters is the description of the way
    chromevox should read a given object. a formatter obeys a certain syntax:
    each expression is either a:
    -constant string: string that will be read as is. i.e. "name of book:"
@@ -40,7 +40,7 @@
    and they need to be distinguishable by a selector. Their formatters will
    most probably be simply $self.
 
- * @param {String} selector a unique property of the object which will
+ * @param {string} selector a unique property of the object which will
    distinguish it in the context of another speakable. this selector should
    generally be a css class name or an ID, but if necessary and enough it
    could be a tagName or a name.

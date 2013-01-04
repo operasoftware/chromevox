@@ -229,7 +229,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
   // systemPrivate API is only available when this extension is loaded as a
   // component extension embedded in Chrome.
   chrome.permissions.contains(
-      (/** @type !Permissions */ { permissions: ['systemPrivate'] }),
+      /** @type !Permissions */ ({ permissions: ['systemPrivate'] }),
       function(result) {
     if (result) {
       chrome.systemPrivate.onVolumeChanged.addListener(function(volume) {

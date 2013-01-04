@@ -52,7 +52,7 @@ cvox.MacroWriter.readMacroFromHtml = function() {
 };
 
 cvox.ChromeVoxUserCommands.commands['addMacroWriter'] =
-    /** @type {function(): boolean} */ function() {
+    /** @type {function(): boolean} */ (function() {
   var ta = document.createElement('textarea');
   ta.id = 'cvoxMacroWriterCode';
   ta.style.height = '200px';
@@ -76,4 +76,4 @@ cvox.ChromeVoxUserCommands.commands['addMacroWriter'] =
   div.appendChild(a);
 
   document.body.appendChild(div);
-};
+});

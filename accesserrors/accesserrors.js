@@ -358,7 +358,7 @@ function getQuerySelectorText(obj) {
 
 function getDOMFromPath(rpath) {
   // TODO(edsun): This is scary code, please document why it is safe.
-  return (/** @type {Element} */ eval(rpath));
+  return /** @type {Element} */ (eval(rpath));
 }
 
 

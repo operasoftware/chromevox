@@ -51,6 +51,9 @@ cvox.NavigationSpeaker.prototype.speakDescriptionArray = function(
       endCallback = completionFunction;
     }
     description.speak(queueMode, startCallback, endCallback);
+    if (!cvox.ChromeVox.host.hasTtsCallback()) {
+      startCallback();
+    }
   };
 
   var queueMode = initialQueueMode;

@@ -49,6 +49,7 @@
 goog.provide('cvox.AbstractWalker');
 
 goog.require('cvox.CursorSelection');
+goog.require('cvox.NavBraille');
 
 /**
  * @constructor
@@ -95,8 +96,8 @@ cvox.AbstractWalker.prototype.syncToPageBeginning = function(kwargs) {
 
   // TODO(stoarca): Does NOT work for TableWalker! The interfaces are not frozen
   // yet, they will be tightened after everything is in the right place.
-  return /** @type {!cvox.CursorSelection} */ this.sync(
-      cvox.CursorSelection.fromBody().setReversed(kwargs.reversed));
+  return /** @type {!cvox.CursorSelection} */ (this.sync(
+      cvox.CursorSelection.fromBody().setReversed(kwargs.reversed)));
 };
 
 
@@ -152,6 +153,17 @@ cvox.AbstractWalker.prototype.sync = goog.abstractMethod;
  * @return {!Array.<!cvox.NavDescription>} The description array.
  */
 cvox.AbstractWalker.prototype.getDescription = goog.abstractMethod;
+
+/**
+ * Returns a NavBraille that defines what should be brailled on traversal from
+ * prevSel to sel.
+ * sel must be valid CursorSelections for this walker, prevSel may be any
+ * selection. Undefined behavior otherwise.
+ * @param {!cvox.CursorSelection} prevSel The valid previous selection.
+ * @param {!cvox.CursorSelection} sel The valid current selection.
+ * @return {!cvox.NavBraille} The braille description.
+ */
+cvox.AbstractWalker.prototype.getBraille = goog.abstractMethod;
 
 /**
  * Returns message string of the walker's granularity.

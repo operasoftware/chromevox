@@ -14,28 +14,12 @@
 
 /**
  * @fileoverview Bridge to aid in communication between a Chrome
- * background page and scripts injected into a page by a content script.
- *
- * This is needed when the extension's content script dynamically loads
- * most of its code by injecting script tags into the page. To communicate
- * with the background page, the page script needs to post a message that
- * the content script can listen to and then forward to the background page.
- *
- * To use cvox.ExtensionBridge, this file must be included in all three
- * contexts:
- *
- *   1. From the background page.
- *   2. From the content script (in the manifest.json after all other scripts).
- *   3. Inject it into the page from the content script.
+ * background page and content script.
  *
  * It automatically figures out where it's being run and initializes itself
  * appropriately. Then just call send() to send a message from the background
  * to the page or vice versa, and addMessageListener() to provide a message
  * listener.  Messages can be any object that can be serialized using JSON.
- *
- * Messages can be sent to the background page from either the page or the
- * content script, and messages sent from the background page are delivered
- * to both the content script and the page.
  *
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */
@@ -62,7 +46,7 @@ cvox.ExtensionBridge.init = function() {
   try {
     if (chrome && chrome.windows &&
         window.location.toString().indexOf('chrome-extension://') == 0 &&
-            window.location.toString().indexOf('background.html') > 0) {
+            window.location.toString().indexOf('background') > 0) {
       // This depends on the fact that chrome.windows is only available
       // from background pages.
       // Also, prevent initializing background specific script in
@@ -70,24 +54,12 @@ cvox.ExtensionBridge.init = function() {
       self.context = self.BACKGROUND;
       self.initBackground();
       return;
-    } else {
-      /**
-       * TODO(dmazzoni): remove this code - it's no longer supported
-       * to use ExtensionBridge from a page.
-       self.context = self.PAGE;
-       self.initPage();
-       return;
-       **/
     }
   } catch (e) {
     // Ignore exception that will be raised if we try to access
     // chrome.windows from a content script.
   }
 
-  // TODO (clchen, dmazzoni): Find a cleaner way to get here.
-  // Right now, we are relying on the fact that there will be
-  // an exception thrown in the if statement to get to this
-  // part of the code.
   if (chrome && chrome.extension) {
     self.context = self.CONTENT_SCRIPT;
     self.initContentScript();
@@ -109,13 +81,6 @@ cvox.ExtensionBridge.BACKGROUND = 0;
 cvox.ExtensionBridge.CONTENT_SCRIPT = 1;
 
 /**
- * Constant indicating we're in a page.
- * @type {number}
- * @const
- */
-cvox.ExtensionBridge.PAGE = 2;
-
-/**
  * The name of the port between the content script and background page.
  * @type {string}
  * @const
@@ -123,20 +88,20 @@ cvox.ExtensionBridge.PAGE = 2;
 cvox.ExtensionBridge.PORT_NAME = 'cvox.ExtensionBridge.Port';
 
 /**
- * The name of the message between the page and content script that sets
- * up the bidirectional port between them.
+ * The name of the message between the content script and background to
+ * see if they're connected.
  * @type {string}
  * @const
  */
-cvox.ExtensionBridge.PORT_SETUP_MSG = 'cvox.ExtensionBridge.PortSetup';
+cvox.ExtensionBridge.PING_MSG = 'cvox.ExtensionBridge.Ping';
 
 /**
- * The message between content script and the page that indicates the
- * connection to the background page has been lost.
+ * The name of the message between the background and content script to
+ * confirm that they're connected.
  * @type {string}
  * @const
  */
-cvox.ExtensionBridge.DISCONNECT_MSG = 'cvox.ExtensionBridge.Disconnect';
+cvox.ExtensionBridge.PONG_MSG = 'cvox.ExtensionBridge.Pong';
 
 /**
  * Send a message. If the context is a page, sends a message to the
@@ -153,9 +118,6 @@ cvox.ExtensionBridge.send = function(message) {
     break;
   case self.CONTENT_SCRIPT:
     self.sendContentScriptToBackground(message);
-    break;
-  case self.PAGE:
-    self.sendPageToContentScript(message);
     break;
   }
 };
@@ -197,6 +159,12 @@ cvox.ExtensionBridge.initBackground = function() {
     }
     port.onMessage.addListener(
         function(message) {
+          if (message[cvox.ExtensionBridge.PING_MSG]) {
+            var pongMessage = {};
+            pongMessage[cvox.ExtensionBridge.PONG_MSG] = 1;
+            port.postMessage(pongMessage);
+	    return;
+	  }
           for (var i = 0; i < self.messageListeners.length; i++) {
             self.messageListeners[i](message, port);
           }
@@ -209,11 +177,13 @@ cvox.ExtensionBridge.initBackground = function() {
 
 /**
  * Initialize the extension bridge in a content script context, listening
- * for messages from the background page and accepting a bidirectional port
- * from the page.
+ * for messages from the background page.
  */
 cvox.ExtensionBridge.initContentScript = function() {
   var self = cvox.ExtensionBridge;
+  self.connected = false;
+  self.pingAttempts = 0;
+  self.queuedMessages = [];
 
   var onMessageHandler = function(request, sender, sendResponse) {
     if (request && request['srcFile']) {
@@ -222,11 +192,12 @@ cvox.ExtensionBridge.initContentScript = function() {
       // the background page, but it is in the Chrome OS case.
       return;
     }
-    for (var i = 0; i < self.messageListeners.length; i++) {
-      self.messageListeners[i](request, self.backgroundPort);
-    }
-    if (self.port) {
-      self.port.postMessage(cvox.ChromeVoxJSON.stringify(request));
+    if (request[cvox.ExtensionBridge.PONG_MSG]) {
+      self.gotPongFromBackgroundPage();
+    } else {
+      for (var i = 0; i < self.messageListeners.length; i++) {
+        self.messageListeners[i](request, cvox.ExtensionBridge.backgroundPort);
+      }
     }
     sendResponse({});
   };
@@ -235,93 +206,86 @@ cvox.ExtensionBridge.initContentScript = function() {
   // our connection port.
   chrome.extension.onMessage.addListener(onMessageHandler);
 
-  // Listen to events on the main window and wait for a port setup message
-  // from the page to continue.
-  window.addEventListener('message', self.contentScriptMessageListener, true);
-};
+  self.setupBackgroundPort();
 
-/**
- * This method is called when the content script receives a message from
- * the page.
- * @param {Event} event The DOM event with the message data.
- * @return {boolean} True if default event processing should continue.
- */
-cvox.ExtensionBridge.contentScriptMessageListener = function(event) {
-  var self = cvox.ExtensionBridge;
-
-  if (event.data == self.PORT_SETUP_MSG) {
-    // Now that we have a page connection, connect to background too.
-    // (Don't do this earlier, otherwise initial messages from the
-    // background wouldn't make it all the way through to the page.)
-    cvox.ExtensionBridge.setupBackgroundPort();
-
-    self.port = event.ports[0];
-    self.port.onmessage = function(event) {
-      self.backgroundPort.postMessage(cvox.ChromeVoxJSON.parse(event.data));
-    };
-
-    // Stop propagation if it was our message.
-    event.stopPropagation();
-    return false;
-  }
-  return true;
+  self.tryToPingBackgroundPage();
 };
 
 /**
  * Set up the connection to the background page.
  */
 cvox.ExtensionBridge.setupBackgroundPort = function() {
+  // Set up the connection to the background page.
   var self = cvox.ExtensionBridge;
   self.backgroundPort = chrome.extension.connect({name: self.PORT_NAME});
   self.backgroundPort.onMessage.addListener(
       function(message) {
-        for (var i = 0; i < self.messageListeners.length; i++) {
-          self.messageListeners[i](message, self.backgroundPort);
-        }
-        if (self.port) {
-          self.port.postMessage(cvox.ChromeVoxJSON.stringify(message));
+        if (message[cvox.ExtensionBridge.PONG_MSG]) {
+          self.gotPongFromBackgroundPage();
+        } else {
+          for (var i = 0; i < self.messageListeners.length; i++) {
+            self.messageListeners[i](message, self.backgroundPort);
+          }
         }
       });
   self.backgroundPort.onDisconnect.addListener(
       function(event) {
+        // If we're not connected yet, don't give up - try again.
+        if (!self.connected) {
+          self.backgroundPort = null;
+	  return;
+	}
+
         for (var i = 0; i < self.disconnectListeners.length; i++) {
           self.disconnectListeners[i]();
         }
-        if (self.port) {
-          self.port.postMessage(cvox.ExtensionBridge.DISCONNECT_MSG);
-        }
-        window.removeEventListener(
-            'message', self.contentScriptMessageListener, true);
       });
 };
 
 /**
- * Initialize the extension bridge in a page context, creating a
- * MessageChannel and sending one of the ports to the content script
- * and then listening for messages on the other port.
+ * Try to ping the background page.
  */
-cvox.ExtensionBridge.initPage = function() {
+cvox.ExtensionBridge.tryToPingBackgroundPage = function() {
   var self = cvox.ExtensionBridge;
-  self.channel = new MessageChannel();
 
-  // Note: using postMessage.apply rather than just calling postMessage
-  // directly because the 3-argument form of postMessage is still in the
-  // HTML5 draft.
-  window.postMessage.apply(
-      window, [self.PORT_SETUP_MSG, [self.channel.port2], '*']);
+  // If we already got a pong, great - we're done.
+  if (self.connected) {
+    return;
+  }
 
-  self.channel.port1.onmessage = function(event) {
-    if (event.data == self.DISCONNECT_MSG) {
-      for (var i = 0; i < self.disconnectListeners.length; i++) {
-        self.disconnectListeners[i]();
-      }
-      return;
+  self.pingAttempts++;
+  if (self.pingAttempts > 5) {
+    // Could not connect after 5 ping attempts. Call the disconnect
+    // handlers, which will disable ChromeVox.
+    for (var i = 0; i < self.disconnectListeners.length; i++) {
+      self.disconnectListeners[i]();
     }
-    for (var i = 0; i < self.messageListeners.length; i++) {
-      self.messageListeners[i](cvox.ChromeVoxJSON.parse(event.data),
-                               self.channel.port1);
-    }
-  };
+    return;
+  }
+
+  // Send the ping.
+  var msg = {};
+  msg[cvox.ExtensionBridge.PING_MSG] = 1;
+  if (!self.backgroundPort) {
+    self.setupBackgroundPort();
+  }
+  self.backgroundPort.postMessage(msg);
+
+  // Check again in 500 ms in case we get no response.
+  window.setTimeout(cvox.ExtensionBridge.tryToPingBackgroundPage, 500);
+};
+
+/**
+ * Got pong from the background page, now we know the connection was
+ * successful.
+ */
+cvox.ExtensionBridge.gotPongFromBackgroundPage = function() {
+  var self = cvox.ExtensionBridge;
+  self.connected = true;
+
+  while (self.queuedMessages.length > 0) {
+    self.sendContentScriptToBackground(self.queuedMessages.shift());
+  }
 };
 
 /**
@@ -330,6 +294,14 @@ cvox.ExtensionBridge.initPage = function() {
  * @param {Object} message The message to send.
  */
 cvox.ExtensionBridge.sendContentScriptToBackground = function(message) {
+  var self = cvox.ExtensionBridge;
+  if (!self.connected) {
+    // We're not connected to the background page, so queue this message
+    // until we're connected.
+    self.queuedMessages.push(message);
+    return;
+  }
+
   if (cvox.ExtensionBridge.backgroundPort) {
     cvox.ExtensionBridge.backgroundPort.postMessage(message);
   } else {
@@ -349,16 +321,6 @@ cvox.ExtensionBridge.sendBackgroundToContentScript = function(message) {
       function(tab) {
         chrome.tabs.sendMessage(tab.id, message);
       });
-};
-
-/**
- * Send a message from the current page to its content script.
- *
- * @param {Object} message The message to send.
- */
-cvox.ExtensionBridge.sendPageToContentScript = function(message) {
-  cvox.ExtensionBridge.channel.port1.postMessage(
-      cvox.ChromeVoxJSON.stringify(message));
 };
 
 cvox.ExtensionBridge.init();

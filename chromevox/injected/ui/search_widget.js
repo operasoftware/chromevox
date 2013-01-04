@@ -58,6 +58,13 @@ cvox.SearchWidget = function() {
    * @private
    */
   this.caseSensitive_ = false;
+
+  /**
+   * @type {boolean}
+   * @private
+  */
+  this.hasMatch_ = false;
+  goog.base(this);
 };
 goog.inherits(cvox.SearchWidget, cvox.Widget);
 goog.addSingletonGetter(cvox.SearchWidget);
@@ -68,18 +75,16 @@ goog.addSingletonGetter(cvox.SearchWidget);
  */
 cvox.SearchWidget.prototype.show = function() {
   goog.base(this, 'show');
-  this.initialGranularity_ = cvox.ChromeVox.navigationManager.getGranularity();
+  this.active = true;
+  this.hasMatch_ = false;
   cvox.ChromeVox.navigationManager.setGranularity(
       cvox.NavigationShifter.GRANULARITIES.OBJECT);
 
-  // During profiling, NavigationHistory was found to have a serious performance
+  // During profiling, NavigationHistory was found to have a serious performanc
   // impact on search.
-  cvox.ChromeVox.navigationManager.disableNavigationHistory();
+  this.focusRecovery_ = cvox.ChromeVox.navigationManager.getFocusRecovery();
+  cvox.ChromeVox.navigationManager.setFocusRecovery(false);
 
-  this.initialNode_ =
-      cvox.ChromeVox.navigationManager.getCurrentNode();
-
-  this.initialFocus_ = document.activeElement;
   var containerNode = this.createContainerNode_();
   this.containerNode_ = containerNode;
 
@@ -104,7 +109,7 @@ cvox.SearchWidget.prototype.show = function() {
 /**
  * @override
  */
-cvox.SearchWidget.prototype.hide = function() {
+cvox.SearchWidget.prototype.hide = function(opt_noSync) {
   if (this.isActive()) {
     var containerNode = this.containerNode_;
     containerNode.style.opacity = '0.0';
@@ -113,11 +118,26 @@ cvox.SearchWidget.prototype.hide = function() {
     }, 1000);
     this.txtNode_ = null;
     cvox.SearchWidget.containerNode = null;
-    cvox.ChromeVox.navigationManager.enableNavigationHistory();
-    cvox.ChromeVox.navigationManager.setGranularity(this.initialGranularity_);
-    cvox.ChromeVox.navigationManager.syncAll();
+    cvox.ChromeVox.navigationManager.setFocusRecovery(this.focusRecovery_);
+    this.active = false;
   }
-  cvox.$m('search_widget_outro').speakFlush();
+
+  cvox.$m('choice_widget_exited')
+      .andPause()
+      .andMessage(this.getNameMsg())
+      .speakFlush();
+
+  if (!this.hasMatch_ || !opt_noSync) {
+    cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
+        this.initialNode);
+  }
+  cvox.ChromeVoxEventSuspender.withSuspendedEvents(goog.bind(
+      cvox.ChromeVox.navigationManager.syncAll,
+      cvox.ChromeVox.navigationManager))(true);
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(
+      cvox.ChromeVox.navigationManager.getDescription(),
+      cvox.AbstractTts.QUEUE_MODE_QUEUE,
+      null);
 
   goog.base(this, 'hide', true);
 };
@@ -127,14 +147,14 @@ cvox.SearchWidget.prototype.hide = function() {
  * @override
  */
 cvox.SearchWidget.prototype.getNameMsg = function() {
-  return 'search_widget_intro';
+  return ['search_widget_intro'];
 };
 
 
 /**
  * @override
  */
-cvox.SearchWidget.prototype.getHelp = function() {
+cvox.SearchWidget.prototype.getHelpMsg = function() {
   return 'search_widget_intro_help';
 };
 
@@ -155,26 +175,17 @@ cvox.SearchWidget.prototype.onKeyDown = function(evt) {
       this.beginSearch_(searchStr);
     } else {
       cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
-          this.initialNode_);
+          this.initialNode);
       cvox.ChromeVox.navigationManager.syncAll();
     }
   } else if (evt.keyCode == 40) { // Down arrow
-    this.next_(searchStr);
+    this.next_(searchStr, false);
   } else if (evt.keyCode == 38) { // Up arrow
-    this.prev_(searchStr);
+    this.next_(searchStr, true);
   } else if (evt.keyCode == 13) { // Enter
-    this.hide();
+    this.hide(true);
   } else if (evt.keyCode == 27) { // Escape
-    this.hide();
-    cvox.ApiImplementation.syncToNode(this.initialNode_,
-                                      true,
-                                      cvox.AbstractTts.QUEUE_MODE_QUEUE);
-    if (this.initialFocus_) {
-      cvox.ChromeVox.markInUserCommand();
-      cvox.Focuser.setFocus(this.initialFocus_);
-    } else if (document.activeElement) {
-      document.activeElement.blur();
-    }
+    this.hide(false);
   } else if (evt.ctrlKey && evt.keyCode == 67) { // ctrl + c
     this.toggleCaseSensitivity_();
   } else {
@@ -208,6 +219,15 @@ cvox.SearchWidget.prototype.onKeyPress = function(evt) {
 
 
 /**
+ * Gets the predicate to apply to every search.
+ * @return {?function(Array.<Node>)} A predicate; if null, no predicate applies.
+ */
+cvox.SearchWidget.prototype.getPredicate = function() {
+  return null;
+};
+
+
+/**
  * Create the container node for the search overlay.
  *
  * @return {!Element} The new element, not yet added to the document.
@@ -220,6 +240,7 @@ cvox.SearchWidget.prototype.createContainerNode_ = function() {
   containerNode.style['left'] = '50%';
   containerNode.style['-webkit-transition'] = 'all 0.3s ease-in';
   containerNode.style['opacity'] = '0.0';
+  containerNode.style['z-index'] = '2147483647';
   containerNode.setAttribute('aria-hidden', 'true');
   return containerNode;
 };
@@ -238,7 +259,6 @@ cvox.SearchWidget.prototype.createOverlayNode_ = function() {
   overlayNode.style['left'] = '-50%';
   overlayNode.style['top'] = '-40px';
   overlayNode.style['line-height'] = '1.2em';
-  overlayNode.style['z-index'] = '10001';
   overlayNode.style['font-size'] = '20px';
   overlayNode.style['padding'] = '30px';
   overlayNode.style['min-width'] = '150px';
@@ -273,13 +293,23 @@ cvox.SearchWidget.prototype.toggleCaseSensitivity_ = function() {
  * @private
  */
 cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
+  var r = cvox.ChromeVox.navigationManager.isReversed();
   if (!this.caseSensitive_) {
     searchStr = searchStr.toLowerCase();
   }
 
+  cvox.ChromeVox.navigationManager.setGranularity(
+      cvox.NavigationShifter.GRANULARITIES.OBJECT);
+
   do {
-    cvox.ChromeVox.navigationManager.setGranularity(
-        cvox.NavigationShifter.GRANULARITIES.OBJECT);
+    if (this.getPredicate()) {
+      var retNode = this.getPredicate()(cvox.DomUtil.getAncestors(
+          cvox.ChromeVox.navigationManager.getCurrentNode()));
+      if (!retNode) {
+        continue;
+      }
+    }
+
     var descriptions = cvox.ChromeVox.navigationManager.getDescription();
     for (var i = 0; i < descriptions.length; i++) {
       var targetStr = this.caseSensitive_ ? descriptions[i].text :
@@ -300,7 +330,9 @@ cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
         return descriptions;
       }
     }
-  } while (cvox.ChromeVox.navigationManager.navigate(true));
+    cvox.ChromeVox.navigationManager.setReversed(r);
+  } while (cvox.ChromeVox.navigationManager.navigate(true,
+      cvox.NavigationShifter.GRANULARITIES.OBJECT));
 };
 
 
@@ -317,30 +349,33 @@ cvox.SearchWidget.prototype.beginSearch_ = function(searchStr) {
 
 
 /**
- * Goes to the next matching result.
+ * Goes to the next (directed) matching result.
  *
  * @param {string} searchStr The text to search for.
+ * @param {boolean=} opt_reversed The direction.
+ * @return {Array.<cvox.NavDescription>} The next result.
  * @private
  */
-cvox.SearchWidget.prototype.next_ = function(searchStr) {
-  cvox.ChromeVox.navigationManager.setReversed(false);
-  cvox.ChromeVox.navigationManager.navigate();
-  var result = this.getNextResult_(searchStr);
-  this.outputSearchResult_(result);
-};
+cvox.SearchWidget.prototype.next_ = function(searchStr, opt_reversed) {
+  cvox.ChromeVox.navigationManager.setReversed(!!opt_reversed);
 
-
-/**
- * Goes to the previous matching result.
- *
- * @param {string} searchStr The text to search for.
- * @private
- */
-cvox.SearchWidget.prototype.prev_ = function(searchStr) {
-  cvox.ChromeVox.navigationManager.setReversed(true);
-  cvox.ChromeVox.navigationManager.navigate();
-  var result = this.getNextResult_(searchStr);
+  var success = false;
+  if (this.getPredicate()) {
+    success = cvox.ChromeVox.navigationManager.findNext(
+        /** @type {function(Array.<Node>)} */ (this.getPredicate()));
+    // TODO(dtseng): findNext always seems to point direction forward!
+    cvox.ChromeVox.navigationManager.setReversed(!!opt_reversed);
+    if (!success) {
+      cvox.ChromeVox.navigationManager.syncToPageBeginning();
+      cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+      success = true;
+    }
+  } else {
+    success = cvox.ChromeVox.navigationManager.navigate(true);
+  }
+  var result = success ? this.getNextResult_(searchStr) : null;
   this.outputSearchResult_(result);
+  return result;
 };
 
 
@@ -354,25 +389,26 @@ cvox.SearchWidget.prototype.prev_ = function(searchStr) {
  * @private
  */
 cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
+  cvox.ChromeVox.tts.stop();
   if (!result) {
-    cvox.ChromeVox.tts.stop();
-    cvox.$m('search_widget_no_results').speakFlush();
     cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+    this.hasMatch_ = false;
     return;
   }
 
+  this.hasMatch_ = true;
+
   // Speak the modified description and some instructions.
+  cvox.ChromeVoxEventSuspender.withSuspendedEvents(goog.bind(
+      cvox.ChromeVox.navigationManager.syncAll,
+      cvox.ChromeVox.navigationManager))(true);
+
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
       result,
       cvox.AbstractTts.QUEUE_MODE_FLUSH,
       null);
 
-  cvox.ChromeVox.tts.speak('Press enter to accept or escape to cancel, ' +
-      'down for next and up for previous.',
+  cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('search_help_item'),
                            cvox.AbstractTts.QUEUE_MODE_QUEUE,
                            cvox.AbstractTts.PERSONALITY_ANNOTATION);
-
-  cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
-    cvox.ChromeVox.navigationManager.syncAll();
-  });
 };

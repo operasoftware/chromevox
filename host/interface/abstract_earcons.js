@@ -145,6 +145,14 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
 };
 
 /**
+ * @param {number} earconId The earcon ID.
+ * @return {string} The filename for the earcon.
+ */
+cvox.AbstractEarcons.prototype.getEarconFilename = function(earconId) {
+  return cvox.AbstractEarcons.earconMap[earconId];
+};
+
+/**
  * @type {number}
  */
 cvox.AbstractEarcons.ALERT_MODAL = 0;
@@ -313,3 +321,66 @@ cvox.AbstractEarcons.WRAP = 32;
  * @type {number}
  */
 cvox.AbstractEarcons.WRAP_EDGE = 33;
+
+/**
+ * The earcon map.
+ * @type {Object}
+ */
+cvox.AbstractEarcons.earconMap = new Object();
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.ALERT_MODAL] =
+    'alert_modal.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.ALERT_NONMODAL] =
+    'alert_nonmodal.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.BULLET] = 'bullet.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.BUSY_PROGRESS_LOOP] =
+    'busy_progress_loop.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.BUSY_WORKING_LOOP] =
+    'busy_working_loop.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.BUTTON] = 'button.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.CHECK_OFF] =
+    'check_off.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.CHECK_ON] = 'check_on.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.COLLAPSED] =
+    'collapsed.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.EDITABLE_TEXT] =
+    'editable_text.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.ELLIPSIS] = 'ellipsis.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.EXPANDED] = 'expanded.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.FONT_CHANGE] =
+    'font_change.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.INVALID_KEYPRESS] =
+    'invalid_keypress.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LINK] = 'link.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LISTBOX] = 'listbox.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LIST_ITEM] = 'bullet.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.NEW_MAIL] = 'new_mail.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_CLOSE] =
+    'object_close.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_DELETE] =
+    'object_delete.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_DESELECT] =
+    'object_deselect.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_ENTER] =
+    'object_enter.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_EXIT] =
+    'object_exit.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_OPEN] =
+    'object_open.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_SELECT] =
+    'object_select.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.PARAGRAPH_BREAK] =
+    'paragraph_break.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SEARCH_HIT] =
+    'search_hit.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SEARCH_MISS] =
+    'search_miss.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SECTION] = 'section.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SELECTION] =
+    'selection.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SELECTION_REVERSE] =
+    'selection_reverse.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.TASK_SUCCESS] =
+    'task_success.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.WRAP] = 'wrap.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.WRAP_EDGE] =
+    'wrap_edge.ogg';

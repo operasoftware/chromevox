@@ -46,6 +46,13 @@ cvox.Focuser.setFocus = function(targetNode, opt_focusDescendants) {
     document.activeElement.blur();
   }
 
+  // Video elements should always be focusable.
+  if (targetNode && (targetNode.constructor == HTMLVideoElement)) {
+    if (!cvox.DomUtil.isFocusable(targetNode)) {
+      targetNode.setAttribute('tabIndex', 0);
+    }
+  }
+
   if (opt_focusDescendants && !cvox.DomUtil.isFocusable(targetNode)) {
     var focusableDescendant = cvox.DomUtil.findFocusableDescendant(targetNode);
     if (focusableDescendant) {
@@ -70,9 +77,7 @@ cvox.Focuser.setFocus = function(targetNode, opt_focusDescendants) {
       // with .focus() which causes the page to be redrawn incorrectly if
       // not in setTimeout.
       if (cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
-        if (!targetNode.hasAttribute ||
-            targetNode.getAttribute('type') != 'time') {
-          // Only enterSuspendEvents if this is not a time widget.
+        if (cvox.Focuser.shouldEnterSuspendEvents_(targetNode)) {
           cvox.ChromeVoxEventSuspender.enterSuspendEvents();
         }
         window.setTimeout(function() {
@@ -99,3 +104,23 @@ cvox.Focuser.setFocus = function(targetNode, opt_focusDescendants) {
     sel.addRange(range);
   }
 };
+
+/**
+ * Rules for whether or not enterSuspendEvents should be called.
+ * In general, we should not enterSuspendEvents if the targetNode will get some
+ * special handlers attached when a focus event is received for it; otherwise,
+ * the special handlers will not get attached.
+ *
+ * @param {Node} targetNode The node that is being focused.
+ * @return {boolean} True if enterSuspendEvents should be called.
+ */
+cvox.Focuser.shouldEnterSuspendEvents_ = function(targetNode){
+  if (targetNode.constructor && targetNode.constructor == HTMLVideoElement) {
+    return false;
+  }
+  if (targetNode.hasAttribute && targetNode.getAttribute('type') == 'time') {
+    return false;
+  }
+  return true;
+};
+

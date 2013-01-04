@@ -39,7 +39,7 @@ SpeakableParser.DEFAULT_TYPE = '{' + SpeakableParser.speechTypes.TEXT + '}';
 
 /** from the <range> part of the string get an object that has the
   * array of indexes that will be read by chromevox
-  * @param {String} range string denoting range of indices.
+  * @param {string} range string denoting range of indices.
   * @param {number} maxElems the size of array (max of indices).
   * @return {Object} the array of indices.
   */
@@ -101,7 +101,7 @@ SpeakableParser.getRange = function(range, maxElems) {
  * be processed on the next step.
  * @param {Object} valuesAndFormatter the value and formatter pair to be
  * processed.
- * @return {String} the speech string formed by formatter bound with values.
+ * @return {string} the speech string formed by formatter bound with values.
  */
 SpeakableParser.bindValuesToFormatter = function(valuesAndFormatter) {
 
@@ -194,7 +194,7 @@ SpeakableParser.bindValuesToFormatter = function(valuesAndFormatter) {
 /** formats the types for a given speech string by parsing the {Type} construct
  * and creates the node description array of the object
  * possible types are {text}, {ctxt}, {antt} and {user}
- * @param {String} speechString the speech string with type information.
+ * @param {string} speechString the speech string with type information.
  * @return {Array<cvox.nodeDescription>} the complete node description array
  * containing the description to be read by ChromeVox.
  */

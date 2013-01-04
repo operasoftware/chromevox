@@ -597,11 +597,11 @@ PowerKey.prototype.getManagedCompletionListByName_ = function(name) {
 
 /**
  * Sets the color and transparency of the background.
- * @param {string?} listName Name of the completion list for which to set
+ * @param {?string} listName Name of the completion list for which to set
  *     the background property.
  * @param {boolean} show Whether to show the background div when completion
  *     field is made visible.
- * @param {string?} color The color of the background.
+ * @param {?string} color The color of the background.
  * @param {number?} transparency The transparency level, 100 being fully
  *     opaque and 0 being fully transparent.
  */

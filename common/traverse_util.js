@@ -23,6 +23,7 @@
 goog.provide('cvox.TraverseUtil');
 
 goog.require('cvox.Cursor');
+goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
 
 /**
@@ -641,20 +642,38 @@ cvox.TraverseUtil.getPreviousSentence = function(
  *     line.  On exit, will point to the end of the returned string.
  * @param {Array.<Element>} elementsEntered Any HTML elements entered.
  * @param {Array.<Element>} elementsLeft Any HTML elements left.
- * @param {number} lineLength The maximum number of characters in a line.
  * @param {Object.<string, boolean>} breakTags Associative array of tags
  *     that should break the line.
  * @return {?string} The next line, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getNextLine = function(
-    startCursor, endCursor, elementsEntered, elementsLeft, lineLength,
-    breakTags) {
-  return cvox.TraverseUtil.getNextString(
+    startCursor, endCursor, elementsEntered, elementsLeft, breakTags) {
+  var range = document.createRange();
+  var currentRect = null;
+  var rightMostRect = null;
+  var prevCursor = endCursor.clone();
+ return cvox.TraverseUtil.getNextString(
       startCursor, endCursor, elementsEntered, elementsLeft,
       function(str, word, elementsEntered, elementsLeft) {
-        if (str.length + word.length + 1 > lineLength)
+        range.setStart(startCursor.node, startCursor.index);
+        range.setEnd(endCursor.node, endCursor.index);
+        var currentRect = range.getBoundingClientRect();
+        if (!rightMostRect) {
+          rightMostRect = currentRect;
+        }
+
+        // Break at new lines except when within a link.
+        if (currentRect.bottom != rightMostRect.bottom &&
+            !cvox.DomPredicates.linkPredicate(cvox.DomUtil.getAncestors(
+                endCursor.node))) {
+          endCursor.copyFrom(prevCursor);
           return true;
+        }
+
+        rightMostRect = currentRect;
+        prevCursor.copyFrom(endCursor);
+
         return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
             elementsEntered, elementsLeft, breakTags);
       });
@@ -669,20 +688,38 @@ cvox.TraverseUtil.getNextLine = function(
  * @param {cvox.Cursor} endCursor On exit, the end of the returned string.
  * @param {Array.<Element>} elementsEntered Any HTML elements entered.
  * @param {Array.<Element>} elementsLeft Any HTML elements left.
- * @param {number} lineLength The maximum number of characters in a line.
  * @param {Object.<string, boolean>} breakTags Associative array of tags
  *     that should break the line.
  *  @return {?string} The previous line, or null if the bottom of the
  *     document has been reached.
  */
 cvox.TraverseUtil.getPreviousLine = function(
-    startCursor, endCursor, elementsEntered, elementsLeft, lineLength,
-    breakTags) {
+    startCursor, endCursor, elementsEntered, elementsLeft, breakTags) {
+  var range = document.createRange();
+  var currentRect = null;
+  var leftMostRect = null;
+  var prevCursor = startCursor.clone();
   return cvox.TraverseUtil.getPreviousString(
       startCursor, endCursor, elementsEntered, elementsLeft,
       function(str, word, elementsEntered, elementsLeft) {
-        if (str.length + word.length + 1 > lineLength)
+        range.setStart(startCursor.node, startCursor.index);
+        range.setEnd(endCursor.node, endCursor.index);
+        var currentRect = range.getBoundingClientRect();
+        if (!leftMostRect) {
+          leftMostRect = currentRect;
+        }
+
+        // Break at new lines except when within a link.
+        if (currentRect.top != leftMostRect.top &&
+            !cvox.DomPredicates.linkPredicate(cvox.DomUtil.getAncestors(
+                startCursor.node))) {
+          startCursor.copyFrom(prevCursor);
           return true;
+        }
+
+        leftMostRect = currentRect;
+        prevCursor.copyFrom(startCursor);
+
         return cvox.TraverseUtil.includesBreakTagOrSkippedNode(
             elementsEntered, elementsLeft, breakTags);
       });

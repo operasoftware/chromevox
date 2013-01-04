@@ -17,6 +17,7 @@ goog.provide('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.History');
+goog.require('cvox.KeyMap');
 goog.require('cvox.KeySequence');
 goog.require('cvox.KeyUtil');
 goog.require('cvox.KeyboardHelpWidget');
@@ -29,54 +30,25 @@ goog.require('cvox.KeyboardHelpWidget');
 cvox.ChromeVoxKbHandler = {};
 
 /**
- * Maps a KeySequence to the name of a command to execute.
+ * The key map
  *
- * @type {Array.<Object.<string, {sequence: cvox.KeySequence, command: string}>>}
+ * @type {cvox.KeyMap}
  */
-cvox.ChromeVoxKbHandler.keyToFunctionsTable = [];
+cvox.ChromeVoxKbHandler.handlerKeyMap;
 
 /**
  * Loads the key bindings into the keyToFunctionsTable.
  *
- *  @param {string} keyToFunctionsTable The key bindings table in JSON form.
+ * @param {string} keyToFunctionsTable The key bindings table in JSON form.
  */
 cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
     keyToFunctionsTable) {
-  // TODO(dtseng): Consider constructing a full cvox.KeyMap object here.
   if (!window.JSON) {
     return;
   }
-  var tempKeyToFunctionsTable = /** @type {Object.<string, string>} */
-    (window.JSON.parse(keyToFunctionsTable));
 
-  var sortedKeyToFunctionsArray =
-      cvox.ChromeVoxKbHandler.sortKeyToFunctionsTable_(tempKeyToFunctionsTable);
-
-  // seqToFunction is an array of objects, each one of which should contain:
-  // 'sequence': The KeySequence object representing this sequence of keys
-  // 'command': The ChromeVox command associated with that key sequence
-  var seqToFunction = [];
-
-  for (var i = 0; i < sortedKeyToFunctionsArray.length; i++) {
-    var keySeqObj = /** @type {cvox.KeySequence} */ cvox.KeySequence.
-        fromStr(sortedKeyToFunctionsArray[i][0]);
-
-    var seqToFunctionObj = {
-      sequence: keySeqObj,
-      command: sortedKeyToFunctionsArray[i][1]
-    };
-    seqToFunction.push(seqToFunctionObj);
-  }
-
-  // TODO(rshearer): We are using the original keyToFunctionsTable in the
-  // KeyboardHelpWidget and sequence key code calculation for now. Change this
-  // so that we use KeySequences everywhere.
-  cvox.KeyboardHelpWidget.getInstance(tempKeyToFunctionsTable);
-
-  cvox.ChromeVox.sequenceSwitchKeyCodes =
-      cvox.ChromeVoxKbHandler.getSequenceSwitchKeys(tempKeyToFunctionsTable);
-
-  cvox.ChromeVoxKbHandler.keyToFunctionsTable = seqToFunction;
+  cvox.ChromeVoxKbHandler.handlerKeyMap =
+      cvox.KeyMap.fromJSON(keyToFunctionsTable, true);
 };
 
 /**
@@ -114,52 +86,6 @@ cvox.ChromeVoxKbHandler.sortKeyToFunctionsTable_ = function(
   return sortingArray;
 };
 
-/**
- * Finds an equivalent key sequence in the keyToFunctionsTable.
- *
- *  @param {cvox.KeySequence} givenKeySeq The key sequence we are seeking a
- *  match for.
- *  @return {?string} The function associated with the equivalent key sequence.
- *  Null if we cannot find a match.
- */
-cvox.ChromeVoxKbHandler.findEqualKeySeq = function(givenKeySeq) {
-  // TODO(rshearer): Move this method into key_map.js
-  for (var i = 0; i < cvox.ChromeVoxKbHandler.keyToFunctionsTable.length;
-      i++) {
-    var candidateKeySeq =
-        cvox.ChromeVoxKbHandler.keyToFunctionsTable[i].sequence;
-    if (candidateKeySeq.equals(givenKeySeq)) {
-      return cvox.ChromeVoxKbHandler.keyToFunctionsTable[i].command;
-    }
-  }
-  return null;
-};
-
-/**
- * Finds the keys that cause the switch to the sequential mode. For instance,
- * if the key->function table contains a shortcut Ctrl+Alt+J>L, then pressing
- * J and L one after the other while holding down Ctrl+Alt will generate the
- * shortcut Ctrl+Alt+J>L. In this case, J is the key that switches to the
- * sequential mode, indicating that the subsequent keys are a part fo the same
- * keyboard shortcut.
- *
- * @param {Object.<string, string>} keyToFunctionsTable The key bindings table.
- * @return {Object.<string, number>} A set containing the switch keys.
- */
-cvox.ChromeVoxKbHandler.getSequenceSwitchKeys = function(keyToFunctionsTable) {
-  // Find the keys that act as a switch for sequential mode.
-  var switchKeys = {};
-   for (var key in keyToFunctionsTable) {
-    var tokens = key.split('+');
-    if (tokens.length > 0) {
-      var seqKeys = tokens[tokens.length - 1].split('>');
-      if (seqKeys.length > 1) {
-        switchKeys[seqKeys[0]] = 1;
-      }
-    }
-  }
-  return switchKeys;
-};
 
 /**
  * Checks if ChromeVox must pass the enter key to the browser.
@@ -223,16 +149,21 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   }
 
   var keySequence = cvox.KeyUtil.keyEventToKeySequence(evt);
-  var keyStr = cvox.KeyUtil.keySequenceToString(keySequence);
 
-  var functionName = cvox.ChromeVoxKbHandler.findEqualKeySeq(keySequence);
+  var functionName;
+  if (cvox.ChromeVoxKbHandler.handlerKeyMap != undefined) {
+    functionName =
+        cvox.ChromeVoxKbHandler.handlerKeyMap.commandForKey(keySequence);
+  } else {
+    functionName = null;
+  }
 
   // TODO (clchen): Disambiguate why functions are null. If the user pressed
   // something that is not a valid combination, make an error noise so there
   // is some feedback.
 
   if (!functionName) {
-    return true;
+    return !cvox.KeyUtil.sequencing;
   }
 
   // If ChromeVox isn't active, ignore every command except the one
@@ -241,9 +172,12 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     return true;
   }
 
-  // TODO(stoarca): Remove private access.
   if ((functionName != 'skipForward') && (functionName != 'skipBackward')) {
-    cvox.ChromeVox.navigationManager.keepReading_ = false;
+    // Do not immediately interrupt TTS since we do not want to stop speech
+    // in some cases such as adjusting the TTS properties. Any cases where we
+    // should be interrupting speech are already handled in
+    // ChromeVoxUserCommands.
+    cvox.ChromeVox.navigationManager.stopReading(false);
   }
 
   // This is the key event handler return value - true if the event should
@@ -252,21 +186,12 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   var returnValue = true;
 
   var func = cvox.ChromeVoxUserCommands.commands[functionName];
-  if (func && (!cvox.ChromeVoxUserCommands.powerkey ||
-      !cvox.ChromeVoxUserCommands.powerkey.isVisible())) {
+  if (func) {
     var history = cvox.History.getInstance();
     history.enterUserCommand(functionName);
     returnValue = func();
     history.exitUserCommand(functionName);
-  } else if ((keyStr.indexOf(cvox.ChromeVox.modKeyStr) == 0) ||
-      (keyStr.indexOf('Cvox') == 0)) {
-    if (cvox.ChromeVoxUserCommands.powerkey &&
-        cvox.ChromeVoxUserCommands.powerkey.isVisible()) {
-      // if PowerKey is visible, hide it, since modifier keys have no use when
-      // PowerKey is visible.
-      cvox.KeyboardHelpWidget.getInstance().hide();
-      returnValue = false;
-    }
+  } else if (keySequence.cvoxModifier) {
     // Modifier/prefix is active -- prevent default action
     returnValue = false;
   }

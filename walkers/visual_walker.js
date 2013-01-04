@@ -146,7 +146,7 @@ cvox.VisualWalker.prototype.getDescription = function(prevSel, sel) {
     priorSel = currentSel;
     currentSel =
         this.subWalker_.next(priorSel) || cvox.CursorSelection.fromBody();
-  } while (priorSel.end.node != sel.end.node);
+  } while (priorSel.absEnd().node != sel.absEnd().node);
 
   return ret;
 };
@@ -358,5 +358,5 @@ cvox.VisualWalker.prototype.toNearestElement_ = function(node) {
     node = node.parentElement;
   }
 
-  return /** @type {Element} */ node;
+  return /** @type {Element} */ (node);
 };

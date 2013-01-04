@@ -123,7 +123,7 @@ financevox.preprocess = {
   /**
    * custom function for trends table reading the overall information
    * @param {Object} values values of table.
-   * @param {String} speakable name focused from.
+   * @param {string} speakable name focused from.
    * @return {Object} the filtered values.
    */
 

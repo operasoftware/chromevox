@@ -33,7 +33,8 @@ cvox.PlatformFilter = {
   MAC: 2,
   LINUX: 4,
   WML: 7,
-  CHROMEOS: 8
+  CHROMEOS: 8,
+  ANDROID: 16
 };
 
 
@@ -46,6 +47,8 @@ cvox.PlatformFilter = {
 cvox.PlatformUtil.matchesPlatform = function(filter) {
   if (filter == undefined) {
     return true;
+  } else if (navigator.userAgent.indexOf('Android') != -1) {
+    return (filter & cvox.PlatformFilter.ANDROID) != 0;
   } else if (navigator.userAgent.indexOf('Win') != -1) {
     return (filter & cvox.PlatformFilter.WINDOWS) != 0;
   } else if (navigator.userAgent.indexOf('Mac') != -1) {

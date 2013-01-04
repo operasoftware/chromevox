@@ -299,7 +299,7 @@ SpeakableManager.getAllValuesForSpeakable = function(speakable, domObj) {
  * node of the tree.
  * @param {Object} values all values associated with the DOM Element.
  * @param {Element} target the target element.
- * @param {String} focusedFrom the speakable name focused from.
+ * @param {string} focusedFrom the speakable name focused from.
  * @return {Object} a tree of values and their associated formatter, or
  * a done flag saying the entire element will not be formatted.
  */
@@ -407,7 +407,7 @@ SpeakableManager.generateSpeechNode = function(speakable, domObj) {
  * is focused.
  * @param {speakableManager.speakable} speakable the speakable
     with which the shortcut is associated.
- * @param {String} key key of shortcut.
+ * @param {string} key key of shortcut.
  * @param {function} functionToImplement to be run on keypress.
  */
 SpeakableManager.addSpeakableKeyListener = function(speakable, key,

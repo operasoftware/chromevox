@@ -23,6 +23,7 @@ goog.provide('cvox.AbstractBraille');
 
 goog.require('cvox.BrailleInterface');
 
+
 /**
  * Creates a new instance.
  * @constructor
@@ -31,16 +32,14 @@ goog.require('cvox.BrailleInterface');
 cvox.AbstractBraille = function() {
 };
 
-/** @override */
-cvox.AbstractBraille.prototype.write = function(textString) {
-  window.console.log("Braille: " + textString);
-};
 
 /** @override */
-cvox.AbstractBraille.prototype.setPanOutListener = function(func) {
-  window.console.log("Braille pan out listener set:");
-  window.console.log(func);
-};
+cvox.AbstractBraille.prototype.write = goog.abstractMethod;
+
+
+/** @override */
+cvox.AbstractBraille.prototype.setPanOutListener = goog.abstractMethod;
+
 
 /**
  * User has panned out on the left edge of the buffer.
@@ -54,4 +53,3 @@ cvox.AbstractBraille.PAN_OUT_LEFT = 0;
  * @type {number}
  */
 cvox.AbstractBraille.PAN_OUT_RIGHT = 1;
-

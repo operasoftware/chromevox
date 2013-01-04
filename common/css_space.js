@@ -444,7 +444,7 @@ cvox.CssSpace.getFontSizeDelta = function(node1, node2) {
  */
 cvox.CssSpace.getCachedComputedStyle = function(node) {
   if (!node['cvox-cache-style']) {
-    node = /** @type {!Element} */ node;
+    node = /** @type {!Element} */ (node);
     node['cvox-cached-style'] = window.getComputedStyle(node, '');
   }
 

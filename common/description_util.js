@@ -20,6 +20,7 @@
 
 goog.provide('cvox.DescriptionUtil');
 
+goog.require('cvox.AuralStyleUtil');
 goog.require('cvox.BareObjectWalker');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EarconUtil');
@@ -104,6 +105,7 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
 
   if (len > 0) {
     text = cvox.DomUtil.getName(ancestorsArray[len - 1], recursive);
+
     userValue = cvox.DomUtil.getValue(ancestorsArray[len - 1]);
   }
   for (var i = len - 1; i >= 0; i--) {
@@ -118,7 +120,7 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     var roleText = cvox.DomUtil.getRole(node, verbosity);
     // Use the ancestor closest to the target to be the personality.
     if (!personality) {
-      personality = cvox.DomUtil.getPersonalityForNode(node);
+      personality = cvox.AuralStyleUtil.getStyleForNode(node);
     }
     // TODO(dtseng): Is this needed?
     if (i < len - 1 && node.hasAttribute('role')) {
@@ -219,11 +221,62 @@ cvox.DescriptionUtil.getRawDescriptions_ = function(prevSel, sel) {
       break;
     }
 
-    curSel = /** @type {!cvox.CursorSelection} */ curSel;
+    curSel = /** @type {!cvox.CursorSelection} */ (curSel);
     prevnode = node;
     node = curSel.start.node;
   }
 
+  return descriptions;
+};
+
+/**
+ * Returns the full descriptions of the child nodes that would be gotten by an
+ * object walker.
+ * @param {?Element} prevnode The previous element if there is one.
+ * @param {!Element} node The target element.
+ * @return {!Array.<!cvox.NavDescription>} The descriptions.
+ */
+cvox.DescriptionUtil.getFullDescriptionsFromChildren =
+    function(prevnode, node) {
+  var descriptions = [];
+  if (!node) {
+    return descriptions;
+  }
+  var desc;
+  if (cvox.DomUtil.isLeafNode(node)) {
+    var ancestors;
+    if (prevnode) {
+      ancestors = cvox.DomUtil.getUniqueAncestors(prevnode, node);
+    } else {
+      ancestors = new Array();
+      ancestors.push(node);
+    }
+    desc = cvox.DescriptionUtil.getDescriptionFromAncestors(
+        ancestors, true, cvox.ChromeVox.verbosity);
+    descriptions.push(desc);
+    return descriptions;
+  }
+  var originalNode = node;
+  var curSel = cvox.CursorSelection.fromNode(node);
+  if (!curSel) {
+    return descriptions;
+  }
+  node = cvox.DescriptionUtil.subWalker_.sync(curSel).start.node;
+  curSel = cvox.CursorSelection.fromNode(node);
+  if (!curSel) {
+    return descriptions;
+  }
+  while (cvox.DomUtil.isDescendantOfNode(node, originalNode)) {
+    descriptions = descriptions.concat(
+        cvox.DescriptionUtil.getFullDescriptionsFromChildren(prevnode, node));
+    curSel = cvox.DescriptionUtil.subWalker_.next(curSel);
+    if (!curSel) {
+      break;
+    }
+    curSel = /** @type {!cvox.CursorSelection} */ (curSel);
+    prevnode = node;
+    node = curSel.start.node;
+  }
   return descriptions;
 };
 
@@ -306,5 +359,3 @@ cvox.DescriptionUtil.getAnnotations_ = function(descriptions) {
 cvox.DescriptionUtil.isAnnotationCollection_ = function(annotation) {
   return (annotation == cvox.ChromeVox.msgs.getMsg('tag_link'));
 };
-
-
