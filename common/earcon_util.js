@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,11 @@ cvox.EarconUtil.getEarcon = function(node) {
         return cvox.AbstractEarcons.LINK;
       }
       break;
+    case 'IMG':
+      if (cvox.DomUtil.hasLongDesc(node)) {
+        return cvox.AbstractEarcons.LONG_DESC;
+      }
+      break;
     case 'LI':
       return cvox.AbstractEarcons.LIST_ITEM;
     case 'SELECT':
@@ -71,4 +76,3 @@ cvox.EarconUtil.getEarcon = function(node) {
   }
   return null;
 };
-

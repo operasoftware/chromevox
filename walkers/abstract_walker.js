@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,9 @@
  * Does it need to know something other than the set that it operates on?
  * If so, then it probably doesn't belong here.
  *
+ * This interface resembles a C++ STL bidirectional iterator. Additions should
+ * keep this in mind.
+ *
  * @author stoarca@google.com (Sergiu Toarca)
  */
 
@@ -56,6 +59,7 @@ goog.require('cvox.NavBraille');
  */
 cvox.AbstractWalker = function() {
 };
+
 
 /**
  * This takes a valid CursorSelection and returns the directed-next
@@ -81,35 +85,22 @@ cvox.AbstractWalker = function() {
  */
 cvox.AbstractWalker.prototype.next = goog.abstractMethod;
 
-// TODO (stoarca): These might have to be changed to getValidSectionBeginning
-// to provide consistent interfaces for walking tables.
+
 /**
- * Syncs and returns the first valid, non-null selection in the document for
- * this walker.
+ * Syncs and returns the first or last valid, non-null selection in the
+ * this walker's linearization of the DOM.
  * @param {{reversed: (undefined|boolean)}=} kwargs Extra arguments.
- *  reversed: If true, syncs to the page end and returns a reversed selection.
+ *  reversed: If true, syncs to the end and returns a reversed selection.
  *    False by default.
  * @return {!cvox.CursorSelection} The valid selection.
  */
-cvox.AbstractWalker.prototype.syncToPageBeginning = function(kwargs) {
+cvox.AbstractWalker.prototype.begin = function(kwargs) {
   kwargs = kwargs || {reversed: false};
 
-  // TODO(stoarca): Does NOT work for TableWalker! The interfaces are not frozen
-  // yet, they will be tightened after everything is in the right place.
   return /** @type {!cvox.CursorSelection} */ (this.sync(
       cvox.CursorSelection.fromBody().setReversed(kwargs.reversed)));
 };
 
-
-/**
- * Tries to act on the current item. Displays a disambiguation dialog if
- * more than one action is possible.
- * @param {!cvox.CursorSelection} sel The selection on which to act.
- * @return {boolean} True if some action that could be taken exists.
- */
-cvox.AbstractWalker.prototype.act = function(sel) {
-  return false;
-};
 
 /**
  * This takes an arbitrary CursorSelection and returns a valid CursorSelection,
@@ -140,6 +131,7 @@ cvox.AbstractWalker.prototype.act = function(sel) {
  */
 cvox.AbstractWalker.prototype.sync = goog.abstractMethod;
 
+
 /**
  * Returns an array of NavDescriptions that defines what should be said
  * by the tts engine on traversal from prevSel to sel. While this is
@@ -154,6 +146,7 @@ cvox.AbstractWalker.prototype.sync = goog.abstractMethod;
  */
 cvox.AbstractWalker.prototype.getDescription = goog.abstractMethod;
 
+
 /**
  * Returns a NavBraille that defines what should be brailled on traversal from
  * prevSel to sel.
@@ -164,6 +157,29 @@ cvox.AbstractWalker.prototype.getDescription = goog.abstractMethod;
  * @return {!cvox.NavBraille} The braille description.
  */
 cvox.AbstractWalker.prototype.getBraille = goog.abstractMethod;
+
+
+/**
+ * Returns if this walker supports the given action.
+ * @param {string} name Action name.
+ * @return {boolean} True if action supported.
+ */
+cvox.AbstractWalker.prototype.hasAction = function(name) {
+  return typeof(this[name]) == 'function';
+};
+
+/**
+ * Performs an action specific to the walker.
+ * @param {string} name Action name.
+ * @param {!cvox.CursorSelection} sel The current selection.
+ * @return {cvox.CursorSelection} Selection after action.
+ */
+cvox.AbstractWalker.prototype.performAction = function(name, sel) {
+  if (this.hasAction(name)) {
+    return this[name](sel);
+  }
+  return null;
+};
 
 /**
  * Returns message string of the walker's granularity.

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ goog.provide('cvox.DomUtil');
 goog.require('cvox.AbstractTts');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.DomPredicates');
 goog.require('cvox.NodeState');
 goog.require('cvox.XpathUtil');
 
@@ -76,28 +77,29 @@ cvox.DomUtil.INPUT_TYPE_TO_INFORMATION_TABLE_MSG = {
  */
 cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
   'A' : 'tag_link',
+  'ARTICLE' : 'tag_article',
+  'ASIDE' : 'tag_aside',
+  'AUDIO' : 'tag_audio',
   'BUTTON' : 'tag_button',
+  'FOOTER' : 'tag_footer',
   'H1' : 'tag_h1',
   'H2' : 'tag_h2',
   'H3' : 'tag_h3',
   'H4' : 'tag_h4',
   'H5' : 'tag_h5',
   'H6' : 'tag_h6',
-  'LI' : 'tag_li',
-  'OL' : 'tag_ol',
-  'SELECT' : 'tag_select',
-  'TEXTAREA' : 'tag_textarea',
-  'UL' : 'tag_ul',
-  'SECTION' : 'tag_section',
-  'NAV' : 'tag_nav',
-  'ARTICLE' : 'tag_article',
-  'ASIDE' : 'tag_aside',
-  'HGROUP' : 'tag_hgroup',
   'HEADER' : 'tag_header',
-  'FOOTER' : 'tag_footer',
-  'TIME' : 'tag_time',
+  'HGROUP' : 'tag_hgroup',
+  'LI' : 'tag_li',
   'MARK' : 'tag_mark',
-  'AUDIO' : 'tag_audio',
+  'NAV' : 'tag_nav',
+  'OL' : 'tag_ol',
+  'SECTION' : 'tag_section',
+  'SELECT' : 'tag_select',
+  'TABLE' : 'tag_table',
+  'TEXTAREA' : 'tag_textarea',
+  'TIME' : 'tag_time',
+  'UL' : 'tag_ul',
   'VIDEO' : 'tag_video'
 };
 
@@ -106,13 +108,21 @@ cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG = {
  * @type {Object}
  */
 cvox.DomUtil.TAG_TO_INFORMATION_TABLE_BRIEF_MSG = {
+  'AUDIO' : 'tag_audio',
   'BUTTON' : 'tag_button',
   'SELECT' : 'tag_select',
+  'TABLE' : 'tag_table',
   'TEXTAREA' : 'tag_textarea',
-  'AUDIO' : 'tag_audio',
   'VIDEO' : 'tag_video'
 };
 
+/**
+ * These tags are treated as text formatters.
+ * @type {Array.<string>}
+ */
+cvox.DomUtil.FORMATTING_TAGS =
+    ['B', 'BIG', 'CITE', 'CODE', 'DFN', 'EM', 'I', 'KBD', 'SAMP', 'SMALL',
+     'SPAN', 'STRIKE', 'STRONG', 'SUB', 'SUP', 'U', 'VAR'];
 
 /**
  * Determine if the given node is visible on the page. This does not check if
@@ -328,7 +338,9 @@ cvox.DomUtil.isLeafNode = function(node) {
   }
 
   if (element.tagName == 'A' && element.getAttribute('href')) {
-    return true;
+    return !cvox.DomUtil.findNode(element, function(node) {
+      return !!cvox.DomPredicates.headingPredicate([node]);
+    });
   }
   if (cvox.DomUtil.isLeafLevelControl(element)) {
     return true;
@@ -491,6 +503,10 @@ cvox.DomUtil.getInputName_ = function(node) {
     } else {
       label = 'Reset';
     }
+  } else if (node.type == 'button') {
+    if (node.hasAttribute('value')) {
+      label = node.getAttribute('value');
+    }
   }
   return label;
 };
@@ -585,7 +601,11 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
   if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
     var placeholder = node.getAttribute('placeholder');
     if (label.length > 0) {
-      return label + ' with hint ' + placeholder;
+      if (cvox.DomUtil.getValue(node).length > 0) {
+        return label;
+      } else {
+        return label + ' with hint ' + placeholder;
+      }
     } else {
       return placeholder;
     }
@@ -741,12 +761,20 @@ cvox.DomUtil.getValue = function(node) {
   }
 
   if (node.constructor == HTMLSelectElement) {
-    if (node.selectedIndex >= 0 &&
-        node.selectedIndex < node.options.length) {
-      return node.options[node.selectedIndex].text + '';
-    } else {
-      return '';
+    node = /** @type {HTMLSelectElement} */(node);
+    var value = '';
+    var start = node.selectedOptions ? node.selectedOptions[0] : null;
+    var end = node.selectedOptions ? node.selectedOptions[node.selectedOptions.length - 1] : null;
+    // TODO(dtseng): Keeping this stateless means we describe the start and end
+    // of the selection only since we don't know which was added or
+    // removed. Once we keep the previous selection, we can read the diff.
+    if (start && end && start != end) {
+      value = cvox.ChromeVox.msgs.getMsg(
+        'selected_options_value', [start.text, end.text]);
+    } else if (start) {
+      value = start.text + '';
     }
+    return value;
   }
 
   if (node.constructor == HTMLTextAreaElement) {
@@ -755,11 +783,12 @@ cvox.DomUtil.getValue = function(node) {
 
   if (node.constructor == HTMLInputElement) {
     switch (node.type) {
-      // Returning '' for the submit button since it is covered by getText.
+      // Returning '' for inputs that are covered by getName.
       case 'hidden':
       case 'image':
       case 'submit':
       case 'reset':
+      case 'button':
       case 'checkbox':
       case 'radio':
         return '';
@@ -937,6 +966,11 @@ cvox.DomUtil.hasContent = function(node) {
     return true;
   }
 
+  // At this point, any tables are considered to have content.
+  if (node.tagName == 'TABLE') {
+    return true;
+  }
+
   var text = cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node);
   var state = cvox.DomUtil.getState(node, true);
   if (text.match(/^\s+$/) && state === '') {
@@ -1035,6 +1069,11 @@ cvox.DomUtil.getRoleMsg = function(targetNode, verbosity) {
       info = ''; // Don't want to add any role to anchors.
     } else if (targetNode.isContentEditable) {
       info = 'input_type_text';
+    } else if (cvox.DomUtil.isMath(targetNode)) {
+      info = 'math_expr';
+    } else if (targetNode.tagName == 'TABLE' &&
+        cvox.DomUtil.isLayoutTable(targetNode)) {
+      info = '';
     } else {
       if (verbosity == cvox.VERBOSITY_BRIEF) {
         info =
@@ -1043,8 +1082,13 @@ cvox.DomUtil.getRoleMsg = function(targetNode, verbosity) {
         info = cvox.DomUtil.TAG_TO_INFORMATION_TABLE_VERBOSE_MSG[
           targetNode.tagName];
 
-        if (!info && targetNode.onclick)
+        if (cvox.DomUtil.hasLongDesc(targetNode)) {
+          info = 'image_with_long_desc';
+        }
+
+        if (!info && targetNode.onclick) {
           info = 'clickable';
+        }
       }
     }
   }
@@ -1129,17 +1173,20 @@ cvox.DomUtil.getStateMsgs = function(targetNode, primary) {
       info.push([msgId]);
     }
   } else if (targetNode.tagName == 'SELECT') {
-    info.push(['list_position',
-               cvox.ChromeVox.msgs.getNumber(targetNode.selectedIndex + 1),
-               cvox.ChromeVox.msgs.getNumber(targetNode.options.length)]);
+    if (targetNode.selectedOptions && targetNode.selectedOptions.length <= 1) {
+      info.push(['list_position',
+                 cvox.ChromeVox.msgs.getNumber(targetNode.selectedIndex + 1),
+                 cvox.ChromeVox.msgs.getNumber(targetNode.options.length)]);
+    } else {
+      info.push(['selected_options_state',
+          cvox.ChromeVox.msgs.getNumber(targetNode.selectedOptions.length)]);
+    }
   } else if (targetNode.tagName == 'UL' ||
              targetNode.tagName == 'OL' ||
              role == 'list') {
     info.push(['list_with_items',
                cvox.ChromeVox.msgs.getNumber(
                    cvox.DomUtil.getListLength(targetNode))]);
-  } else if (targetNode.tagName == 'MATH') {
-    info.push(['math_expr']);
   }
 
   if (cvox.DomUtil.isDisabled(targetNode)) {
@@ -1262,20 +1309,47 @@ cvox.DomUtil.isAttachedToDocument = function(targetNode) {
  * Clicks go in the sequence of mousedown, mouseup, and click.
  * @param {Node} targetNode The target node of this operation.
  * @param {boolean} shiftKey Specifies if shift is held down.
+ * @param {boolean} callOnClickDirectly Specifies whether or not to directly
+ * invoke the onclick method if there is one.
  */
-cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
-  if (targetNode.tagName != 'A') {
-    if (targetNode.nodeType == 1) { // Element nodes only.
-      var aNodes = targetNode.getElementsByTagName('A');
-      if (aNodes.length > 0) {
-        targetNode = aNodes[0];
+cvox.DomUtil.clickElem = function(targetNode, shiftKey, callOnClickDirectly) {
+  // If there is an activeDescendant of the targetNode, then that is where the
+  // click should actually be targeted.
+  var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
+  if (activeDescendant) {
+    targetNode = activeDescendant;
+  }
+  if (callOnClickDirectly) {
+    var onClickFunction = null;
+    if (targetNode.onclick) {
+      onClickFunction = targetNode.onclick;
+    }
+    if (!onClickFunction && (targetNode.nodeType != 1) &&
+        targetNode.parentNode && targetNode.parentNode.onclick) {
+      onClickFunction = targetNode.parentNode.onclick;
+    }
+    var keepGoing = true;
+    if (onClickFunction) {
+      try {
+        keepGoing = onClickFunction();
+      } catch (exception) {
+        // Something went very wrong with the onclick method; we'll ignore it
+        // and just dispatch a click event normally.
       }
     }
+    if (!keepGoing) {
+      // The onclick method ran successfully and returned false, meaning the
+      // event should not bubble up, so we will return here.
+      return;
+    }
   }
-  //Send a mousedown
+
+  // Send a mousedown
   var evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('mousedown', true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
+  // Mark any events we generate so we don't try to process our own events.
+  evt.fromCvox = true;
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
@@ -1283,6 +1357,8 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   evt = document.createEvent('MouseEvents');
   evt.initMouseEvent('mouseup', true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
+  // Mark any events we generate so we don't try to process our own events.
+  evt.fromCvox = true;
   try {
     targetNode.dispatchEvent(evt);
   } catch (e) {}
@@ -1297,36 +1373,34 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey) {
   } catch (e) {}
 
   if (cvox.DomUtil.isInternalLink(targetNode)) {
-    cvox.DomUtil.skipLinkSync(targetNode);
+    cvox.DomUtil.syncInternalLink(targetNode);
   }
 };
 
 
 /**
- * Syncs to whatever targetNode skip link is pointing to.
- * @param {Node} targetNode The skip link.
+ * Syncs to an internal link.
+ * @param {Node} node A link whose href's target we want to sync.
  */
-cvox.DomUtil.skipLinkSync = function(targetNode) {
-  var targetName = targetNode.getAttribute('href').substring(1);
-  var anchor = cvox.XpathUtil.evalXPath('//a[@name="' + targetName + '"]',
-      document.body)[0];
-  var target;
-
-  if (anchor != undefined) {
-    target = anchor;
-  } else {
-    target = document.getElementById(targetName);
+cvox.DomUtil.syncInternalLink = function(node) {
+  var targetNode;
+  var targetId = node.href.split('#')[1];
+  targetNode = document.getElementById(targetId);
+  if (!targetNode) {
+    var nodes = document.getElementsByName(targetId);
+    if (nodes.length > 0) {
+      targetNode = nodes[0];
+    }
   }
-
-  if (target) {
-    cvox.ChromeVox.syncToNode(target, true);
-
+  if (targetNode) {
     // Insert a dummy node to adjust next Tab focus location.
-    var parent = target.parentNode;
+    var parent = targetNode.parentNode;
     var dummyNode = document.createElement('div');
     dummyNode.setAttribute('tabindex', '-1');
-    parent.insertBefore(dummyNode, target);
+    parent.insertBefore(dummyNode, targetNode);
+    dummyNode.setAttribute('chromevoxignoreariahidden', 1);
     dummyNode.focus();
+    cvox.ChromeVox.syncToNode(targetNode, true);
   }
 };
 
@@ -1630,8 +1704,9 @@ cvox.DomUtil.getControlValueAndStateString = function(control) {
 cvox.DomUtil.isInternalLink = function(node) {
   if (node.nodeType == 1) { // Element nodes only.
     var href = node.getAttribute('href');
-    if (href) {
-      return (node.getAttribute('href').indexOf('#') == 0);
+    if (href && href.indexOf('#') != -1) {
+      var path = href.split('#')[0];
+      return path == '' || path == window.location.pathname;
     }
   }
   return false;
@@ -2054,7 +2129,7 @@ cvox.DomUtil.directedNextSibling = function(node, reverse) {
  */
 cvox.DomUtil.createSimpleClickFunction = function(targetNode) {
   var target = targetNode.cloneNode(true);
-  return function() { cvox.DomUtil.clickElem(target, false); };
+  return function() { cvox.DomUtil.clickElem(target, false, false); };
 };
 
 /**
@@ -2077,33 +2152,133 @@ cvox.DomUtil.addNodeToHead = function(node, opt_id) {
  * Checks if a given node is inside a math expressions and
  * returns the math node if one exists.
  * @param {Node} node The node.
- * @param {{allowMathJax: (undefined|boolean)}=} kwargs Optional named args.
- *  allowMathJax: If true, will return true even if inside a caption. False
- *    by default.
  * @return {Node} The math node, if the node is inside a math expression.
  * Null if it is not.
  */
-cvox.DomUtil.getContainingMath = function(node, kwargs) {
+cvox.DomUtil.getContainingMath = function(node) {
   var ancestors = cvox.DomUtil.getAncestors(node);
-  return cvox.DomUtil.findMathNodeInList(ancestors, kwargs);
+  return cvox.DomUtil.findMathNodeInList(ancestors);
 };
+
 
 /**
  * Extracts a math node from a list of nodes.
  * @param {Array.<Node>} nodes The list of nodes.
- * @param {{allowMathJax: (undefined|boolean)}=} kwargs Optional named args.
- *  allowMathJax: If true, will return true even if inside a caption. False
- *    by default.
  * @return {Node} The math node if the list of nodes contains a math node.
  * Null if it does not.
  */
-cvox.DomUtil.findMathNodeInList = function(nodes, kwargs) {
-  kwargs = kwargs || {allowMathJax: false};
+cvox.DomUtil.findMathNodeInList = function(nodes) {
   for (var i = 0, node; node = nodes[i]; i++) {
-    if (node.tagName &&
-        (node.tagName.toLowerCase() == 'math' || cvox.AriaUtil.isMath(node))) {
+    if (cvox.DomUtil.isMath(node)) {
       return node;
     }
   }
   return null;
+};
+
+
+/**
+ * Checks to see wether a node is a math node.
+ * @param {Node} node The node to be tested.
+ * @return {boolean} Whether or not a node is a math node.
+ */
+cvox.DomUtil.isMath = function(node) {
+  return cvox.DomUtil.isMathml(node) ||
+      cvox.DomUtil.isMathJax(node) ||
+          cvox.AriaUtil.isMath(node);
+};
+
+
+/**
+ * Checks to see wether a node is a MathML node.
+ * !! This is necessary as Chrome currently does not upperCase Math tags !!
+ * @param {Node} node The node to be tested.
+ * @return {boolean} Whether or not a node is a MathML node.
+ */
+cvox.DomUtil.isMathml = function(node) {
+  if (!node || !node.tagName) {
+    return false;
+  }
+  return node.tagName.toLowerCase() == 'math';
+};
+
+
+/**
+ * Checks to see wether a node is a MathJax node.
+ * @param {Node} node The node to be tested.
+ * @return {boolean} Whether or not a node is a MathJax node.
+ */
+cvox.DomUtil.isMathJax = function(node) {
+  if (!node || !node.tagName || !node.className) {
+    return false;
+  }
+
+  function isSpanWithClass(n, cl) {
+    return (n.tagName == 'SPAN' &&
+            n.className.split(' ').some(function(x) {
+                                          return x.toLowerCase() == cl;}));
+  };
+  if (isSpanWithClass(node, 'math')) {
+    var ancestors = cvox.DomUtil.getAncestors(node);
+    return ancestors.some(function(x) {return isSpanWithClass(x, 'mathjax');});
+  }
+  return false;
+};
+
+
+/**
+ * Returns true if the node has a longDesc.
+ * @param {Node} node The node to be tested.
+ * @return {boolean} Whether or not a node has a longDesc.
+ */
+cvox.DomUtil.hasLongDesc = function(node) {
+  if (node && node.longDesc) {
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Returns tag name of a node if it has one.
+ * @param {Node} node A node.
+ * @return {string} A the tag name of the node.
+ */
+cvox.DomUtil.getNodeTagName = function(node) {
+  if (node.nodeType == Node.ELEMENT_NODE) {
+    return node.tagName;
+  }
+  return '';
+};
+
+
+/**
+ * Cleaning up a list of nodes to remove empty text nodes.
+ * @param {NodeList} nodes The nodes list.
+ * @return {!Array.<Node|string|null>} The cleaned up list of nodes.
+ */
+cvox.DomUtil.purgeNodes = function(nodes) {
+  return cvox.DomUtil.toArray(nodes).
+      filter(function(node) {
+               return node.nodeType != Node.TEXT_NODE ||
+                   !node.textContent.match(/^\s+$/);});
+};
+
+
+/**
+ * Calculates a hit point for a given node.
+ * @return {{x:(number), y:(number)}} The position.
+ */
+cvox.DomUtil.elementToPoint = function(node) {
+  if (!node) {
+    return {x: 0, y: 0};
+  }
+  if (node.constructor == Text) {
+    node = node.parentNode;
+  }
+  var r = node.getBoundingClientRect();
+  return {
+    x: r.left + (r.width / 2),
+    y: r.top + (r.height / 2)
+  };
 };

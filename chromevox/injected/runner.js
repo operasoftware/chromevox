@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -233,7 +233,7 @@ cvox.AutoRunner.prototype.waitForCalm = function(func, var_args) {
       var scope = this.currentTestSummary ?
           this.currentTestSummary.scope : this;
       try {
-        func.apply(scope, calmArgs);
+        func.apply(/** @type {cvox.AutoRunner} */ (scope), calmArgs);
       } catch (e) {
         window.console.log(e, e.stack);
         this.status = cvox.AutoRunner.FAIL;

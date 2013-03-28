@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,4 +28,4 @@ goog.provide('cvox.BuildInfo');
  * An identified for this build.
  * @type {string}
  */
-cvox.BuildInfo.build='1357322904';
+cvox.BuildInfo.build='1364508123';

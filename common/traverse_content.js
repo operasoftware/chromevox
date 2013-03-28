@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ cvox.TraverseContent = function(domObj) {
     window.console.log(domObj);
   }
 };
+goog.addSingletonGetter(cvox.TraverseContent);
 
 /**
  * Whether the last navigated selection only contained whitespace.
@@ -184,8 +185,12 @@ cvox.TraverseContent.prototype.updateSelection = function() {
  */
 cvox.TraverseContent.prototype.getCurrentRange = function() {
   var range = document.createRange();
-  range.setStart(this.startCursor_.node, this.startCursor_.index);
-  range.setEnd(this.endCursor_.node, this.endCursor_.index);
+  try {
+    range.setStart(this.startCursor_.node, this.startCursor_.index);
+    range.setEnd(this.endCursor_.node, this.endCursor_.index);
+  } catch (e) {
+    console.log('Invalid range ');
+  }
   return range;
 };
 

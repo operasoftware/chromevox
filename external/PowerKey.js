@@ -238,7 +238,7 @@ PowerKey.RIGHT_TRIMMABLE = /(\s|\r|\n)+$/;
  * default handler if the action map is provided.
  * @param {EventTarget?} target The element to attach the event listerner to.
  * @param {string} event The event to listen for.
- * @notypecheck {Function?} handler.
+ * @suppress {checkTypes} {Function?} handler.
  * @param {Function?} handler The event handler.
  * @param {Object?} actionMap The HashMap which provides a context-based
  *     mapping from keys to functions.

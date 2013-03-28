@@ -110,7 +110,7 @@ cvox.AbstractNodeWalker.prototype.privateSync_ = function(sel) {
   if (n) {
     return n.setReversed(r);
   }
-  return this.syncToPageBeginning({reversed: r});
+  return this.begin({reversed: r});
 };
 
 /**

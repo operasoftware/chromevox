@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,14 @@
 goog.provide('cvox.ChromeVoxEventWatcher');
 goog.provide('cvox.ChromeVoxEventWatcherUtil');
 
+goog.require('cvox.ActiveIndicator');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.AriaUtil');
+goog.require('cvox.BrailleTextHandler');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxEventSuspender');
+goog.require('cvox.ChromeVoxHTMLDateWidget');
 goog.require('cvox.ChromeVoxHTMLMediaWidget');
 goog.require('cvox.ChromeVoxHTMLTimeWidget');
 goog.require('cvox.ChromeVoxKbHandler');
@@ -38,6 +41,7 @@ goog.require('cvox.LiveRegionsDeprecated');
 goog.require('cvox.MacroWriter');  // TODO: Find a better place for this.
 goog.require('cvox.NavigationSpeaker');
 goog.require('cvox.PlatformFilter');  // TODO: Find a better place for this.
+goog.require('cvox.TextHandlerInterface');
 
 /**
  * @constructor
@@ -158,9 +162,15 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
   cvox.ChromeVoxEventWatcher.currentTextHandler = null;
 
   /**
-   * @type {Object}
+   * @type {cvox.TextHandlerInterface}
    */
-  cvox.ChromeVoxEventWatcher.previousTextHandlerState = null;
+  cvox.ChromeVoxEventWatcher.brailleTextHandler = null;
+  if (cvox.ChromeVox.braille && cvox.ChromeVox.navigationManager) {
+    cvox.ChromeVoxEventWatcher.brailleTextHandler =
+        new cvox.BrailleTextHandler(
+            cvox.ChromeVox.braille,
+            cvox.ChromeVox.navigationManager);
+  }
 
   /**
    * The last timestamp for the last keypress; that helps us separate
@@ -295,8 +305,9 @@ cvox.ChromeVoxEventWatcher.readFrom = function(store) {
  * @param {Event} evt The event to be added to the events queue.
  */
 cvox.ChromeVoxEventWatcher.addEvent = function(evt) {
-  // Don't add any events to the events queue if ChromeVox is inactive.
-  if (!cvox.ChromeVox.isActive) {
+  // Don't add any events to the events queue if ChromeVox is inactive or the
+  // page is hidden.
+  if (!cvox.ChromeVox.isActive || document.webkitHidden) {
     return false;
   }
   cvox.ChromeVoxEventWatcher.events_.push(evt);
@@ -446,6 +457,9 @@ cvox.ChromeVoxEventWatcher.cleanup = function(doc) {
         listener.type, listener.listener, listener.useCapture);
   }
   cvox.ChromeVoxEventWatcher.listeners_ = [];
+  if (cvox.ChromeVoxEventWatcher.currentDateHandler) {
+    cvox.ChromeVoxEventWatcher.currentDateHandler.shutdown();
+  }
   if (cvox.ChromeVoxEventWatcher.currentTimeHandler) {
     cvox.ChromeVoxEventWatcher.currentTimeHandler.shutdown();
   }
@@ -506,6 +520,8 @@ cvox.ChromeVoxEventWatcher.mutationHandler = function(mutations) {
     return true;
   }
 
+  cvox.ChromeVox.navigationManager.updateIndicatorIfChanged();
+
   cvox.LiveRegions.processMutations(
       mutations,
       function(assertive, navDescriptions) {
@@ -541,7 +557,17 @@ cvox.ChromeVoxEventWatcher.mouseClickEventWatcher = function(evt) {
     // the soft IME not coming up in Android (it only shows up if the click
     // happens in a focused text field).
     cvox.Focuser.setFocus(cvox.ChromeVox.navigationManager.getCurrentNode());
-    cvox.ChromeVoxUserCommands.commands['forceClickOnCurrentItem']();
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('element_clicked'),
+        cvox.AbstractTts.QUEUE_MODE_FLUSH,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+    // If the targetNode has a defined onclick function, just call it directly
+    // rather than try to generate a click event and dispatching it.
+    // While both work equally well on standalone Chrome, when dealing with
+    // embedded WebViews, generating a click event and sending it is not always
+    // reliable since the framework may swallow the event.
+    cvox.DomUtil.clickElem(targetNode, false, true);
     return false;
   }
   cvox.ChromeVoxUserCommands.wasMouseClicked = true;
@@ -634,6 +660,9 @@ cvox.ChromeVoxEventWatcher.focusEventWatcher = function(evt) {
 
   if (!cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
     cvox.ChromeVoxEventWatcher.addEvent(evt);
+  } else if (evt.target && evt.target.nodeType == Node.ELEMENT_NODE) {
+    cvox.ChromeVoxEventWatcher.setLastFocusedNode_(
+        /** @type {Element} */(evt.target));
   }
   return true;
 };
@@ -649,7 +678,7 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
       evt.target.getAttribute('aria-hidden') == 'true' &&
       evt.target.getAttribute('chromevoxignoreariahidden') != 'true') {
     cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
-    cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+    cvox.ChromeVoxEventWatcher.setUpTextHandler();
     return;
   }
   if (evt.target && evt.target != window) {
@@ -675,6 +704,10 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
       queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
     }
 
+    if (cvox.ChromeVox.navigationManager.clearPageSel(true)) {
+      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+    }
+
     // Navigate to this control so that it will be the same for focus as for
     // regular navigation.
     cvox.ApiImplementation.syncToNode(target, true, queueMode);
@@ -683,12 +716,20 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
       cvox.ChromeVoxEventWatcher.setUpMediaHandler_();
       return;
     }
-    if (evt.target.hasAttribute &&
-        evt.target.getAttribute('type') == 'time') {
-      cvox.ChromeVoxEventWatcher.setUpTimeHandler_();
-      return;
+    if (evt.target.hasAttribute) {
+      var inputType = evt.target.getAttribute('type');
+      switch (inputType) {
+        case 'time':
+          cvox.ChromeVoxEventWatcher.setUpTimeHandler_();
+          return;
+        case 'date':
+        case 'month':
+        case 'week':
+          cvox.ChromeVoxEventWatcher.setUpDateHandler_();
+          return;
+      }
     }
-    cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+    cvox.ChromeVoxEventWatcher.setUpTextHandler();
   } else {
     cvox.ChromeVoxEventWatcher.setLastFocusedNode_(null);
   }
@@ -718,10 +759,6 @@ cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
-  if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
-    cvox.ChromeVoxEventWatcher.previousTextHandlerState =
-        cvox.ChromeVoxEventWatcher.currentTextHandler.saveState();
-  }
   cvox.ChromeVoxEventWatcher.lastKeypressTime = new Date().getTime();
 
   if (cvox.ChromeVox.isChromeOS && evt.keyCode == 91) {
@@ -749,7 +786,7 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
     cvox.ChromeVoxEventWatcher.eventToEat = evt;
     return false;
   }
-    cvox.ChromeVoxEventWatcher.addEvent(evt);
+  cvox.ChromeVoxEventWatcher.addEvent(evt);
   return true;
 };
 
@@ -830,7 +867,7 @@ cvox.ChromeVoxEventWatcher.clipboardEventWatcher = function(evt) {
  * @param {Event} evt The event to handle.
  */
 cvox.ChromeVoxEventWatcher.changeHandler = function(evt) {
-  if (cvox.ChromeVoxEventWatcher.setUpTextHandler_()) {
+  if (cvox.ChromeVoxEventWatcher.setUpTextHandler()) {
     return;
   }
   if (document.activeElement == evt.target) {
@@ -942,9 +979,8 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedHandler = function(evt) {
 /**
  * Sets up the text handler.
  * @return {boolean} True if an editable text control has focus.
- * @private
  */
-cvox.ChromeVoxEventWatcher.setUpTextHandler_ = function() {
+cvox.ChromeVoxEventWatcher.setUpTextHandler = function() {
   var currentFocus = document.activeElement;
   if (currentFocus &&
       currentFocus.hasAttribute &&
@@ -966,7 +1002,6 @@ cvox.ChromeVoxEventWatcher.setUpTextHandler_ = function() {
     }
     cvox.ChromeVoxEventWatcher.currentTextControl = null;
     cvox.ChromeVoxEventWatcher.currentTextHandler = null;
-    cvox.ChromeVoxEventWatcher.previousTextHandlerState = null;
 
     if (currentFocus == null) {
       return false;
@@ -1024,9 +1059,11 @@ cvox.ChromeVoxEventWatcher.setUpTextHandler_ = function() {
  *
  * @param {boolean} isKeypress Was this change triggered by a keypress?
  * @return {boolean} True if an editable text control has focus.
- * @private
  */
-cvox.ChromeVoxEventWatcher.handleTextChanged_ = function(isKeypress) {
+cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
+  if (cvox.ChromeVoxEventWatcher.brailleTextHandler) {
+    cvox.ChromeVoxEventWatcher.brailleTextHandler.update(isKeypress);
+  }
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     var handler = cvox.ChromeVoxEventWatcher.currentTextHandler;
     handler.update(isKeypress);
@@ -1044,7 +1081,7 @@ cvox.ChromeVoxEventWatcher.handleTextChanged_ = function(isKeypress) {
 cvox.ChromeVoxEventWatcher.onTextMutation = function() {
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     window.setTimeout(function() {
-      cvox.ChromeVoxEventWatcher.handleTextChanged_(false);
+      cvox.ChromeVoxEventWatcher.handleTextChanged(false);
     }, cvox.ChromeVoxEventWatcher.MAX_WAIT_TIME_MS_);
   }
 };
@@ -1067,8 +1104,8 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
   }
 
   cvox.ChromeVoxEventWatcher.lastFocusedNodeValue = newValue;
-
-  if ((control.type == 'checkbox') || (control.type == 'radio')) {
+  if (cvox.DomPredicates.checkboxPredicate([control]) ||
+      cvox.DomPredicates.radioPredicate([control])) {
     // Always announce changes to checkboxes and radio buttons.
     announceChange = true;
     // Play earcons for checkboxes and radio buttons
@@ -1088,10 +1125,7 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
       case 'color':
       case 'datetime':
       case 'datetime-local':
-      case 'date':
-      case 'month':
       case 'range':
-      case 'week':
         announceChange = true;
         break;
       default:
@@ -1104,14 +1138,21 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
     announceChange = true;
   }
 
-  if ((parentControl != null) && (parentControl != control) &&
-      (document.activeElement == control)) {
+  if ((parentControl &&
+      parentControl != control &&
+      document.activeElement == control)) {
     // If focus has been set on a child of the parent control, we need to
     // sync to that node so that ChromeVox navigation will be in sync with
     // focus navigation.
     cvox.ApiImplementation.syncToNode(control, true,
                                       cvox.AbstractTts.QUEUE_MODE_FLUSH);
     announceChange = false;
+  } else if (cvox.AriaUtil.getActiveDescendant(control)) {
+    cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
+        cvox.AriaUtil.getActiveDescendant(control),
+        true);
+
+    announceChange = true;
   }
 
   if (announceChange && !cvox.ChromeVoxEventSuspender.areEventsSuspended()) {
@@ -1343,11 +1384,13 @@ cvox.ChromeVoxEventWatcher.processQueue_ = function() {
 cvox.ChromeVoxEventWatcher.handleEvent_ = function(evt) {
   switch (evt.type) {
     case 'keydown':
-      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+      cvox.ChromeVoxEventWatcher.setUpTextHandler();
       if (cvox.ChromeVoxEventWatcher.currentTextControl) {
-        cvox.ChromeVoxEventWatcher.handleTextChanged_(true);
-        if (cvox.ChromeVoxEventWatcher.currentTextHandler &&
-            cvox.ChromeVoxEventWatcher.currentTextHandler.lastChangeDescribed) {
+        cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+
+        var editableText = /** @type {cvox.ChromeVoxEditableTextBase} */
+            (cvox.ChromeVoxEventWatcher.currentTextHandler);
+        if (editableText && editableText.lastChangeDescribed) {
           break;
         }
       }
@@ -1358,19 +1401,19 @@ cvox.ChromeVoxEventWatcher.handleEvent_ = function(evt) {
     case 'keyup':
       break;
     case 'keypress':
-      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+      cvox.ChromeVoxEventWatcher.setUpTextHandler();
       break;
     case 'focus':
       cvox.ChromeVoxEventWatcher.focusHandler(evt);
       break;
     case 'blur':
-      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+      cvox.ChromeVoxEventWatcher.setUpTextHandler();
       break;
     case 'change':
       cvox.ChromeVoxEventWatcher.changeHandler(evt);
       break;
     case 'select':
-      cvox.ChromeVoxEventWatcher.setUpTextHandler_();
+      cvox.ChromeVoxEventWatcher.setUpTextHandler();
       break;
     case 'LiveRegion':
       cvox.ChromeVoxEventWatcher.speakLiveRegion_(
@@ -1428,4 +1471,30 @@ cvox.ChromeVoxEventWatcher.setUpMediaHandler_ = function() {
       cvox.ChromeVoxEventWatcher.currentMediaHandler = null;
     }
   return (null != cvox.ChromeVoxEventWatcher.currentMediaHandler);
+};
+
+/**
+ * Sets up the date handler.
+ * @return {boolean} True if a date control has focus.
+ * @private
+ */
+cvox.ChromeVoxEventWatcher.setUpDateHandler_ = function() {
+  var currentFocus = document.activeElement;
+  if (currentFocus &&
+      currentFocus.hasAttribute &&
+      currentFocus.getAttribute('aria-hidden') == 'true' &&
+      currentFocus.getAttribute('chromevoxignoreariahidden') != 'true') {
+    currentFocus = null;
+  }
+  if (currentFocus.constructor == HTMLInputElement &&
+      currentFocus.type &&
+      ((currentFocus.type == 'date') ||
+      (currentFocus.type == 'month') ||
+      (currentFocus.type == 'week'))) {
+    cvox.ChromeVoxEventWatcher.currentDateHandler =
+        new cvox.ChromeVoxHTMLDateWidget(currentFocus, cvox.ChromeVox.tts);
+    } else {
+      cvox.ChromeVoxEventWatcher.currentDateHandler = null;
+    }
+  return (null != cvox.ChromeVoxEventWatcher.currentDateHandler);
 };

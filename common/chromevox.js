@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,11 +44,6 @@ goog.addDependency(
 goog.addDependency(
     '../host/interface/abstract_msgs.js',
     ['cvox.AbstractMsgs'],
-    []);
-
-goog.addDependency(
-    '../host/interface/abstract_lens.js',
-    ['cvox.AbstractLens'],
     []);
 
 goog.addDependency(
@@ -108,10 +103,6 @@ cvox.ChromeVox.braille;
  */
 cvox.ChromeVox.msgs = null;
 /**
- * @type {cvox.AbstractLens}
- */
-cvox.ChromeVox.lens = null;
-/**
  * @type {boolean}
  */
 cvox.ChromeVox.isActive = true;
@@ -145,6 +136,14 @@ cvox.ChromeVox.keyPrefixOn = false;
  * @type {number}
  */
 cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
+/**
+ * @type {number}
+ */
+cvox.ChromeVox.typingEcho = 0;
+/**
+ * @type {Object.<string, {x:number, y:number}>}
+ */
+cvox.ChromeVox.position = {};
 /**
  * @type {boolean}
  */

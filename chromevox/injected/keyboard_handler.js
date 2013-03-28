@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,29 +123,9 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
     // If this is an internal link, try to sync to it.
     if (document.activeElement.tagName == 'A' &&
         cvox.DomUtil.isInternalLink(document.activeElement)) {
-      var targetNode;
-      var targetId = document.activeElement.href.split('#')[1];
-      targetNode = document.getElementById(targetId);
-      if (!targetNode) {
-        var nodes = document.getElementsByName(targetId);
-        if (nodes.length > 0) {
-          targetNode = nodes[0];
-        }
-      }
-      if (targetNode) {
-        cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(targetNode);
-        cvox.ChromeVoxUserCommands.finishNavCommand('');
-        return true;
-      }
+      cvox.DomUtil.syncInternalLink(document.activeElement);
     }
-
-    // If the user is focused on something that explicitly takes the
-    // enter key, that has precedence. Always let the key through.
-    if (cvox.ChromeVoxKbHandler.mustPassEnterKey()) {
-      return true;
-    }
-    // Act on this element.
-    return cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
+    return true;
   }
 
   var keySequence = cvox.KeyUtil.keyEventToKeySequence(evt);
@@ -170,14 +150,6 @@ cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   // to toggle ChromeVox active again.
   if (!cvox.ChromeVox.isActive && functionName != 'toggleChromeVox') {
     return true;
-  }
-
-  if ((functionName != 'skipForward') && (functionName != 'skipBackward')) {
-    // Do not immediately interrupt TTS since we do not want to stop speech
-    // in some cases such as adjusting the TTS properties. Any cases where we
-    // should be interrupting speech are already handled in
-    // ChromeVoxUserCommands.
-    cvox.ChromeVox.navigationManager.stopReading(false);
   }
 
   // This is the key event handler return value - true if the event should

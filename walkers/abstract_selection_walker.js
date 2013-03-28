@@ -28,6 +28,7 @@ goog.require('cvox.AbstractWalker');
 goog.require('cvox.BareObjectWalker');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
+goog.require('cvox.Spannable');
 goog.require('cvox.TraverseContent');
 
 /**
@@ -37,7 +38,7 @@ goog.require('cvox.TraverseContent');
 cvox.AbstractSelectionWalker = function() {
   cvox.AbstractWalker.call(this);
   this.objWalker_ = new cvox.BareObjectWalker();
-  this.tc_ = new cvox.TraverseContent();
+  this.tc_ = cvox.TraverseContent.getInstance();
   this.grain /** @protected */ = ''; // child must override
 };
 goog.inherits(cvox.AbstractSelectionWalker, cvox.AbstractWalker);
@@ -55,22 +56,19 @@ cvox.AbstractSelectionWalker.prototype.next = function(sel) {
   }
   var retSel = this.tc_.getCurrentCursorSelection().setReversed(r);
   var objSel = this.objWalker_.next(sel);
+  objSel = objSel ? objSel.setReversed(r) : null;
 
   // ObjectWalker wins when there's a discrepancy between it and
   // TraverseContent. The only exception is with an end cursor on a text node.
   // In all other cases, this makes sure we visit the same selections as
   // object walker.
   if (objSel &&
-      (retSel.end.node.constructor != Text ||
-          objSel.end.node.constructor != Text) &&
+      (retSel.end.node.constructor.name != 'Text' ||
+          objSel.end.node.constructor.name != 'Text') &&
       !cvox.DomUtil.isDescendantOfNode(retSel.end.node, sel.end.node) &&
       !cvox.DomUtil.isDescendantOfNode(retSel.end.node, objSel.end.node)) {
     return objSel;
   }
-  // TODO(stoarca): This doesn't belong here. We shouldn't know anything about
-  // when the selection should be highlighted. Move this up to
-  // NavigationManager.
-  this.tc_.updateSelection();
   return retSel;
 };
 
@@ -80,7 +78,7 @@ cvox.AbstractSelectionWalker.prototype.next = function(sel) {
 cvox.AbstractSelectionWalker.prototype.sync = function(sel) {
   var r = sel.isReversed();
   var newSel = null;
-  if (sel.start.equals(sel.end)) {
+  if (sel.start.equals(sel.end) && sel.start.node.constructor.name != 'Text') {
     var node = sel.start.node;
     while (node && cvox.DomUtil.directedFirstChild(node, r)) {
       node = cvox.DomUtil.directedFirstChild(node, r);
@@ -95,10 +93,30 @@ cvox.AbstractSelectionWalker.prototype.sync = function(sel) {
     }
   }
 
-  // Selection syncs to the beginning when a page boundary is reached.
-  // this.next places us at the correct initial position.
-  return (this.next(newSel.setReversed(false)) ||
-      cvox.CursorSelection.fromBody()).setReversed(r);
+  // This.next places us at the correct initial position (except below).
+  newSel = this.next(newSel.setReversed(false));
+
+  // ObjectWalker wins when there's a discrepancy between it and
+  // TraverseContent. The only exception is with an end cursor on a text node.
+  // In all other cases, this makes sure we visit the same selections as
+  // object walker.
+  var objSel = this.objWalker_.sync(sel);
+  objSel = objSel ? objSel.setReversed(r) : null;
+
+  if (!newSel) {
+    return objSel;
+  }
+
+  newSel.setReversed(r);
+
+  if (objSel &&
+      (newSel.end.node.constructor.name != 'Text' ||
+          objSel.end.node.constructor.name != 'Text') &&
+      !cvox.DomUtil.isDescendantOfNode(newSel.end.node, sel.end.node) &&
+      !cvox.DomUtil.isDescendantOfNode(newSel.end.node, objSel.end.node)) {
+    return objSel;
+  }
+  return newSel;
 };
 
 /**
@@ -117,9 +135,13 @@ cvox.AbstractSelectionWalker.prototype.getDescription = function(prevSel, sel) {
  * @override
  */
 cvox.AbstractSelectionWalker.prototype.getBraille = function(prevSel, sel) {
+  var node = sel.absStart().node;
+  var text = cvox.TraverseUtil.getNodeText(node);
+  var spannable = new cvox.Spannable(text);
+  spannable.setSpan(node, 0, text.length);
   return new cvox.NavBraille({
-      text: cvox.TraverseUtil.getNodeText(sel.absStart().node),
-      startIndex: sel.absStart().index,
-      endIndex: sel.absEnd().index
-    });
+    text: spannable,
+    startIndex: sel.absStart().index,
+    endIndex: sel.absEnd().index
+  });
 };

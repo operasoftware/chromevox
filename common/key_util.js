@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -241,6 +241,10 @@ cvox.KeyUtil.getReadableNameForKeyCode = function(keyCode) {
     return 'Backspace';
   } else if (keyCode == 32) {
     return 'Space';
+  } else if (keyCode == 35) {
+    return'end';
+  } else if (keyCode == 36) {
+    return 'home';
   } else if (keyCode == 37) {
     return 'Left arrow';
   } else if (keyCode == 38) {
@@ -331,7 +335,7 @@ cvox.KeyUtil.getStickyKeyCode = function() {
 cvox.KeyUtil.getStickyKeySequence = function() {
   if (cvox.KeyUtil.stickyKeySequence == null) {
     var stickyKeyCode = cvox.KeyUtil.getStickyKeyCode();
-    var stickyKeyObj = {keyCode: stickyKeyCode};
+    var stickyKeyObj = {keyCode: stickyKeyCode, stickyMode: true};
     var stickyKeySequence = new cvox.KeySequence(stickyKeyObj);
     stickyKeySequence.addKeyEvent(stickyKeyObj);
     cvox.KeyUtil.stickyKeySequence = stickyKeySequence;
@@ -454,13 +458,17 @@ cvox.KeyUtil.keySequenceToString = function(
     }
   }
 
-  if (keySequence.cvoxModifier || keySequence.stickyMode ||
-      keySequence.prefixKey) {
+  if (keySequence.cvoxModifier || keySequence.prefixKey) {
     if (str != '') {
       str = 'Cvox+' + str;
     } else {
       str = 'Cvox';
     }
+  } else if (keySequence.stickyMode) {
+    if (str[str.length - 1] == '>') {
+      str = str.slice(0, -1);
+    }
+    str = str + '+' + str;
   }
   return str;
 };

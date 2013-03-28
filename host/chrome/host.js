@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,24 +63,27 @@ cvox.ChromeHost.prototype.init = function() {
 
         cvox.ChromeVox.version = prefs['version'];
 
+        cvox.ChromeVox.typingEcho =
+            /** @type {number} */(JSON.parse(prefs['typingEcho']));
+
+        if (prefs['position']) {
+          cvox.ChromeVox.position =
+              /** @type {Object.<string, {x:number, y:number}>} */ (
+                  JSON.parse(prefs['position']));
+        }
+
         self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
         self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
         if (!self.gotPrefsAtLeastOnce_) {
           cvox.InitialSpeech.speak();
+          if (cvox.ChromeVox.position[document.location.href]) {
+            var pos = cvox.ChromeVox.position[document.location.href];
+            var node = document.elementFromPoint(pos.x, pos.y);
+            cvox.ChromeVox.syncToNode(
+                node, true, cvox.AbstractTts.QUEUE_MODE_QUEUE);
+          }
         }
         self.gotPrefsAtLeastOnce_ = true;
-
-        if (cvox.ChromeVox.lens) {
-          if (prefs['lensVisible'] == 'true' &&
-              !cvox.ChromeVox.lens.isLensDisplayed()) {
-            cvox.ChromeVox.lens.showLens(true);
-          }
-          if (prefs['lensVisible'] == 'false' &&
-              cvox.ChromeVox.lens.isLensDisplayed()) {
-            cvox.ChromeVox.lens.showLens(false);
-          }
-          cvox.ChromeVox.lens.setAnchoredLens(prefs['lensAnchored'] == 'true');
-        }
 
         if (prefs['useVerboseMode'] == 'false') {
           cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
@@ -102,11 +105,6 @@ cvox.ChromeHost.prototype.init = function() {
             prefs['siteSpecificScriptBase'];
         if (apiPrefsChanged) {
           cvox.ApiImplementation.init();
-        }
-
-        if (prefs['filterMap']) {
-          cvox.ChromeVox.navigationManager.getFilteredWalker().reinitialize(
-              prefs['filterMap']);
         }
       }
   };
@@ -178,14 +176,6 @@ cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
 cvox.ChromeHost.prototype.onPageLoad = function() {
   cvox.PdfProcessor.processEmbeddedPdfs();
 
-  // If Chrome is used to directly open media content, embed this content into
-  // an HTML page so that ChromeVox's media controls will take over.
-  var videoElem = document.getElementsByTagName('VIDEO')[0];
-  if (videoElem && (videoElem.currentSrc == document.location)) {
-    document.location = window.chrome.extension.getURL(
-        'chromevox/background/mediaplayer.html#' + videoElem.currentSrc);
-  }
-
   cvox.ExtensionBridge.addDisconnectListener(goog.bind(function() {
     cvox.ChromeVox.isActive = false;
     cvox.ChromeVoxEventWatcher.cleanup(window);
@@ -245,13 +235,6 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
  */
 cvox.ChromeHost.prototype.activateOrDeactivateStickyMode = function(sticky) {
   cvox.ChromeVox.isStickyOn = sticky;
-};
-
-/**
- * @override
- */
-cvox.ChromeHost.prototype.canShowLens = function() {
-  return window.top == window;
 };
 
 cvox.HostFactory.hostConstructor = cvox.ChromeHost;

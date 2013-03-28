@@ -40,37 +40,6 @@ cvox.GroupWalker = function() {
 };
 goog.inherits(cvox.GroupWalker, cvox.AbstractNodeWalker);
 
-/**
- * @override
- */
-cvox.GroupWalker.prototype.act = function(sel) {
-  var node = sel.start.node;
-  if (node && node.tagName && node.tagName == 'A') {
-    cvox.DomUtil.clickElem(node, false);
-    return true;
-  } else {
-    var aNodes = node.getElementsByTagName('A');
-    if (aNodes.length == 1) {
-      cvox.DomUtil.clickElem(aNodes[0], false);
-      return true;
-    } else if (aNodes.length > 1) {
-      var descriptions = new Array();
-      var functions = new Array();
-      for (var i = 0; i < aNodes.length; ++i) {
-        var link = aNodes[i];
-        if (cvox.DomUtil.hasContent(link)) {
-          descriptions.push(
-              cvox.DomUtil.collapseWhitespace(cvox.DomUtil.getName(link)));
-          functions.push(cvox.DomUtil.createSimpleClickFunction(link));
-        }
-      }
-      var widget = new cvox.ChoiceWidget(descriptions, functions);
-      widget.show();
-      return true;
-    }
-    return false;
-  }
-};
 
 /**
  * @override
@@ -84,7 +53,7 @@ cvox.GroupWalker.prototype.getDescription = function(prevSel, sel) {
  * @override
  */
 cvox.GroupWalker.prototype.getBraille = function(prevSel, sel) {
-  return cvox.BrailleUtil.getBraille(prevSel, sel);
+  throw 'getBraille is unsupported';
 };
 
 /**

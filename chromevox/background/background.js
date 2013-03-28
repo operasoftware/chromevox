@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ goog.require('cvox.TtsBackground');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.BrailleBackground');
+
 
 // TODO(dtseng): This is required to prevent Closure from stripping our export
 // prefs on window.
@@ -135,6 +136,12 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   // executeFile doesn't propagate the file name to the content script
   // which means that script is not visible in Dev Tools.
   cvox.InjectedScriptLoader.fetchCode(listOfFiles, stageTwo);
+
+  // Warn the user when the browser first starts if ChromeVox is inactive.
+  if (localStorage['active'] == 'false') {
+    self.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
+  }
+
 };
 
 
@@ -230,12 +237,13 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
                      cvox.AbstractTts.QUEUE_MODE_FLUSH,
                      cvox.AbstractTts.PERSONALITY_ANNOTATION);
     }
-  } else if (msg['action'] == 'cyclePunctuationLevel') {
+  } else if (msg['action'] == 'cyclePunctuationEcho') {
     this.tts.speak(cvox.ChromeVox.msgs.getMsg(
-            cvox.AbstractTts.cyclePunctuationLevel()),
+            this.backgroundTts_.cyclePunctuationEcho()),
                    cvox.AbstractTts.QUEUE_MODE_FLUSH);
   }
 };
+
 
 /**
  * Called when a Braille message is received from a page content script.
@@ -269,6 +277,11 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
     var action = msg['action'];
 
     switch (target) {
+    case 'OpenTab':
+      var destination = new Object();
+      destination.url = msg['url'];
+      chrome.tabs.create(destination);
+      break;
     case 'KbExplorer':
       var explorerPage = new Object();
       explorerPage.url = 'chromevox/background/kbexplorer.html';
@@ -302,10 +315,34 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
             this.tts.speak(
                 cvox.ChromeVox.msgs.getMsg('sticky_mode_disabled'));
           }
+        } else if (msg['pref'] == 'typingEcho' && msg['announce']) {
+          var announce = '';
+          switch (msg['value']) {
+            case cvox.TypingEcho.CHARACTER:
+              announce = cvox.ChromeVox.msgs.getMsg('character_echo');
+              break;
+            case cvox.TypingEcho.WORD:
+              announce = cvox.ChromeVox.msgs.getMsg('word_echo');
+              break;
+            case cvox.TypingEcho.CHARACTER_AND_WORD:
+              announce = cvox.ChromeVox.msgs.getMsg('character_and_word_echo');
+              break;
+            case cvox.TypingEcho.NONE:
+              announce = cvox.ChromeVox.msgs.getMsg('none_echo');
+              break;
+            default:
+              break;
+          }
+          if (announce) {
+            this.tts.speak(announce);
+          }
         }
         this.prefs.setPref(msg['pref'], msg['value']);
         this.readPrefs();
       }
+      break;
+    case 'Math':
+      // TODO (sorge): Put the change of rules etc. here!
       break;
     case 'TTS':
       if (msg['startCallbackId'] != undefined) {

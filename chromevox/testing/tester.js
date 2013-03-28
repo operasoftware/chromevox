@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -110,7 +110,6 @@ cvox.ChromeVoxTester.STRATEGY_MAP = {
  * @param {string} strategy The desired navigation strategy.
  */
 cvox.ChromeVoxTester.setStrategy = function(strategy) {
-  cvox.ChromeVox.navigationManager.tryExitTable();
   cvox.ChromeVox.navigationManager.ensureNotSubnavigating();
   cvox.ChromeVox.navigationManager.setGranularity(
          cvox.ChromeVoxTester.STRATEGY_MAP[strategy]);
@@ -141,4 +140,3 @@ cvox.ChromeVoxTester.syncToFirstNode = function() {
   cvox.ChromeVox.navigationManager.updateSel(cvox.CursorSelection.fromBody());
   cvox.ChromeVox.navigationManager.sync();
 };
-

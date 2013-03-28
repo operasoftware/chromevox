@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,14 @@ goog.provide('cvox.NavBraille');
 
 goog.require('cvox.ChromeVox');
 goog.require('cvox.CursorSelection');
+goog.require('cvox.PlatformFilter');
+goog.require('cvox.PlatformUtil');
+goog.require('cvox.Spannable');
 
 /**
  * A class capturing the braille for navigation from one object to
  * another.
- * @param {{text: (undefined|string),
+ * @param {{text: (undefined|string|!cvox.Spannable),
  *          startIndex: (undefined|number),
  *          endIndex: (undefined|number)}} kwargs The arguments for braille.
  *  text The text of the object itself, including text from
@@ -38,8 +41,23 @@ goog.require('cvox.CursorSelection');
  * @constructor
  */
 cvox.NavBraille = function(kwargs) {
-  this.text = kwargs.text ? kwargs.text : '';
+  /**
+   * Text, annotated with DOM nodes.
+   * @type {!cvox.Spannable}
+   */
+  this.text = (kwargs.text instanceof cvox.Spannable) ?
+      kwargs.text : new cvox.Spannable(kwargs.text);
+
+  /**
+   * Selection start index.
+   * @type {number}
+   */
   this.startIndex = kwargs.startIndex ? kwargs.startIndex : 0;
+
+  /**
+   * Selection end index.
+   * @type {number}
+   */
   this.endIndex = kwargs.endIndex ? kwargs.endIndex : 0;
 };
 
@@ -48,7 +66,7 @@ cvox.NavBraille = function(kwargs) {
  * @return {boolean} true if this braille description is empty.
  */
 cvox.NavBraille.prototype.isEmpty = function() {
-  return this.text == '';
+  return this.text.getLength() == 0;
 };
 
 
@@ -56,9 +74,26 @@ cvox.NavBraille.prototype.isEmpty = function() {
  * @return {string} A string representation of this object.
  */
 cvox.NavBraille.prototype.toString = function() {
-  return 'NavBraille(text="' + this.text + '" ' +
+  return 'NavBraille(text="' + this.text.toString() + '" ' +
          ' startIndex="' + this.startIndex + '" ' +
          ' endIndex="' + this.endIndex + '")';
+};
+
+
+/**
+ * Returns a plain old data object with the same data.
+ * Suitable for JSON encoding.
+ *
+ * @return {{text: (undefined|string),
+ *           startIndex: (undefined|number),
+ *           endIndex: (undefined|number)}} JSON equivalent.
+ */
+cvox.NavBraille.prototype.toJson = function() {
+  return {
+    text: this.text.toString(),
+    startIndex: this.startIndex,
+    endIndex: this.endIndex
+  };
 };
 
 
@@ -70,7 +105,8 @@ cvox.NavBraille.prototype.write = function() {
   // This prevents a call out to the host braille connection.
   // Remove once we ship or replace with logic to detect presence of braille
   // display.
-  if (cvox.ChromeVox.version != '1.0') {
+  if (cvox.ChromeVox.version != '1.0' &&
+      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) {
     return;
   }
   cvox.ChromeVox.braille.write(this);

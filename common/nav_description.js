@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ goog.require('cvox.CursorSelection');
  * A class representing the description of navigation from one object to
  * another.
  * @param {{context: (undefined|string),
- *          text: (undefined|string),
+ *          text: (string),
  *          userValue: (undefined|string),
  *          annotation: (undefined|string),
  *          earcons: (undefined|Array.<number>),
@@ -142,4 +142,17 @@ cvox.NavDescription.prototype.speak = function(
     }
     cvox.ChromeVox.tts.speak.apply(cvox.ChromeVox.tts, speakArgs[i]);
   }
+};
+
+
+/**
+ * Compares two NavDescriptions.
+ * @param {cvox.NavDescription} that A NavDescription.
+ * @return {boolean} True if equal.
+ */
+cvox.NavDescription.prototype.equals = function(that) {
+  return this.context == that.context &&
+      this.text == that.text &&
+      this.userValue == that.userValue &&
+      this.annotation == that.annotation;
 };

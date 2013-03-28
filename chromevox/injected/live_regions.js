@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,24 @@ cvox.LiveRegions.pageLoadTime = null;
 cvox.LiveRegions.INITIAL_SILENCE_MS = 2000;
 
 /**
+ * A mapping from announced text to the time it was last spoken.
+ * @type {Object.<string, Date>}
+ */
+cvox.LiveRegions.lastAnnouncedMap = {};
+
+/**
+ * Maximum time interval in which to discard duplicate live region announcement.
+ * @type {number}
+ * @const
+ */
+cvox.LiveRegions.MAX_DISCARD_DUPS_MS = 2000;
+
+/**
+ * @type {Date}
+*/
+cvox.LiveRegions.lastAnnouncedTime = null;
+
+/**
  * @param {Date} pageLoadTime The time the page was loaded. Live region
  *     updates within the first INITIAL_SILENCE_MS milliseconds are ignored.
  * @param {number} queueMode Interrupt or flush.  Polite live region
@@ -93,6 +111,9 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode, disableSpeak) {
 /**
  * See if any mutations pertain to a live region, and speak them if so.
  *
+ * This function is not reentrant, it uses some global state to keep
+ * track of nodes it's already spoken once.
+ *
  * @param {Array.<MutationRecord>} mutations The mutations.
  * @param {function(boolean, Array.<cvox.NavDescription>)} handler
  *     A callback function that handles each live region description found.
@@ -100,6 +121,7 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode, disableSpeak) {
  *     assertive, and an array of navdescriptions to speak.
  */
 cvox.LiveRegions.processMutations = function(mutations, handler) {
+  cvox.LiveRegions.nodesAlreadyHandled = [];
   mutations.forEach(function(mutation) {
     if (mutation.target.hasAttribute &&
         mutation.target.hasAttribute('cvoxIgnore')) {
@@ -134,8 +156,7 @@ cvox.LiveRegions.processMutations = function(mutations, handler) {
         mutation.attributeName == 'hidden') {
       var attr = mutation.attributeName;
       var target = mutation.target;
-      var newStyle = document.defaultView.getComputedStyle(target, null);
-      var newInvisible = cvox.DomUtil.isInvisibleStyle(newStyle, false);
+      var newInvisible = !cvox.DomUtil.isVisible(target);
 
       // Create a fake element on the page with the old values of
       // class, style, and hidden for this element, to see if that test
@@ -145,14 +166,15 @@ cvox.LiveRegions.processMutations = function(mutations, handler) {
       testElement.setAttribute('class', target.getAttribute('class'));
       testElement.setAttribute('style', target.getAttribute('style'));
       testElement.setAttribute('hidden', target.getAttribute('hidden'));
-      testElement.setAttribute(attr, mutation.oldValue);
+      testElement.setAttribute(attr, /** @type {string} */ (mutation.oldValue));
 
       var oldInvisible = true;
       if (target.parentElement) {
         target.parentElement.appendChild(testElement);
-        var oldStyle = document.defaultView.getComputedStyle(testElement, null);
-        oldInvisible = cvox.DomUtil.isInvisibleStyle(oldStyle, false);
+        oldInvisible = !cvox.DomUtil.isVisible(testElement);
         target.parentElement.removeChild(testElement);
+      } else {
+        oldInvisible = !cvox.DomUtil.isVisible(testElement);
       }
 
       if (oldInvisible === true && newInvisible === false) {
@@ -164,6 +186,7 @@ cvox.LiveRegions.processMutations = function(mutations, handler) {
       }
     }
   });
+  cvox.LiveRegions.nodesAlreadyHandled.length = 0;
 };
 
 /**
@@ -201,6 +224,11 @@ cvox.LiveRegions.handleOneChangedNode = function(
     }
     return;
   }
+
+  if (cvox.LiveRegions.nodesAlreadyHandled.indexOf(node) >= 0) {
+    return;
+  }
+  cvox.LiveRegions.nodesAlreadyHandled.push(node);
 
   if (cvox.AriaUtil.getAriaBusy(liveRoot)) {
     return;
@@ -259,9 +287,13 @@ cvox.LiveRegions.announceChange = function(
   }
 
   var navDescriptions = cvox.LiveRegions.getNavDescriptionsRecursive(node);
+  if (navDescriptions.length == 0) {
+    return;
+  }
+
   if (isRemoval) {
     navDescriptions = [new cvox.NavDescription({
-      context: cvox.ChromeVox.msgs.getMsg('live_regions_removed')
+      context: cvox.ChromeVox.msgs.getMsg('live_regions_removed'), text: ''
     })].concat(navDescriptions);
   }
 
@@ -278,6 +310,25 @@ cvox.LiveRegions.announceChange = function(
       return;
     }
   }
+
+  // First, evict expired entries.
+  var now = new Date();
+  for (var announced in cvox.LiveRegions.lastAnnouncedMap) {
+    if (now - cvox.LiveRegions.lastAnnouncedMap[announced] >
+        cvox.LiveRegions.MAX_DISCARD_DUPS_MS) {
+      delete cvox.LiveRegions.lastAnnouncedMap[announced];
+    }
+  }
+
+  // Then, skip announcement if it was already spoken in the past 2000 ms.
+  var key = navDescriptions.reduce(function(prev, navDescription) {
+    return prev + '|' + navDescription.text;
+  }, '');
+
+  if (cvox.LiveRegions.lastAnnouncedMap[key]) {
+    return;
+  }
+  cvox.LiveRegions.lastAnnouncedMap[key] = now;
 
   var assertive = cvox.AriaUtil.getAriaLive(liveRoot) == 'assertive';
   handler(assertive, navDescriptions);
@@ -304,24 +355,6 @@ cvox.LiveRegions.getNavDescriptionsRecursive = function(node) {
       return [];
     }
   }
-
-  var result = [];
-
-  // Start with the description of this node.
-  var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
-      [node], false, cvox.ChromeVox.verbosity);
-  if (!description.isEmpty()) {
-    result.push(description);
-  }
-
-  // Recursively add descriptions of child nodes.
-  for (var i = 0; i < node.childNodes.length; i++) {
-    var child = node.childNodes[i];
-    if (cvox.DomUtil.isVisible(child, {checkAncestors: false}) &&
-        !cvox.AriaUtil.isHidden(child)) {
-      var recursiveArray = cvox.LiveRegions.getNavDescriptionsRecursive(child);
-      result = result.concat(recursiveArray);
-    }
-  }
-  return result;
+  return cvox.DescriptionUtil.getFullDescriptionsFromChildren(null,
+      /** @type {!Element} */ (node));
 };

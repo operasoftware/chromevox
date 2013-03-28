@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ cvox.PageSelection = function(sel) {
 
 /**
  * Gets a description for the DOM selection during the course of navigation.
- * @param {cvox.NavigationShifter} navShifter Used to obtain walker-based
+ * @param {cvox.AbstractShifter} navShifter Used to obtain walker-based
  * descriptions.
  * @param {!cvox.CursorSelection} prevSel Previous CursorSelection in
  * navigation.

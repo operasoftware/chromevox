@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,6 +47,15 @@ cvox.AbstractEarcons.prototype.playEarconByName = function(earconName) {
 };
 
 /**
+ * Whether or not earcons are available.
+ * @return {boolean} True if earcons are available.
+ */
+cvox.AbstractEarcons.prototype.earconsAvailable = function() {
+  return true;
+};
+
+
+/**
  * @param {number} earcon An earcon index.
  * @return {string} The readable earcon name.
  */
@@ -70,6 +79,7 @@ cvox.AbstractEarcons.prototype.getEarconName = function(earcon) {
     this.earconNames.push('LINK');
     this.earconNames.push('LISTBOX');
     this.earconNames.push('LIST_ITEM');
+    this.earconNames.push('LONG_DESC');
     this.earconNames.push('NEW_MAIL');
     this.earconNames.push('OBJECT_CLOSE');
     this.earconNames.push('OBJECT_DELETE');
@@ -120,6 +130,7 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
     this.earconNamesToIds['LINK'] = cvox.AbstractEarcons.LINK;
     this.earconNamesToIds['LISTBOX'] = cvox.AbstractEarcons.LISTBOX;
     this.earconNamesToIds['LIST_ITEM'] = cvox.AbstractEarcons.LIST_ITEM;
+    this.earconNamesToIds['LONG_DESC'] = cvox.AbstractEarcons.LONG_DESC;
     this.earconNamesToIds['NEW_MAIL'] = cvox.AbstractEarcons.NEW_MAIL;
     this.earconNamesToIds['OBJECT_CLOSE'] = cvox.AbstractEarcons.OBJECT_CLOSE;
     this.earconNamesToIds['OBJECT_DELETE'] = cvox.AbstractEarcons.OBJECT_DELETE;
@@ -240,87 +251,92 @@ cvox.AbstractEarcons.LIST_ITEM = 16;
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.NEW_MAIL = 17;
+cvox.AbstractEarcons.LONG_DESC = 17;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_CLOSE = 18;
+cvox.AbstractEarcons.NEW_MAIL = 18;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_DELETE = 19;
+cvox.AbstractEarcons.OBJECT_CLOSE = 19;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_DESELECT = 20;
+cvox.AbstractEarcons.OBJECT_DELETE = 20;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_ENTER = 21;
+cvox.AbstractEarcons.OBJECT_DESELECT = 21;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_EXIT = 22;
+cvox.AbstractEarcons.OBJECT_ENTER = 22;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_OPEN = 23;
+cvox.AbstractEarcons.OBJECT_EXIT = 23;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.OBJECT_SELECT = 24;
+cvox.AbstractEarcons.OBJECT_OPEN = 24;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.PARAGRAPH_BREAK = 25;
+cvox.AbstractEarcons.OBJECT_SELECT = 25;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SEARCH_HIT = 26;
+cvox.AbstractEarcons.PARAGRAPH_BREAK = 26;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SEARCH_MISS = 27;
+cvox.AbstractEarcons.SEARCH_HIT = 27;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SECTION = 28;
+cvox.AbstractEarcons.SEARCH_MISS = 28;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SELECTION = 29;
+cvox.AbstractEarcons.SECTION = 29;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.SELECTION_REVERSE = 30;
+cvox.AbstractEarcons.SELECTION = 30;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.TASK_SUCCESS = 31;
+cvox.AbstractEarcons.SELECTION_REVERSE = 31;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP = 32;
+cvox.AbstractEarcons.TASK_SUCCESS = 32;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP_EDGE = 33;
+cvox.AbstractEarcons.WRAP = 33;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP_EDGE = 34;
 
 /**
  * The earcon map.
@@ -353,6 +369,8 @@ cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.INVALID_KEYPRESS] =
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LINK] = 'link.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LISTBOX] = 'listbox.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LIST_ITEM] = 'bullet.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.LONG_DESC] =
+    'long_desc.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.NEW_MAIL] = 'new_mail.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.OBJECT_CLOSE] =
     'object_close.ogg';

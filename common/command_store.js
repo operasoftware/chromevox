@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,6 +63,8 @@ cvox.CommandStore.store_ = [
   ['decreaseTtsRate', 'decrease_tts_rate', 'controlling_speech'],
   ['increaseTtsPitch', 'increase_tts_pitch', 'controlling_speech'],
   ['decreaseTtsPitch', 'decrease_tts_pitch', 'controlling_speech'],
+  ['cyclePunctuationEcho', 'cycle_punctuation_echo', 'controlling_speech'],
+  ['cycleTypingEcho', 'cycle_typing_echo', 'controlling_speech'],
 
   ['handleTab', 'handle_tab_next', 'chromevox_navigation'],
   ['handleTabPrev', 'handle_tab_prev', 'chromevox_navigation'],
@@ -73,12 +75,16 @@ cvox.CommandStore.store_ = [
   ['previousGranularity', 'previous_granularity', 'chromevox_navigation'],
   ['nextGranularity', 'next_granularity', 'chromevox_navigation'],
   ['readFromHere', 'read_from_here', 'chromevox_navigation'],
+  ['enterShifter', 'enter_content', 'chromevox_navigation'],
+  ['exitShifter', 'exit_content', 'chromevox_navigation'],
 
   ['skipBackward', 'skip_backward', 'chromevox_navigation'],
   ['skipForward', 'skip_forward', 'chromevox_navigation'],
   ['forceClickOnCurrentItem',
    'force_click_on_current_item',
    'chromevox_navigation'],
+  ['jumpToTop', 'jump_to_top', 'chromevox_navigation'],
+  ['jumpToBottom', 'jump_to_bottom', 'chromevox_navigation'],
 
   ['previousCharacter', 'previous_character', 'chromevox_navigation'],
   ['nextCharacter', 'next_character', 'chromevox_navigation'],
@@ -96,6 +102,7 @@ cvox.CommandStore.store_ = [
   ['readLinkURL', 'read_link_url', 'information'],
   ['readCurrentURL', 'read_current_url', 'information'],
   ['readCurrentTitle', 'read_current_title', 'information'],
+  ['openLongDesc', 'open_long_desc', 'information'],
   ['toggleSearchWidget', 'toggle_search_widget', 'information'],
   ['fullyDescribe', 'fully_describe', 'information'],
   ['toggleSelection', 'toggle_selection', 'information'],
@@ -105,14 +112,9 @@ cvox.CommandStore.store_ = [
   // ['filterLikeCurrentItem', 'filter_item', 'information'],
 
   ['toggleKeyboardHelp', 'show_power_key', 'help_commands'],
-  ['help', 'help_commands', 'help_commands'],
+  ['help', 'help', 'help_commands'],
   ['showOptionsPage', 'show_options_page', 'help_commands'],
   ['showKbExplorerPage', 'show_kb_explorer_page', 'help_commands'],
-
-  // ['showLens', 'show_lens', 'lens'],
-  // ['toggleLens', 'toggle_lens', 'lens'],
-  // ['anchorLens', 'anchor_lens', 'lens'],
-  // ['floatLens', 'float_lens', 'lens'],
 
   ['showFormsList', 'show_forms_list', 'overview'],
   ['showHeadingsList', 'show_headings_list', 'overview'],
@@ -159,15 +161,14 @@ cvox.CommandStore.store_ = [
   ['previousCheckbox', 'previous_checkbox', 'jump_commands'],
   ['previousLandmark', 'previous_landmark', 'jump_commands'],
 
-  ['toggleTable', 'toggle_table', 'tables'],
   ['announceHeaders', 'announce_headers', 'tables'],
   ['speakTableLocation', 'speak_table_location', 'tables'],
-  ['skipToBeginning', 'skip_to_beginning', 'tables'],
-  ['skipToEnd', 'skip_to_end', 'tables'],
-  ['skipToRowBeginning', 'skip_to_row_beginning', 'tables'],
-  ['skipToRowEnd', 'skip_to_row_end', 'tables'],
-  ['skipToColBeginning', 'skip_to_col_beginning', 'tables'],
-  ['skipToColEnd', 'skip_to_col_end', 'tables'],
+  ['goToFirstCell', 'skip_to_beginning', 'tables'],
+  ['goToLastCell', 'skip_to_end', 'tables'],
+  ['goToRowFirstCell', 'skip_to_row_beginning', 'tables'],
+  ['goToRowLastCell', 'skip_to_row_end', 'tables'],
+  ['goToColFirstCell', 'skip_to_col_beginning', 'tables'],
+  ['goToColLastCell', 'skip_to_col_end', 'tables'],
 
   //['nextDifferentElement', 'next_different_element', 'jump_commands'],
   //['nextJump', 'next_jump', 'jump_commands'],

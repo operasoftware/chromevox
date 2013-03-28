@@ -112,21 +112,21 @@ COMMON_aria_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abst
 COMMON_aria_util_SRCS = common/aria_util.js
 COMMON_aria_util_FILES = $(COMMON_aria_util_DEPS) $(COMMON_aria_util_SRCS)
 
+COMMON_dom_predicates_DEPS = $(CLOSURE_base_FILES)
+COMMON_dom_predicates_SRCS = common/dom_predicates.js
+COMMON_dom_predicates_FILES = $(COMMON_dom_predicates_DEPS) $(COMMON_dom_predicates_SRCS)
+
 COMMON_xpath_util_DEPS = $(CLOSURE_base_FILES)
 COMMON_xpath_util_SRCS = common/xpath_util.js
 COMMON_xpath_util_FILES = $(COMMON_xpath_util_DEPS) $(COMMON_xpath_util_SRCS)
 
-COMMON_dom_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_node_state_FILES) $(COMMON_xpath_util_FILES))
+COMMON_dom_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_node_state_FILES) $(COMMON_xpath_util_FILES))
 COMMON_dom_util_SRCS = common/dom_util.js
 COMMON_dom_util_FILES = $(COMMON_dom_util_DEPS) $(COMMON_dom_util_SRCS)
 
 COMMON_selection_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES) $(COMMON_xpath_util_FILES))
 COMMON_selection_util_SRCS = common/selection_util.js
 COMMON_selection_util_FILES = $(COMMON_selection_util_DEPS) $(COMMON_selection_util_SRCS)
-
-COMMON_dom_predicates_DEPS = $(CLOSURE_base_FILES)
-COMMON_dom_predicates_SRCS = common/dom_predicates.js
-COMMON_dom_predicates_FILES = $(COMMON_dom_predicates_DEPS) $(COMMON_dom_predicates_SRCS)
 
 COMMON_traverse_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES))
 COMMON_traverse_util_SRCS = common/traverse_util.js
@@ -136,7 +136,15 @@ COMMON_cursor_selection_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_curso
 COMMON_cursor_selection_SRCS = common/cursor_selection.js
 COMMON_cursor_selection_FILES = $(COMMON_cursor_selection_DEPS) $(COMMON_cursor_selection_SRCS)
 
-COMMON_nav_braille_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES))
+COMMON_platform_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
+COMMON_platform_util_SRCS = common/platform_util.js
+COMMON_platform_util_FILES = $(COMMON_platform_util_DEPS) $(COMMON_platform_util_SRCS)
+
+COMMON_spannable_DEPS = $(CLOSURE_base_FILES)
+COMMON_spannable_SRCS = common/spannable.js
+COMMON_spannable_FILES = $(COMMON_spannable_DEPS) $(COMMON_spannable_SRCS)
+
+COMMON_nav_braille_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_platform_util_FILES) $(COMMON_spannable_FILES))
 COMMON_nav_braille_SRCS = common/nav_braille.js
 COMMON_nav_braille_FILES = $(COMMON_nav_braille_DEPS) $(COMMON_nav_braille_SRCS)
 
@@ -196,7 +204,63 @@ HOST_CHROME_extension_bridge_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_
 HOST_CHROME_extension_bridge_SRCS = host/chrome/extension_bridge.js
 HOST_CHROME_extension_bridge_FILES = $(HOST_CHROME_extension_bridge_DEPS) $(HOST_CHROME_extension_bridge_SRCS)
 
-HOST_CHROME_tts_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(HOST_INTERFACE_abstract_tts_FILES))
+COMMON_math_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_xpath_util_FILES))
+COMMON_math_util_SRCS = common/math_util.js
+COMMON_math_util_FILES = $(COMMON_math_util_DEPS) $(COMMON_math_util_SRCS)
+
+COMMON_math_atom_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_util_FILES))
+COMMON_math_atom_SRCS = common/math_atom.js
+COMMON_math_atom_FILES = $(COMMON_math_atom_DEPS) $(COMMON_math_atom_SRCS)
+
+COMMON_math_function_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_atom_FILES))
+COMMON_math_function_SRCS = common/math_function.js
+COMMON_math_function_FILES = $(COMMON_math_function_DEPS) $(COMMON_math_function_SRCS)
+
+COMMON_math_node_rules_DEPS = $(CLOSURE_base_FILES)
+COMMON_math_node_rules_SRCS = common/math_node_rules.js
+COMMON_math_node_rules_FILES = $(COMMON_math_node_rules_DEPS) $(COMMON_math_node_rules_SRCS)
+
+COMMON_math_node_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES) $(COMMON_math_atom_FILES) $(COMMON_math_node_rules_FILES) $(COMMON_math_util_FILES))
+COMMON_math_node_SRCS = common/math_node.js
+COMMON_math_node_FILES = $(COMMON_math_node_DEPS) $(COMMON_math_node_SRCS)
+
+COMMON_math_symbol_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_atom_FILES) $(COMMON_math_util_FILES))
+COMMON_math_symbol_SRCS = common/math_symbol.js
+COMMON_math_symbol_FILES = $(COMMON_math_symbol_DEPS) $(COMMON_math_symbol_SRCS)
+
+CHROMEVOX_BACKGROUND_MATHMAPS_math_map_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_function_FILES) $(COMMON_math_node_FILES) $(COMMON_math_symbol_FILES) $(COMMON_math_util_FILES))
+CHROMEVOX_BACKGROUND_MATHMAPS_math_map_SRCS = chromevox/background/mathmaps/math_map.js
+CHROMEVOX_BACKGROUND_MATHMAPS_math_map_FILES = $(CHROMEVOX_BACKGROUND_MATHMAPS_math_map_DEPS) $(CHROMEVOX_BACKGROUND_MATHMAPS_math_map_SRCS)
+
+COMMON_buildinfo_DEPS = $(CLOSURE_base_FILES)
+COMMON_buildinfo_SRCS = common/buildinfo.js
+COMMON_buildinfo_FILES = $(COMMON_buildinfo_DEPS) $(COMMON_buildinfo_SRCS)
+
+CHROMEVOX_INJECTED_api_util_DEPS = $(CLOSURE_base_FILES)
+CHROMEVOX_INJECTED_api_util_SRCS = chromevox/injected/api_util.js
+CHROMEVOX_INJECTED_api_util_FILES = $(CHROMEVOX_INJECTED_api_util_DEPS) $(CHROMEVOX_INJECTED_api_util_SRCS)
+
+CHROMEVOX_INJECTED_script_installer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES))
+CHROMEVOX_INJECTED_script_installer_SRCS = chromevox/injected/script_installer.js
+CHROMEVOX_INJECTED_script_installer_FILES = $(CHROMEVOX_INJECTED_script_installer_DEPS) $(CHROMEVOX_INJECTED_script_installer_SRCS)
+
+CHROMEVOX_INJECTED_api_implementation_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_buildinfo_FILES) $(COMMON_chromevox_FILES) $(COMMON_chromevox_json_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_api_util_FILES) $(CHROMEVOX_INJECTED_script_installer_FILES))
+CHROMEVOX_INJECTED_api_implementation_SRCS = chromevox/injected/api_implementation.js
+CHROMEVOX_INJECTED_api_implementation_FILES = $(CHROMEVOX_INJECTED_api_implementation_DEPS) $(CHROMEVOX_INJECTED_api_implementation_SRCS)
+
+COMMON_nav_description_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES))
+COMMON_nav_description_SRCS = common/nav_description.js
+COMMON_nav_description_FILES = $(COMMON_nav_description_DEPS) $(COMMON_nav_description_SRCS)
+
+COMMON_nav_math_description_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_nav_description_FILES))
+COMMON_nav_math_description_SRCS = common/nav_math_description.js
+COMMON_nav_math_description_FILES = $(COMMON_nav_math_description_DEPS) $(COMMON_nav_math_description_SRCS)
+
+COMMON_math_speak_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_dom_util_FILES) $(COMMON_math_atom_FILES) $(COMMON_math_function_FILES) $(COMMON_math_node_FILES) $(COMMON_math_symbol_FILES) $(COMMON_math_util_FILES) $(COMMON_nav_math_description_FILES))
+COMMON_math_speak_SRCS = common/math_speak.js
+COMMON_math_speak_FILES = $(COMMON_math_speak_DEPS) $(COMMON_math_speak_SRCS)
+
+HOST_CHROME_tts_background_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_BACKGROUND_MATHMAPS_math_map_FILES) $(COMMON_chromevox_FILES) $(COMMON_math_speak_FILES) $(HOST_INTERFACE_abstract_tts_FILES))
 HOST_CHROME_tts_background_SRCS = host/chrome/tts_background.js
 HOST_CHROME_tts_background_FILES = $(HOST_CHROME_tts_background_DEPS) $(HOST_CHROME_tts_background_SRCS)
 
@@ -224,29 +288,17 @@ COMMON_command_store_DEPS = $(CLOSURE_base_FILES)
 COMMON_command_store_SRCS = common/command_store.js
 COMMON_command_store_FILES = $(COMMON_command_store_DEPS) $(COMMON_command_store_SRCS)
 
-COMMON_platform_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
-COMMON_platform_util_SRCS = common/platform_util.js
-COMMON_platform_util_FILES = $(COMMON_platform_util_DEPS) $(COMMON_platform_util_SRCS)
-
 HOST_CHROME_earcons_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_earcons_FILES) $(HOST_INTERFACE_host_factory_FILES) $(HOST_CHROME_extension_bridge_FILES))
 HOST_CHROME_earcons_SRCS = host/chrome/earcons.js
 HOST_CHROME_earcons_FILES = $(HOST_CHROME_earcons_DEPS) $(HOST_CHROME_earcons_SRCS)
 
-COMMON_buildinfo_DEPS = $(CLOSURE_base_FILES)
-COMMON_buildinfo_SRCS = common/buildinfo.js
-COMMON_buildinfo_FILES = $(COMMON_buildinfo_DEPS) $(COMMON_buildinfo_SRCS)
+COMMON_braille_text_handler_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_editable_text_FILES) $(COMMON_editable_text_area_shadow_FILES))
+COMMON_braille_text_handler_SRCS = common/braille_text_handler.js
+COMMON_braille_text_handler_FILES = $(COMMON_braille_text_handler_DEPS) $(COMMON_braille_text_handler_SRCS)
 
-CHROMEVOX_INJECTED_api_util_DEPS = $(CLOSURE_base_FILES)
-CHROMEVOX_INJECTED_api_util_SRCS = chromevox/injected/api_util.js
-CHROMEVOX_INJECTED_api_util_FILES = $(CHROMEVOX_INJECTED_api_util_DEPS) $(CHROMEVOX_INJECTED_api_util_SRCS)
-
-CHROMEVOX_INJECTED_script_installer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES))
-CHROMEVOX_INJECTED_script_installer_SRCS = chromevox/injected/script_installer.js
-CHROMEVOX_INJECTED_script_installer_FILES = $(CHROMEVOX_INJECTED_script_installer_DEPS) $(CHROMEVOX_INJECTED_script_installer_SRCS)
-
-CHROMEVOX_INJECTED_api_implementation_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_buildinfo_FILES) $(COMMON_chromevox_FILES) $(COMMON_chromevox_json_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_api_util_FILES) $(CHROMEVOX_INJECTED_script_installer_FILES))
-CHROMEVOX_INJECTED_api_implementation_SRCS = chromevox/injected/api_implementation.js
-CHROMEVOX_INJECTED_api_implementation_FILES = $(CHROMEVOX_INJECTED_api_implementation_DEPS) $(CHROMEVOX_INJECTED_api_implementation_SRCS)
+COMMON_date_widget_DEPS = $(CLOSURE_base_FILES)
+COMMON_date_widget_SRCS = common/date_widget.js
+COMMON_date_widget_FILES = $(COMMON_date_widget_DEPS) $(COMMON_date_widget_SRCS)
 
 CHROMEVOX_INJECTED_event_suspender_DEPS = $(CLOSURE_base_FILES)
 CHROMEVOX_INJECTED_event_suspender_SRCS = chromevox/injected/event_suspender.js
@@ -263,6 +315,10 @@ COMMON_media_widget_FILES = $(COMMON_media_widget_DEPS) $(COMMON_media_widget_SR
 COMMON_time_widget_DEPS = $(CLOSURE_base_FILES)
 COMMON_time_widget_SRCS = common/time_widget.js
 COMMON_time_widget_FILES = $(COMMON_time_widget_DEPS) $(COMMON_time_widget_SRCS)
+
+CHROMEVOX_INJECTED_active_indicator_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_FILES) $(COMMON_dom_util_FILES))
+CHROMEVOX_INJECTED_active_indicator_SRCS = chromevox/injected/active_indicator.js
+CHROMEVOX_INJECTED_active_indicator_FILES = $(CHROMEVOX_INJECTED_active_indicator_DEPS) $(CHROMEVOX_INJECTED_active_indicator_SRCS)
 
 CHROMEVOX_INJECTED_node_breadcrumb_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES))
 CHROMEVOX_INJECTED_node_breadcrumb_SRCS = chromevox/injected/node_breadcrumb.js
@@ -320,13 +376,13 @@ COMMON_earcon_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_ab
 COMMON_earcon_util_SRCS = common/earcon_util.js
 COMMON_earcon_util_FILES = $(COMMON_earcon_util_DEPS) $(COMMON_earcon_util_SRCS)
 
-COMMON_nav_description_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES))
-COMMON_nav_description_SRCS = common/nav_description.js
-COMMON_nav_description_FILES = $(COMMON_nav_description_DEPS) $(COMMON_nav_description_SRCS)
-
-COMMON_description_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_bare_object_walker_FILES) $(COMMON_aural_style_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_earcon_util_FILES) $(COMMON_nav_description_FILES))
+COMMON_description_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_bare_object_walker_FILES) $(COMMON_aria_util_FILES) $(COMMON_aural_style_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_earcon_util_FILES) $(COMMON_nav_description_FILES))
 COMMON_description_util_SRCS = common/description_util.js
 COMMON_description_util_FILES = $(COMMON_description_util_DEPS) $(COMMON_description_util_SRCS)
+
+COMMON_find_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_bare_object_walker_FILES) $(COMMON_cursor_selection_FILES))
+COMMON_find_util_SRCS = common/find_util.js
+COMMON_find_util_FILES = $(COMMON_find_util_DEPS) $(COMMON_find_util_SRCS)
 
 COMMON_interframe_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_json_FILES) $(COMMON_dom_util_FILES))
 COMMON_interframe_SRCS = common/interframe.js
@@ -336,85 +392,41 @@ COMMON_page_selection_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE
 COMMON_page_selection_SRCS = common/page_selection.js
 COMMON_page_selection_FILES = $(COMMON_page_selection_DEPS) $(COMMON_page_selection_SRCS)
 
-COMMON_walker_decorator_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_json_FILES))
-COMMON_walker_decorator_SRCS = common/walker_decorator.js
-COMMON_walker_decorator_FILES = $(COMMON_walker_decorator_DEPS) $(COMMON_walker_decorator_SRCS)
-
-CHROMEVOX_INJECTED_active_indicator_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_FILES) $(COMMON_dom_util_FILES))
-CHROMEVOX_INJECTED_active_indicator_SRCS = chromevox/injected/active_indicator.js
-CHROMEVOX_INJECTED_active_indicator_FILES = $(CHROMEVOX_INJECTED_active_indicator_DEPS) $(CHROMEVOX_INJECTED_active_indicator_SRCS)
-
-CHROMEVOX_INJECTED_navigation_history_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES))
-CHROMEVOX_INJECTED_navigation_history_SRCS = chromevox/injected/navigation_history.js
-CHROMEVOX_INJECTED_navigation_history_FILES = $(CHROMEVOX_INJECTED_navigation_history_DEPS) $(CHROMEVOX_INJECTED_navigation_history_SRCS)
-
-COMMON_traverse_content_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_dom_util_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES))
-COMMON_traverse_content_SRCS = common/traverse_content.js
-COMMON_traverse_content_FILES = $(COMMON_traverse_content_DEPS) $(COMMON_traverse_content_SRCS)
-
-WALKERS_abstract_selection_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_walker_FILES) $(WALKERS_bare_object_walker_FILES))
-WALKERS_abstract_selection_walker_SRCS = walkers/abstract_selection_walker.js
-WALKERS_abstract_selection_walker_FILES = $(WALKERS_abstract_selection_walker_DEPS) $(WALKERS_abstract_selection_walker_SRCS)
-
-WALKERS_character_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
-WALKERS_character_walker_SRCS = walkers/character_walker.js
-WALKERS_character_walker_FILES = $(WALKERS_character_walker_DEPS) $(WALKERS_character_walker_SRCS)
-
-WALKERS_bare_group_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_abstract_node_walker_FILES))
-WALKERS_bare_group_walker_SRCS = walkers/bare_group_walker.js
-WALKERS_bare_group_walker_FILES = $(WALKERS_bare_group_walker_DEPS) $(WALKERS_bare_group_walker_SRCS)
-
-COMMON_braille_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_bare_group_walker_FILES) $(WALKERS_bare_object_walker_FILES) $(COMMON_dom_util_FILES) $(COMMON_nav_braille_FILES) $(COMMON_node_state_FILES))
+COMMON_braille_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES) $(COMMON_nav_braille_FILES) $(COMMON_node_state_FILES) $(COMMON_spannable_FILES))
 COMMON_braille_util_SRCS = common/braille_util.js
 COMMON_braille_util_FILES = $(COMMON_braille_util_DEPS) $(COMMON_braille_util_SRCS)
-
-COMMON_group_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_dom_util_FILES))
-COMMON_group_util_SRCS = common/group_util.js
-COMMON_group_util_FILES = $(COMMON_group_util_DEPS) $(COMMON_group_util_SRCS)
-
-WALKERS_group_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_choice_widget_FILES) $(COMMON_braille_util_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_group_util_FILES) $(WALKERS_abstract_node_walker_FILES))
-WALKERS_group_walker_SRCS = walkers/group_walker.js
-WALKERS_group_walker_FILES = $(WALKERS_group_walker_DEPS) $(WALKERS_group_walker_SRCS)
-
-WALKERS_line_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
-WALKERS_line_walker_SRCS = walkers/line_walker.js
-WALKERS_line_walker_FILES = $(WALKERS_line_walker_DEPS) $(WALKERS_line_walker_SRCS)
-
-COMMON_math_atom_DEPS = $(CLOSURE_base_FILES)
-COMMON_math_atom_SRCS = common/math_atom.js
-COMMON_math_atom_FILES = $(COMMON_math_atom_DEPS) $(COMMON_math_atom_SRCS)
-
-COMMON_math_function_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_atom_FILES))
-COMMON_math_function_SRCS = common/math_function.js
-COMMON_math_function_FILES = $(COMMON_math_function_DEPS) $(COMMON_math_function_SRCS)
-
-COMMON_math_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_xpath_util_FILES))
-COMMON_math_util_SRCS = common/math_util.js
-COMMON_math_util_FILES = $(COMMON_math_util_DEPS) $(COMMON_math_util_SRCS)
-
-COMMON_math_symbol_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_math_atom_FILES) $(COMMON_math_util_FILES))
-COMMON_math_symbol_SRCS = common/math_symbol.js
-COMMON_math_symbol_FILES = $(COMMON_math_symbol_DEPS) $(COMMON_math_symbol_SRCS)
-
-COMMON_math_speak_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_math_atom_FILES) $(COMMON_math_function_FILES) $(COMMON_math_symbol_FILES) $(COMMON_math_util_FILES) $(COMMON_nav_description_FILES))
-COMMON_math_speak_SRCS = common/math_speak.js
-COMMON_math_speak_FILES = $(COMMON_math_speak_DEPS) $(COMMON_math_speak_SRCS)
 
 COMMON_traverse_math_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(COMMON_math_util_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES))
 COMMON_traverse_math_SRCS = common/traverse_math.js
 COMMON_traverse_math_FILES = $(COMMON_traverse_math_DEPS) $(COMMON_traverse_math_SRCS)
 
+WALKERS_abstract_shifter_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_nav_braille_FILES) $(WALKERS_abstract_walker_FILES))
+WALKERS_abstract_shifter_SRCS = walkers/abstract_shifter.js
+WALKERS_abstract_shifter_FILES = $(WALKERS_abstract_shifter_DEPS) $(WALKERS_abstract_shifter_SRCS)
+
 WALKERS_math_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_braille_util_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_math_speak_FILES) $(COMMON_nav_description_FILES) $(COMMON_traverse_math_FILES) $(WALKERS_abstract_walker_FILES))
 WALKERS_math_walker_SRCS = walkers/math_walker.js
 WALKERS_math_walker_FILES = $(WALKERS_math_walker_DEPS) $(WALKERS_math_walker_SRCS)
 
-WALKERS_object_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_braille_util_FILES) $(COMMON_description_util_FILES) $(WALKERS_abstract_node_walker_FILES))
-WALKERS_object_walker_SRCS = walkers/object_walker.js
-WALKERS_object_walker_FILES = $(WALKERS_object_walker_DEPS) $(WALKERS_object_walker_SRCS)
+WALKERS_mathml_layout_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_math_walker_FILES))
+WALKERS_mathml_layout_walker_SRCS = walkers/mathml_layout_walker.js
+WALKERS_mathml_layout_walker_FILES = $(WALKERS_mathml_layout_walker_DEPS) $(WALKERS_mathml_layout_walker_SRCS)
 
-WALKERS_sentence_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
-WALKERS_sentence_walker_SRCS = walkers/sentence_walker.js
-WALKERS_sentence_walker_FILES = $(WALKERS_sentence_walker_DEPS) $(WALKERS_sentence_walker_SRCS)
+WALKERS_mathml_leaf_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_math_walker_FILES))
+WALKERS_mathml_leaf_walker_SRCS = walkers/mathml_leaf_walker.js
+WALKERS_mathml_leaf_walker_FILES = $(WALKERS_mathml_leaf_walker_DEPS) $(WALKERS_mathml_leaf_walker_SRCS)
+
+WALKERS_mathml_token_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_math_walker_FILES))
+WALKERS_mathml_token_walker_SRCS = walkers/mathml_token_walker.js
+WALKERS_mathml_token_walker_FILES = $(WALKERS_mathml_token_walker_DEPS) $(WALKERS_mathml_token_walker_SRCS)
+
+WALKERS_mathml_tree_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_math_walker_FILES))
+WALKERS_mathml_tree_walker_SRCS = walkers/mathml_tree_walker.js
+WALKERS_mathml_tree_walker_FILES = $(WALKERS_mathml_tree_walker_DEPS) $(WALKERS_mathml_tree_walker_SRCS)
+
+WALKERS_math_shifter_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_braille_util_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_math_speak_FILES) $(COMMON_nav_description_FILES) $(COMMON_traverse_math_FILES) $(WALKERS_abstract_shifter_FILES) $(WALKERS_mathml_layout_walker_FILES) $(WALKERS_mathml_leaf_walker_FILES) $(WALKERS_mathml_token_walker_FILES) $(WALKERS_mathml_tree_walker_FILES))
+WALKERS_math_shifter_SRCS = walkers/math_shifter.js
+WALKERS_math_shifter_FILES = $(WALKERS_math_shifter_DEPS) $(WALKERS_math_shifter_SRCS)
 
 COMMON_table_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_xpath_util_FILES))
 COMMON_table_util_SRCS = common/table_util.js
@@ -428,19 +440,63 @@ WALKERS_table_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_braille_
 WALKERS_table_walker_SRCS = walkers/table_walker.js
 WALKERS_table_walker_FILES = $(WALKERS_table_walker_DEPS) $(WALKERS_table_walker_SRCS)
 
-COMMON_css_dimension_DEPS = $(CLOSURE_base_FILES)
-COMMON_css_dimension_SRCS = common/css_dimension.js
-COMMON_css_dimension_FILES = $(COMMON_css_dimension_DEPS) $(COMMON_css_dimension_SRCS)
+WALKERS_column_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_table_walker_FILES))
+WALKERS_column_walker_SRCS = walkers/column_walker.js
+WALKERS_column_walker_FILES = $(WALKERS_column_walker_DEPS) $(WALKERS_column_walker_SRCS)
 
-WALKERS_visual_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_dimension_FILES) $(COMMON_dom_util_FILES) $(WALKERS_abstract_node_walker_FILES) $(WALKERS_group_walker_FILES))
-WALKERS_visual_walker_SRCS = walkers/visual_walker.js
-WALKERS_visual_walker_FILES = $(WALKERS_visual_walker_DEPS) $(WALKERS_visual_walker_SRCS)
+WALKERS_row_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_table_walker_FILES))
+WALKERS_row_walker_SRCS = walkers/row_walker.js
+WALKERS_row_walker_FILES = $(WALKERS_row_walker_DEPS) $(WALKERS_row_walker_SRCS)
+
+WALKERS_table_shifter_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(COMMON_nav_braille_FILES) $(WALKERS_abstract_shifter_FILES) $(WALKERS_column_walker_FILES) $(WALKERS_row_walker_FILES))
+WALKERS_table_shifter_SRCS = walkers/table_shifter.js
+WALKERS_table_shifter_FILES = $(WALKERS_table_shifter_DEPS) $(WALKERS_table_shifter_SRCS)
+
+CHROMEVOX_INJECTED_navigation_history_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_dom_util_FILES))
+CHROMEVOX_INJECTED_navigation_history_SRCS = chromevox/injected/navigation_history.js
+CHROMEVOX_INJECTED_navigation_history_FILES = $(CHROMEVOX_INJECTED_navigation_history_DEPS) $(CHROMEVOX_INJECTED_navigation_history_SRCS)
+
+COMMON_traverse_content_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_dom_util_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES))
+COMMON_traverse_content_SRCS = common/traverse_content.js
+COMMON_traverse_content_FILES = $(COMMON_traverse_content_DEPS) $(COMMON_traverse_content_SRCS)
+
+WALKERS_abstract_selection_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_spannable_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_walker_FILES) $(WALKERS_bare_object_walker_FILES))
+WALKERS_abstract_selection_walker_SRCS = walkers/abstract_selection_walker.js
+WALKERS_abstract_selection_walker_FILES = $(WALKERS_abstract_selection_walker_DEPS) $(WALKERS_abstract_selection_walker_SRCS)
+
+WALKERS_character_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
+WALKERS_character_walker_SRCS = walkers/character_walker.js
+WALKERS_character_walker_FILES = $(WALKERS_character_walker_DEPS) $(WALKERS_character_walker_SRCS)
+
+COMMON_group_util_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_dom_util_FILES))
+COMMON_group_util_SRCS = common/group_util.js
+COMMON_group_util_FILES = $(COMMON_group_util_DEPS) $(COMMON_group_util_SRCS)
+
+WALKERS_group_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_choice_widget_FILES) $(COMMON_braille_util_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_group_util_FILES) $(WALKERS_abstract_node_walker_FILES))
+WALKERS_group_walker_SRCS = walkers/group_walker.js
+WALKERS_group_walker_FILES = $(WALKERS_group_walker_DEPS) $(WALKERS_group_walker_SRCS)
+
+WALKERS_structural_line_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
+WALKERS_structural_line_walker_SRCS = walkers/structural_line_walker.js
+WALKERS_structural_line_walker_FILES = $(WALKERS_structural_line_walker_DEPS) $(WALKERS_structural_line_walker_SRCS)
+
+WALKERS_layout_line_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(WALKERS_abstract_walker_FILES) $(WALKERS_structural_line_walker_FILES))
+WALKERS_layout_line_walker_SRCS = walkers/layout_line_walker.js
+WALKERS_layout_line_walker_FILES = $(WALKERS_layout_line_walker_DEPS) $(WALKERS_layout_line_walker_SRCS)
+
+WALKERS_object_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_braille_util_FILES) $(COMMON_description_util_FILES) $(WALKERS_abstract_node_walker_FILES))
+WALKERS_object_walker_SRCS = walkers/object_walker.js
+WALKERS_object_walker_FILES = $(WALKERS_object_walker_DEPS) $(WALKERS_object_walker_SRCS)
+
+WALKERS_sentence_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
+WALKERS_sentence_walker_SRCS = walkers/sentence_walker.js
+WALKERS_sentence_walker_FILES = $(WALKERS_sentence_walker_DEPS) $(WALKERS_sentence_walker_SRCS)
 
 WALKERS_word_walker_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_selection_walker_FILES))
 WALKERS_word_walker_SRCS = walkers/word_walker.js
 WALKERS_word_walker_FILES = $(WALKERS_word_walker_DEPS) $(WALKERS_word_walker_SRCS)
 
-CHROMEVOX_INJECTED_navigation_shifter_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_walker_decorator_FILES) $(WALKERS_character_walker_FILES) $(WALKERS_group_walker_FILES) $(WALKERS_line_walker_FILES) $(WALKERS_math_walker_FILES) $(WALKERS_object_walker_FILES) $(WALKERS_sentence_walker_FILES) $(WALKERS_table_walker_FILES) $(WALKERS_visual_walker_FILES) $(WALKERS_word_walker_FILES))
+CHROMEVOX_INJECTED_navigation_shifter_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_traverse_content_FILES) $(WALKERS_abstract_shifter_FILES) $(WALKERS_character_walker_FILES) $(WALKERS_group_walker_FILES) $(WALKERS_layout_line_walker_FILES) $(WALKERS_object_walker_FILES) $(WALKERS_sentence_walker_FILES) $(WALKERS_word_walker_FILES))
 CHROMEVOX_INJECTED_navigation_shifter_SRCS = chromevox/injected/navigation_shifter.js
 CHROMEVOX_INJECTED_navigation_shifter_FILES = $(CHROMEVOX_INJECTED_navigation_shifter_DEPS) $(CHROMEVOX_INJECTED_navigation_shifter_SRCS)
 
@@ -448,7 +504,7 @@ CHROMEVOX_INJECTED_navigation_speaker_DEPS = $(call uniq, $(CLOSURE_base_FILES) 
 CHROMEVOX_INJECTED_navigation_speaker_SRCS = chromevox/injected/navigation_speaker.js
 CHROMEVOX_INJECTED_navigation_speaker_FILES = $(CHROMEVOX_INJECTED_navigation_speaker_DEPS) $(CHROMEVOX_INJECTED_navigation_speaker_SRCS)
 
-CHROMEVOX_INJECTED_navigation_manager_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_focuser_FILES) $(COMMON_interframe_FILES) $(COMMON_nav_braille_FILES) $(COMMON_nav_description_FILES) $(COMMON_page_selection_FILES) $(COMMON_selection_util_FILES) $(COMMON_walker_decorator_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_navigation_history_FILES) $(CHROMEVOX_INJECTED_navigation_shifter_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES))
+CHROMEVOX_INJECTED_navigation_manager_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_cursor_selection_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_find_util_FILES) $(COMMON_focuser_FILES) $(COMMON_interframe_FILES) $(COMMON_nav_braille_FILES) $(COMMON_nav_description_FILES) $(COMMON_page_selection_FILES) $(COMMON_selection_util_FILES) $(WALKERS_math_shifter_FILES) $(WALKERS_table_shifter_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_navigation_history_FILES) $(CHROMEVOX_INJECTED_navigation_shifter_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES))
 CHROMEVOX_INJECTED_navigation_manager_SRCS = chromevox/injected/navigation_manager.js
 CHROMEVOX_INJECTED_navigation_manager_FILES = $(CHROMEVOX_INJECTED_navigation_manager_DEPS) $(CHROMEVOX_INJECTED_navigation_manager_SRCS)
 
@@ -459,6 +515,10 @@ CHROMEVOX_INJECTED_UI_search_widget_FILES = $(CHROMEVOX_INJECTED_UI_search_widge
 CHROMEVOX_INJECTED_UI_node_search_widget_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_MESSAGES_spoken_messages_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_util_FILES) $(CHROMEVOX_INJECTED_UI_search_widget_FILES))
 CHROMEVOX_INJECTED_UI_node_search_widget_SRCS = chromevox/injected/ui/node_search_widget.js
 CHROMEVOX_INJECTED_UI_node_search_widget_FILES = $(CHROMEVOX_INJECTED_UI_node_search_widget_DEPS) $(CHROMEVOX_INJECTED_UI_node_search_widget_SRCS)
+
+COMMON_css_dimension_DEPS = $(CLOSURE_base_FILES)
+COMMON_css_dimension_SRCS = common/css_dimension.js
+COMMON_css_dimension_FILES = $(COMMON_css_dimension_DEPS) $(COMMON_css_dimension_SRCS)
 
 COMMON_css_space_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_MESSAGES_spoken_messages_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_dimension_FILES) $(COMMON_description_util_FILES) $(COMMON_dom_util_FILES) $(COMMON_group_util_FILES))
 COMMON_css_space_SRCS = common/css_space.js
@@ -488,7 +548,7 @@ CHROMEVOX_INJECTED_runner_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_
 CHROMEVOX_INJECTED_runner_SRCS = chromevox/injected/runner.js
 CHROMEVOX_INJECTED_runner_FILES = $(CHROMEVOX_INJECTED_runner_DEPS) $(CHROMEVOX_INJECTED_runner_SRCS)
 
-CHROMEVOX_INJECTED_user_commands_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(CHROMEVOX_INJECTED_UI_node_search_widget_FILES) $(CHROMEVOX_INJECTED_UI_search_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_space_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(COMMON_focus_util_FILES) $(COMMON_platform_util_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_runner_FILES))
+CHROMEVOX_INJECTED_user_commands_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_UI_keyboard_help_widget_FILES) $(CHROMEVOX_INJECTED_UI_node_search_widget_FILES) $(CHROMEVOX_INJECTED_UI_search_widget_FILES) $(COMMON_chromevox_FILES) $(COMMON_css_space_FILES) $(COMMON_dom_predicates_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_FILES) $(COMMON_focus_util_FILES) $(COMMON_platform_util_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_runner_FILES))
 CHROMEVOX_INJECTED_user_commands_SRCS = chromevox/injected/user_commands.js
 CHROMEVOX_INJECTED_user_commands_FILES = $(CHROMEVOX_INJECTED_user_commands_DEPS) $(CHROMEVOX_INJECTED_user_commands_SRCS)
 
@@ -508,7 +568,7 @@ CHROMEVOX_INJECTED_macro_writer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHRO
 CHROMEVOX_INJECTED_macro_writer_SRCS = chromevox/injected/macro_writer.js
 CHROMEVOX_INJECTED_macro_writer_FILES = $(CHROMEVOX_INJECTED_macro_writer_DEPS) $(CHROMEVOX_INJECTED_macro_writer_SRCS)
 
-CHROMEVOX_INJECTED_event_watcher_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_FILES) $(COMMON_focuser_FILES) $(COMMON_media_widget_FILES) $(COMMON_platform_util_FILES) $(COMMON_time_widget_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_keyboard_handler_FILES) $(CHROMEVOX_INJECTED_live_regions_FILES) $(CHROMEVOX_INJECTED_live_regions_deprecated_FILES) $(CHROMEVOX_INJECTED_macro_writer_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
+CHROMEVOX_INJECTED_event_watcher_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_aria_util_FILES) $(COMMON_braille_text_handler_FILES) $(COMMON_chromevox_FILES) $(COMMON_date_widget_FILES) $(COMMON_dom_util_FILES) $(COMMON_editable_text_FILES) $(COMMON_focuser_FILES) $(COMMON_media_widget_FILES) $(COMMON_platform_util_FILES) $(COMMON_time_widget_FILES) $(CHROMEVOX_INJECTED_active_indicator_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_event_suspender_FILES) $(CHROMEVOX_INJECTED_history_FILES) $(CHROMEVOX_INJECTED_keyboard_handler_FILES) $(CHROMEVOX_INJECTED_live_regions_FILES) $(CHROMEVOX_INJECTED_live_regions_deprecated_FILES) $(CHROMEVOX_INJECTED_macro_writer_FILES) $(CHROMEVOX_INJECTED_navigation_speaker_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES))
 CHROMEVOX_INJECTED_event_watcher_SRCS = chromevox/injected/event_watcher.js
 CHROMEVOX_INJECTED_event_watcher_FILES = $(CHROMEVOX_INJECTED_event_watcher_DEPS) $(CHROMEVOX_INJECTED_event_watcher_SRCS)
 
@@ -528,7 +588,7 @@ HOST_CHROME_tts_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstr
 HOST_CHROME_tts_SRCS = host/chrome/tts.js
 HOST_CHROME_tts_FILES = $(HOST_CHROME_tts_DEPS) $(HOST_CHROME_tts_SRCS)
 
-CHROMEVOX_BACKGROUND_prefs_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_key_map_FILES) $(COMMON_chromevox_FILES) $(COMMON_key_util_FILES) $(HOST_CHROME_extension_bridge_FILES))
+CHROMEVOX_BACKGROUND_prefs_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_key_map_FILES) $(COMMON_chromevox_FILES) $(HOST_CHROME_extension_bridge_FILES))
 CHROMEVOX_BACKGROUND_prefs_SRCS = chromevox/background/prefs.js
 CHROMEVOX_BACKGROUND_prefs_FILES = $(CHROMEVOX_BACKGROUND_prefs_DEPS) $(CHROMEVOX_BACKGROUND_prefs_SRCS)
 
@@ -566,14 +626,6 @@ HOST_CHROME_braille_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_a
 HOST_CHROME_braille_SRCS = host/chrome/braille.js
 HOST_CHROME_braille_FILES = $(HOST_CHROME_braille_DEPS) $(HOST_CHROME_braille_SRCS)
 
-HOST_INTERFACE_abstract_lens_DEPS = $(CLOSURE_base_FILES)
-HOST_INTERFACE_abstract_lens_SRCS = host/interface/abstract_lens.js
-HOST_INTERFACE_abstract_lens_FILES = $(HOST_INTERFACE_abstract_lens_DEPS) $(HOST_INTERFACE_abstract_lens_SRCS)
-
-COMMON_lens_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_lens_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(HOST_INTERFACE_tts_interface_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES))
-COMMON_lens_SRCS = common/lens.js
-COMMON_lens_FILES = $(COMMON_lens_DEPS) $(COMMON_lens_SRCS)
-
 CHROMEVOX_INJECTED_serializer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_chromevox_FILES) $(CHROMEVOX_INJECTED_event_watcher_FILES))
 CHROMEVOX_INJECTED_serializer_SRCS = chromevox/injected/serializer.js
 CHROMEVOX_INJECTED_serializer_FILES = $(CHROMEVOX_INJECTED_serializer_DEPS) $(CHROMEVOX_INJECTED_serializer_SRCS)
@@ -582,7 +634,7 @@ CHROMEVOX_INJECTED_tts_history_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_
 CHROMEVOX_INJECTED_tts_history_SRCS = chromevox/injected/tts_history.js
 CHROMEVOX_INJECTED_tts_history_FILES = $(CHROMEVOX_INJECTED_tts_history_DEPS) $(CHROMEVOX_INJECTED_tts_history_SRCS)
 
-CHROMEVOX_INJECTED_init_globals_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_MESSAGES_spoken_messages_FILES) $(COMMON_chromevox_FILES) $(COMMON_composite_tts_FILES) $(COMMON_lens_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_event_watcher_FILES) $(CHROMEVOX_INJECTED_navigation_manager_FILES) $(CHROMEVOX_INJECTED_serializer_FILES) $(CHROMEVOX_INJECTED_tts_history_FILES))
+CHROMEVOX_INJECTED_init_globals_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_MESSAGES_spoken_messages_FILES) $(COMMON_chromevox_FILES) $(COMMON_composite_tts_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_console_tts_FILES) $(CHROMEVOX_INJECTED_event_watcher_FILES) $(CHROMEVOX_INJECTED_navigation_manager_FILES) $(CHROMEVOX_INJECTED_serializer_FILES) $(CHROMEVOX_INJECTED_tts_history_FILES))
 CHROMEVOX_INJECTED_init_globals_SRCS = chromevox/injected/init_globals.js
 CHROMEVOX_INJECTED_init_globals_FILES = $(CHROMEVOX_INJECTED_init_globals_DEPS) $(CHROMEVOX_INJECTED_init_globals_SRCS)
 
@@ -616,6 +668,21 @@ chromeVoxKbExplorerScript.js: $(chromeVoxKbExplorerScript_DEPS)
 	@$(CLOSURE_COMPILER) --js $(chromeVoxKbExplorerScript_DEPS) --js_output_file chromeVoxKbExplorerScript.js
 
 
+CHROMEVOX_BACKGROUND_mediaplayer_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_key_map_FILES) $(COMMON_chromevox_FILES) $(COMMON_command_store_FILES) $(COMMON_key_sequence_FILES) $(COMMON_platform_util_FILES) $(HOST_CHROME_earcons_FILES) $(HOST_CHROME_extension_bridge_FILES) $(HOST_CHROME_host_FILES) $(HOST_CHROME_msgs_FILES) $(HOST_CHROME_tts_FILES) $(HOST_INTERFACE_host_factory_FILES) $(CHROMEVOX_BACKGROUND_prefs_FILES))
+CHROMEVOX_BACKGROUND_mediaplayer_SRCS = chromevox/background/mediaplayer.js
+CHROMEVOX_BACKGROUND_mediaplayer_FILES = $(CHROMEVOX_BACKGROUND_mediaplayer_DEPS) $(CHROMEVOX_BACKGROUND_mediaplayer_SRCS)
+
+CHROMEVOX_BACKGROUND_mediaplayer_loader_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_BACKGROUND_mediaplayer_FILES))
+CHROMEVOX_BACKGROUND_mediaplayer_loader_SRCS = chromevox/background/mediaplayer_loader.js
+CHROMEVOX_BACKGROUND_mediaplayer_loader_FILES = $(CHROMEVOX_BACKGROUND_mediaplayer_loader_DEPS) $(CHROMEVOX_BACKGROUND_mediaplayer_loader_SRCS)
+
+chromeVoxMediaPlayerScript_DEPS = $(CHROMEVOX_BACKGROUND_mediaplayer_loader_FILES)
+chromeVoxMediaPlayerScript.js_FILES = chromeVoxMediaPlayerScript.js
+chromeVoxMediaPlayerScript.js: $(chromeVoxMediaPlayerScript_DEPS)
+	@echo Building Javascript binary chromeVoxMediaPlayerScript.js
+	@$(CLOSURE_COMPILER) --js $(chromeVoxMediaPlayerScript_DEPS) --js_output_file chromeVoxMediaPlayerScript.js
+
+
 HOST_TESTING_host_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_host_FILES) $(HOST_INTERFACE_host_factory_FILES))
 HOST_TESTING_host_SRCS = host/testing/host.js
 HOST_TESTING_host_FILES = $(HOST_TESTING_host_DEPS) $(HOST_TESTING_host_SRCS)
@@ -646,7 +713,7 @@ CHROMEVOX_INJECTED_event_watcher_test_DEPS = $(call uniq, $(CLOSURE_base_FILES) 
 CHROMEVOX_INJECTED_event_watcher_test_SRCS = chromevox/injected/event_watcher_test.js
 CHROMEVOX_INJECTED_event_watcher_test_FILES = $(CHROMEVOX_INJECTED_event_watcher_test_DEPS) $(CHROMEVOX_INJECTED_event_watcher_test_SRCS)
 
-CHROMEVOX_INJECTED_navigation_manager_test_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_TESTING_abstract_test_case_FILES) $(CHROMEVOX_TESTING_tester_FILES) $(HOST_TESTING_tts_FILES))
+CHROMEVOX_INJECTED_navigation_manager_test_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_TESTING_abstract_test_case_FILES) $(CHROMEVOX_TESTING_tester_FILES) $(HOST_TESTING_tts_FILES) $(CHROMEVOX_INJECTED_navigation_shifter_FILES))
 CHROMEVOX_INJECTED_navigation_manager_test_SRCS = chromevox/injected/navigation_manager_test.js
 CHROMEVOX_INJECTED_navigation_manager_test_FILES = $(CHROMEVOX_INJECTED_navigation_manager_test_DEPS) $(CHROMEVOX_INJECTED_navigation_manager_test_SRCS)
 
@@ -673,7 +740,13 @@ CHROMEVOX_BACKGROUND_EARCONS_ogg_files: $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files
 CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES = $(wildcard chromevox/background/keymaps/*.json)
 CHROMEVOX_BACKGROUND_KEYMAPS_json_files: $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES)
 
-chromevox_deploy_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) $(chromeVoxChromeBackgroundScript.js_FILES) $(chromeVoxChromeOptionsScript.js_FILES) $(chromeVoxChromePageScript.js_FILES) $(chromeVoxKbExplorerScript.js_FILES) $(chromeVoxTestsScript.js_FILES) closure/closure_preinit.js $(CHROMEVOX_png_files_FILES) $(CHROMEVOX_BACKGROUND_html_and_css_files_FILES) $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES) chromevox/injected/api.js chromevox/injected/api_util.js)
+CHROMEVOX_BACKGROUND_MATHMAPS_FUNCTIONS_json_files_FILES = $(wildcard chromevox/background/mathmaps/functions/*.json)
+CHROMEVOX_BACKGROUND_MATHMAPS_FUNCTIONS_json_files: $(CHROMEVOX_BACKGROUND_MATHMAPS_FUNCTIONS_json_files_FILES)
+
+CHROMEVOX_BACKGROUND_MATHMAPS_SYMBOLS_json_files_FILES = $(wildcard chromevox/background/mathmaps/symbols/*.json)
+CHROMEVOX_BACKGROUND_MATHMAPS_SYMBOLS_json_files: $(CHROMEVOX_BACKGROUND_MATHMAPS_SYMBOLS_json_files_FILES)
+
+chromevox_deploy_fs_out_SRCS = $(call uniq, $(CHROMEVOX_manifest_compiled_manifest/manifest.json_FILES) $(CHROMEVOX_MESSAGES_i18n_messages_filegroup_FILES) $(chromeVoxChromeBackgroundScript.js_FILES) $(chromeVoxChromeOptionsScript.js_FILES) $(chromeVoxChromePageScript.js_FILES) $(chromeVoxKbExplorerScript.js_FILES) $(chromeVoxMediaPlayerScript.js_FILES) $(chromeVoxTestsScript.js_FILES) closure/closure_preinit.js $(CHROMEVOX_png_files_FILES) $(CHROMEVOX_BACKGROUND_html_and_css_files_FILES) $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES) $(CHROMEVOX_BACKGROUND_MATHMAPS_FUNCTIONS_json_files_FILES) $(CHROMEVOX_BACKGROUND_MATHMAPS_SYMBOLS_json_files_FILES) chromevox/injected/api.js chromevox/injected/api_util.js)
 chromevox_deploy_fs_out_FILES = chromevox_deploy_fs_out
 chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@echo Building Fileset chromevox_deploy_fs_out
@@ -685,6 +758,7 @@ chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@cp $(chromeVoxChromeOptionsScript.js_FILES) chromevox_deploy_fs_out/
 	@cp $(chromeVoxChromePageScript.js_FILES) chromevox_deploy_fs_out/
 	@cp $(chromeVoxKbExplorerScript.js_FILES) chromevox_deploy_fs_out/
+	@cp $(chromeVoxMediaPlayerScript.js_FILES) chromevox_deploy_fs_out/
 	@cp $(chromeVoxTestsScript.js_FILES) chromevox_deploy_fs_out/
 	@cp closure/closure_preinit.js chromevox_deploy_fs_out/
 	@mkdir -p chromevox_deploy_fs_out/chromevox
@@ -695,6 +769,10 @@ chromevox_deploy_fs_out: $(chromevox_deploy_fs_out_SRCS)
 	@cp $(CHROMEVOX_BACKGROUND_EARCONS_ogg_files_FILES) chromevox_deploy_fs_out/chromevox/background/earcons
 	@mkdir -p chromevox_deploy_fs_out/chromevox/background/keymaps
 	@cp $(CHROMEVOX_BACKGROUND_KEYMAPS_json_files_FILES) chromevox_deploy_fs_out/chromevox/background/keymaps
+	@mkdir -p chromevox_deploy_fs_out/chromevox/background/mathmaps/functions
+	@cp $(CHROMEVOX_BACKGROUND_MATHMAPS_FUNCTIONS_json_files_FILES) chromevox_deploy_fs_out/chromevox/background/mathmaps/functions
+	@mkdir -p chromevox_deploy_fs_out/chromevox/background/mathmaps/symbols
+	@cp $(CHROMEVOX_BACKGROUND_MATHMAPS_SYMBOLS_json_files_FILES) chromevox_deploy_fs_out/chromevox/background/mathmaps/symbols
 	@mkdir -p chromevox_deploy_fs_out/chromevox/injected
 	@cp chromevox/injected/api.js chromevox_deploy_fs_out/chromevox/injected
 	@mkdir -p chromevox_deploy_fs_out/chromevox/injected
@@ -749,7 +827,7 @@ HOST_ANDROID_DEV_android_keymap_DEPS = $(CLOSURE_base_FILES)
 HOST_ANDROID_DEV_android_keymap_SRCS = host/android_dev/android_keymap.js
 HOST_ANDROID_DEV_android_keymap_FILES = $(HOST_ANDROID_DEV_android_keymap_DEPS) $(HOST_ANDROID_DEV_android_keymap_SRCS)
 
-HOST_ANDROID_DEV_androidvox_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES) $(COMMON_chromevox_FILES))
+HOST_ANDROID_DEV_androidvox_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(CHROMEVOX_INJECTED_api_implementation_FILES) $(CHROMEVOX_INJECTED_event_watcher_FILES) $(CHROMEVOX_INJECTED_user_commands_FILES) $(COMMON_chromevox_FILES) $(COMMON_dom_util_FILES) $(COMMON_focuser_FILES) $(HOST_INTERFACE_abstract_tts_FILES))
 HOST_ANDROID_DEV_androidvox_SRCS = host/android_dev/androidvox.js
 HOST_ANDROID_DEV_androidvox_FILES = $(HOST_ANDROID_DEV_androidvox_DEPS) $(HOST_ANDROID_DEV_androidvox_SRCS)
 
@@ -840,6 +918,14 @@ chromevis/background/background.js: $(CHROMEVIS_BACKGROUND_background_DEPS)
 CHROMEVIS_BACKGROUND_background.js_FILES = chromevis/background/background.js
 CHROMEVIS_BACKGROUND_html_files_FILES = $(call uniq, $(wildcard chromevis/background/*.css) $(wildcard chromevis/background/*.html))
 CHROMEVIS_BACKGROUND_html_files: $(CHROMEVIS_BACKGROUND_html_files_FILES)
+
+HOST_INTERFACE_abstract_lens_DEPS = $(CLOSURE_base_FILES)
+HOST_INTERFACE_abstract_lens_SRCS = host/interface/abstract_lens.js
+HOST_INTERFACE_abstract_lens_FILES = $(HOST_INTERFACE_abstract_lens_DEPS) $(HOST_INTERFACE_abstract_lens_SRCS)
+
+COMMON_lens_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(HOST_INTERFACE_abstract_lens_FILES) $(HOST_INTERFACE_abstract_tts_FILES) $(HOST_INTERFACE_tts_interface_FILES) $(COMMON_selection_util_FILES) $(COMMON_traverse_util_FILES))
+COMMON_lens_SRCS = common/lens.js
+COMMON_lens_FILES = $(COMMON_lens_DEPS) $(COMMON_lens_SRCS)
 
 CHROMEVIS_INJECTED_reader_DEPS = $(call uniq, $(CLOSURE_base_FILES) $(COMMON_lens_FILES) $(COMMON_traverse_content_FILES) $(HOST_CHROME_extension_bridge_FILES))
 CHROMEVIS_INJECTED_reader_SRCS = chromevis/injected/reader.js
@@ -1241,7 +1327,7 @@ cvoxext: host/testing/test_messages.js cvoxext_deploy_uncompiled_fs deps.js
 	@cp -a cvoxext_deploy_uncompiled_fs_out/* .
 
 clean:
-	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json host/testing/test_messages.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromeshades/injected/binary.js chromeshades/injected/accesserrors_binary.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromevox/manifest_compiled_manifest/manifest.json chromevox/manifest_uncompiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis/background/background.js chromevis/injected/binary.js chromevis/i18n_messages_localized__en.js chromevis/_locales/en/messages.json chromevis/manifest_compiled_manifest/manifest.json chromevis/manifest_uncompiled_manifest/manifest.json chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing/manifest_compiled_manifest/manifest.json caretbrowsing/manifest_uncompiled_manifest/manifest.json caretbrowsing/injected/binary.js caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades/manifest_compiled_manifest/manifest.json chromeshades/manifest_uncompiled_manifest/manifest.json chromeshades/background/binary.js chromeshades/devtools/binary.js chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext/manifest_compiled_manifest/manifest.json cvoxext/manifest_uncompiled_manifest/manifest.json cvoxext/binary.js cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx
+	rm -rf chromevox/messages/i18n_messages_localized__en.js chromevox/messages/_locales/en/messages.json host/testing/test_messages.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxMediaPlayerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromeshades/injected/binary.js chromeshades/injected/accesserrors_binary.js chromeVoxChromePageScript.js chromeVoxKbExplorerScript.js chromeVoxMediaPlayerScript.js chromeVoxTestsScript.js chromeVoxChromeBackgroundScript.js chromeVoxChromeOptionsScript.js androidVoxDev.js clankVoxDev.js chromevox/manifest_compiled_manifest/manifest.json chromevox/manifest_uncompiled_manifest/manifest.json chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis/background/background.js chromevis/injected/binary.js chromevis/i18n_messages_localized__en.js chromevis/_locales/en/messages.json chromevis/manifest_compiled_manifest/manifest.json chromevis/manifest_uncompiled_manifest/manifest.json chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing/manifest_compiled_manifest/manifest.json caretbrowsing/manifest_uncompiled_manifest/manifest.json caretbrowsing/injected/binary.js caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades/manifest_compiled_manifest/manifest.json chromeshades/manifest_uncompiled_manifest/manifest.json chromeshades/background/binary.js chromeshades/devtools/binary.js chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext/manifest_compiled_manifest/manifest.json cvoxext/manifest_uncompiled_manifest/manifest.json cvoxext/binary.js cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx chromevox_deploy_fs_out chromevox_deploy_fs chromevox_deploy_uncompiled_fs_out chromevox_deploy_uncompiled_fs chromevox_deploy.crx chromevis_deploy_fs_out chromevis_deploy_fs chromevis_deploy_uncompiled_fs_out chromevis_deploy_uncompiled_fs chromevis_deploy.crx caretbrowsing_deploy_fs_out caretbrowsing_deploy_fs caretbrowsing_deploy_uncompiled_fs_out caretbrowsing_deploy_uncompiled_fs caretbrowsing_deploy.crx chromeshades_deploy_fs_out chromeshades_deploy_fs chromeshades_deploy_uncompiled_fs_out chromeshades_deploy_uncompiled_fs chromeshades_deploy.crx cvoxext_deploy_fs_out cvoxext_deploy_fs cvoxext_deploy_uncompiled_fs_out cvoxext_deploy_uncompiled_fs cvoxext_deploy.crx
 
 all: chromevox cvoxext chromeshades_deploy.crx androidVoxDev.js chromevox_deploy.crx caretbrowsing chromeshades chromevis caretbrowsing_deploy.crx chromevis_deploy.crx clankVoxDev.js cvoxext_deploy.crx
 

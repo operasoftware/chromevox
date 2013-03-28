@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,9 +64,9 @@ cvox.ChromeVoxEventSuspender.areEventsSuspended = function() {
  */
 cvox.ChromeVoxEventSuspender.withSuspendedEvents = function(f) {
   return function() {
-    cvox.ChromeVoxEventSuspender.enterSuspendEvents()
+    cvox.ChromeVoxEventSuspender.enterSuspendEvents();
     var ret = f.apply(this, arguments);
-    cvox.ChromeVoxEventSuspender.exitSuspendEvents()
+    cvox.ChromeVoxEventSuspender.exitSuspendEvents();
     return ret;
   };
 };
@@ -86,4 +86,3 @@ cvox.ChromeVoxEventSuspender.makeSuspendableHandler = function(handler, ret) {
     return handler();
   };
 };
-

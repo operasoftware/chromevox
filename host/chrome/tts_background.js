@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,18 @@ goog.provide('cvox.TtsBackground');
 
 goog.require('cvox.AbstractTts');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.MathMap');
+goog.require('cvox.MathSpeak');
 
 /**
  * @constructor
+ * @param {boolean=} opt_enableMath Whether to process math. Used when running
+ * on forge. Defaults to true.
  * @extends {cvox.AbstractTts}
  */
-cvox.TtsBackground = function() {
-  //Inherit AbstractTts
-  cvox.AbstractTts.call(this);
+cvox.TtsBackground = function(opt_enableMath) {
+  opt_enableMath = opt_enableMath == undefined ? true : opt_enableMath;
+  goog.base(this);
   var defaultVolume = 1;
   var defaultPitch = 1;
   var defaultRate = 1;
@@ -66,6 +70,66 @@ cvox.TtsBackground = function() {
   this.utteranceCount_ = 0;
 
   this.loadPreferredVoice_();
+
+  /** @type {number} @private */
+  this.currentPunctuationEcho_ =
+      parseInt(localStorage[cvox.AbstractTts.PUNCTUATION_ECHO] || 1, 10);
+
+  /**
+   * @type {!Array.<{name:(string),
+   * msg:(string),
+   * regexp:(RegExp),
+   * clear:(boolean)}>}
+   * @private
+  */
+  this.punctuationEchoes_ = [
+    /**
+     * Punctuation echoed for the 'none' option.
+     */
+    {
+      name: 'none',
+      msg: 'no_punctuation',
+      regexp: /[-$#"()*;:<>\n\\\/+='~`@_]/g,
+      clear: true
+    },
+
+    /**
+     * Punctuation echoed for the 'some' option.
+     */
+    {
+      name: 'some',
+      msg: 'some_punctuation',
+      regexp: /[-$#"()*:<>\\\/+=~`%]/g,
+      clear: false
+    },
+
+    /**
+     * Punctuation echoed for the 'all' option.
+     */
+    {
+      name: 'all',
+      msg: 'all_punctuation',
+      regexp: /[-$#"()*;:<>\n\\\/+='~`!@_.,?%]/g,
+      clear: false
+    }
+  ];
+
+  /**
+   * A list of punctuation characters that should always be spliced into output
+   * even with literal word substitutions.
+   * This is important for tts prosity.
+   * @type {!Array.<string>}
+   * @private
+  */
+  this.retainPunctuation_ =
+      [';', '?', '!', '\''];
+
+  /**
+   * Mapping for math elements.
+   * @type {cvox.MathMap}
+   * @private
+   */
+  this.mathMap_ = opt_enableMath ? new cvox.MathMap() : null;
 };
 goog.inherits(cvox.TtsBackground, cvox.AbstractTts);
 
@@ -94,6 +158,20 @@ cvox.TtsBackground.prototype.speak = function(
   cvox.TtsBackground.superClass_.speak.call(this, textString,
       queueMode, properties);
 
+  if (!properties) {
+    properties = {};
+  }
+
+  // Create a snapshot of the callbacks to use since there is a possibility that
+  // we will be overwriting properties[callbacks] in the splitTextString loop
+  // later on. Without the snapshot, if the properties[callbacks] are
+  // overwritten, the callbacks will not be called by 'onEvent' - this then
+  // results in a memory leak as calling the callbacks is what deletes their
+  // associated function in the functionmap on the content script side of
+  // cvox.ChromeTts.
+  var startCallback = properties['startCallback'];
+  var endCallback = properties['endCallback'];
+
   // Chunk to improve responsiveness. Use a replace/split pattern in order to
   // retain the original punctuation.
   var splitTextString = textString.replace(/([-\n\r.,!?;])(\s)/g, '$1$2|');
@@ -102,8 +180,6 @@ cvox.TtsBackground.prototype.speak = function(
   // recurse when there are more than 2 split items. This should result in only
   // one recursive call.
   if (splitTextString.length > 2) {
-    var startCallback = properties['startCallback'];
-    var endCallback = properties['endCallback'];
     for (var i = 0; i < splitTextString.length; i++) {
       properties['startCallback'] = i == 0 ? startCallback : null;
       properties['endCallback'] =
@@ -114,8 +190,7 @@ cvox.TtsBackground.prototype.speak = function(
     return this;
   }
 
-  textString =
-      cvox.AbstractTts.preprocessWithProperties(textString, properties);
+  textString = this.preprocess(textString, properties);
 
   // TODO(dtseng): Google TTS has bad performance when speaking numbers. This
   // pattern causes ChromeVox to read numbers as digits rather than words.
@@ -125,11 +200,11 @@ cvox.TtsBackground.prototype.speak = function(
   // this pattern which stops ChromeVox speech.
   if (!textString || !textString.match(/\w+/g)) {
     // We still want to callback for listeners in our content script.
-    if (properties['startCallback']) {
-      properties['startCallback']();
+    if (startCallback) {
+      startCallback();
     }
-    if (properties['endCallback']) {
-      properties['endCallback']();
+    if (endCallback) {
+      endCallback();
     }
     if (queueMode === cvox.AbstractTts.QUEUE_MODE_FLUSH) {
       this.stop();
@@ -158,13 +233,13 @@ cvox.TtsBackground.prototype.speak = function(
       this.utteranceCount_--;
     }
 
-    if (event['type'] == 'end' && properties && properties['endCallback']) {
-      properties['endCallback']();
+    if ((event['type'] == 'end' ||
+        event['type'] == 'interrupted') &&
+    endCallback) {
+      endCallback();
     }
-    if (event['type'] == 'start' &&
-        properties &&
-        properties['startCallback']) {
-      properties['startCallback']();
+    if (event['type'] == 'start' && startCallback) {
+      startCallback();
     }
     if (event['type'] == 'error') {
       this.onError_();
@@ -230,6 +305,102 @@ cvox.TtsBackground.prototype.propertyToPercentage = function(property) {
 
 
 /**
+ * @override
+ */
+cvox.TtsBackground.prototype.preprocess = function(text, properties) {
+  properties = properties ? properties : {};
+
+  // Perform specialized processing, such as mathematics.
+  if (properties.math) {
+    text = this.preprocessMath_(text, properties.math);
+  }
+
+  // Perform generic processing.
+  text = goog.base(this, 'preprocess', text, properties);
+
+  // Perform any remaining processing such as punctuation expansion.
+  var pE = null;
+  if (properties[cvox.AbstractTts.PUNCTUATION_ECHO]) {
+    for (var i = 0; pE = this.punctuationEchoes_[i]; i++) {
+      if (properties[cvox.AbstractTts.PUNCTUATION_ECHO] == pE.name) {
+        break;
+      }
+    }
+  } else {
+    pE = this.punctuationEchoes_[this.currentPunctuationEcho_];
+  }
+  text =
+      text.replace(pE.regexp, this.createPunctuationReplace_(pE.clear));
+
+  //  Remove all whitespace from the beginning and end, and collapse all
+  // inner strings of whitespace to a single space.
+  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+
+  // TODO(dtseng): Google TTS poorly pronounces these words when spoken without
+  // context. Sub them with something TTS actually pronounces well and remove
+  // once fixed.
+  if (text.toLowerCase() == 'to') {
+    text = 'too';
+  } else if (text.toLowerCase() == 'the') {
+    text = 'thee';
+  }
+
+  return text;
+};
+
+
+/**
+ * Method that cycles among the available punctuation echo levels.
+ * @return {string} The resulting punctuation level message id.
+ */
+cvox.TtsBackground.prototype.cyclePunctuationEcho = function() {
+  this.currentPunctuationEcho_ =
+      (this.currentPunctuationEcho_ + 1) % this.punctuationEchoes_.length;
+  localStorage[cvox.AbstractTts.PUNCTUATION_ECHO] =
+      this.currentPunctuationEcho_;
+  return this.punctuationEchoes_[this.currentPunctuationEcho_].msg;
+};
+
+
+/**
+ * Process a math expression into a string suitable for a speech engine.
+ * @param {string} text Text representing a math expression.
+ * @param {Object= } math Parameter containing information how to
+ *     process the math expression.
+ * @return {string} The string with a spoken version of the math expression.
+ * @private
+ */
+cvox.TtsBackground.prototype.preprocessMath_ = function(text, math) {
+  if (!this.mathMap_) {
+    return text;
+  }
+  var result = '';
+  var type = math['type'];
+  switch (type) {
+  case cvox.MathSpeak.Types.FUNCTION:
+    result = this.mathMap_.functions().getFunctionByName(text);
+    break;
+  case cvox.MathSpeak.Types.SYMBOL:
+    result = (this.mathMap_.symbols()).getSymbolByCode(text.charCodeAt(0));
+    break;
+  case cvox.MathSpeak.Types.SURROGATE:
+    var hi = text.charCodeAt(0);
+    var low = text.charCodeAt(1);
+    var code = ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
+    result = (this.mathMap_.symbols()).getSymbolByCode(code);
+    break;
+  case cvox.MathSpeak.Types.REST:
+    return text;
+  }
+  if (result) {
+    return result.mappingString(math['domain'], math['rule']);
+  } else {
+    return math['alternative'];
+  }
+};
+
+
+/**
  * Converts a number into space-separated digits.
  * For numbers containing 4 or fewer digits, we return the original number.
  * This ensures that numbers like 123,456 or 2011 are not "digitized" while
@@ -245,4 +416,21 @@ cvox.TtsBackground.prototype.getNumberAsDigits_ = function(text) {
     }
     return num.split('').join(' ');
   });
+};
+
+
+/**
+ * Constructs a function for string.replace that handles description of a
+ *  punctuation character.
+ * @param {boolean} clear Whether we want to use whitespace in place of match.
+ * @return {function(string): string} The replacement function.
+ * @private
+ */
+cvox.TtsBackground.prototype.createPunctuationReplace_ = function(clear) {
+  return goog.bind(function(match) {
+    var retain = this.retainPunctuation_.indexOf(match) != -1 ?
+        match : ' ';
+    return clear ? retain :
+        ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match] + retain + ' ';
+  }, this);
 };

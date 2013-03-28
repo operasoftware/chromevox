@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ goog.provide('cvox.ChromeVoxPrefs');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.KeyMap');
-goog.require('cvox.KeyUtil');
 
 
 /**
@@ -52,6 +51,11 @@ cvox.ChromeVoxPrefs = function() {
    * @private
    */
   this.keyMap_ = cvox.KeyMap.fromLocalStorage() || cvox.KeyMap.fromDefaults();
+
+  // Clear per session preferences.
+  // This is to keep the position dictionary from growing excessively large.
+  localStorage['position'] = '{}';
+
   this.init(loadExistingSettings);
 };
 
@@ -69,15 +73,14 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   'currentKeyMap' : cvox.KeyMap.DEFAULT_KEYMAP,
   'useIBeamCursor': cvox.ChromeVox.isMac,
   'cvoxKey': '',
-  'filterMap': '{}',
   'focusFollowsMouse': false,
-  'lensAnchored': true,
-  'lensVisible': false,
   'siteSpecificScriptBase':
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
       'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
   'sticky': false,
+  'typingEcho': 0,
+  'position': '{}',
   'useVerboseMode': true
 };
 

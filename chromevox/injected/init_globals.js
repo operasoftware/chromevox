@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.HostFactory');
-goog.require('cvox.Lens');
 goog.require('cvox.NavigationManager');
 goog.require('cvox.Serializer');
 goog.require('cvox.SpokenMessages');
@@ -55,12 +54,6 @@ cvox.InitGlobals.initGlobals = function() {
 
   cvox.ChromeVox.braille = cvox.HostFactory.getBraille();
 
-  if (cvox.ChromeVox.host.canShowLens()) {
-    var lens = new cvox.Lens();
-    lens.setMultiplier(2.25);
-    cvox.ChromeVox.tts.add(lens);
-    cvox.ChromeVox.lens = lens;
-  }
   cvox.ChromeVox.earcons = cvox.HostFactory.getEarcons();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   cvox.ChromeVox.isActive = true;

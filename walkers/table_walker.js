@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,9 +41,8 @@ cvox.TableWalker = function() {
   /**
    * Only used as a cache for faster lookup.
    * @type {!cvox.TraverseTable}
-   * @private
    */
-  this.tt_ = new cvox.TraverseTable(null);
+  this.tt = new cvox.TraverseTable(null);
 };
 goog.inherits(cvox.TableWalker, cvox.AbstractWalker);
 
@@ -60,52 +59,28 @@ cvox.TableWalker.prototype.next = function(sel) {
  */
 cvox.TableWalker.prototype.sync = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-      return this.tt_.goToCell(position);
+      return this.tt.goToCell(position);
   }, this));
 };
 
 /**
  * @override
+ * @suppress {checkTypes} actual parameter 2 of
+ * cvox.AbstractMsgs.prototype.getMsg does not match formal parameter
+ * found   : Array.<number>
+ * required: (Array.<string>|null|undefined)
  */
 cvox.TableWalker.prototype.getDescription = function(prevSel, sel) {
   var position = this.syncPosition_(sel);
   if (!position) {
     return [];
   }
-  this.tt_.goToCell(position);
+  this.tt.goToCell(position);
   var descs = cvox.DescriptionUtil.getCollectionDescription(prevSel, sel);
   if (descs.length == 0) {
     descs.push(new cvox.NavDescription({
       annotation: cvox.ChromeVox.msgs.getMsg('empty_cell')
     }));
-  }
-  // if prevSel isn't in this table, we should announce the table.
-  var tableNode = this.getTableNode_(sel);
-  if (cvox.DomUtil.getContainingTable(prevSel.start.node) != tableNode ||
-      cvox.DomUtil.getContainingTable(prevSel.end.node) != tableNode) {
-    var len = descs.length;
-    var summaryText = this.tt_.summaryText();
-    var locationInfo = this.getLocationInfo_(sel);
-    if (locationInfo != null) {
-      descs.push(new cvox.NavDescription({
-        context: cvox.ChromeVox.msgs.getMsg('table_location', locationInfo),
-        annotation: summaryText ? summaryText + ' ' : ''
-      }));
-      descs[0].pushEarcon(cvox.AbstractEarcons.OBJECT_ENTER);
-    }
-
-    if (this.tt_.isSpanned()) {
-      descs.push(new cvox.NavDescription({
-        annotation: cvox.ChromeVox.msgs.getMsg('spanned')
-      }));
-    }
-  } else {
-    // if prevsel was in this table and the next selection (in the direction
-    // we were headed) is the same selection or outside of the table, then add
-    // an earcon saying that we hit the edge.
-    if (sel.equals(prevSel)) {
-      descs[0].pushEarcon(cvox.AbstractEarcons.WRAP_EDGE);
-    }
   }
   return descs;
 };
@@ -117,36 +92,22 @@ cvox.TableWalker.prototype.getBraille = function(prevSel, sel) {
   var ret = new cvox.NavBraille({});
   var position = this.syncPosition_(sel);
   if (position) {
-    ret = cvox.BrailleUtil.getBraille(prevSel, sel);
-    ret.text += ' ' + ++position[0] + '/' + ++position[1];
+    var text =
+        cvox.BrailleUtil.getTemplated(prevSel.start.node, sel.start.node);
+    text.append(' ' + ++position[0] + '/' + ++position[1]);
   }
-  return ret;
-};
-
-/**
- * Returns the location description.
- * @param {!cvox.CursorSelection} sel A valid selection.
- * @return {Array.<cvox.NavDescription>} The location description.
- */
-cvox.TableWalker.prototype.getLocationDescription = function(sel) {
-  var locationInfo = this.getLocationInfo_(sel);
-  if (locationInfo == null) {
-    return null;
-  }
-  return [new cvox.NavDescription({
-    text: cvox.ChromeVox.msgs.getMsg('table_location', locationInfo)
-  })];
+  return new cvox.NavBraille({text: text});
 };
 
 /**
  * @override
  */
-cvox.TableWalker.prototype.getGranularityMsg = function() {
-  return cvox.ChromeVox.msgs.getMsg('table_strategy');
-};
+cvox.TableWalker.prototype.getGranularityMsg = goog.abstractMethod;
 
-// TODO (stoarca): These don't belong here, but keeping them for now since
-// this is how it was organized before.
+
+/** Table Actions. */
+
+
 /**
  * Returns the first cell of the table that this selection is inside.
  * @param {!cvox.CursorSelection} sel The selection.
@@ -154,7 +115,7 @@ cvox.TableWalker.prototype.getGranularityMsg = function() {
  */
 cvox.TableWalker.prototype.goToFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToCell([0, 0]);
+    return this.tt.goToCell([0, 0]);
   }, this));
 };
 
@@ -165,7 +126,7 @@ cvox.TableWalker.prototype.goToFirstCell = function(sel) {
  */
 cvox.TableWalker.prototype.goToLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToLastCell();
+    return this.tt.goToLastCell();
   }, this));
 };
 
@@ -176,7 +137,7 @@ cvox.TableWalker.prototype.goToLastCell = function(sel) {
  */
 cvox.TableWalker.prototype.goToRowFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToCell([position[0], 0]);
+    return this.tt.goToCell([position[0], 0]);
   }, this));
 };
 
@@ -187,7 +148,7 @@ cvox.TableWalker.prototype.goToRowFirstCell = function(sel) {
  */
 cvox.TableWalker.prototype.goToRowLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToRowLastCell();
+    return this.tt.goToRowLastCell();
   }, this));
 };
 
@@ -198,7 +159,7 @@ cvox.TableWalker.prototype.goToRowLastCell = function(sel) {
  */
 cvox.TableWalker.prototype.goToColFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToCell([0, position[1]]);
+    return this.tt.goToCell([0, position[1]]);
   }, this));
 };
 
@@ -209,7 +170,7 @@ cvox.TableWalker.prototype.goToColFirstCell = function(sel) {
  */
 cvox.TableWalker.prototype.goToColLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToColLastCell();
+    return this.tt.goToColLastCell();
   }, this));
 };
 
@@ -221,7 +182,7 @@ cvox.TableWalker.prototype.goToColLastCell = function(sel) {
  */
 cvox.TableWalker.prototype.nextRow = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToCell([position[0] + (sel.isReversed() ? -1 : 1),
+    return this.tt.goToCell([position[0] + (sel.isReversed() ? -1 : 1),
                               position[1]]);
   }, this));
 };
@@ -234,29 +195,92 @@ cvox.TableWalker.prototype.nextRow = function(sel) {
  */
 cvox.TableWalker.prototype.nextCol = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
-    return this.tt_.goToCell([position[0],
+    return this.tt.goToCell([position[0],
                               position[1] + (sel.isReversed() ? -1 : 1)]);
   }, this));
 };
 
 /**
+ * @param {!cvox.CursorSelection} sel The current selection.
+ * @return {cvox.CursorSelection} The resulting selection.
+ */
+cvox.TableWalker.prototype.announceHeaders = function(sel) {
+  cvox.ChromeVox.tts.speak(this.getHeaderText_(sel),
+                           cvox.AbstractTts.QUEUE_MODE_FLUSH,
+                           cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  return sel;
+};
+
+/**
+ * @param {!cvox.CursorSelection} sel The current selection.
+ * @return {cvox.CursorSelection} The resulting selection.
+ */
+cvox.TableWalker.prototype.speakTableLocation = function(sel) {
+  cvox.ChromeVox.navigationManager.speakDescriptionArray(
+      this.getLocationDescription_(sel),
+      cvox.AbstractTts.QUEUE_MODE_FLUSH,
+      null);
+  return sel;
+};
+
+
+/**
+ * @param {!cvox.CursorSelection} sel The current selection.
+ * @return {cvox.CursorSelection} The resulting selection.
+ */
+cvox.TableWalker.prototype.exitShifterContent = function(sel) {
+  var tableNode = this.getTableNode_(sel);
+  if (!tableNode) {
+    return null;
+  }
+  var nextNode = cvox.DomUtil.directedNextLeafNode(tableNode, false);
+  return cvox.CursorSelection.fromNode(nextNode);
+};
+
+
+/** End of actions. */
+
+
+/**
  * Returns the text content of the header(s) of the cell that contains sel.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {!string} The header text.
+ * @private
  */
-cvox.TableWalker.prototype.getHeaderText = function(sel) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.start.node);
+cvox.TableWalker.prototype.getHeaderText_ = function(sel) {
+  this.tt.initialize(this.getTableNode_(sel));
+  var position = this.tt.findNearestCursor(sel.start.node);
   if (!position) {
     return cvox.ChromeVox.msgs.getMsg('not_inside_table');
   }
-  if (!this.tt_.goToCell(position)) {
+  if (!this.tt.goToCell(position)) {
     return cvox.ChromeVox.msgs.getMsg('not_inside_table');
   }
   return (
       this.getRowHeaderText_(position) +
       ' ' +
       this.getColHeaderText_(position));
+};
+
+/**
+ * Returns the location description.
+ * @param {!cvox.CursorSelection} sel A valid selection.
+ * @return {Array.<cvox.NavDescription>} The location description.
+ * @suppress {checkTypes} actual parameter 2 of
+ * cvox.AbstractMsgs.prototype.getMsg does not match
+ * formal parameter
+ * found   : Array.<number>
+ * required: (Array.<string>|null|undefined)
+ * @private
+ */
+cvox.TableWalker.prototype.getLocationDescription_ = function(sel) {
+  var locationInfo = this.getLocationInfo(sel);
+  if (locationInfo == null) {
+    return null;
+  }
+  return [new cvox.NavDescription({
+    text: cvox.ChromeVox.msgs.getMsg('table_location', locationInfo)
+  })];
 };
 
 /**
@@ -269,9 +293,9 @@ cvox.TableWalker.prototype.getRowHeaderText_ = function(position) {
   // TODO(stoarca): OPTMZ Replace with join();
   var rowHeaderText = '';
 
-  var rowHeaders = this.tt_.getCellRowHeaders();
+  var rowHeaders = this.tt.getCellRowHeaders();
   if (rowHeaders.length == 0) {
-    var firstCellInRow = this.tt_.getCellAt([position[0], 0]);
+    var firstCellInRow = this.tt.getCellAt([position[0], 0]);
     rowHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInRow) + ' ' +
             cvox.DomUtil.getName(firstCellInRow));
@@ -299,9 +323,9 @@ cvox.TableWalker.prototype.getColHeaderText_ = function(position) {
   // TODO(stoarca): OPTMZ Replace with join();
   var colHeaderText = '';
 
-  var colHeaders = this.tt_.getCellColHeaders();
+  var colHeaders = this.tt.getCellColHeaders();
   if (colHeaders.length == 0) {
-    var firstCellInCol = this.tt_.getCellAt([0, position[1]]);
+    var firstCellInCol = this.tt.getCellAt([0, position[1]]);
     colHeaderText += cvox.DomUtil.collapseWhitespace(
         cvox.DomUtil.getValue(firstCellInCol) + ' ' +
         cvox.DomUtil.getName(firstCellInCol));
@@ -324,20 +348,19 @@ cvox.TableWalker.prototype.getColHeaderText_ = function(position) {
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {Array.<number>} The location info:
  *  [row index, row count, col index, col count].
- * @private
  */
-cvox.TableWalker.prototype.getLocationInfo_ = function(sel) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.start.node);
+cvox.TableWalker.prototype.getLocationInfo = function(sel) {
+  this.tt.initialize(this.getTableNode_(sel));
+  var position = this.tt.findNearestCursor(sel.start.node);
   if (!position) {
     return null;
   }
   // + 1 to account for 0-indexed
   return [
     position[0] + 1,
-    this.tt_.rowCount,
+    this.tt.rowCount,
     position[1] + 1,
-    this.tt_.colCount
+    this.tt.colCount
   ].map(function(x) {return cvox.ChromeVox.msgs.getNumber(x);});
 };
 
@@ -360,16 +383,16 @@ cvox.TableWalker.prototype.isInTable = function(sel) {
  * @private
  */
 cvox.TableWalker.prototype.goTo_ = function(sel, f) {
-  this.tt_.initialize(this.getTableNode_(sel));
-  var position = this.tt_.findNearestCursor(sel.end.node);
+  this.tt.initialize(this.getTableNode_(sel));
+  var position = this.tt.findNearestCursor(sel.end.node);
   if (!position) {
     return null;
   }
-  this.tt_.goToCell(position);
+  this.tt.goToCell(position);
   if (!f(position)) {
     return null;
   }
-  return cvox.CursorSelection.fromNode(this.tt_.getCell()).
+  return cvox.CursorSelection.fromNode(this.tt.getCell()).
       setReversed(sel.isReversed());
 };
 
@@ -391,8 +414,8 @@ cvox.TableWalker.prototype.getTableNode_ = function(sel) {
  */
 cvox.TableWalker.prototype.syncPosition_ = function(sel) {
   var tableNode = this.getTableNode_(sel);
-  this.tt_.initialize(tableNode);
+  this.tt.initialize(tableNode);
   // we need to align the TraverseTable with our sel because our walker
   // uses parts of it (for example isSpanned relies on being at a specific cell)
-  return this.tt_.findNearestCursor(sel.end.node);
+  return this.tt.findNearestCursor(sel.end.node);
 };

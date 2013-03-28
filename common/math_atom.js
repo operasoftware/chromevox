@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ goog.require('cvox.MathUtil');
 
 
 /** Basic MathAtom object
- * @param {string} key for the Atomic object.
+ * @param {string} key For the Atomic object.
  * @constructor
  */
 cvox.MathAtom = function(key) {
@@ -34,15 +34,16 @@ cvox.MathAtom = function(key) {
   /**
    * Mapping for domains and speech rules.
    * Default mapping is to the key.
-   * @type {Object.<string,Object.<string,string>>}
+   * @type {Object.<string, Object.<string, string|Array.<string|Object|null>>>}
+   * @private
    */
-  this.mappings = {'default' : {'default' : key}};
+  this.mappings_ = {'default' : {'default' : key}};
 
 };
 
 
 /**
- *
+ * Accesses the key of the MathAtom.
  * @return {string} The key of a MathAtom.
  */
 cvox.MathAtom.prototype.getKey = function() {
@@ -70,21 +71,22 @@ cvox.MathAtom.prototype.getCategory = function() {
 /**
  *
  * @return {Object} The mappings objects of a MathAtom.
- * @private
  */
-cvox.MathAtom.prototype.getMappings_ = function() {
-  return this.mappings;
+cvox.MathAtom.prototype.getMappings = function() {
+  return this.mappings_;
 };
 
 
 /**
  * Customizes an atom mapping. Possibly updates the old mapping if it existed.
  * @param {string} domain in which the mapping is valid.
- * @param {Object.<string,string>} value Codomain value that should be returned for that domain.
+ * @param {Object.<string, string|Array.<string|Object|null>>} value
+ *     Codomain value that should be returned for that domain.
  */
 cvox.MathAtom.prototype.addMapping = function(domain, value) {
-  this.mappings[domain] = value;
+  this.mappings_[domain] = value;
 };
+
 
 /**
  * Customizes an atom mapping. Possibly updates the old mapping if it existed.
@@ -92,7 +94,7 @@ cvox.MathAtom.prototype.addMapping = function(domain, value) {
  */
 cvox.MathAtom.prototype.addMappings = function(maps) {
   for (var map in maps) {
-    this.mappings[map] = maps[map];
+    this.mappings_[map] = maps[map];
   }
 };
 
@@ -102,11 +104,12 @@ cvox.MathAtom.prototype.addMappings = function(maps) {
  * no mapping for that domain exists.
  * @param {string} domain of the mapping.
  * @param {string} rule of the mapping.
- * @return {string} Codomain of the mapping for the given rule.
+ * @return {string|Array.<string|Object|null>} Codomain of the mapping
+ *     for the given rule.
  */
-cvox.MathAtom.prototype.map = function(domain, rule) {
-  var mapping = this.mappings[domain];
-  var value = mapping ? mapping[rule] : this.mappings['default'][rule];
+cvox.MathAtom.prototype.mapping = function(domain, rule) {
+  var mapping = this.mappings_[domain];
+  var value = mapping ? mapping[rule] : this.mappings_['default'][rule];
   if (value) {
     return value;
   }
@@ -114,8 +117,39 @@ cvox.MathAtom.prototype.map = function(domain, rule) {
   else if (value === '') {
     return '';
   } else {
-    return this.mappings['default']['default'];
+    return this.mappings_['default']['default'];
   }
+};
+
+
+/**
+ * Returns the value of a mapping given its domain if it is a string.
+ * @param {string} domain of the mapping.
+ * @param {string} rule of the mapping.
+ * @return {string} Codomain of the mapping for the given rule.
+ */
+cvox.MathAtom.prototype.mappingString = function(domain, rule) {
+  var mapping = this.mapping(domain, rule);
+  if (typeof(mapping) == 'string') {
+    return mapping;
+  }
+  return '';
+};
+
+
+/**
+ * Returns the value of a mapping given its domain if it is a rule.
+ * @param {string} domain of the mapping.
+ * @param {string} rule of the mapping.
+ * @return {Array.<string|Object|null>} Codomain of the mapping for
+ *     the given rule.
+ */
+cvox.MathAtom.prototype.mappingRule = function(domain, rule) {
+  var mapping = this.mapping(domain, rule);
+  if (typeof(mapping) != 'string') {
+    return mapping;
+  }
+  return [];
 };
 
 
@@ -124,7 +158,7 @@ cvox.MathAtom.prototype.map = function(domain, rule) {
  * @return {boolean} True if an atom has a mapping for a particular domain.
  */
 cvox.MathAtom.prototype.hasMapping = function(domain) {
-  if (this.mappings[domain]) { return true }
+  if (this.getMappings()[domain]) { return true; }
   return false;
 };
 
@@ -135,27 +169,28 @@ cvox.MathAtom.prototype.hasMapping = function(domain) {
 cvox.MathAtom.prototype.allDomains = function() {
 
   // Explicit cast to keep the compiler happy!
-  return Object.keys(/** @type {!Object} */ (this.mappings));
+  return Object.keys(/** @type {!Object} */ (this.getMappings()));
 };
 
 
 /**
- * @return {Array.<string>} Set of all rules in the atom.
+ * @return {Array.<string|Array.<string|Object|null>>} Set of all
+ *     rules in the atom.
  */
 cvox.MathAtom.prototype.allRules = function() {
 
   var rules = [];
-  for (var map in this.mappings) {
+  for (var map in this.getMappings()) {
     // Explicit cast to keep the compiler happy!
     rules = cvox.MathUtil.union(
-        rules, Object.keys(/** @type {!Object} */ (this.mappings[map])));
+        rules, Object.keys(/** @type {!Object} */ (this.getMappings()[map])));
   }
   return rules;
 };
 
 
 /**
- * Makes a MathAtom from an inital objects.
+ * Makes a MathAtom from an initial objects.
  * @param {string} key For the Atom.
  * @param {string} category of the Atom.
  * @param {Object} mappings for the domain specific translations.
@@ -183,7 +218,7 @@ cvox.MathAtom.make = function(key, category, mappings) {
 cvox.MathAtom.prototype.toString = function() {
 
   var output = '';
-  var mappings = this.getMappings_();
+  var mappings = this.getMappings();
 
   output += 'key:\t\t' + this.getKey();
   output += '\ncategory:\t\t' + this.getCategory();

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -553,7 +553,12 @@ cvox.Lens.prototype.setLensContent = function(contentElem) {
 
   // Button to set position of the lens.
   var button1 = document.createElement('button');
-  button1.onclick = goog.bind(function() {
+  button1.onclick = goog.bind(
+      /**
+       * @suppress {missingProperties} Property style never defined
+       * on cvox.Lens
+       */
+      function() {
     this.changeLocation();
     (this.style.backgroundImage == cvox.Lens.DOWN_ARROW_IMG) ?
         this.style.backgroundImage = cvox.Lens.UP_ARROW_IMG :
@@ -842,4 +847,3 @@ cvox.Lens.prototype.stop = function() { };
 
 /** @override */
 cvox.Lens.prototype.increaseOrDecreaseProperty = function() { };
-

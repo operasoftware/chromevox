@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,8 +88,8 @@ cvox.Widget.prototype.show = function() {
   }
   this.onKeyDown = goog.bind(this.onKeyDown, this);
   this.onKeyPress = goog.bind(this.onKeyPress, this);
-  document.addEventListener('keydown', this.onKeyDown, true);
-  document.addEventListener('keypress', this.onKeyPress, true);
+  window.addEventListener('keydown', this.onKeyDown, true);
+  window.addEventListener('keypress', this.onKeyPress, true);
 
   this.initialNode =
       cvox.ChromeVox.navigationManager.getCurrentNode();
@@ -123,8 +123,8 @@ cvox.Widget.prototype.show = function() {
  * will be made.
  */
 cvox.Widget.prototype.hide = function(opt_noSync) {
-  document.removeEventListener('keypress', this.onKeyPress, true);
-  document.removeEventListener('keydown', this.onKeyDown, true);
+  window.removeEventListener('keypress', this.onKeyPress, true);
+  window.removeEventListener('keydown', this.onKeyDown, true);
 
   cvox.ChromeVox.host.sendToBackgroundPage({
       'target': 'Prefs',

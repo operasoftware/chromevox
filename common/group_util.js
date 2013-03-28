@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,6 +71,8 @@ cvox.GroupUtil.BREAKOUT_SELECTOR_ = 'blockquote,' +
     'tr,' +
     'ul,' +
     'math,' +
+  // This takes care of MathJax expressions.
+    'span.math,' +
 // TODO (sorge) Do we want to group all math or only display math?
 //    '[mode="display"],' +
     // Aria widget roles

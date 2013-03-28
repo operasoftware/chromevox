@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ goog.require('cvox.KeyboardHelpWidget');
 goog.require('cvox.NodeSearchWidget');
 goog.require('cvox.PlatformUtil');
 goog.require('cvox.SearchWidget');
+goog.require('cvox.TypingEcho');
 
 
 // TODO(stoarca): First, delete 75% of this functionality. Second,
@@ -57,7 +58,9 @@ goog.require('cvox.SearchWidget');
  *                         doDefault: (undefined|boolean),
  *                         nodeList: (undefined|string),
  *                         platformFilter: (undefined|cvox.PlatformFilter),
- *                         skipInput: (undefined|boolean)
+ *                         skipInput: (undefined|boolean),
+ *                         allowEvents: (undefined|boolean),
+ *                         allowContinuation: (undefined|boolean)
  *                         }>}
  *  forward: Whether this command points forward.
  *  backward: Whether this command points backward. If neither forward or
@@ -74,6 +77,10 @@ goog.require('cvox.SearchWidget');
  *                  undefined, the command applies to all platforms.
  *  skipInput: Explicitly skips this command when text input has focus.
  *             Defaults to false.
+ *  allowEvents: Allows EventWatcher to continue processing events which can
+ * trump TTS.
+ *  allowContinuation: Allows continuous read to proceed even if the command
+ * results in speech.
  * @private
  */
 cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
@@ -81,8 +88,8 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'backward': {backward: true, announce: true},
   'right': {forward: true, announce: true},
   'left': {backward: true, announce: true},
-  'skipForward': {forward: true, announce: false},
-  'skipBackward': {backward: true, announce: false},
+  'skipForward': {forward: true, announce: false, allowContinuation: true},
+  'skipBackward': {backward: true, announce: false, allowContinuation: true},
   'previousGranularity': {announce: true},
   'nextGranularity': {announce: true},
 
@@ -98,6 +105,8 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'nextObject': {forward: true, announce: true},
   'previousGroup': {backward: true, announce: true, skipInput: true},
   'nextGroup': {forward: true, announce: true, skipInput: true},
+
+  'cycleTypingEcho': {announce: false},
 
   'jumpToTop': {forward: true, announce: true},
   'jumpToBottom': {backward: true, announce: true},
@@ -116,46 +125,40 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'readCurrentURL': {announce: false},
   'announceHeaders': {announce: false},
   'speakTableLocation': {announce: false},
-  'actOnCurrentItem': {announce: false},
-  'forceClickOnCurrentItem': {announce: false},
+  'forceClickOnCurrentItem': {announce: true, allowEvents: true},
   'toggleChromeVox': {announce: false, platformFilter: cvox.PlatformFilter.WML},
   'fullyDescribe': {announce: false},
   'toggleSelection': {announce: true},
-  'filterLikeCurrentItem': {announce: false},
   'startHistoryRecording': {announce: false},
   'stopHistoryRecording': {announce: false},
   'enterCssSpace': {announce: false},
   'enableConsoleTts': {announce: false},
   'autorunner': {announce: false},
 
-  'skipToBeginning': {announce: true},
-  'skipToEnd': {announce: true},
-  'skipToRowBeginning': {announce: true},
-  'skipToRowEnd': {announce: true},
-  'skipToColBeginning': {announce: true},
-  'skipToColEnd': {announce: true},
+  // Table Actions.
+  'goToFirstCell': {announce: true},
+  'goToLastCell': {announce: true},
+  'goToRowFirstCell': {announce: true},
+  'goToRowLastCell': {announce: true},
+  'goToColFirstCell': {announce: true},
+  'goToColLastCell': {announce: true},
 
-  // Math stuff (sorge@google.com)
-  'cycleDomain': {announce: true},
-  'cycleTraversalMode': {announce: true},
-  'toggleExplore': {announce: true},
+  // Generic Actions.
+  'enterShifter': {announce: true},
+  'exitShifter': {announce: true},
+  'exitShifterContent': {announce: true},
 
-  'decreaseTtsRate': {announce: false},
-  'increaseTtsRate': {announce: false},
-  'decreaseTtsPitch': {announce: false},
-  'increaseTtsPitch': {announce: false},
-  'decreaseTtsVolume': {announce: false},
-  'increaseTtsVolume': {announce: false},
-  'cyclePunctuationLevel': {announce: false},
+  'decreaseTtsRate': {announce: false, allowContinuation: true},
+  'increaseTtsRate': {announce: false, allowContinuation: true},
+  'decreaseTtsPitch': {announce: false, allowContinuation: true},
+  'increaseTtsPitch': {announce: false, allowContinuation: true},
+  'decreaseTtsVolume': {announce: false, allowContinuation: true},
+  'increaseTtsVolume': {announce: false, allowContinuation: true},
+  'cyclePunctuationEcho': {announce: false, allowContinuation: true},
 
-  'toggleTable': {announce: true},
   'toggleStickyMode': {announce: false},
   'toggleKeyPrefix': {announce: false},
   'toggleSearchWidget': {announce: false},
-
-  'toggleLens': {announce: false},
-  'floatLens': {announce: false},
-  'anchorLens': {announce: false},
 
   'showHeadingsList': {announce: false, nodeList: 'heading'},
   'showLinksList': {announce: false, nodeList: 'link'},
@@ -194,6 +197,8 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'previousHeading6': {backward: true, findNext: 'heading6'},
   'nextLink': {forward: true, findNext: 'link'},
   'previousLink': {backward: true, findNext: 'link'},
+  'nextMath': {forward: true, findNext: 'math'},
+  'previousMath': {backward: true, findNext: 'math'},
   'nextTable': {forward: true, findNext: 'table'},
   'previousTable': {backward: true, findNext: 'table'},
   'nextList': {forward: true, findNext: 'list'},
@@ -204,6 +209,12 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'previousFormField': {backward: true, findNext: 'formField'},
   'nextLandmark': {forward: true, findNext: 'landmark'},
   'previousLandmark': {backward: true, findNext: 'landmark'},
+  'nextSection': {forward: true, findNext: 'section'},
+  'previousSection': {backward: true, findNext: 'section'},
+  'nextControl': {forward: true, findNext: 'control'},
+  'previousControl': {backward: true, findNext: 'control'},
+
+  'openLongDesc': {announce: false},
 
   'debug': {announce: false},
 
@@ -258,47 +269,6 @@ cvox.ChromeVoxUserCommands.commands;
  * TODO (clchen, dmazzoni): Implement syncing on click to avoid needing this.
  */
 cvox.ChromeVoxUserCommands.wasMouseClicked = false;
-
-
-/**
- * Perform all of the actions that should happen at the end of any
- * navigation operation: update the lens, play earcons, speak and braille the
- * description of the object that was navigated to.
- *
- * @param {string} messagePrefixStr The string to be prepended to what
- * is spoken to the user.
- */
-cvox.ChromeVoxUserCommands.finishNavCommand = function(messagePrefixStr) {
-  cvox.ChromeVox.navigationManager.finishNavCommand(messagePrefixStr);
-};
-
-
-/**
- * Find the next occurrence of an item defined by the given predicate.
- * @param {function(Array.<Node>)} predicate A function taking an array of
- * unique ancestor nodes as a parameter and returning a desired node. It
- * returns null if that node can't be found.
- * @param {string} errorStr A string to speak if the item couldn't be found.
- * @private
- */
-cvox.ChromeVoxUserCommands.findNextAndSpeak_ = function(predicate, errorStr) {
-  // Don't do any navigational commands if the document is hidden from
-  // screen readers.
-  // TODO(stoarca): Why is this specific only to this command?
-  if (cvox.ChromeVox.entireDocumentIsHidden) {
-    return;
-  }
-
-  if (!cvox.ChromeVox.navigationManager.findNext(predicate)) {
-    cvox.ChromeVox.tts.speak(
-        errorStr, 0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-    return;
-  }
-
-  // Don't sync in find, since the resulting CursorSelection wrapped node may
-  // not be visited by any walker.
-  cvox.ChromeVoxUserCommands.finishNavCommand('');
-};
 
 
 /**
@@ -508,7 +478,14 @@ cvox.ChromeVoxUserCommands.NODE_INFO_MAP_ = {
                typeMsg: 'role_landmark'},
   'math': {predicate: 'mathPredicate',
            forwardError: 'no_next_math',
-           backwardError: 'no_previous_math'}
+           backwardError: 'no_previous_math',
+           typeMsg: 'math_expr'},
+  'section': {predicate: 'sectionPredicate',
+           forwardError: 'no_next_section',
+           backwardError: 'no_previous_section'},
+  'control': {predicate: 'controlPredicate',
+           forwardError: 'no_next_control',
+           backwardError: 'no_previous_control'}
 };
 
 
@@ -529,8 +506,7 @@ cvox.ChromeVoxUserCommands.createCommand_ = function(cmd) {
  * @return {boolean} False to prevent the default action. True otherwise.
  * @private
  */
-cvox.ChromeVoxUserCommands.doCommand_ =
-    cvox.ChromeVoxEventSuspender.withSuspendedEvents(function(cmd) {
+cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
   if (cvox.Widget.isActive()) {
     return true;
   }
@@ -544,6 +520,14 @@ cvox.ChromeVoxUserCommands.doCommand_ =
     return true;
   }
 
+  if (!cmdStruct.allowEvents) {
+    cvox.ChromeVoxEventSuspender.enterSuspendEvents();
+  }
+
+  if (!cmdStruct.allowContinuation) {
+    cvox.ChromeVox.navigationManager.stopReading(false);
+  }
+
   if (cmdStruct.forward) {
     cvox.ChromeVox.navigationManager.setReversed(false);
   } else if (cmdStruct.backward) {
@@ -551,18 +535,8 @@ cvox.ChromeVoxUserCommands.doCommand_ =
   }
 
   if (cmdStruct.findNext) {
-    var NodeInfoStruct =
-        cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.findNext];
-    var predicate = cvox.DomPredicates[NodeInfoStruct.predicate];
-    var error = '';
-    if (cmdStruct.forward) {
-      error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.forwardError);
-    } else if (cmdStruct.backward) {
-      error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.backwardError);
-    }
-
-    cvox.ChromeVoxUserCommands.findNextAndSpeak_(predicate, error);
-    return false;
+    cmd = 'find';
+    cmdStruct.announce = true;
   }
 
   var prefixMsg = '';
@@ -571,20 +545,46 @@ cvox.ChromeVoxUserCommands.doCommand_ =
   switch (cmd) {
     case 'forward':
     case 'backward':
-      if (cvox.ChromeVox.navigationManager.isTableMode()) {
-        if (!cvox.ChromeVox.navigationManager.nextRow()) {
-          cvox.ChromeVox.navigationManager.tryExitTable();
-        }
-      } else {
-        ret = !cvox.ChromeVox.navigationManager.navigate();
-      }
+      ret = !cvox.ChromeVox.navigationManager.navigate();
       break;
     case 'right':
     case 'left':
-      if (cvox.ChromeVox.navigationManager.isTableMode()) {
-        cvox.ChromeVox.navigationManager.nextCol();
-      } else {
-        cvox.ChromeVox.navigationManager.subnavigate();
+      cvox.ChromeVox.navigationManager.subnavigate();
+      break;
+    case 'find':
+      if (!cmdStruct.findNext) {
+        throw 'Invalid find command.';
+      }
+      var NodeInfoStruct =
+          cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.findNext];
+      var predicateName = NodeInfoStruct.predicate;
+      var predicate = cvox.DomPredicates[predicateName];
+      var error = '';
+      var wrap = '';
+      if (cmdStruct.forward) {
+        wrap = cvox.ChromeVox.msgs.getMsg('wrapped_to_top');
+        error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.forwardError);
+      } else if (cmdStruct.backward) {
+        wrap = cvox.ChromeVox.msgs.getMsg('wrapped_to_bottom');
+        error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.backwardError);
+      }
+      var found = cvox.ChromeVox.navigationManager.findNext(
+          predicate, predicateName);
+      if (!found) {
+        cvox.ChromeVox.navigationManager.saveSel();
+        prefixMsg = wrap;
+        cvox.ChromeVox.navigationManager.syncToBeginning();
+        cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+        found = cvox.ChromeVox.navigationManager.findNext(
+            predicate, predicateName);
+        if (!found) {
+          prefixMsg = error;
+          cvox.ChromeVox.navigationManager.restoreSel();
+        }
+      }
+      // NavigationManager performs announcement inside of frames when finding.
+      if (found && found.start.node.tagName == 'IFRAME') {
+        cmdStruct.announce = false;
       }
       break;
     case 'skipForward':
@@ -667,11 +667,20 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVox.navigationManager.startReading(
           cvox.AbstractTts.QUEUE_MODE_FLUSH);
       break;
+    case 'cycleTypingEcho':
+      cvox.ChromeVox.host.sendToBackgroundPage({
+        'target': 'Prefs',
+        'action': 'setPref',
+        'pref': 'typingEcho',
+        'value': cvox.TypingEcho.cycle(cvox.ChromeVox.typingEcho),
+        'announce': true
+      });
+      break;
     case 'jumpToTop':
-      cvox.ChromeVox.navigationManager.syncToPageBeginning();
+      cvox.ChromeVox.navigationManager.syncToBeginning();
       break;
     case 'jumpToBottom':
-      cvox.ChromeVox.navigationManager.syncToPageBeginning();
+      cvox.ChromeVox.navigationManager.syncToBeginning();
       break;
     case 'stopSpeech':
       cvox.ChromeVox.navigationManager.stopReading(true);
@@ -733,41 +742,10 @@ cvox.ChromeVoxUserCommands.doCommand_ =
     case 'readCurrentURL':
       cvox.ChromeVox.tts.speak(document.URL);
       break;
-    case 'announceHeaders':
-      cvox.ChromeVox.tts.speak(
-          cvox.ChromeVox.navigationManager.getHeaderText(),
-          cvox.AbstractTts.QUEUE_MODE_FLUSH,
-          null);
-      break;
-    case 'speakTableLocation':
-      var desc = cvox.ChromeVox.navigationManager.getLocationDescription();
-      if (desc == null) {
-        errorMsg = 'not_inside_table';
-      } else {
-        cvox.ChromeVox.navigationManager.speakDescriptionArray(
-            desc, cvox.AbstractTts.QUEUE_MODE_FLUSH, null);
-      }
-      break;
-    case 'actOnCurrentItem':
-      ret = !cvox.ChromeVox.navigationManager.act();
-      break;
     case 'forceClickOnCurrentItem':
-      // TODO(stoarca): What is the difference between acting and clicking?
-      // These two should be merged and "just work" instead of having the
-      // user fumble around to figure out exactly what key combination to
-      // press to activate something.
-      cvox.ChromeVox.tts.speak(
-          cvox.ChromeVox.msgs.getMsg('element_clicked'),
-          0, cvox.AbstractTts.PERSONALITY_ANNOTATION);
-      // TODO(clchen,dtseng): Determine if it would be safe to always click
-      // on the activeDescendant rather than the focused element. If so, then
-      // refactor this into the clickElem method itself.
+      prefixMsg = cvox.ChromeVox.msgs.getMsg('element_clicked');
       var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
-      var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
-      if (activeDescendant) {
-        targetNode = activeDescendant;
-      }
-      cvox.DomUtil.clickElem(targetNode, false);
+      cvox.DomUtil.clickElem(targetNode, false, false);
       break;
     case 'toggleChromeVox':
       cvox.ChromeVox.host.sendToBackgroundPage({
@@ -789,22 +767,6 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       prefixMsg = cvox.ChromeVox.msgs.getMsg(
           selState ? 'begin_selection' : 'end_selection');
     break;
-    case 'filterLikeCurrentItem':
-      // Compute the CSS selector based on the current node.
-      // Currently only use class, id, and type CSS selectors.
-      var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
-      var cssSelector = cvox.WalkerDecorator.filterForNode(currentNode);
-      if (!cvox.DomUtil.hasContent(currentNode) || !cssSelector) {
-        errorMsg = 'unable_to_filter';
-        break;
-      }
-
-      var walkerDecorator =
-          cvox.ChromeVox.navigationManager.getFilteredWalker();
-      walkerDecorator.addFilter(cssSelector);
-      cvox.$m('added_filter').speakFlush();
-      cvox.ChromeVox.navigationManager.navigate();
-      break;
     case 'startHistoryRecording':
       cvox.History.getInstance().startRecording();
       break;
@@ -823,55 +785,28 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       runner.run();
       break;
 
-    // TODO(stoarca): code repetition
-    case 'skipToBeginning':
-      // TODO(stoarca): This should be merged with jumpToTop
-      if (!cvox.ChromeVox.navigationManager.goToFirstCell()) {
+    // Table actions.
+    case 'goToFirstCell':
+    case 'goToLastCell':
+    case 'goToRowFirstCell':
+    case 'goToRowLastCell':
+    case 'goToColFirstCell':
+    case 'goToColLastCell':
+    case 'announceHeaders':
+    case 'speakTableLocation':
+    case 'exitShifterContent':
+      if (!cvox.DomPredicates.tablePredicate(cvox.DomUtil.getAncestors(
+              cvox.ChromeVox.navigationManager.getCurrentNode())) ||
+          !cvox.ChromeVox.navigationManager.performAction(cmd)) {
         errorMsg = 'not_inside_table';
-      }
-      break;
-    case 'skipToEnd':
-      if (!cvox.ChromeVox.navigationManager.goToLastCell()) {
-        errorMsg = 'not_inside_table';
-      }
-      break;
-    case 'skipToRowBeginning':
-      if (!cvox.ChromeVox.navigationManager.goToRowFirstCell()) {
-        errorMsg = 'not_inside_table';
-      }
-      break;
-    case 'skipToRowEnd':
-      if (!cvox.ChromeVox.navigationManager.goToRowLastCell()) {
-        errorMsg = 'not_inside_table';
-      }
-      break;
-    case 'skipToColBeginning':
-      if (!cvox.ChromeVox.navigationManager.goToColFirstCell()) {
-        errorMsg = 'not_inside_table';
-      }
-      break;
-    case 'skipToColEnd':
-      if (!cvox.ChromeVox.navigationManager.goToColLastCell()) {
-        errorMsg = 'not_inside_table';
-      }
-    break;
-
-    // Math stuff
-    case 'cycleDomain':
-      cvox.ChromeVox.navigationManager.cycleDomain();
-      prefixMsg = cvox.ChromeVox.navigationManager.getDomainMsg();
-      break;
-    case 'cycleTraversalMode':
-      cvox.ChromeVox.navigationManager.cycleTraversalMode();
-      prefixMsg = cvox.ChromeVox.navigationManager.getTraversalModeMsg();
-      break;
-    case 'toggleExplore':
-      if (!cvox.ChromeVox.navigationManager.toggleExplore()) {
-        errorMsg = 'not_inside_math';
       }
       break;
 
-
+    // Generic actions.
+    case 'enterShifter':
+    case 'exitShifter':
+      cvox.ChromeVox.navigationManager.performAction(cmd);
+      break;
     // TODO(stoarca): Code repetition.
     case 'decreaseTtsRate':
       // TODO(stoarca): This function name is way too long.
@@ -898,26 +833,13 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.ChromeVox.tts.increaseOrDecreaseProperty(
           cvox.AbstractTts.VOLUME, true);
       break;
-      case 'cyclePunctuationLevel':
+      case 'cyclePunctuationEcho':
         cvox.ChromeVox.host.sendToBackgroundPage({
             'target': 'TTS',
-            'action': 'cyclePunctuationLevel'
+            'action': 'cyclePunctuationEcho'
           });
         break;
 
-    case 'toggleTable':
-      if (cvox.ChromeVox.navigationManager.isTableMode()) {
-        cvox.ChromeVox.navigationManager.tryExitTable();
-        prefixMsg = cvox.ChromeVox.navigationManager.getGranularityMsg();
-      } else {
-        cvox.ChromeVox.navigationManager.tryEnterTable({force: true});
-        if (cvox.ChromeVox.navigationManager.isTableMode()) {
-          prefixMsg = cvox.ChromeVox.navigationManager.getGranularityMsg();
-        } else {
-          prefixMsg = cvox.ChromeVox.msgs.getMsg('no_tables');
-        }
-      }
-      break;
     case 'toggleStickyMode':
       cvox.ChromeVox.host.sendToBackgroundPage({
         'target': 'Prefs',
@@ -934,45 +856,6 @@ cvox.ChromeVoxUserCommands.doCommand_ =
       cvox.SearchWidget.getInstance().toggle();
       break;
 
-    case 'toggleLens':
-      var newSetting = !cvox.ChromeVox.lens.isLensDisplayed();
-      cvox.ChromeVox.lens.showLens(newSetting);
-      cvox.ChromeVox.host.sendToBackgroundPage({
-        'target': 'Prefs',
-        'action': 'setPref',
-        'pref': 'lensVisible',
-        'value': newSetting
-      });
-      break;
-    case 'floatLens':
-      try {
-        cvox.ChromeVox.lens.setAnchoredLens(false);
-        cvox.ChromeVox.lens.showLens(false);
-        cvox.ChromeVox.lens.showLens(true);
-      } catch (err) {
-      }
-      cvox.ChromeVox.host.sendToBackgroundPage({
-        'target': 'Prefs',
-        'action': 'setPref',
-        'pref': 'lensAnchored',
-        'value': false
-      });
-      break;
-    case 'anchorLens':
-      try {
-        cvox.ChromeVox.lens.setAnchoredLens(true);
-        cvox.ChromeVox.lens.showLens(false);
-        cvox.ChromeVox.lens.showLens(true);
-      } catch (err) {
-      }
-      cvox.ChromeVox.host.sendToBackgroundPage({
-        'target': 'Prefs',
-        'action': 'setPref',
-        'pref': 'lensAnchored',
-        'value': true
-      });
-      break;
-
     case 'showHeadingsList':
     case 'showLinksList':
     case 'showFormsList':
@@ -986,6 +869,23 @@ cvox.ChromeVoxUserCommands.doCommand_ =
 
       cvox.NodeSearchWidget.create(nodeListStruct.typeMsg,
                   cvox.DomPredicates[nodeListStruct.predicate]).show();
+      break;
+
+    case 'openLongDesc':
+      var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+      if (cvox.DomUtil.hasLongDesc(currentNode)) {
+        cvox.ChromeVox.host.sendToBackgroundPage({
+          'target': 'OpenTab',
+          'url': currentNode.longDesc // Use .longDesc instead of getAttribute
+                                      // since we want Chrome to convert the
+                                      // longDesc to an absolute URL.
+        });
+      } else {
+        cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('no_long_desc'),
+          cvox.AbstractTts.QUEUE_MODE_FLUSH,
+          cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      }
       break;
 
     case 'debug':
@@ -1005,10 +905,13 @@ cvox.ChromeVoxUserCommands.doCommand_ =
         cvox.AbstractTts.PERSONALITY_ANNOTATION);
   } else {
     if (cmdStruct.announce) {
-      cvox.ChromeVoxUserCommands.finishNavCommand(prefixMsg);
+      cvox.ChromeVox.navigationManager.finishNavCommand(prefixMsg);
     }
   }
+  if (!cmdStruct.allowEvents) {
+    cvox.ChromeVoxEventSuspender.exitSuspendEvents();
+  }
   return !!cmdStruct.doDefault || ret;
-});
+};
 
 cvox.ChromeVoxUserCommands.init_();

@@ -1,0 +1,32 @@
+[
+{"category": "Trigonometry",
+ "mappings": {
+  "default": {
+   "default": "sine",
+   "alternative": "sine function",
+   "short": "sine"
+  }
+ },
+ "key": "sin",
+ "active": true,
+ "names": [
+  "sin",
+  " sine"
+ ]
+},
+{"category": "Trigonometry",
+ "mappings": {
+  "default": {
+   "default": "cosine",
+   "alternative": "cosine function",
+   "short": "cosine"
+  }
+ },
+ "key": "cos",
+ "active": true,
+ "names": [
+  "cos",
+  "cosine"
+ ]
+}
+]

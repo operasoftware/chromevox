@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ goog.require('cvox.InitialSpeech');
  * @extends {cvox.AbstractHost}
  */
 cvox.AndroidHost = function() {
-  cvox.AbstractHost.call(this);
+  goog.base(this);
 };
 goog.inherits(cvox.AndroidHost, cvox.AbstractHost);
 
@@ -51,6 +51,13 @@ cvox.AndroidHost.prototype.init = function() {
   cvox.ApiImplementation.siteSpecificScriptLoader = '';
   cvox.ApiImplementation.siteSpecificScriptBase = '';
   cvox.ApiImplementation.init();
+
+  // Default to brief mode on mobile if earcons are available.
+  // TODO (clchen): Make this configurable once there is infrastructure in place
+  // to support prefs.
+  if (cvox.ChromeVox.earcons.earconsAvailable()) {
+    cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
+  }
 
   cvox.InitialSpeech.speak();
 };

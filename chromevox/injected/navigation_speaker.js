@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,13 +39,14 @@ cvox.NavigationSpeaker = function() {
  */
 cvox.NavigationSpeaker.prototype.speakDescriptionArray = function(
     descriptionArray, initialQueueMode, completionFunction) {
+  descriptionArray = this.reorderAnnotations(descriptionArray);
   var speakOneDescription = function(i, queueMode) {
     var description = descriptionArray[i];
     var startCallback = function() {
       for (var j = 0; j < description.earcons.length; j++) {
         cvox.ChromeVox.earcons.playEarcon(description.earcons[j]);
       }
-    }
+    };
     var endCallback = undefined;
     if ((i == descriptionArray.length - 1) && completionFunction) {
       endCallback = completionFunction;
@@ -67,4 +68,43 @@ cvox.NavigationSpeaker.prototype.speakDescriptionArray = function(
   if ((descriptionArray.length == 0) && completionFunction) {
     completionFunction();
   }
+};
+
+
+/**
+ * Checks for an annotation of a structured elements.
+ * @param {string} annon The annotation.
+ * @return {boolean} True if annotating a structured element.
+ */
+cvox.NavigationSpeaker.structuredElement = function(annon) {
+  switch (annon) {
+    case 'table':
+    case 'Math':
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Reorder special annotations for structured elements to be spoken first.
+ * @param {Array.<cvox.NavDescription>} descriptionArray The array of
+ *     NavDescriptions to speak.
+ * @return {Array.<cvox.NavDescription>} The reordered array.
+ */
+cvox.NavigationSpeaker.prototype.reorderAnnotations = function(
+    descriptionArray) {
+  var descs = new Array;
+  for (var i = 0; i < descriptionArray.length; i++) {
+    var descr = descriptionArray[i];
+    if (cvox.NavigationSpeaker.structuredElement(descr.annotation)) {
+      descs.push(new cvox.NavDescription({
+        text: '',
+        annotation: descr.annotation
+      }));
+      descr.annotation = '';
+    }
+    descs.push(descr);
+  }
+  return descs;
 };

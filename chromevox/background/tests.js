@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,4 +37,3 @@ document.addEventListener('DOMContentLoaded', function() {
   runner.runTestCase(new cvox.EventWatcherTest());
   runner.runTestCase(new cvox.NavigationManagerTest());
 }, false);
-

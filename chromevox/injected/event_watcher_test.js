@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ goog.inherits(cvox.EventWatcherTest, cvox.AbstractTestCase);
  *  'focus').
  * @param {number=} opt_timeStamp The event timeStamp.
  * @return {Event} The mock event.
+ * @suppress {invalidCasts}
  */
 cvox.EventWatcherTest.prototype.createMockEvent =
     function(target, opt_keyCode, opt_type, opt_timeStamp) {
@@ -162,7 +163,7 @@ cvox.EventWatcherTest.prototype.testContentEditableFocusFeedback = function() {
 cvox.EventWatcherTest.prototype.testDialogFeedback = function() {
   this.appendHtml('<div>' +
       '<button id="show">Show</button>' +
-      '<div role="dialog" aria-label="DialogLabel">' +
+      '<div role="dialog">' +
       '  <button id="ok">OK</button>' +
       '  <button id="cancel">Cancel</button>' +
       '</div>' +
@@ -196,7 +197,7 @@ cvox.EventWatcherTest.prototype.testDialogFeedback = function() {
  */
 cvox.EventWatcherTest.prototype.testAlertDialogFeedback = function() {
   this.appendHtml('<div>' +
-      '<div role="alertdialog" aria-label="Confirmation">' +
+      '<div role="alertdialog">' +
       '  <p>Are you sure you want to install Windows?</p>' +
       '  <button id="yes">Yes</button>' +
       '  <button id="no">No</button>' +
@@ -219,7 +220,7 @@ cvox.EventWatcherTest.prototype.testAlertDialogFeedback = function() {
  */
 cvox.EventWatcherTest.prototype.testDoubleFocusDialogFeedback = function() {
   this.appendHtml('<div>' +
-      '<div role="dialog" aria-label="Jedi question">' +
+      '<div role="dialog">' +
       '  <p>Are these the droids you\'re looking for?</p>' +
       '  <button id="yes">Yes</button>' +
       '  <button id="no">No</button>' +
@@ -642,14 +643,14 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
       '<label for="timewidget">Set alarm for:</label>');
     this.appendHtml(
       '<input id="timewidget" type="time" value="12:00">');
-    function performKeyDown(dir) {
+    var performKeyDown = function(dir) {
       var evt = document.createEvent('KeyboardEvent');
       evt.initKeyboardEvent(
           'keydown', true, true, window, dir, 0, false, false, false, false);
 
       document.activeElement.dispatchEvent(evt);
     };
-    function performKeyUp(dir) {
+    var performKeyUp = function(dir) {
       var evt = document.createEvent('KeyboardEvent');
       evt.initKeyboardEvent(
           'keyup', true, true, window, dir, 0, false, false, false, false);
@@ -697,6 +698,86 @@ cvox.EventWatcherTest.prototype.testTimeWidget = function() {
         .waitForCalm(performKeyUp, 'Down') // down arrow
         .waitForCalm(this.assertSpoken,
                      'PM');
+    }
+};
+
+
+/**
+ * Test date widget.
+ *
+ * @export
+ */
+cvox.EventWatcherTest.prototype.testDateWidget = function() {
+  var chromeVer = -1;
+  var userAgent = window.navigator.userAgent;
+  var startIndex = userAgent.indexOf('Chrome/');
+  if (startIndex != -1) {
+    userAgent = userAgent.substring(startIndex + 'Chrome/'.length);
+  }
+  var endIndex = userAgent.indexOf('.');
+  if (endIndex != -1) {
+    userAgent = userAgent.substring(0, endIndex);
+  }
+  // This test will only work on Chrome 25 and higher.
+  if (userAgent >= 25) {
+    this.appendHtml(
+      '<label for="datewidget">Set birthdate:</label>');
+    this.appendHtml(
+      '<input id="datewidget" type="date" value="1998-09-04"/>');
+    var performKeyDown = function(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keydown', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+    var performKeyUp = function(dir) {
+      var evt = document.createEvent('KeyboardEvent');
+      evt.initKeyboardEvent(
+          'keyup', true, true, window, dir, 0, false, false, false, false);
+
+      document.activeElement.dispatchEvent(evt);
+    };
+
+    var datewidget = document.getElementById('datewidget');
+    datewidget.focus();
+
+    this.waitForCalm(this.assertSpoken,
+        'Set birthdate: 1998-09-04 Date control Set birthdate: September 4 1998');
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     'August');
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     'July');
+
+    this.waitForCalm(performKeyDown, 'Right') // right arrow
+        .waitForCalm(performKeyUp, 'Right') // right arrow
+        .waitForCalm(performKeyDown, 'Up') // right arrow
+        .waitForCalm(performKeyUp, 'Up') // right arrow
+        .waitForCalm(this.assertSpoken, '5');
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     '4');
+
+    this.waitForCalm(performKeyDown, 'Right') // right arrow
+        .waitForCalm(performKeyUp, 'Right') // right arrow
+        .waitForCalm(performKeyDown, 'Up') // right arrow
+        .waitForCalm(performKeyUp, 'Up') // right arrow
+        .waitForCalm(this.assertSpoken,
+                     '1999');
+
+
+    this.waitForCalm(performKeyDown, 'Down') // down arrow
+        .waitForCalm(performKeyUp, 'Down') // down arrow
+        .waitForCalm(this.assertSpoken,
+                     '1998');
     }
 };
 

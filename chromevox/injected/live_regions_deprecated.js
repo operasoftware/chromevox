@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ cvox.LiveRegionsDeprecated.updateLiveRegion = function(region, queueMode, disabl
   var messages = [];
   if (additions.length == 0 && removals.length > 0) {
     messages = [new cvox.NavDescription({
-      context: cvox.ChromeVox.msgs.getMsg('live_regions_removed')
+      context: cvox.ChromeVox.msgs.getMsg('live_regions_removed'), text: ''
     })].concat(removals);
   } else {
     messages = additions;

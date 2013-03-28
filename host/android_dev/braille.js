@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ goog.inherits(cvox.AndroidBraille, cvox.AbstractBraille);
 cvox.AndroidBraille.prototype.write = function(params) {
   // Only attempt to send to Braille if this interface exists.
   if (accessibility.braille) {
-    accessibility.braille(JSON.stringify(params));
+    accessibility.braille(JSON.stringify(params.toJson()));
   }
 };
 

@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /**
  * @fileoverview A collection of JavaScript utilities used to simplify working
  * with xpaths.
@@ -17,6 +31,27 @@ cvox.XpathUtil = function() {
 
 
 /**
+ * Mapping for some default namespaces.
+ * @const
+ * @private
+ */
+cvox.XpathUtil.nameSpaces_ = {
+  'xhtml' : 'http://www.w3.org/1999/xhtml',
+  'mathml': 'http://www.w3.org/1998/Math/MathML'
+};
+
+
+/**
+ * Resolve some default name spaces.
+ * @param {string} prefix Namespace prefix.
+ * @return {string} The corresponding namespace URI.
+ */
+cvox.XpathUtil.resolveNameSpace = function(prefix) {
+  return cvox.XpathUtil.nameSpaces_[prefix] || null;
+};
+
+
+/**
  * Given an XPath expression and rootNode, it returns an array of children nodes
  * that match. The code for this function was taken from Mihai Parparita's GMail
  * Macros Greasemonkey Script.
@@ -30,7 +65,7 @@ cvox.XpathUtil.evalXPath = function(expression, rootNode) {
     var xpathIterator = rootNode.ownerDocument.evaluate(
       expression,
       rootNode,
-      null, // no namespace resolver
+      cvox.XpathUtil.resolveNameSpace,
       XPathResult.ORDERED_NODE_ITERATOR_TYPE,
       null); // no existing results
   } catch (err) {
@@ -82,4 +117,3 @@ cvox.XpathUtil.xpathSupported = function() {
   }
   return true;
 };
-

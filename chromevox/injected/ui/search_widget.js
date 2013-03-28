@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,9 +78,12 @@ cvox.SearchWidget.prototype.show = function() {
   this.active = true;
   this.hasMatch_ = false;
   cvox.ChromeVox.navigationManager.setGranularity(
-      cvox.NavigationShifter.GRANULARITIES.OBJECT);
+      cvox.NavigationShifter.GRANULARITIES.OBJECT, true);
 
-  // During profiling, NavigationHistory was found to have a serious performanc
+  // Always start search forward.
+  cvox.ChromeVox.navigationManager.setReversed(false);
+
+  // During profiling, NavigationHistory was found to have a serious performance
   // impact on search.
   this.focusRecovery_ = cvox.ChromeVox.navigationManager.getFocusRecovery();
   cvox.ChromeVox.navigationManager.setFocusRecovery(false);
@@ -299,7 +302,7 @@ cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
   }
 
   cvox.ChromeVox.navigationManager.setGranularity(
-      cvox.NavigationShifter.GRANULARITIES.OBJECT);
+      cvox.NavigationShifter.GRANULARITIES.OBJECT, true);
 
   do {
     if (this.getPredicate()) {
@@ -366,7 +369,7 @@ cvox.SearchWidget.prototype.next_ = function(searchStr, opt_reversed) {
     // TODO(dtseng): findNext always seems to point direction forward!
     cvox.ChromeVox.navigationManager.setReversed(!!opt_reversed);
     if (!success) {
-      cvox.ChromeVox.navigationManager.syncToPageBeginning();
+      cvox.ChromeVox.navigationManager.syncToBeginning();
       cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
       success = true;
     }

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,53 @@
  * @author sorge@google.com (Volker Sorge)
  */
 
+goog.require('cvox.XpathUtil');
+
 goog.provide('cvox.MathUtil');
 
-goog.require('cvox.XpathUtil');
+
+/**
+ * Checks if a node is in a given class of MathML nodes.
+ * @private
+ * @param {!Node} node The node to test.
+ * @param {Array.<string>} tags List of tag names.
+ * @return {boolean} True if node has a tag name included in tags.
+ */
+cvox.MathUtil.isMathmlNodeOfClass_ = function(node, tags) {
+  return tags.indexOf(node.tagName.toUpperCase()) != -1;
+};
+
+
+/**
+ * Checks if a node is in a given class of MathJax nodes.
+ * @private
+ * @param {!Node} node The node to test.
+ * @param {Array.<string>} tags List of tag names.
+ * @return {boolean} True if node has a tag name included in tags.
+ */
+cvox.MathUtil.isMathjaxNodeOfClass_ = function(node, tags) {
+  if (node.tagName == 'SPAN') {
+    var classes = node.className.split(' ');
+    return classes.some(function(x)
+                        {return tags.indexOf(x.toUpperCase()) != -1;});
+  }
+  return false;
+};
+
+
+/**
+ * Checks if a node is an element node that belongs to a given class
+ * of MathML or MathJax nodes.
+ * @private
+ * @param {!Node} node The node to test.
+ * @param {Array.<string>} tags List of tag names.
+ * @return {boolean} True if node has a tag name included in tags.
+ */
+cvox.MathUtil.isMathNodeOfClass_ = function(node, tags) {
+  return (node.nodeType == Node.ELEMENT_NODE &&
+          (cvox.MathUtil.isMathmlNodeOfClass_(node, tags) ||
+           cvox.MathUtil.isMathjaxNodeOfClass_(node, tags)));
+};
 
 
 /**
@@ -42,8 +86,7 @@ cvox.MathUtil.TOKEN_LIST = ['MI', 'MN', 'MO', 'MTEXT', 'MSPACE', 'MS'];
  * @return {boolean} True if element is a token.
  */
 cvox.MathUtil.isToken = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.TOKEN_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element, cvox.MathUtil.TOKEN_LIST);
 };
 
 
@@ -74,8 +117,7 @@ cvox.MathUtil.LAYOUT_LIST = ['MROW', 'MFRAC', 'MSQRT', 'MROOT', 'MSTYLE',
  * @return {boolean} True if element is a layout schema.
  */
 cvox.MathUtil.isLayout = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.LAYOUT_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element, cvox.MathUtil.LAYOUT_LIST);
 };
 
 
@@ -105,8 +147,7 @@ cvox.MathUtil.SCRIPT_LIST = ['MSUB', 'MSUP', 'MSUBSUP', 'MUNDER', 'MOVER',
  * @return {boolean} True if element is a script schema.
  */
 cvox.MathUtil.isScript = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.SCRIPT_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element, cvox.MathUtil.SCRIPT_LIST);
 };
 
 
@@ -131,8 +172,7 @@ cvox.MathUtil.TABLES_LIST = ['MTABLE', 'MTABLE', 'MLABELEDTR', 'MTR', 'MTD',
  * @return {boolean} True if element is a tables schema.
  */
 cvox.MathUtil.isTables = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.TABLES_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element, cvox.MathUtil.TABLES_LIST);
 };
 
 
@@ -159,8 +199,8 @@ cvox.MathUtil.ELEMENTARY_LIST = ['MSTACK', 'MLONGDIV', 'MSGROUP', 'MSROW',
  * @return {boolean} True if element is a elementary schema.
  */
 cvox.MathUtil.isElementary = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.ELEMENTARY_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element,
+                                          cvox.MathUtil.ELEMENTARY_LIST);
 };
 
 
@@ -183,8 +223,8 @@ cvox.MathUtil.MATHML_TAG_LIST = [cvox.MathUtil.TOKEN_LIST,
  * @return {boolean} True if element has a valid MathML tag.
  */
 cvox.MathUtil.isMathmlTag = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.MATHML_TAG_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element,
+                                          cvox.MathUtil.MATHML_TAG_LIST);
 };
 
 
@@ -204,8 +244,8 @@ cvox.MathUtil.WHITESPACE_LIST = ['MSROW', 'MROW', 'MSPACE',
  * @return {boolean} True if element is a whitespace node.
  */
 cvox.MathUtil.isWhitespace = function(element) {
-  return element.nodeType == Node.ELEMENT_NODE &&
-    cvox.MathUtil.WHITESPACE_LIST.indexOf(element.tagName.toUpperCase()) != -1;
+  return cvox.MathUtil.isMathNodeOfClass_(element,
+                                          cvox.MathUtil.WHITESPACE_LIST);
 };
 
 
@@ -216,8 +256,8 @@ cvox.MathUtil.isWhitespace = function(element) {
  * @return {boolean} True if element is a non-whitespace node.
  */
 cvox.MathUtil.isNotWhitespace = function(element) {
-  return cvox.MathUtil.isMathmlTag(element) &&
-    cvox.MathUtil.WHITESPACE_LIST.indexOf(element.tagName.toUpperCase()) == -1;
+  return (cvox.MathUtil.isMathmlTag(element) &&
+          !cvox.MathUtil.isWhitespace(element));
 };
 
 
@@ -229,5 +269,82 @@ cvox.MathUtil.isNotWhitespace = function(element) {
  * @return {Array} Union of a and b.
  */
 cvox.MathUtil.union = function(a, b) {
-  return a.concat(b.filter(function(x) {return a.indexOf(x) < 0}));
+  return a.concat(b.filter(function(x) {return a.indexOf(x) < 0;}));
+};
+
+
+/**
+ * Applies an Xpath selector to the node and returns the first result.
+ * @param {Node} node The initial node.
+ * @param {string} xpath An Xpath expression string.
+ * @return {Node} The resulting node.
+ */
+// TODO (sorge) Refactor to use FIRST_ORDERED_NODE_TYPE.
+cvox.MathUtil.applyFunction = function(node, xpath) {
+  var result = cvox.XpathUtil.evalXPath(xpath, node);
+  if (result.length > 0) {
+    return result[0];
+  }
+  return null;
+};
+
+
+/**
+ * Applies an Xpath selector to the node and returns the first result.
+ * @param {Node} node The initial node.
+ * @param {string} xpath An Xpath expression string.
+ * @return {Array.<Node>} The list of resulting nodes.
+ */
+cvox.MathUtil.applySelector = function(node, xpath) {
+  var result = cvox.XpathUtil.evalXPath(xpath, node);
+  if (result.length > 0) {
+    return result;
+  }
+  return null;
+};
+
+
+/**
+ * Applies a boolean Xpath selector to the node.
+ * @param {Node} node The initial node.
+ * @param {string} expression An Xpath expression string.
+ * @return {boolean} The result of the Xpath application.
+ */
+cvox.MathUtil.applyConstraint = function(node, expression) {
+  // TODO (sorge) Refactor to XpathUtil.
+  try {
+    var xpathResult = node.ownerDocument.evaluate(
+        expression,
+        node,
+        cvox.XpathUtil.resolveNameSpace,
+        XPathResult.BOOLEAN_TYPE,
+        null); // no existing results
+  } catch (err) {
+    return false;
+  }
+  return xpathResult.booleanValue;
+};
+
+
+/**
+ * Count list of nodes and concatenate this with the context string.
+ * Returns a closure with a local state.
+ * @param {Array.<Node>} nodes A node array.
+ * @param {?string} context A context string.
+ * @return {function(): string} A function returning a string.
+ */
+cvox.MathUtil.nodeCounter = function(nodes, context) {
+  // Local state.
+  var localLength = nodes.length;
+  var localCounter = 0;
+  var localContext = context;
+  if (!context) {
+    localContext = '';
+  }
+  return function() {
+    if (localCounter < localLength) {
+      localCounter += 1;
+    }
+    return localContext + ' ' + localCounter;
+  };
 };

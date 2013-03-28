@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,9 +45,7 @@ cvox.AndroidEarcons.BASE_URL =
  * @param {number} earcon The earcon to be played.
  */
 cvox.AndroidEarcons.prototype.playEarcon = function(earcon) {
-  if (navigator.userAgent.indexOf('Chrome') == -1) {
-    // Don't try to play earcons on WebView Classic since there it has an audio
-    // focus bug that will cause the earcon to repeat when audio focus changes.
+  if (!this.earconsAvailable()) {
     return;
   }
   cvox.AndroidEarcons.superClass_.playEarcon.call(this, earcon);
@@ -64,6 +62,19 @@ cvox.AndroidEarcons.prototype.playEarcon = function(earcon) {
   if (this.currentAudio.paused) {
     this.currentAudio.play();
   }
+};
+
+/**
+ * Whether or not earcons are available.
+ * @return {boolean} True if earcons are available.
+ */
+cvox.AndroidEarcons.prototype.earconsAvailable = function() {
+  if (navigator.userAgent.indexOf('Chrome') == -1) {
+    // Don't try to play earcons on WebView Classic since there it has an audio
+    // focus bug that will cause the earcon to repeat when audio focus changes.
+    return false;
+  }
+  return true;
 };
 
 cvox.HostFactory.earconsConstructor = cvox.AndroidEarcons;

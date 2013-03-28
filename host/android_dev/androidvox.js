@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,21 @@
  */
 goog.provide('cvox.AndroidVox');
 
+goog.require('cvox.AbstractTts');
+goog.require('cvox.ApiImplementation');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxUserCommands');
+goog.require('cvox.DomUtil');
+goog.require('cvox.Focuser');
 
 /**
  * @constructor
  */
 cvox.AndroidVox = function() {
+  // TODO(clchen, dtseng): Don't navigate into iframes. Remove once AndroidVox
+  // gets properly injected into all iframes.
+  cvox.ChromeVox.navigationManager.ignoreIframesNoMatterWhat();
 };
 goog.exportSymbol('cvox.AndroidVox', cvox.AndroidVox);
 
@@ -49,6 +57,15 @@ cvox.AndroidVox.performAction = function(actionJson) {
   var FAKE_GRANULARITY_READ_TITLE = -2;
   var FAKE_GRANULARITY_STOP_SPEECH = -3;
 
+  // Actions in this range are reserved for Braille use.
+  // TODO(jbroman): use event arguments instead of this hack.
+  var FAKE_GRANULARITY_BRAILLE_CLICK_MAX = -275000000;
+  var FAKE_GRANULARITY_BRAILLE_CLICK_MIN = -275999999;
+
+  var ELEMENTNAME_SECTION = 'SECTION';
+  var ELEMENTNAME_LIST = 'LIST';
+  var ELEMENTNAME_CONTROL = 'CONTROL';
+
   // The accessibility framework in Android will send commands to AndroidVox
   // using a JSON object that contains the action, granularity, and element
   // to use for navigation.
@@ -65,7 +82,7 @@ cvox.AndroidVox.performAction = function(actionJson) {
   if ((granularity == MOVEMENT_GRANULARITY_PAGE) &&
       (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY)) {
     cvox.ChromeVox.navigationManager.setReversed(false);
-    cvox.ChromeVox.navigationManager.syncToPageBeginning();
+    cvox.ChromeVox.navigationManager.syncToBeginning();
     cvox.ChromeVox.navigationManager.updateIndicator();
   }
 
@@ -81,11 +98,42 @@ cvox.AndroidVox.performAction = function(actionJson) {
   // any continuous reading that may be happening.
   cvox.ChromeVoxUserCommands.commands['stopSpeech']();
 
+  // Intercept certain movement types and convert them into cursor movement
+  // if a text control is being used.
+  if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY ||
+      action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+    // Need to fix currentTextHandler.
+    // This may be wrong because ChromeVox drops focus events that originate
+    // from itself.
+    cvox.ChromeVoxEventWatcher.setUpTextHandler();
+  }
+  var currentTextHandler = cvox.ChromeVoxEventWatcher.currentTextHandler;
+  if (!currentTextHandler && document.activeElement != document.body) {
+    console.log('no text handler, but there is an active element',
+        document.activeElement);
+  }
+  if (currentTextHandler && granularity == MOVEMENT_GRANULARITY_CHARACTER) {
+    if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
+      currentTextHandler.moveCursorToNextCharacter();
+    } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+      currentTextHandler.moveCursorToPreviousCharacter();
+    }
+    return true;
+  } else if (currentTextHandler &&
+      granularity == MOVEMENT_GRANULARITY_PARAGRAPH) {
+    if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
+      currentTextHandler.moveCursorToNextParagraph();
+    } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+      currentTextHandler.moveCursorToPreviousParagraph();
+    }
+    return true;
+  }
+
   // Hack: Using fake granularities for commands. We were using NEXT_HTML, but
   // it is unsafe for TalkBack to do this since TalkBack has no way to check if
   // ChromeVox is actually active.
   if (granularity == FAKE_GRANULARITY_READ_CURRENT) {
-    cvox.ChromeVoxUserCommands.finishNavCommand('');
+    cvox.ChromeVox.navigationManager.finishNavCommand('');
     return true;
   }
   if (granularity == FAKE_GRANULARITY_READ_TITLE) {
@@ -96,15 +144,30 @@ cvox.AndroidVox.performAction = function(actionJson) {
     // Speech was already stopped, nothing more to do.
     return true;
   }
+  // Braille clicks are currently sent under these action IDs.
+  // TODO(jbroman): Remove this hack when a better way to send this information
+  // exists.
+  if (granularity >= FAKE_GRANULARITY_BRAILLE_CLICK_MIN &&
+      granularity <= FAKE_GRANULARITY_BRAILLE_CLICK_MAX) {
+    cvox.ChromeVox.tts.speak(
+        cvox.ChromeVox.msgs.getMsg('element_clicked'),
+        cvox.AbstractTts.QUEUE_MODE_FLUSH,
+        cvox.AbstractTts.PERSONALITY_ANNOTATION);
+    var navBraille = cvox.ChromeVox.navigationManager.getBraille();
+    var clickIndex = FAKE_GRANULARITY_BRAILLE_CLICK_MAX - granularity;
+    var targetNode = /** @type {!Node|undefined} */
+        (navBraille.text.getSpan(clickIndex));
+    if (targetNode) {
+      var clickIndexInNode = clickIndex -
+          navBraille.text.getSpanStart(targetNode);
+      cvox.AndroidVox.performClickAction(targetNode, clickIndexInNode);
+    }
+    return true;
+  }
 
   // Drop unknown fake granularities.
   if (granularity < 0) {
     return false;
-  }
-
-  // Default to Android line navigation / ChromeVox DOM object navigation.
-  if (!granularity) {
-    granularity = MOVEMENT_GRANULARITY_LINE;
   }
 
   // Adjust the granularity if needed
@@ -112,13 +175,19 @@ cvox.AndroidVox.performAction = function(actionJson) {
   ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[MOVEMENT_GRANULARITY_PARAGRAPH] =
       cvox.NavigationShifter.GRANULARITIES.GROUP;
   ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[MOVEMENT_GRANULARITY_LINE] =
-      cvox.NavigationShifter.GRANULARITIES.OBJECT;
+      cvox.NavigationShifter.GRANULARITIES.LINE;
   ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[MOVEMENT_GRANULARITY_WORD] =
       cvox.NavigationShifter.GRANULARITIES.WORD;
   ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[MOVEMENT_GRANULARITY_CHARACTER] =
       cvox.NavigationShifter.GRANULARITIES.CHARACTER;
 
-  var targetNavStrategy = ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[granularity];
+  var targetNavStrategy;
+  if (!granularity) {
+    // Default to ChromeVox DOM object navigation.
+    targetNavStrategy = cvox.NavigationShifter.GRANULARITIES.OBJECT;
+  } else {
+    targetNavStrategy = ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[granularity];
+  }
   cvox.ChromeVox.navigationManager.setGranularity(targetNavStrategy);
 
   // Perform the action - return the NOT of it since the ChromeVoxUserCommands
@@ -128,20 +197,58 @@ cvox.AndroidVox.performAction = function(actionJson) {
 
   switch (action) {
     case ACTION_CLICK:
-      // A click will always be dispatched; whether or not it actually does
-      // anything useful is up to the page. There is no point in waiting for
-      // a click and waiting would actually risk a potential lockup if
-      // ChromeVox/the wrapper is removed before it can return.
+      // Touches do not dispatch ACTION_CLICK, but BrailleBack does.
+      // The click is sent to the current node.
+      cvox.ChromeVox.tts.speak(
+          cvox.ChromeVox.msgs.getMsg('element_clicked'),
+          cvox.AbstractTts.QUEUE_MODE_FLUSH,
+          cvox.AbstractTts.PERSONALITY_ANNOTATION);
+      var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+      if (targetNode) {
+        cvox.AndroidVox.performClickAction(targetNode);
+      }
       actionPerformed = true;
-      window.setTimeout(function(){
-            cvox.ChromeVoxUserCommands.commands['actOnCurrentItem']();
-          }, 0);
       break;
     case ACTION_NEXT_HTML_ELEMENT:
+      switch (htmlElementName) {
+        case ELEMENTNAME_SECTION:
+          actionPerformed = !cvox.ChromeVoxUserCommands.commands.nextSection();
+          break;
+        case ELEMENTNAME_LIST:
+          actionPerformed = !cvox.ChromeVoxUserCommands.commands.nextList();
+          break;
+        case ELEMENTNAME_CONTROL:
+          actionPerformed =
+              !cvox.ChromeVoxUserCommands.commands.nextControl();
+          break;
+      }
+      if (actionPerformed) {
+        // Only break if htmlElementName was valid, otherwise fall through and
+        // just navigate forward.
+        break;
+      }
     case ACTION_NEXT_AT_MOVEMENT_GRANULARITY:
       actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
       break;
     case ACTION_PREVIOUS_HTML_ELEMENT:
+      switch (htmlElementName) {
+        case ELEMENTNAME_SECTION:
+          actionPerformed =
+              !cvox.ChromeVoxUserCommands.commands.previousSection();
+          break;
+        case ELEMENTNAME_LIST:
+          actionPerformed = !cvox.ChromeVoxUserCommands.commands.previousList();
+          break;
+        case ELEMENTNAME_CONTROL:
+          actionPerformed =
+              !cvox.ChromeVoxUserCommands.commands.previousControl();
+          break;
+      }
+      if (actionPerformed) {
+        // Only break if htmlElementName was valid, otherwise fall through and
+        // just navigate backward.
+        break;
+      }
     case ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY:
       actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
       break;
@@ -150,3 +257,35 @@ cvox.AndroidVox.performAction = function(actionJson) {
 };
 goog.exportSymbol('cvox.AndroidVox.performAction', cvox.AndroidVox.performAction);
 
+/**
+ * Responds to a node being clicked at some offset via the Braille display.
+ * @param {!Node} node Node to click.
+ * @param {number=} opt_index Index into the node text which was clicked.
+ */
+cvox.AndroidVox.performClickAction = function(node, opt_index) {
+  // As in cvox.ChromeVoxEventWatcher.mouseClickEventWatcher.
+  // Consider merging.
+  if (cvox.ChromeVox.navigationManager.getCurrentNode() != node) {
+    cvox.ApiImplementation.syncToNode(node, false);
+  }
+  cvox.Focuser.setFocus(node);
+
+  // Position the cursor within the node, if appropriate.
+  // TODO(jbroman): Include contenteditable here, too.
+  // TODO(jbroman): Find a cleaner way to notice the selection change.
+  var hasSelectionStartAndEnd =
+      cvox.DomUtil.isInputTypeText(node) ||
+      node instanceof HTMLTextAreaElement;
+  if (goog.isDef(opt_index) && hasSelectionStartAndEnd) {
+    var nodeDescription = cvox.BrailleUtil.getTemplated(null, node);
+    var valueStart = nodeDescription.getSpanStart(cvox.BrailleUtil.VALUE_SPAN);
+    var valueEnd = nodeDescription.getSpanEnd(cvox.BrailleUtil.VALUE_SPAN);
+    if (valueStart <= opt_index && opt_index <= valueEnd) {
+      node.selectionStart = opt_index - valueStart;
+      node.selectionEnd = opt_index - valueStart;
+      cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+    }
+  }
+
+  cvox.DomUtil.clickElem(node, false, true);
+};

@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * @fileoverview Initialise Unicode character mappings.
+ * @fileoverview Initialize Unicode character mappings.
  * @author sorge@google.com (Volker Sorge)
  */
 
@@ -25,19 +25,20 @@ goog.require('cvox.MathUtil');
 
 /**
  * Create a unicode mapping.
+ * @param {Array.<Object>} atoms Array of symbol mappings.
  * @constructor
  */
-cvox.MathSymbol = function() {
+cvox.MathSymbol = function(atoms) {
 
   this.UNICODE_MAP_ = new Array;
   this.HTML_ENTITY_MAP_ = {};
 
   this.domains = [];
   this.rules = [];
-  this.initUnicodeMap_();
+  this.initUnicodeMap_(atoms);
 
-  // In the unlikely event we want to initialise with a mapping
-  // different form the usual, we pass the mapping.
+  // In the unlikely event we want to initialize with a mapping
+  // different from the usual, we pass the mapping.
   this.initHtmlEntityMap_(this.UNICODE_MAP_);
 
 };
@@ -65,15 +66,16 @@ cvox.MathSymbol.parseUnicode_ = function(number) {
 };
 
 /**
- * Initialises the mapping for the Unicode symbol translation.
+ * Initializes the mapping for the Unicode symbol translation.
+ * @param {Array.<Object>} atoms Array of symbol mappings.
  * @private
  */
-cvox.MathSymbol.prototype.initUnicodeMap_ = function() {
+cvox.MathSymbol.prototype.initUnicodeMap_ = function(atoms) {
 
   var domains = [];
   var rules = [];
 
-  for (var i = 0, uni; uni = cvox.MathSymbol.UNICODE_ELEMENTS_[i]; i++) {
+  for (var i = 0, uni; uni = atoms[i]; i++) {
     var uniObject = cvox.MathAtom.make(uni.key, uni.category, uni.mappings);
     var index = cvox.MathSymbol.parseUnicode_(uniObject.getKey());
     if (index) {
@@ -88,7 +90,7 @@ cvox.MathSymbol.prototype.initUnicodeMap_ = function() {
 
 
 /**
- * Initialises the mapping for the HTML Entity translation.
+ * Initializes the mapping for the HTML Entity translation.
  * @param {Object} mapping A mapping of unicode codes to atoms.
  * @private
  */
@@ -404,44 +406,3 @@ cvox.MathSymbol.HTML_ENTITY_TO_CODE_ = {
   '&hearts;': '0x2665',
   '&diams;': '0x2666'
 };
-
-
-
-// TODO (sorge) Complete and move to JSON file.
-// Some Unicode characters.
-// Currently only for testing.
-/**
- *
- * Array of initial mappings for unicode characters.
- *
- * Unicode data from:
- * http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
- * Catgories description at:
- * http://www.fileformat.info/info/unicode/category/index.htm
- *
- * @type {Array.<Object>}
- * @private
- */
-cvox.MathSymbol.UNICODE_ELEMENTS_ = [
-  {'category': 'Lu',
-   'key': '0041',
-   'mappings': {
-     'default': {
-       'default': 'latin capital letter a',
-       'short': 'cap a'
-     }}},
-  {'category': 'Lu',
-   'key': '0042',
-   'mappings': {
-     'default': {
-       'default': 'latin capital letter b',
-       'short': 'cap b'
-     }}},
-  {'category': 'Lu',
-   'key': '0043',
-   'mappings': {
-     'default': {
-       'default': 'latin capital letter c',
-       'short': 'cap c'
-     }}}
-];

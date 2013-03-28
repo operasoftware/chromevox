@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -293,7 +293,7 @@ cvox.ApiImplementation.getDesc_ = function(node) {
  */
 cvox.ApiImplementation.clickNodeRef = function(nodeRef, shiftKey) {
   cvox.DomUtil.clickElem(
-      cvox.ApiUtils.getNodeFromRef(nodeRef), shiftKey);
+      cvox.ApiUtils.getNodeFromRef(nodeRef), shiftKey, false);
 };
 
 /**

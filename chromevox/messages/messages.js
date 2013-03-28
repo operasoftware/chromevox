@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -324,49 +324,6 @@ msgs.MSG_CHROMEVOX_INCREASE_TTS_VOLUME =
 
 
 /**
- * @desc The description of the showLens key.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_SHOW_LENS =
-    goog.getMsg('Show lens');
-
-
-/**
- * @desc The description of the hideLens key.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_HIDE_LENS =
-    goog.getMsg('Hide lens');
-
-
-/**
- * @desc The description of the toggleLens key.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_TOGGLE_LENS =
-    goog.getMsg('Toggle lens');
-
-
-/**
- * @desc The description of the anchorLens key.  The lens is a UI widget which
- * displays what the text-to-speech engine is speaking.  This key's action will
- * keep the lens at the top of the page.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_ANCHOR_LENS =
-    goog.getMsg('Anchor lens at top');
-
-
-/**
- * @desc The description of the floatLens key. Causes the lens (see above) to
- * float near the text that is being spoken.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_FLOAT_LENS =
-    goog.getMsg('Float lens near text');
-
-
-/**
  * @desc The description of the showFormsList key.
  * Displayed in the Options page.
  */
@@ -404,14 +361,6 @@ msgs.MSG_CHROMEVOX_SHOW_TABLES_LIST =
  */
 msgs.MSG_CHROMEVOX_SHOW_LANDMARKS_LIST =
     goog.getMsg('Show landmarks list');
-
-
-/**
- * @desc The description of the toggleTable key.
- * Displayed in the Options page.
- */
-msgs.MSG_CHROMEVOX_TOGGLE_TABLE =
-    goog.getMsg('Toggle table mode');
 
 
 /**
@@ -1066,14 +1015,14 @@ msgs.MSG_CHROMEVOX_CHROME_SYSTEM_NEED_RESTART =
  * @desc Spoken when the screen brightness is changed.
  */
 msgs.MSG_CHROMEVOX_CHROME_BRIGHTNESS_CHANGED =
-    goog.getMsg('Brightness: {$brightness} percent.', {'brightness': '$1'});
+    goog.getMsg('Brightness {$brightness} percent', {'brightness': '$1'});
 
 
 /**
  * @desc Spoken when a new Chrome tab named 'title' is opened.
  */
 msgs.MSG_CHROMEVOX_CHROME_TAB_CREATED =
-    goog.getMsg('tab created.');
+    goog.getMsg('tab created');
 
 
 /**
@@ -1081,7 +1030,7 @@ msgs.MSG_CHROMEVOX_CHROME_TAB_CREATED =
  * 'title' page.
  */
 msgs.MSG_CHROMEVOX_CHROME_TAB_SELECTED =
-    goog.getMsg('{$title}, tab.', {'title': '$1'});
+    goog.getMsg('{$title}, tab', {'title': '$1'});
 
 
 /**
@@ -1089,7 +1038,7 @@ msgs.MSG_CHROMEVOX_CHROME_TAB_SELECTED =
  * 'title' page.
  */
 msgs.MSG_CHROMEVOX_CHROME_NORMAL_WINDOW_SELECTED =
-    goog.getMsg('window, {$title}, tab.', {'title': '$1'});
+    goog.getMsg('window {$title} tab', {'title': '$1'});
 
 
 /**
@@ -1097,14 +1046,14 @@ msgs.MSG_CHROMEVOX_CHROME_NORMAL_WINDOW_SELECTED =
  * the 'title' page in the current (displayed) tab.
  */
 msgs.MSG_CHROMEVOX_CHROME_INCOGNITO_WINDOW_SELECTED =
-    goog.getMsg('incognito window, {$title}, tab.', {'title': '$1'});
+    goog.getMsg('incognito window {$title} tab', {'title': '$1'});
 
 
 /**
  * @desc Spoken when the user opens a Chrome menu named 'title'.
  */
 msgs.MSG_CHROMEVOX_CHROME_MENU_OPENED =
-    goog.getMsg('{$title}, menu opened.', {'title': '$1'});
+    goog.getMsg('{$title} menu opened', {'title': '$1'});
 
 
 /**
@@ -1112,7 +1061,7 @@ msgs.MSG_CHROMEVOX_CHROME_MENU_OPENED =
  * in the checked state.
  */
 msgs.MSG_CHROMEVOX_DESCRIBE_CHECKBOX_CHECKED =
-    goog.getMsg('{$name}, checkbox checked', {'name': '$1'});
+    goog.getMsg('{$name} checkbox checked', {'name': '$1'});
 
 
 /**
@@ -1365,6 +1314,13 @@ msgs.MSG_CHROMEVOX_ANNOUNCE_VOLUME =
  */
 msgs.MSG_CHROMEVOX_EXITING_DIALOG =
     goog.getMsg('Exited dialog.');
+
+
+/**
+ * @desc Spoken when the user exits a container.
+ */
+msgs.MSG_CHROMEVOX_EXITED_CONTAINER =
+    goog.getMsg('Exited {$type}.', {'type': '$1'});
 
 
 /**
@@ -1793,6 +1749,22 @@ msgs.MSG_CHROMEVOX_NO_PREVIOUS_TABLE =
 
 
 /**
+ * @desc Spoken if the user attempts to jump to the next math expression
+ * when none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_MATH =
+    goog.getMsg('No next math expression.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous math expression
+ * when none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_MATH =
+    goog.getMsg('No previous math expression.');
+
+
+/**
  * @desc Spoken if the user attempts to jump to the next list when
  * none exists.
  */
@@ -1966,6 +1938,34 @@ msgs.MSG_CHROMEVOX_NO_NEXT_RADIO_BUTTON =
  */
 msgs.MSG_CHROMEVOX_NO_PREVIOUS_RADIO_BUTTON =
     goog.getMsg('No previous radio button.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the next section when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_SECTION = goog.getMsg('No next section.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous section when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_SECTION = goog.getMsg('No previous section.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the next control when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_CONTROL = goog.getMsg('No next control.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous control when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_CONTROL = goog.getMsg('No previous control.');
 
 
 /**
@@ -3249,6 +3249,18 @@ msgs.MSG_CHROMEVOX_TAG_TEXTAREA_BRL =
 
 
 /**
+ * @desc Spoken to describe a <table> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_TABLE = goog.getMsg('table');
+
+
+/**
+ * @desc Brailled to describe a <table> tag.
+ */
+msgs.MSG_CHROMEVOX_TAG_TABLE_BRL = goog.getMsg('tbl');
+
+
+/**
  * @desc Spoken to describe a <ul> tag.
  */
 msgs.MSG_CHROMEVOX_TAG_UL =
@@ -3493,7 +3505,7 @@ msgs.MSG_CHROMEVOX_INPUT_TYPE_DATE_BRL = goog.getMsg('date');
 /**
  * @desc Describes an <input> element with type=email.
  */
-msgs.MSG_CHROMEVOX_INPUT_TYPE_EMAIL = goog.getMsg('Edit text for email');
+msgs.MSG_CHROMEVOX_INPUT_TYPE_EMAIL = goog.getMsg('Edit text, email entry');
 
 
 /**
@@ -3603,7 +3615,7 @@ msgs.MSG_CHROMEVOX_INPUT_TYPE_RESET_BRL = goog.getMsg('reset');
 /**
  * @desc Describes an <input> element with type=search.
  */
-msgs.MSG_CHROMEVOX_INPUT_TYPE_SEARCH = goog.getMsg('Edit text for search');
+msgs.MSG_CHROMEVOX_INPUT_TYPE_SEARCH = goog.getMsg('Edit text, search entry');
 
 
 /**
@@ -3628,7 +3640,7 @@ msgs.MSG_CHROMEVOX_INPUT_TYPE_SUBMIT_BRL = goog.getMsg('btn');
  * @desc Describes an <input> element with type=tel.
  */
 msgs.MSG_CHROMEVOX_INPUT_TYPE_TEL =
-    goog.getMsg('Edit text for telephone number');
+    goog.getMsg('Edit text, number entry');
 
 
 /**
@@ -3653,7 +3665,7 @@ msgs.MSG_CHROMEVOX_INPUT_TYPE_TEXT_BRL = goog.getMsg('edtxt');
 /**
  * @desc Describes an <input> element with type=url.
  */
-msgs.MSG_CHROMEVOX_INPUT_TYPE_URL = goog.getMsg('Edit text for URL');
+msgs.MSG_CHROMEVOX_INPUT_TYPE_URL = goog.getMsg('Edit text, URL entry');
 
 
 /**
@@ -3810,89 +3822,6 @@ msgs.MSG_CHROMEVOX_DOWN_KEY = goog.getMsg('Down');
 
 
 /**
- * @desc The description of the toggle filtering widget command hotkey.
- * Displayed in the options page.
- */
-msgs.MSG_CHROMEVOX_TOGGLE_FILTERING_WIDGET =
-    goog.getMsg('Toggle filtering widget.');
-
-
-/**
- * @desc The description of the filter item command hotkey.
- * Displayed in the options page.
- */
-msgs.MSG_CHROMEVOX_FILTER_ITEM = goog.getMsg('Filter item.');
-
-
-/**
- * @desc The spoken feedback when the filtering widget appears.
- */
-msgs.MSG_CHROMEVOX_FILTERING_INTRO = goog.getMsg('Filtering list');
-
-
-/**
- * @desc The spoken feedback when the filtering widget disappears.
- */
-msgs.MSG_CHROMEVOX_FILTERING_OUTRO = goog.getMsg('Exiting filtering.');
-
-
-/**
- * @desc The spoken help feedback for the filtering widget introduction.
- */
-msgs.MSG_CHROMEVOX_FILTERING_INTRO_HELP =
-    goog.getMsg('Press up and down to select and delete to remove an item.');
-
-
-/**
- * @desc The spoken feedback after adding a filter.
- */
-msgs.MSG_CHROMEVOX_ADDED_FILTER = goog.getMsg('Added filter.');
-
-
-/**
- * @desc The spoken feedback after removing a filter.
- */
-msgs.MSG_CHROMEVOX_REMOVED_FILTER = goog.getMsg('removed filter.');
-
-
-/**
- * @desc The spoken feedback describing a filter.
- */
-msgs.MSG_CHROMEVOX_FILTER = goog.getMsg('{$num} filter', {'num': '$1'});
-
-
-/**
- * @desc The spoken feedback describing a single filter.
- */
-msgs.MSG_CHROMEVOX_FILTER_SINGULAR = goog.getMsg('1 filter');
-
-
-/**
- * @desc The spoken feedback describing multiple filters.
- */
-msgs.MSG_CHROMEVOX_FILTER_PLURAL =
-    goog.getMsg('{$num} filters', {'num': '$1'});
-
-
-/**
- * @desc The spoken feedback spoken when the filtering widget has no filters.
- */
-msgs.MSG_CHROMEVOX_FILTER_OPTIONAL_DEFAULT = goog.getMsg('No filters.');
-
-
-/**
- * @desc The spoken feedback for a set filtered item within the filter widget.
- */
-msgs.MSG_CHROMEVOX_SET_FILTERED = goog.getMsg('filtered.');
-
-
-/**
- * @desc The spoken feedback when unable to filter an item.
- */
-msgs.MSG_CHROMEVOX_UNABLE_TO_FILTER = goog.getMsg('unable to filter.');
-
-
-/**
  * @desc Describes an element with a link that has no known URL.
  */
 msgs.MSG_CHROMEVOX_UNKNOWN_LINK = goog.getMsg('Unknown link');
@@ -4021,6 +3950,49 @@ msgs.MSG_CHROMEVOX_GROUP_STRATEGY = goog.getMsg('Group');
 msgs.MSG_CHROMEVOX_TABLE_STRATEGY = goog.getMsg('Table');
 
 
+
+/**
+ * @desc A message spoken when the user switches to the row granularity,
+ * which allows users to navigate within a table.
+ */
+msgs.MSG_CHROMEVOX_ROW_GRANULARITY = goog.getMsg('Row');
+
+
+/**
+ * @desc A message spoken when the user switches to the column granularity,
+ * which allows users to navigate within a column.
+ */
+msgs.MSG_CHROMEVOX_COLUMN_GRANULARITY = goog.getMsg('Column');
+
+
+/**
+ * @desc A message spoken when the user switches to the MathMl tree
+ * granularity, which allows users to navigate within a math expression.
+ */
+msgs.MSG_CHROMEVOX_MATHML_TREE_GRANULARITY = goog.getMsg('Math ML Tree');
+
+
+/**
+ * @desc A message spoken when the user switches to the MathMl layout
+ * granularity, which allows users to navigate within a math expression.
+ */
+msgs.MSG_CHROMEVOX_MATHML_LAYOUT_GRANULARITY = goog.getMsg('Math ML Layout');
+
+
+/**
+ * @desc A message spoken when the user switches to the MathMl token
+ * granularity, which allows users to navigate within a math expression.
+ */
+msgs.MSG_CHROMEVOX_MATHML_TOKEN_GRANULARITY = goog.getMsg('Math ML Token');
+
+
+/**
+ * @desc A message spoken when the user switches to the MathMl leaf
+ * granularity, which allows users to navigate within a math expression.
+ */
+msgs.MSG_CHROMEVOX_MATHML_LEAF_GRANULARITY = goog.getMsg('Math ML Leaf');
+
+
 /**
  * @desc A message spoken when the user switches to the visual granularity,
  * which allows users to navigate the page by visual regions.
@@ -4124,12 +4096,6 @@ msgs.MSG_CHROMEVOX_CONTROLLING_SPEECH = goog.getMsg('Controlling Speech');
 /**
  * @desc Category displayed in the options page under keyboard commands.
  */
-msgs.MSG_CHROMEVOX_LENS = goog.getMsg('Lens');
-
-
-/**
- * @desc Category displayed in the options page under keyboard commands.
- */
 msgs.MSG_CHROMEVOX_OVERVIEW = goog.getMsg('Overview');
 
 
@@ -4155,12 +4121,6 @@ msgs.MSG_CHROMEVOX_DEVELOPER = goog.getMsg('Developer');
  * @desc Name of the classic key map.
  */
 msgs.MSG_CHROMEVOX_KEYMAP_CLASSIC = goog.getMsg('Classic keymap');
-
-
-/**
- * @desc Name of the alternate key map.
- */
-msgs.MSG_CHROMEVOX_KEYMAP_ALT1 = goog.getMsg('Alternative keymap 1');
 
 
 /**
@@ -4293,6 +4253,11 @@ msgs.MSG_CHROMEVOX_KEY_CONFLICT =
 msgs.MSG_CHROMEVOX_MATH_EXPR = goog.getMsg('Math');
 
 /**
+ * @desc Brailled phrase indicating the current selection is a Math object.
+ */
+msgs.MSG_CHROMEVOX_MATH_EXPR_BRL = goog.getMsg('Math');
+
+/**
  * @desc Describes an element with the ARIA role math.
  */
 msgs.MSG_CHROMEVOX_NOT_INSIDE_MATH = goog.getMsg('Not inside math');
@@ -4340,21 +4305,99 @@ msgs.MSG_CHROMEVOX_TIMEWIDGET_PM = goog.getMsg('PM');
 
 
 /**
+ * @desc Date widget. Indicates the user is on the week field.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_WEEK = goog.getMsg('week');
+
+
+/**
+ * @desc Date widget. Indicates that the month is January.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_JANUARY = goog.getMsg('January');
+
+
+/**
+ * @desc Date widget. Indicates that the month is February.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_FEBRUARY = goog.getMsg('February');
+
+
+/**
+ * @desc Date widget. Indicates that the month is March.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_MARCH = goog.getMsg('March');
+
+
+/**
+ * @desc Date widget. Indicates that the month is April.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_APRIL = goog.getMsg('April');
+
+
+/**
+ * @desc Date widget. Indicates that the month is May.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_MAY = goog.getMsg('May');
+
+
+/**
+ * @desc Date widget. Indicates that the month is June.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_JUNE = goog.getMsg('June');
+
+
+/**
+ * @desc Date widget. Indicates that the month is July.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_JULY = goog.getMsg('July');
+
+
+/**
+ * @desc Date widget. Indicates that the month is August.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_AUGUST = goog.getMsg('August');
+
+
+/**
+ * @desc Date widget. Indicates that the month is September.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_SEPTEMBER = goog.getMsg('September');
+
+
+/**
+ * @desc Date widget. Indicates that the month is October.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_OCTOBER = goog.getMsg('October');
+
+
+/**
+ * @desc Date widget. Indicates that the month is November.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_NOVEMBER = goog.getMsg('November');
+
+
+/**
+ * @desc Date widget. Indicates that the month is December.
+ */
+msgs.MSG_CHROMEVOX_DATEWIDGET_DECEMBER = goog.getMsg('December');
+
+
+/**
  * @desc Spoken when a user switches to a mode announcing no punctuation.
  */
-msgs.MSG_CHROMEVOX_NO_PUNCTUATION = goog.getMsg('No punctuation.');
+msgs.MSG_CHROMEVOX_NO_PUNCTUATION = goog.getMsg('No punctuation');
 
 
 /**
  * @desc Spoken when a user switches to a mode announcing some punctuation.
  */
-msgs.MSG_CHROMEVOX_SOME_PUNCTUATION = goog.getMsg('Some punctuation.');
+msgs.MSG_CHROMEVOX_SOME_PUNCTUATION = goog.getMsg('Some punctuation');
 
 
 /**
  * @desc Spoken when a user switches to a mode announcing all punctuation.
  */
-msgs.MSG_CHROMEVOX_ALL_PUNCTUATION = goog.getMsg('All punctuation.');
+msgs.MSG_CHROMEVOX_ALL_PUNCTUATION = goog.getMsg('All punctuation');
 
 
 /**
@@ -4494,3 +4537,208 @@ msgs.MSG_CHROMEVOX_KEYMAP_RESET =
  */
 msgs.MSG_CHROMEVOX_KEYMAP_SWITCH =
     goog.getMsg('Switched to {$key}.', {'key': '$1'});
+
+
+/**
+ * @desc The description of the key to move to the beginning of the page.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_JUMP_TO_TOP =
+    goog.getMsg('Jump to the top of the page');
+
+
+/**
+ * @desc The description of the key to move to the end of the page.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_JUMP_TO_BOTTOM =
+    goog.getMsg('Jump to the bottom of the page');
+
+
+/**
+ * @desc Message telling the user that they will wrap to the top of the page.
+ */
+msgs.MSG_CHROMEVOX_WRAPPED_TO_TOP =
+    goog.getMsg('Wrapped to top');
+
+
+/**
+ * @desc Message telling the user that they will wrap to the bottom of the page.
+ */
+msgs.MSG_CHROMEVOX_WRAPPED_TO_BOTTOM =
+    goog.getMsg('Wrapped to bottom');
+
+
+/**
+ * @desc Description of the cycle punctuation echo key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_CYCLE_PUNCTUATION_ECHO =
+    goog.getMsg('Cycle punctuation echo');
+
+
+/**
+ * @desc Description of the cycle typing echo key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_CYCLE_TYPING_ECHO =
+    goog.getMsg('Cycle typing echo');
+
+
+/**
+ * @desc The description of the openLongDesc key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_OPEN_LONG_DESC =
+    goog.getMsg('Open long description in a new tab');
+
+
+/**
+ * @desc Message telling the user that there is no long description if they try
+ * to open the long description for an element which does not have one.
+ */
+msgs.MSG_CHROMEVOX_NO_LONG_DESC =
+    goog.getMsg('No long description');
+
+
+/**
+ * @desc Message telling the user that the current image has a long description.
+ */
+msgs.MSG_CHROMEVOX_IMAGE_WITH_LONG_DESC =
+    goog.getMsg('Image with long description');
+
+
+/**
+ * @desc Describes the value of a selection of items within a listbox. For
+ * example, 'Mercury to Jupiter, selected 5 items'.
+ */
+msgs.MSG_CHROMEVOX_SELECTED_OPTIONS_VALUE =
+    goog.getMsg('{$v1} to {$v2}', {'v1': '$1', 'v2': '$2'});
+
+
+/**
+ * @desc Brailles the value of a selection of items within a listbox. For
+ * example, 'Mercury-Jupiter, sld 5'.
+ */
+msgs.MSG_CHROMEVOX_SELECTED_OPTIONS_VALUE_BRL =
+    goog.getMsg('{$v1}-{$v2}', {'v1': '$1', 'v2': '$2'});
+
+
+/**
+ * @desc Describes the count of a selection of items within a listbox. For
+ * example, 'Mercury to Jupiter, selected 5 items'.
+ */
+msgs.MSG_CHROMEVOX_SELECTED_OPTIONS_STATE =
+    goog.getMsg('selected {$count} items', {'count': '$1'});
+
+
+/**
+ * @desc Brailles the count of a selection of items within a listbox. For
+ * example, 'Mercury-Jupiter, sld 5'.
+ */
+msgs.MSG_CHROMEVOX_SELECTED_OPTIONS_STATE_BRL =
+    goog.getMsg('sld {$count}', {'count': '$1'});
+
+
+/**
+ * @desc Spoken when a selection on a page is cleared.
+ */
+msgs.MSG_CHROMEVOX_CLEAR_PAGE_SELECTION =
+    goog.getMsg('cleared selection');
+
+/**
+ * @desc Spoken to describe character echo (a setting to speak characters while
+ * typing into editable text fields).
+ */
+msgs.MSG_CHROMEVOX_CHARACTER_ECHO =
+    goog.getMsg('character echo');
+
+
+/**
+ * @desc Spoken to describe word echo (a setting to speak words while
+ * typing into editable text fields).
+ */
+msgs.MSG_CHROMEVOX_WORD_ECHO =
+    goog.getMsg('word echo');
+
+
+/**
+ * @desc Spoken to describe character and word echo (a setting to speak
+ * characters and words while typing into editable text fields).
+ */
+msgs.MSG_CHROMEVOX_CHARACTER_AND_WORD_ECHO =
+    goog.getMsg('character and word echo');
+
+
+/**
+ * @desc Spoken to describe no echo (a setting to not speak characters or words
+ * while typing into editable text fields).
+ */
+msgs.MSG_CHROMEVOX_NONE_ECHO =
+    goog.getMsg('no typing echo');
+
+
+/**
+ * @desc Describes the enter content command in the options page.
+ * Content refers to any special structure on the page such as tables or math.
+ */
+msgs.MSG_CHROMEVOX_ENTER_CONTENT =
+    goog.getMsg('enter structured content, such as tables');
+
+
+/**
+ * @desc Describes the exit content command in the options page.
+ * Content refers to any special structure on the page such as tables or math.
+ */
+msgs.MSG_CHROMEVOX_EXIT_CONTENT =
+    goog.getMsg('exit structured content, such as tables');
+
+
+/**
+ * @desc Announced when user enters special content such as tables.
+ */
+msgs.MSG_CHROMEVOX_ENTER_CONTENT_SAY =
+    goog.getMsg('entered {$type}', {'type': '$1'});
+
+
+/**
+ * @desc Spoken to describe structural lines.
+ */
+msgs.MSG_CHROMEVOX_STRUCTURAL_LINE =
+    goog.getMsg('structural line');
+
+
+/**
+ * @desc Spoken to describe layout lines.
+ */
+msgs.MSG_CHROMEVOX_LAYOUT_LINE =
+    goog.getMsg('line');
+
+
+/**
+ * @desc Displayed to describe the toggle line type (structural or layout).
+ * Shown in the options page.
+ */
+msgs.MSG_CHROMEVOX_TOGGLE_LINE_TYPE =
+    goog.getMsg('Toggle line type between structural or layout');
+
+
+/**
+ * @desc Describes the collection of navigation strategies for a table.
+ */
+msgs.MSG_CHROMEVOX_TABLE_SHIFTER =
+    goog.getMsg('table');
+
+
+/**
+ * @desc Describes the defaultset of navigation strategies.
+ */
+msgs.MSG_CHROMEVOX_NAVIGATION_SHIFTER =
+    goog.getMsg('default navigation');
+
+
+/**
+ * @desc Describes the collection of navigation strategies for math.
+ */
+msgs.MSG_CHROMEVOX_MATH_SHIFTER =
+    goog.getMsg('math');

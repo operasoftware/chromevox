@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,8 +94,10 @@ cvox.OptionsPage.init = function() {
   document.getElementById('selectKeys').addEventListener(
       'click', cvox.OptionsPage.reset, false);
 
-  document.getElementById('version').textContent =
-      chrome.app.getDetails().version;
+  if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WML)) {
+    document.getElementById('version').textContent =
+        chrome.app.getDetails().version;
+  }
 };
 
 /**
@@ -407,12 +409,21 @@ cvox.OptionsPage.reset = function() {
   var announce = cvox.OptionsPage.prefs.getPrefs()['currentKeyMap'] == id ?
       msgs.getMsg('keymap_reset', [msgs.getMsg(id)]) :
       msgs.getMsg('keymap_switch', [msgs.getMsg(id)]);
-  chrome.extension.getBackgroundPage().speak(announce);
+  cvox.OptionsPage.updateStatus_(announce);
 
   cvox.OptionsPage.prefs.switchToKeyMap(id);
   document.getElementById('keysContainer').innerHTML = '';
   cvox.OptionsPage.addKeys();
   cvox.ChromeVox.msgs.addTranslatedMessagesToDom(document);
+};
+
+/**
+ * Updates the status live region.
+ * @param {string} status The new status.
+ * @private
+ */
+cvox.OptionsPage.updateStatus_ = function(status) {
+  document.getElementById('status').innerText = status;
 };
 
 

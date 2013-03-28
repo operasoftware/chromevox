@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ goog.provide('cvox.NodeState');
 goog.provide('cvox.NodeStateUtil');
 
 /**
- * Holds the state of a node.  It is an Array or Arrays of strings.
+ * Holds the state of a node.  It is an Array or Arrays of strings and numbers.
  * Each sub array is in the format:
  * [state, opt_arg, opt_arg, ...].  These sub arrays map directly to a
  * cvox.ChromeVox.getMsg() call. For example [list_position, 3, 5] maps to
  * getMsg('list_position', [3, 5]);
  *
- * @typedef {Array.<Array.<string!>!>!}
+ * @typedef {!Array.<!Array.<string|number>>}
  */
 cvox.NodeState;
 
@@ -52,7 +52,7 @@ cvox.NodeStateUtil.expand = function(state) {
         }
         return a;
       });
-      return cvox.ChromeVox.msgs.getMsg(s[0], args);
+      return cvox.ChromeVox.msgs.getMsg(/** @type {string} */ (s[0]), args);
     }).join(' ');
   } catch (e) {
     throw new Error('error: ' + e + ' state: ' + state);

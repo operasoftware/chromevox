@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,25 +20,10 @@
 
 goog.provide('cvox.BrailleUtil');
 
-goog.require('cvox.BareGroupWalker');
-goog.require('cvox.BareObjectWalker');
 goog.require('cvox.DomUtil');
 goog.require('cvox.NavBraille');
 goog.require('cvox.NodeStateUtil');
-
-
-/**
- * @type {!cvox.BareGroupWalker}
- * @private
- */
-cvox.BrailleUtil.groupWalker_ = new cvox.BareGroupWalker();
-
-
-/**
- * @type {!cvox.BareObjectWalker}
- * @private
- */
-cvox.BrailleUtil.objectWalker_ = new cvox.BareObjectWalker();
+goog.require('cvox.Spannable');
 
 
 /**
@@ -74,6 +59,7 @@ cvox.BrailleUtil.CONTAINER = [
  * s: replaced with braille state.
  * c: replaced with braille container role; this potentially returns whitespace,
  * so place at the beginning or end of templates for trimming.
+ * v: replaced with braille value.
  * @type {Object.<string, string>}
  */
 cvox.BrailleUtil.TEMPLATE = {
@@ -81,10 +67,25 @@ cvox.BrailleUtil.TEMPLATE = {
   'aria_role_button': '[n]',
   'input_type_button': '[n]',
   'input_type_checkbox': 'n (s)',
+  'input_type_email': 'n: v r',
+  'input_type_number': 'n: v r',
+  'input_type_password': 'n: v r',
+  'input_type_search': 'n: v r',
   'input_type_submit': '[n]',
-  'input_type_text': 'n:',
-  'tag_button': '[n]'
+  'input_type_text': 'n: v r',
+  'input_type_tel': 'n: v r',
+  'input_type_url': 'n: v r',
+  'tag_button': '[n]',
+  'tag_textarea': 'n: v r'
 };
+
+
+/**
+ * Attached to the value region of a braille spannable.
+ * @type {!Object}
+ * @const
+ */
+cvox.BrailleUtil.VALUE_SPAN = {};
 
 
 /**
@@ -166,61 +167,58 @@ cvox.BrailleUtil.getContainer = function(prev, node) {
 
 
 /**
- * Gets the templated representation of braille.
- * @param {Node} prev The previous node (during navigation).
+ * Gets the braille value of a node.
  * @param {Node} node The node.
  * @return {string} The string representation.
  */
-cvox.BrailleUtil.getTemplated = function(prev, node) {
-  var roleMsg = cvox.DomUtil.getRoleMsg(node, cvox.VERBOSITY_VERBOSE);
-  var template = cvox.BrailleUtil.TEMPLATE[roleMsg] ||
-      cvox.BrailleUtil.TEMPLATE['base'];
-
-  var templated =
-      template.replace(/[nrsc]/g, function(match) {
-          switch (match) {
-            case 'n': return cvox.BrailleUtil.getName(node);
-            case 'r': return cvox.BrailleUtil.getRole(node);
-            case 's': return cvox.BrailleUtil.getState(node);
-            case 'c': return cvox.BrailleUtil.getContainer(prev, node);
-          }
-        });
-  return templated.trim();
+cvox.BrailleUtil.getValue = function(node) {
+  if (node.constructor == HTMLInputElement && node.type == 'password') {
+    return node.value.replace(/./g, '*');
+  } else {
+    return cvox.DomUtil.getValue(node);
+  }
 };
 
 
 /**
- * Gets the braille representation of a node-based selection.
- * @param {!cvox.CursorSelection} prevSel A previous selection.
- * @param {!cvox.CursorSelection} sel The current selection.
- * @return {!cvox.NavBraille} The resulting braille.
+ * Gets the templated representation of braille.
+ * @param {Node} prev The previous node (during navigation).
+ * @param {Node} node The node.
+ * @param {{name:(undefined|string),
+ * role:(undefined|string),
+ * state:(undefined|string),
+ * container:(undefined|string),
+ * value:(undefined|string)}|Object} opt_override Override a specific property
+ * for the given node.
+ * @return {!cvox.Spannable} The string representation.
  */
-cvox.BrailleUtil.getBraille = function(prevSel, sel) {
-  var groupSel = cvox.BrailleUtil.groupWalker_.sync(sel).setReversed(false);
-  var objectSel =
-      cvox.BrailleUtil.objectWalker_.sync(groupSel).setReversed(false);
-  var braille = '';
-  var startOffset = 0, endOffset = 0;
+cvox.BrailleUtil.getTemplated = function(prev, node, opt_override) {
+  opt_override = opt_override ? opt_override : {};
+  var roleMsg = cvox.DomUtil.getRoleMsg(node, cvox.VERBOSITY_VERBOSE);
+  var template = cvox.BrailleUtil.TEMPLATE[roleMsg] ||
+      cvox.BrailleUtil.TEMPLATE['base'];
 
-  while (objectSel && groupSel &&
-      cvox.DomUtil.isDescendantOfNode(objectSel.start.node,
-                                      groupSel.start.node)) {
-    var item = cvox.BrailleUtil.getTemplated(prevSel.start.node,
-                                             objectSel.start.node);
-    if (objectSel.absEquals(sel)) {
-      startOffset = braille.length;
-      endOffset = braille.length + item.length;
+  var templated = new cvox.Spannable();
+  var mapChar = function(c) {
+    switch (c) {
+      case 'n':
+        return opt_override.name || cvox.BrailleUtil.getName(node);
+      case 'r':
+        return opt_override.role || cvox.BrailleUtil.getRole(node);
+      case 's':
+        return opt_override.state || cvox.BrailleUtil.getState(node);
+      case 'c':
+        return opt_override.container ||
+            cvox.BrailleUtil.getContainer(prev, node);
+      case 'v':
+        return new cvox.Spannable(opt_override.value ||
+            cvox.BrailleUtil.getValue(node), cvox.BrailleUtil.VALUE_SPAN);
+      default:
+        return c;
     }
-    braille += item + cvox.BrailleUtil.ITEM_SEPARATOR;
-    prevSel = objectSel;
-    objectSel = cvox.BrailleUtil.objectWalker_.next(objectSel);
+  };
+  for (var i = 0; i < template.length; i++) {
+    templated.append(mapChar(template[i]));
   }
-
-  braille = braille.trim();
-
-  return new cvox.NavBraille({
-                               text: braille,
-                               startIndex: startOffset,
-                               endIndex: endOffset
-                             });
+  return templated.trim();
 };

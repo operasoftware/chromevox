@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ cvox.InitialSpeech.speak = function() {
   // at the time of page load. This global is set by Chrome OS.
   var disableSpeak = window['INJECTED_AFTER_LOAD'];
 
-  if (!cvox.ChromeVox.isActive) {
+  if (!cvox.ChromeVox.isActive || document.webkitHidden) {
     disableSpeak = true;
   }
 
@@ -79,5 +79,3 @@ cvox.InitialSpeech.speak = function() {
     }
   }
 };
-
-

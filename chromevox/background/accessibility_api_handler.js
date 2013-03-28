@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ cvox.AccessibilityApiHandler = function() {
 
 /**
  * The object used to play earcons.
- * @type Object
+ * @type {cvox.TtsInterface}
  */
 cvox.AccessibilityApiHandler.tts = null;
 
@@ -87,7 +87,7 @@ cvox.AccessibilityApiHandler.TEXT_CHANGE_DELAY = 10;
 
 /**
  * Initialize the accessibility API Handler.
- * @param {Object} tts The TTS to use for speaking.
+ * @param {cvox.TtsInterface} tts The TTS to use for speaking.
  * @param {Object} earcons The earcons object to use for playing
  *        earcons.
  */
@@ -156,6 +156,9 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
       return;
     }
     chrome.tabs.get(tabId, function(tab) {
+      if (!tab.active) {
+        return;
+      }
       var earcons = cvox.AccessibilityApiHandler.earcons;
       if (tab.status == 'loading') {
         earcons.playEarcon(cvox.AbstractEarcons.BUSY_PROGRESS_LOOP);

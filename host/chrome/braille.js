@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,13 +35,14 @@ goog.inherits(cvox.ChromeBraille, cvox.AbstractBraille);
 
 /** @override */
 cvox.ChromeBraille.prototype.write = function(params) {
+  var outParams = params.toJson();
   // Hack to ensure text survives across the JSON stringify/parse and the
   // XMLHttpRequest.
-  params.text = params.text.replace(/[\"\'&]/g, '');
+  outParams.text = outParams.text.replace(/[\"\'&]/g, '');
 
   var message = {'target': 'BRAILLE',
                  'action': 'write',
-                 'params': JSON.stringify(params)};
+                 'params': JSON.stringify(outParams)};
 
   cvox.ExtensionBridge.send(message);
 };

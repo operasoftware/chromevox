@@ -1,0 +1,46 @@
+[
+{"category": "Elementary",
+ "mappings": {
+  "default": {
+   "default": "logarithm",
+   "alternative": "logarithm function",
+   "short": "log"
+  }
+ },
+ "key": "log",
+ "active": true,
+ "names": [
+  "log",
+  "       lg"
+ ]
+},
+{"category": "Elementary",
+ "mappings": {
+  "default": {
+   "default": "natural logarithm",
+   "alternative": "natural logarithm function",
+   "short": "natural log"
+  }
+ },
+ "key": "ln",
+ "active": true,
+ "names": [
+  "ln"
+ ]
+},
+{"category": "Elementary",
+ "mappings": {
+  "default": {
+   "default": "exponential",
+   "alternative": "exponential function",
+   "short": "exp"
+  }
+ },
+ "key": "exp",
+ "active": true,
+ "names": [
+  "exp",
+  " expt"
+ ]
+}
+]

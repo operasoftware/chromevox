@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,9 +118,14 @@ cvox.Focuser.shouldEnterSuspendEvents_ = function(targetNode){
   if (targetNode.constructor && targetNode.constructor == HTMLVideoElement) {
     return false;
   }
-  if (targetNode.hasAttribute && targetNode.getAttribute('type') == 'time') {
-    return false;
+  if (targetNode.hasAttribute) {
+    switch (targetNode.getAttribute('type')) {
+      case 'time':
+      case 'date':
+      case 'week':
+      case 'month':
+        return false;
+    }
   }
   return true;
 };
-

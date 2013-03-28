@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
     }
 
     var context = this;
-    function mergeRelativeProperty(abs, rel) {
+    var mergeRelativeProperty = function(abs, rel) {
       if (typeof(properties[rel]) == 'number' &&
           typeof(mergedProperties[abs]) == 'number') {
         mergedProperties[abs] += properties[rel];
@@ -172,7 +172,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
           mergedProperties[abs] = min;
         }
       }
-    }
+    };
 
     mergeRelativeProperty(tts.VOLUME, tts.RELATIVE_VOLUME);
     mergeRelativeProperty(tts.PITCH, tts.RELATIVE_PITCH);
@@ -184,20 +184,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 
 
 /**
- * Method that cycles among the available punctuation levels.
- * @return {string} The resulting punctuation level message id.
- */
-cvox.AbstractTts.cyclePunctuationLevel = function() {
-  cvox.AbstractTts.currentPunctuationLevel_ =
-      (cvox.AbstractTts.currentPunctuationLevel_ + 1) %
-          cvox.AbstractTts.punctuationLevels_.length;
-  return cvox.AbstractTts.punctuationLevels_[
-      cvox.AbstractTts.currentPunctuationLevel_].msg;
-};
-
-
-/**
- * Static method to preprocess text to be spoken properly by a speech
+ * Method to preprocess text to be spoken properly by a speech
  * engine.
  *
  * 1. Replace any single character with a description of that character.
@@ -206,11 +193,18 @@ cvox.AbstractTts.cyclePunctuationLevel = function() {
  *    acronym / abbreviation.
  *
  * @param {string} text A text string to be spoken.
+ * @param {Object= } properties Out parameter populated with how to speak the
+ *     string.
  * @return {string} The text formatted in a way that will sound better by
  *     most speech engines.
- * @private
+ * @protected
  */
-cvox.AbstractTts.preprocess_ = function(text) {
+cvox.AbstractTts.prototype.preprocess = function(text, properties) {
+  if (text.length == 1 && text >= 'A' && text <= 'Z') {
+    for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
+      properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
+  }
+
   // Substitute all symbols in the substitution dictionary. This is pretty
   // efficient because we use a single regexp that matches all symbols
   // simultaneously.
@@ -223,7 +217,7 @@ cvox.AbstractTts.preprocess_ = function(text) {
   // Handle single characters that we want to make sure we pronounce.
   if (text.length == 1) {
     return cvox.AbstractTts.CHARACTER_DICTIONARY[text] ||
-          text.toUpperCase() + '.';
+          text.toUpperCase();
   }
 
   // Substitute all words in the pronunciation dictionary. This is pretty
@@ -241,11 +235,6 @@ cvox.AbstractTts.preprocess_ = function(text) {
 
   text = text.replace(
       cvox.AbstractTts.repetitionRegexp_, cvox.AbstractTts.repetitionReplace_);
-
-  var pL = cvox.AbstractTts.punctuationLevels_[
-      cvox.AbstractTts.currentPunctuationLevel_];
-  text = text.replace(pL.regexp,
-      cvox.AbstractTts.createPunctuationReplace_(pL.clear));
 
   // If there's no lower case letters, and at least two spaces, skip spacing
   // text.
@@ -272,44 +261,7 @@ cvox.AbstractTts.preprocess_ = function(text) {
     }
   });
 
-  //  Remove all whitespace from the beginning and end, and collapse all
-  // inner strings of whitespace to a single space.
-  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-
   return text;
-};
-
-
-/**
- * Static method to preprocess text to be spoken properly by a speech
- * engine.
- *
- * Same as above, but also allows the caller to receive information about how
- * to speak the processed string.
- *
- * @param {string} text A text string to be spoken.
- * @param {Object= } properties Out parameter populated with how to speak the
- *     string.
- * @return {string} The text formatted in a way that will sound better by
- *     most speech engines.
- * @protected
- */
-cvox.AbstractTts.preprocessWithProperties = function(text, properties) {
-  if (text.length == 1 && text >= 'A' && text <= 'Z') {
-    for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
-      properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
-  }
-
-  if (properties && properties[cvox.AbstractTts.PUNCTUATION_LEVEL]) {
-    for (var i = 0, pL; pL = cvox.AbstractTts.punctuationLevels_[i]; i++) {
-      if (properties[cvox.AbstractTts.PUNCTUATION_LEVEL] == pL.name) {
-        cvox.AbstractTts.currentPunctuationLevel_ = i;
-        break;
-      }
-    }
-  }
-
-  return cvox.AbstractTts.preprocess_(text);
 };
 
 
@@ -334,8 +286,8 @@ cvox.AbstractTts.COLOR = 'color';
 /** TTS CSS font-weight property (for the lens display). @type {string} */
 cvox.AbstractTts.FONT_WEIGHT = 'fontWeight';
 
-/** TTS punctuation-level property. @type {string} */
-cvox.AbstractTts.PUNCTUATION_LEVEL = 'punctuationLevel';
+/** TTS punctuation-echo property. @type {string} */
+cvox.AbstractTts.PUNCTUATION_ECHO = 'punctuationEcho';
 
 /**
  * TTS personality for annotations - text spoken by ChromeVox that
@@ -365,6 +317,15 @@ cvox.AbstractTts.PERSONALITY_ASIDE = {
  */
 cvox.AbstractTts.PERSONALITY_CAPITAL = {
   'relativePitch': 0.6
+};
+
+
+/**
+ * TTS personality for deleted text.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_DELETED = {
+  'relativePitch': -0.6
 };
 
 
@@ -454,7 +415,7 @@ cvox.AbstractTts.CHARACTER_DICTIONARY = {
   ';': 'semicolon',
   ':': 'colon',
   ',': 'comma',
-  '.': 'period',
+  '.': 'dot',
   '<': 'less than',
   '>': 'greater than',
   '/': 'slash',
@@ -587,76 +548,3 @@ cvox.AbstractTts.repetitionReplace_ = function(match) {
   var count = match.length;
   return count + ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match[0]];
 };
-
-
-/**
- * Constructs a function for string.replace that handles description of a
- *  punctuation character.
- * @param {boolean} clear Whether we want to use whitespace in place of match.
- * @return {function(string): string} The replacement function.
- * @private
- */
-cvox.AbstractTts.createPunctuationReplace_ = function(clear) {
-  return function(match) {
-    var retain = cvox.AbstractTts.retainPunctuation_.indexOf(match) != -1 ?
-        match : ' ';
-    return clear ? retain :
-        ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match] + retain + ' ';
-  }
-};
-
-
-/**
- * @type {!Array.<{name:(string),
- * msg:(string),
- * regexp:(RegExp),
- * clear:(boolean)}>}
- * @private
- */
-cvox.AbstractTts.punctuationLevels_ = [
-  /**
-   * Punctuation belonging to the 'none' level.
-   */
-  {
-    name: 'none',
-    msg: 'no_punctuation',
-    regexp: /[-$#"()*;:<>\n\\\/+='~`@_]/g,
-    clear: true
-  },
-
-  /**
-   * Punctuation belonging to the 'some' level.
-   */
-  {
-    name: 'some',
-    msg: 'some_punctuation',
-    regexp: /[-$#"()*:<>\\\/+=~`%]/g,
-    clear: false
-  },
-
-  /**
-   * Punctuation belonging to the 'all' level.
-   */
-  {
-    name: 'all',
-    msg: 'all_punctuation',
-    regexp: /[-$#"()*;:<>\n\\\/+='~`!@_.,?%]/g,
-    clear: false
-  }
-];
-
-/**
- * A list of punctuation characters that should always be spliced into output
- * even with literal word substitutions.
- * This is important for tts prosity.
- * @type {!Array.<string>}
- * @private
- */
-cvox.AbstractTts.retainPunctuation_ = ['.', ',', ';', '?', '!', '\''];
-
-
-/**
- * @type {number}'
- @private
- */
-cvox.AbstractTts.currentPunctuationLevel_ = 1;

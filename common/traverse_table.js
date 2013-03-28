@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -265,7 +265,7 @@ cvox.TraverseTable.prototype.initialize = function(tableNode) {
           return;
         }
 
-        if (this.getCell(this.currentCellCursor) == null) {
+        if (this.getCell() == null) {
           this.attachCursorToNearestCell_();
         }
       }, this), false);
@@ -854,14 +854,14 @@ cvox.TraverseTable.prototype.findAttrbDescribedBy_ =
  * @return {?Node} The cell <TD> or <TH> or role='gridcell' node.
  */
 cvox.TraverseTable.prototype.getCell = function() {
-  if (!this.currentCellCursor) {
+  if (!this.currentCellCursor || !this.shadowTable_) {
     return null;
   }
 
   var shadowEntry =
       this.shadowTable_[this.currentCellCursor[0]][this.currentCellCursor[1]];
 
-  return shadowEntry.activeCell;
+  return shadowEntry && shadowEntry.activeCell;
 };
 
 

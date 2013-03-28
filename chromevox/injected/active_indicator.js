@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,13 +72,45 @@ cvox.ActiveIndicator = function() {
    */
   this.zoomMeasureElement_ = null;
 
+  /**
+   * The most recent target of a call to syncToNode, syncToRange, or
+   * syncToCursorSelection.
+   * @type {Array.<Node>|Range}
+   * @private
+   */
+  this.lastSyncTarget_ = null;
+
+  /**
+   * The most recent client rects for the active indicator, so we
+   * can tell when it moved.
+   * @type {ClientRectList|Array.<ClientRect>}
+   * @private
+   */
+  this.lastClientRects_ = null;
+
+  /**
+   * The id from window.setTimeout when updating the indicator if needed.
+   * @type {?number}
+   * @private
+   */
+  this.updateIndicatorTimeoutId_ = null;
+
+  /**
+   * True if this window is blurred and we shouldn't show the indicator.
+   * @type {boolean}
+   * @private
+   */
+  this.blurred_ = false;
+
   // Hide the indicator when the window doesn't have focus.
   window.addEventListener('focus', goog.bind(function() {
+    this.blurred_ = false;
     if (this.container_) {
       this.container_.classList.remove('cvox_indicator_window_not_focused');
     }
   }, this), false);
   window.addEventListener('blur', goog.bind(function() {
+    this.blurred_ = true;
     if (this.container_) {
       this.container_.classList.add('cvox_indicator_window_not_focused');
     }
@@ -225,28 +257,17 @@ cvox.ActiveIndicator.prototype.syncToNode = function(node) {
 
 /**
  * Move the indicator to surround the given nodes.
- * @param {Array} nodes The new targets of the indicator.
+ * @param {Array.<Node>} nodes The new targets of the indicator.
  */
 cvox.ActiveIndicator.prototype.syncToNodes = function(nodes) {
-  var clientRects = [];
-  for (var i = 0; i < nodes.length; ++i) {
-    var node = nodes[i];
-    if (node.constructor == Text) {
-      var range = document.createRange();
-      range.selectNode(node);
-      var rangeRects = range.getClientRects();
-      for (var i = 0; i < rangeRects.length; ++i)
-        clientRects.push(rangeRects[i]);
-    } else {
-      while (!node.getClientRects) {
-        node = node.parentElement;
-      }
-      var nodeRects = node.getClientRects();
-      for (var j = 0; j < nodeRects.length; ++j)
-        clientRects.push(nodeRects[j]);
-    }
-  }
+  var clientRects = this.clientRectsFromNodes_(nodes);
   this.moveIndicator_(clientRects, cvox.ActiveIndicator.MARGIN);
+  this.lastSyncTarget_ = nodes;
+  this.lastClientRects_ = clientRects;
+  if (this.updateIndicatorTimeoutId_ != null) {
+    window.clearTimeout(this.updateIndicatorTimeoutId_);
+    this.updateIndicatorTimeoutId_ = null;
+  }
 };
 
 /**
@@ -260,7 +281,14 @@ cvox.ActiveIndicator.prototype.syncToRange = function(range) {
     margin = 1;
   }
 
-  this.moveIndicator_(range.getClientRects(), margin);
+  var clientRects = range.getClientRects();
+  this.moveIndicator_(clientRects, margin);
+  this.lastSyncTarget_ = range;
+  this.lastClientRects_ = clientRects;
+  if (this.updateIndicatorTimeoutId_ != null) {
+    window.clearTimeout(this.updateIndicatorTimeoutId_);
+    this.updateIndicatorTimeoutId_ = null;
+  }
 };
 
 /**
@@ -276,6 +304,93 @@ cvox.ActiveIndicator.prototype.syncToCursorSelection = function(sel) {
     range.setEnd(sel.end.node, sel.end.index);
     this.syncToRange(range);
   }
+};
+
+/**
+ * Called when we should check to see if the indicator target has moved.
+ * Schedule it after a short delay so that we don't waste a lot of time
+ * updating.
+ */
+cvox.ActiveIndicator.prototype.updateIndicatorIfChanged = function() {
+  if (this.updateIndicatorTimeoutId_) {
+    return;
+  }
+  this.updateIndicatorTimeoutId_ = window.setTimeout(goog.bind(function() {
+    this.handleUpdateIndicatorIfChanged_();
+  }, this), 100);
+};
+
+/**
+ * Called when we should check to see if the indicator target has moved.
+ * Schedule it after a short delay so that we don't waste a lot of time
+ * updating.
+ * @private
+ */
+cvox.ActiveIndicator.prototype.handleUpdateIndicatorIfChanged_ = function() {
+  this.updateIndicatorTimeoutId_ = null;
+  if (!this.lastSyncTarget_) {
+    return;
+  }
+
+  var newClientRects;
+  if (this.lastSyncTarget_ instanceof Array) {
+    newClientRects = this.clientRectsFromNodes_(this.lastSyncTarget_);
+  } else {
+    newClientRects = this.lastSyncTarget_.getClientRects();
+  }
+  if (!newClientRects || newClientRects.length == 0) {
+    this.syncToNode(document.body);
+    return;
+  }
+
+  var needsUpdate = false;
+  if (newClientRects.length != this.lastClientRects_.length) {
+    needsUpdate = true;
+  } else {
+    for (var i = 0; i < this.lastClientRects_.length; ++i) {
+      var last = this.lastClientRects_[i];
+      var current = newClientRects[i];
+      if (last.top != current.top ||
+          last.right != current.right ||
+          last.bottom != current.bottom ||
+          last.left != last.left) {
+        needsUpdate = true;
+        break;
+      }
+    }
+  }
+  if (needsUpdate) {
+    this.moveIndicator_(newClientRects, cvox.ActiveIndicator.MARGIN);
+    this.lastClientRects_ = newClientRects;
+  }
+};
+
+/**
+ * @param {Array.<Node>} nodes An array of nodes.
+ * @return {Array.<ClientRect>} An array of client rects corresponding to
+ *     those nodes.
+ * @private
+ */
+cvox.ActiveIndicator.prototype.clientRectsFromNodes_ = function(nodes) {
+  var clientRects = [];
+  for (var i = 0; i < nodes.length; ++i) {
+    var node = nodes[i];
+    if (node.constructor == Text) {
+      var range = document.createRange();
+      range.selectNode(node);
+      var rangeRects = range.getClientRects();
+      for (var j = 0; j < rangeRects.length; ++j)
+        clientRects.push(rangeRects[j]);
+    } else {
+      while (!node.getClientRects) {
+        node = node.parentElement;
+      }
+      var nodeRects = node.getClientRects();
+      for (var j = 0; j < nodeRects.length; ++j)
+        clientRects.push(nodeRects[j]);
+    }
+  }
+  return clientRects;
 };
 
 /**
@@ -312,13 +427,20 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
     return;
   }
 
-  // Offset the rects by scroll offsets and webkit margins,
+  // Offset the rects by documentElement, body, and/or scroll offsets,
   // while copying them into a new mutable array.
-  var offsetX = window.pageXOffset;
-  var offsetY = window.pageYOffset;
-  var bodyStyle = window.getComputedStyle(document.body, null);
-  if (bodyStyle['-webkit-margin-start']) {
-    offsetX -= parseInt(bodyStyle['-webkit-margin-start'], 10);
+  var offsetX;
+  var offsetY;
+  if (window.getComputedStyle(document.body, null).position != 'static') {
+    offsetX = -document.body.getBoundingClientRect().left;
+    offsetY = -document.body.getBoundingClientRect().top;
+  } else if (window.getComputedStyle(document.documentElement, null).position
+                 != 'static') {
+    offsetX = -document.documentElement.getBoundingClientRect().left;
+    offsetY = -document.documentElement.getBoundingClientRect().top;
+  } else {
+    offsetX = window.pageXOffset;
+    offsetY = window.pageYOffset;
   }
 
   var rects = [];
@@ -329,6 +451,16 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
 
   // Create and attach the container if it doesn't exist or if it was detached.
   if (!this.container_ || !this.container_.parentElement) {
+    // In case there are any detached containers around, clean them up. One case
+    // that requires clean up like this is when users download a file on Chrome
+    // on Android.
+    var oldContainers =
+        document.getElementsByClassName('cvox_indicator_container');
+    for (var j = 0, oldContainer; oldContainer = oldContainers[j]; j++) {
+      if (oldContainer.parentNode) {
+        oldContainer.parentNode.removeChild(oldContainer);
+      }
+    }
     this.container_ = this.createDiv_(
         document.body, 'cvox_indicator_container', document.body.firstChild);
   }
@@ -345,7 +477,7 @@ cvox.ActiveIndicator.prototype.moveIndicator_ = function(
   var now = new Date().getTime();
   var delta = now - this.lastMoveTime_;
   this.container_.className = 'cvox_indicator_container';
-  if (!document.hasFocus()) {
+  if (!document.hasFocus() || this.blurred_) {
     this.container_.classList.add('cvox_indicator_window_not_focused');
   }
   if (delta > cvox.ActiveIndicator.NORMAL_ANIM_DELAY_MS) {
@@ -646,6 +778,9 @@ cvox.ActiveIndicator.prototype.intersects_ = function(r1, r2) {
  * @param {ClientRect} r2 The second rect.
  * @return {ClientRect} The union of the two rectangles.
  * @private
+ * @suppress {invalidCasts} invalid cast - must be a subtype or supertype
+ * from: {bottom: number, height: number, left: number, right: number, ...}
+ * to  : (ClientRect|null)
  */
 cvox.ActiveIndicator.prototype.union_ = function(r1, r2) {
   var result = {
@@ -669,6 +804,9 @@ cvox.ActiveIndicator.prototype.union_ = function(r1, r2) {
  * @param {number} bottom The bottom inset.
  * @return {ClientRect} The new rectangle.
  * @private
+ * @suppress {invalidCasts} invalid cast - must be a subtype or supertype
+ * from: {bottom: number, height: number, left: number, right: number, ...}
+ * to  : (ClientRect|null)
  */
 cvox.ActiveIndicator.prototype.inset_ = function(r, left, top, right, bottom) {
   var result = {

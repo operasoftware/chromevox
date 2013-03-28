@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ cvox.CursorSelection.prototype.select = function() {
   var sel = window.getSelection();
   sel.removeAllRanges();
   this.normalize();
-  sel.addRange(this.getRange_());
+  sel.addRange(this.getRange());
 };
 
 
@@ -167,15 +167,14 @@ cvox.CursorSelection.prototype.getText = function() {
   if (this.start.equals(this.end)) {
     return cvox.TraverseUtil.getNodeText(this.start.node);
   }
-  return cvox.SelectionUtil.getRangeText(this.getRange_());
+  return cvox.SelectionUtil.getRangeText(this.getRange());
 };
 
 /**
  * Returns a range from the given selection.
  * @return {Range} The range.
- * @private
  */
-cvox.CursorSelection.prototype.getRange_ = function() {
+cvox.CursorSelection.prototype.getRange = function() {
   var range = document.createRange();
   if (this.isReversed_) {
     range.setStart(this.end.node, this.end.index);
@@ -243,18 +242,25 @@ cvox.CursorSelection.prototype.normalize = function() {
 
 /**
  * Collapses to the directed start of the selection.
+ * @return {!cvox.CursorSelection} For chaining.
  */
 cvox.CursorSelection.prototype.collapse = function() {
+  // Not a selection.
+  if (this.start.equals(this.end)) {
+    return this;
+  }
   this.end.copyFrom(this.start);
-  if (this.start.text.length == 0 || this.end.text.length == 0) {
-    return;
+  if (this.start.text.length == 0) {
+    return this;
   }
   if (this.isReversed()) {
     if (this.end.index > 0) {
       this.end.index--;
     }
   } else {
-    this.start.index = 0;
-    this.end.index = 1;
+    if (this.end.index < this.end.text.length) {
+      this.end.index++;
+    }
   }
+  return this;
 };

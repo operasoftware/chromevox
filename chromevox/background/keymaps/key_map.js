@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,9 +104,6 @@ cvox.KeyMap.AVAILABLE_MAP_INFO = {
 'keymap_flat': {
     'file': 'flat_keymap.json'
   },
-'keymap_alt1': {
-    'file': 'alt_keymap_1.json'
-  },
 'keymap_experimental': {
     'file': 'experimental.json'
   }
@@ -145,6 +142,10 @@ cvox.KeyMap.prototype.keys = function() {
  * Returns a collection of command, KeySequence bindings.
  * @return {Array.<Object.<string, cvox.KeySequence>>} Array of all command,
  * key bindings.
+ * @suppress {checkTypes} inconsistent return type
+ * found   : (Array.<(Object.<{command: string,
+ *                             sequence: (cvox.KeySequence|null)}>|null)>|null)
+ * required: (Array.<(Object.<(cvox.KeySequence|null)>|null)>|null)
  */
 cvox.KeyMap.prototype.bindings = function() {
   return this.bindings_;

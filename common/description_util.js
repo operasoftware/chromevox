@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 goog.provide('cvox.DescriptionUtil');
 
+goog.require('cvox.AriaUtil');
 goog.require('cvox.AuralStyleUtil');
 goog.require('cvox.BareObjectWalker');
 goog.require('cvox.DomUtil');
@@ -118,6 +119,7 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     }
 
     var roleText = cvox.DomUtil.getRole(node, verbosity);
+
     // Use the ancestor closest to the target to be the personality.
     if (!personality) {
       personality = cvox.AuralStyleUtil.getStyleForNode(node);
@@ -149,6 +151,9 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     if (earcon != null && earcons.indexOf(earcon) == -1) {
       earcons.push(earcon);
     }
+    if (cvox.DomUtil.isMath(node)) {
+      break;
+    }
   }
   return new cvox.NavDescription({
     context: cvox.DomUtil.collapseWhitespace(context),
@@ -158,6 +163,35 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     earcons: earcons,
     personality: personality
   });
+};
+
+/**
+ * Returns a description of a navigation from an array of changed
+ * ancestor nodes. The ancestors are in order from the highest in the
+ * tree to the lowest, i.e. ending with the current leaf node.
+ *
+ * @param {Node} prevNode The previous node in navigation.
+ * @param {Node} node The current node in navigation.
+ * @param {boolean} recursive Whether or not the element's subtree should
+ *     be used; true by default.
+ * @param {number} verbosity The verbosity setting.
+ * @return {cvox.NavDescription} The description of the navigation action.
+ */
+cvox.DescriptionUtil.getDescriptionFromNavigation =
+    function(prevNode, node, recursive, verbosity) {
+  var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node);
+  var desc = cvox.DescriptionUtil.getDescriptionFromAncestors(
+      ancestors, recursive, verbosity);
+  var prevAncestors = cvox.DomUtil.getUniqueAncestors(node, prevNode);
+  if (cvox.DescriptionUtil.shouldDescribeExit_(prevAncestors)) {
+    var prevDesc = cvox.DescriptionUtil.getDescriptionFromAncestors(
+        prevAncestors, recursive, verbosity);
+    if (prevDesc.context && !desc.context) {
+      desc.context =
+          cvox.ChromeVox.msgs.getMsg('exited_container', [prevDesc.context]);
+    }
+  }
+  return desc;
 };
 
 
@@ -306,6 +340,7 @@ cvox.DescriptionUtil.insertCollectionDescription_ = function(descriptions) {
 
     descriptions.splice(0, 0, new cvox.NavDescription({
       context: firstContext,
+      text: '',
       annotation: cvox.ChromeVox.msgs.getMsg(
           'collection',
           [commonAnnotation,
@@ -358,4 +393,52 @@ cvox.DescriptionUtil.getAnnotations_ = function(descriptions) {
  */
 cvox.DescriptionUtil.isAnnotationCollection_ = function(annotation) {
   return (annotation == cvox.ChromeVox.msgs.getMsg('tag_link'));
+};
+
+/**
+ * Determines whether to describe the exit of an ancestor chain.
+ * @param {Array.<Node>} ancestors The ancestors exited during navigation.
+ * @return {boolean} The result.
+ * @private
+ */
+cvox.DescriptionUtil.shouldDescribeExit_ = function(ancestors) {
+  return ancestors.some(function(node) {
+    switch (node.tagName) {
+      case 'TABLE':
+      case 'MATH':
+        return true;
+    }
+    return cvox.AriaUtil.isLandmark(node);
+  });
+};
+
+
+/**
+ * Adds relative personality entries to the personality of a Navigation
+ * Description.
+ * @param {cvox.NavDescription|cvox.NavMathDescription} nav Nav Description.
+ * @param {!Object} personality Dictionary with relative personality entries.
+ * @return {cvox.NavDescription|cvox.NavMathDescription} Updated description.
+ */
+cvox.DescriptionUtil.addPersonality = function(nav, personality) {
+  if (personality == {}) {
+    return nav;
+  }
+  if (!nav['personality']) {
+    nav['personality'] = personality;
+    return nav;
+  }
+  var navPersonality = nav['personality'];
+  for (var p in personality) {
+    // Although values could exceed boundaries, they will be limited to the
+    // correct interval via the call to
+    // cvox.AbstractTts.prototype.mergeProperties in
+    // cvox.TtsBackground.prototype.speak
+    if (navPersonality[p] && typeof(navPersonality[p]) == 'number') {
+      navPersonality[p] = navPersonality[p] + personality[p];
+    } else {
+      navPersonality[p] = personality[p];
+    }
+  }
+  return nav;
 };

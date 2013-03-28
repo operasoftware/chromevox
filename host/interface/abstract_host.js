@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,13 +67,6 @@ cvox.AbstractHost.prototype.hasTtsCallback = function() {
 };
 
 /**
- * @return {boolean} True if the host supports a lens.
- */
-cvox.AbstractHost.prototype.canShowLens = function() {
-  return false;
-};
-
-/**
  * @return {boolean} True if the TTS has been loaded.
  */
 cvox.AbstractHost.prototype.ttsLoaded = function() {
@@ -92,4 +85,3 @@ cvox.AbstractHost.prototype.ttsLoaded = function() {
 cvox.AbstractHost.prototype.mustRedispatchClickEvent = function() {
   return false;
 };
-

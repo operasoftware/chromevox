@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -389,7 +389,7 @@ if (typeof(goog) != 'undefined' && goog.require) {
      }
 
      if (implementation_) {
-       cvox.DomUtil.clickElem(targetElement, shiftKey);
+       cvox.DomUtil.clickElem(targetElement, shiftKey, true);
      } else {
        var message = {
          'cmd': 'clickNodeRef',

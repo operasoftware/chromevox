@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -329,21 +329,7 @@ cvox.DomPredicates.blockquotePredicate = function(nodes) {
  */
 cvox.DomPredicates.formFieldPredicate = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
-    var tagName = nodes[i].tagName;
-    var role = '';
-    if (nodes[i].getAttribute) {
-      role = nodes[i].getAttribute('role');
-    }
-    if (role == 'button' ||
-        role == 'checkbox' ||
-        role == 'combobox' ||
-        role == 'radio' ||
-        role == 'slider' ||
-        role == 'spinbutton' ||
-        role == 'textbox' ||
-        nodes[i].tagName == 'INPUT' ||
-        nodes[i].tagName == 'SELECT' ||
-        nodes[i].tagName == 'BUTTON') {
+    if (cvox.DomUtil.isControl(nodes[i])) {
       return nodes[i];
     }
   }
@@ -389,5 +375,69 @@ cvox.DomPredicates.containsTagName_ = function(arr, tagName) {
  * @return {?Node} Node in the array that is a math expression.
  */
 cvox.DomPredicates.mathPredicate = function(nodes) {
-  return cvox.DomUtil.findMathNodeInList(nodes, {allowMathJax: false});
+  return cvox.DomUtil.findMathNodeInList(nodes);
+};
+
+/**
+ * SECTION: A section is anything that indicates a new section. This includes
+ * headings and landmarks.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is considered a section marker.
+ */
+cvox.DomPredicates.sectionPredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (cvox.DomUtil.isSemanticElt(nodes[i])) {
+      return nodes[i];
+    }
+    if (cvox.AriaUtil.isLandmark(nodes[i])) {
+      return nodes[i];
+    }
+    if (nodes[i].getAttribute &&
+        nodes[i].getAttribute('role') == 'heading') {
+      return nodes[i];
+    }
+    switch (nodes[i].tagName) {
+      case 'H1':
+      case 'H2':
+      case 'H3':
+      case 'H4':
+      case 'H5':
+      case 'H6':
+        return nodes[i];
+    }
+  }
+  return null;
+};
+
+/**
+ * CONTROL: A control is anything that the user can interact with. This includes
+ * form fields and links.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is considered a control.
+ */
+cvox.DomPredicates.controlPredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (cvox.DomUtil.isControl(nodes[i])) {
+      return nodes[i];
+    }
+    if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'link') ||
+        (nodes[i].tagName == 'A' && nodes[i].href)) {
+      return nodes[i];
+    }
+  }
+  return null;
+};
+
+/**
+ * Caption.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a caption.
+ */
+cvox.DomPredicates.captionPredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].tagName == 'CAPTION') {
+      return nodes[i];
+    }
+  }
+  return null;
 };

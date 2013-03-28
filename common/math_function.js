@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * @fileoverview Initialise Math Function mappings.
+ * @fileoverview Initialize Math Function mappings.
  * @author sorge@google.com (Volker Sorge)
  */
 
@@ -21,39 +21,41 @@ goog.provide('cvox.MathFunction');
 
 goog.require('cvox.MathAtom');
 
-
 /**
  * Create a function mapping.
+ * @param {Array.<Object>} atoms Array of initial mappings for
+ * some elementary functions.
  * @constructor
  */
-cvox.MathFunction = function() {
+cvox.MathFunction = function(atoms) {
 
   this.FUNCTION_MAP_ = {};
 
   this.domains = [];
   this.rules = [];
-  this.initFunctionMap_();
+  this.initFunctionMap_(atoms);
 
 };
 
 
 
 /**
- * Initialises the mapping for the mathematical functions.
+ * Initializes the mapping for the mathematical functions.
+ * @param {Array.<Object>} atoms Array of initial mappings for
+ * some elementary functions.
  * @private
  */
-cvox.MathFunction.prototype.initFunctionMap_ = function() {
+cvox.MathFunction.prototype.initFunctionMap_ = function(atoms) {
 
   var domains = [];
   var rules = [];
 
-  for (var i = 0, func;
-       func = cvox.MathFunction.ELEMENTARY_FUNCTIONS_[i]; i++) {
+  for (var i = 0, func; func = atoms[i]; i++) {
     var funcObject = cvox.MathAtom.make(func.key, func.category, func.mappings);
     this.FUNCTION_MAP_[func.key] = funcObject;
-    for (var j = 0, key; key = func.names[j]; j++) {
-      domains = cvox.MathUtil.union(domains, funcObject.allDomains());
-      rules = cvox.MathUtil.union(rules, funcObject.allRules());
+    domains = cvox.MathUtil.union(domains, funcObject.allDomains());
+    rules = cvox.MathUtil.union(rules, funcObject.allRules());
+    for (var j = 0, key; key = func['names'][j]; j++) {
       this.FUNCTION_MAP_[key] = funcObject;
     }
   }
@@ -72,29 +74,3 @@ cvox.MathFunction.prototype.getFunctionByName = function(name) {
   // into a sensible format.
   return this.FUNCTION_MAP_[name];
 };
-
-
-// TODO (sorge) Complete and move to JSON file.
-// Some predefined elementary functions.
-// Currently only for testing.
-
-/**
- *
- * Array of initial mappings for some elementary functions.
- * @type {Array}
- * @private
- */
-cvox.MathFunction.ELEMENTARY_FUNCTIONS_ = [
-  { 'key': 'sin',
-    'names': ['sin', 'sine'],
-    'category': 'Trigonometry',
-    'mappings': {'default': {'default': 'sine',
-                             'alternative': 'sine function',
-                             'short': 'sine' } } },
-  { 'key': 'cos',
-    'names': ['cos', 'cosine'],
-    'category': 'Trigonometry',
-    'mappings': {'default' : {'default': 'cosine',
-                              'alternative': 'cosine function',
-                              'short': 'cosine' } } }
-];

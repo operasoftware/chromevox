@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc.
+// Copyright 2013 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,6 +96,7 @@ cvox.TraverseUtil.setSelection = function(start, end) {
   return sel;
 };
 
+// TODO(dtseng): Combine with cvox.DomUtil.hasContent.
 /**
  * Check if this DOM node has the attribute aria-hidden='true', which should
  * hide it from screen readers.
@@ -106,6 +107,11 @@ cvox.TraverseUtil.isHidden = function(node) {
   if (node instanceof HTMLElement &&
       node.getAttribute('aria-hidden') == 'true') {
     return true;
+  }
+  switch (node.tagName) {
+    case 'SCRIPT':
+    case 'NOSCRIPT':
+      return true;
   }
   return false;
 };
