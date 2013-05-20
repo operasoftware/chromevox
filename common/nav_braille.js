@@ -105,8 +105,9 @@ cvox.NavBraille.prototype.write = function() {
   // This prevents a call out to the host braille connection.
   // Remove once we ship or replace with logic to detect presence of braille
   // display.
-  if (cvox.ChromeVox.version != '1.0' &&
-      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) {
+  if ((cvox.ChromeVox.version != '1.0' &&
+      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) ||
+          cvox.ChromeVox.isChromeOS) {
     return;
   }
   cvox.ChromeVox.braille.write(this);

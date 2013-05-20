@@ -82,10 +82,26 @@ cvox.BrailleUtil.TEMPLATE = {
 
 /**
  * Attached to the value region of a braille spannable.
- * @type {!Object}
- * @const
+ * @param {number} offset The offset of the span into the value.
+ * @constructor
+ * @struct
  */
-cvox.BrailleUtil.VALUE_SPAN = {};
+cvox.BrailleUtil.ValueSpan = function(offset) {
+  /**
+   * The offset of the span into the value.
+   * @type {number}
+   */
+  this.offset = offset;
+};
+
+
+/**
+ * Attached to the selected text within a value.
+ * @constructor
+ * @struct
+ */
+cvox.BrailleUtil.ValueSelectionSpan = function() {
+};
 
 
 /**
@@ -167,15 +183,43 @@ cvox.BrailleUtil.getContainer = function(prev, node) {
 
 
 /**
- * Gets the braille value of a node.
+ * Gets the braille value of a node. A cvox.BrailleUtil.ValueSpan will be
+ * attached, along with (possibly) a cvox.BrailleUtil.ValueSelectionSpan.
  * @param {Node} node The node.
- * @return {string} The string representation.
+ * @return {!cvox.Spannable} The value spannable.
  */
 cvox.BrailleUtil.getValue = function(node) {
-  if (node.constructor == HTMLInputElement && node.type == 'password') {
-    return node.value.replace(/./g, '*');
+  var valueSpan = new cvox.BrailleUtil.ValueSpan(0 /* offset */);
+  if (cvox.DomUtil.isInputTypeText(node)) {
+    var value = node.value
+    if (node.type === 'password') {
+      value = value.replace(/./g, '*');
+    }
+    var spannable = new cvox.Spannable(value, valueSpan);
+    if (node === document.activeElement) {
+      spannable.setSpan(new cvox.BrailleUtil.ValueSelectionSpan(),
+          node.selectionStart, node.selectionEnd);
+    }
+    return spannable;
+  } else if (node instanceof HTMLTextAreaElement) {
+    var shadow = new cvox.EditableTextAreaShadow();
+    shadow.update(node);
+    var lineIndex = shadow.getLineIndex(node.selectionEnd);
+    var lineStart = shadow.getLineStart(lineIndex);
+    var lineEnd = shadow.getLineEnd(lineIndex);
+    var lineText = node.value.substring(lineStart, lineEnd);
+    valueSpan.offset = lineStart;
+    var spannable = new cvox.Spannable(lineText, valueSpan);
+    if (node === document.activeElement) {
+      var selectionStart = Math.max(node.selectionStart - lineStart, 0);
+      var selectionEnd = Math.min(node.selectionEnd - lineStart,
+          spannable.getLength());
+      spannable.setSpan(new cvox.BrailleUtil.ValueSelectionSpan(),
+          selectionStart, selectionEnd);
+    }
+    return spannable;
   } else {
-    return cvox.DomUtil.getValue(node);
+    return new cvox.Spannable(cvox.DomUtil.getValue(node), valueSpan);
   }
 };
 
@@ -211,8 +255,12 @@ cvox.BrailleUtil.getTemplated = function(prev, node, opt_override) {
         return opt_override.container ||
             cvox.BrailleUtil.getContainer(prev, node);
       case 'v':
-        return new cvox.Spannable(opt_override.value ||
-            cvox.BrailleUtil.getValue(node), cvox.BrailleUtil.VALUE_SPAN);
+        if (opt_override.value) {
+          return new cvox.Spannable(opt_override.value,
+              new cvox.BrailleUtil.ValueSpan(0 /* offset */));
+        } else {
+          return cvox.BrailleUtil.getValue(node);
+        }
       default:
         return c;
     }

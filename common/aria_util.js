@@ -189,6 +189,9 @@ cvox.AriaUtil.isHiddenRecursive = function(targetNode) {
  * @return {boolean} True if the targetNode should be treated as hidden.
  */
 cvox.AriaUtil.isHidden = function(targetNode) {
+  if (!targetNode) {
+    return true;
+  }
   if (targetNode.getAttribute) {
     if ((targetNode.getAttribute('aria-hidden') == 'true') &&
         (targetNode.getAttribute('chromevoxignoreariahidden') != 'true')) {

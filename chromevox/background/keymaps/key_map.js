@@ -65,6 +65,14 @@ cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
       sequence: stickyKey
     };
     this.bindings_.push(stickyKeyBinding);
+
+    // Bind ChromeOS specific keys.
+    if (cvox.ChromeVox.isChromeOS) {
+      this.bind_('jumpToTop',
+                 new cvox.KeySequence({'keyCode': 65}, true));
+      this.bind_('jumpToBottom',
+                 new cvox.KeySequence({'keyCode': 90}, true));
+    }
   }
 
   /**
@@ -264,6 +272,34 @@ cvox.KeyMap.prototype.keyForCommand = function(command) {
      }
   }
   return (keySequenceArray.length > 0) ? keySequenceArray : [];
+};
+
+
+/**
+ * Merges an input map with this one. The merge preserves this instance's
+ * mappings. It only adds new bindings if there isn't one already.
+ * If either the incoming binding's command or key exist in this, it will be
+ * ignored.
+ * @param {!cvox.KeyMap} inputMap The map to merge with this.
+ * @return {boolean} True if there were no merge conflicts.
+ */
+cvox.KeyMap.prototype.merge = function(inputMap) {
+  var keys = inputMap.keys();
+  var cleanMerge = true;
+  for (var i = 0; i < keys.length; ++i) {
+    var key = keys[i];
+    var command = inputMap.commandForKey(key);
+    if (command == 'toggleStickyMode') {
+      // TODO(dtseng): More uglyness because of sticky key.
+      continue;
+    } else if (key && command &&
+               !this.hasKey(key) && !this.hasCommand(command)) {
+      this.bind_(command, key);
+    } else {
+      cleanMerge = false;
+    }
+  }
+  return cleanMerge;
 };
 
 

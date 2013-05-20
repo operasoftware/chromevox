@@ -33,7 +33,7 @@ goog.require('cvox.MathWalker');
 cvox.MathmlLayoutWalker = function(shifter) {
   goog.base(this, shifter);
 
-  this.traverse.setMode('layout');
+  this.granularity = cvox.MathWalker.granularity.MATHML_LAYOUT;
 };
 goog.inherits(cvox.MathmlLayoutWalker, cvox.MathWalker);
 
@@ -49,6 +49,10 @@ cvox.MathmlLayoutWalker.prototype.getDescription = function(prevSel, sel) {
 /**
  * @override
  */
-cvox.MathmlLayoutWalker.prototype.getGranularityMsg = function() {
-  return cvox.ChromeVox.msgs.getMsg('mathml_layout_granularity');
+cvox.MathmlLayoutWalker.prototype.next = function(sel) {
+  var reverse = sel.isReversed();
+  var node = this.traverse.nextSubtree(reverse, cvox.MathUtil.isLayout);
+  var newSel = cvox.CursorSelection.fromNode(node);
+  newSel.setReversed(reverse);
+  return newSel;
 };

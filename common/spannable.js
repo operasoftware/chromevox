@@ -123,6 +123,20 @@ cvox.Spannable.prototype.getSpan = function(position) {
 };
 
 /**
+ * Returns the first span value which is an instance of a given constructor.
+ * @param {!Function} constructor Constructor.
+ * @return {!Object|undefined} Object if found; undefined otherwise.
+ */
+cvox.Spannable.prototype.getSpanInstanceOf = function(constructor) {
+  for (var i = 0; i < this.spans_.length; i++) {
+    var span = this.spans_[i];
+    if (span.value instanceof constructor) {
+      return span.value;
+    }
+  }
+};
+
+/**
  * Returns all spans matching a position.
  * @param {number} position Position to query.
  * @return {!Array} Values annotating that position.

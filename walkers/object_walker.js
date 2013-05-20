@@ -45,11 +45,11 @@ cvox.ObjectWalker.prototype.stopNodeDescent = function(node) {
  * @override
  */
 cvox.AbstractNodeWalker.prototype.getDescription = function(prevSel, sel) {
-  return [cvox.DescriptionUtil.getDescriptionFromNavigation(
+  return cvox.DescriptionUtil.getDescriptionFromNavigation(
       prevSel.end.node,
       sel.start.node,
       true,
-      cvox.ChromeVox.verbosity)];
+      cvox.ChromeVox.verbosity);
 };
 
 /**

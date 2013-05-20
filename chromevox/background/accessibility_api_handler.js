@@ -28,34 +28,50 @@ goog.require('cvox.ChromeVoxEditableTextBase');
 
 /**
  * Class that adds listeners and handles events from the accessibility API.
+ * @constructor
+ * @implements {cvox.TtsCapturingEventListener}
+ * @param {cvox.TtsInterface} tts The TTS to use for speaking.
+ * @param {Object} earcons The earcons object to use for playing
+ *        earcons.
  */
-cvox.AccessibilityApiHandler = function() {
+cvox.AccessibilityApiHandler = function(tts, earcons) {
+  this.tts = tts;
+  this.earcons = earcons;
+  try {
+    chrome.experimental.accessibility.setAccessibilityEnabled(true);
+    this.addEventListeners();
+    if (cvox.ChromeVox.isActive) {
+      this.queueAlertsForActiveTab();
+    }
+  } catch (err) {
+    console.log('Error trying to access accessibility extension api.');
+  }
 };
 
 /**
  * The object used to play earcons.
  * @type {cvox.TtsInterface}
  */
-cvox.AccessibilityApiHandler.tts = null;
+cvox.AccessibilityApiHandler.prototype.tts = null;
 
 /**
  * The object used to manage speech.
  * @type Object
  */
-cvox.AccessibilityApiHandler.earcons = null;
+cvox.AccessibilityApiHandler.prototype.earcons = null;
 
 /**
  * The object that can describe changes and cursor movement in a generic
  *     editable text field.
  * @type {Object}
  */
-cvox.AccessibilityApiHandler.editableTextHandler = null;
+cvox.AccessibilityApiHandler.prototype.editableTextHandler = null;
 
 /**
  * The queue mode for the next focus event.
  * @type {number}
  */
-cvox.AccessibilityApiHandler.nextQueueMode = 0;
+cvox.AccessibilityApiHandler.prototype.nextQueueMode = 0;
 
 /**
  * The timeout id for the pending text changed event - the return
@@ -66,7 +82,7 @@ cvox.AccessibilityApiHandler.nextQueueMode = 0;
  * as multiple events in a row.
  * @type {?number}
  */
-cvox.AccessibilityApiHandler.textChangeTimeout = null;
+cvox.AccessibilityApiHandler.prototype.textChangeTimeout = null;
 
 /**
  * Most controls have a "context" - the name of the window, dialog, toolbar,
@@ -76,272 +92,266 @@ cvox.AccessibilityApiHandler.textChangeTimeout = null;
  * recent context.
  * @type {?string}
  */
-cvox.AccessibilityApiHandler.lastContext = null;
+cvox.AccessibilityApiHandler.prototype.lastContext = null;
 
 /**
  * Delay in ms between when a text event is received and when it's spoken.
  * @type {number}
  * @const
  */
-cvox.AccessibilityApiHandler.TEXT_CHANGE_DELAY = 10;
+cvox.AccessibilityApiHandler.prototype.TEXT_CHANGE_DELAY = 10;
 
 /**
- * Initialize the accessibility API Handler.
- * @param {cvox.TtsInterface} tts The TTS to use for speaking.
- * @param {Object} earcons The earcons object to use for playing
- *        earcons.
+ * ID returned from setTimeout to queue up speech on idle.
+ * @type {?number}
+ * @private
  */
-cvox.AccessibilityApiHandler.init = function(tts, earcons) {
-  cvox.AccessibilityApiHandler.tts = tts;
-  cvox.AccessibilityApiHandler.earcons = earcons;
-  try {
-    chrome.experimental.accessibility.setAccessibilityEnabled(true);
-    cvox.AccessibilityApiHandler.addEventListeners();
-    if (cvox.ChromeVox.isActive) {
-      cvox.AccessibilityApiHandler.speakAlertsForActiveTab();
-    }
-  } catch (err) {
-    console.log('Error trying to access accessibility extension api.');
-  }
-};
+cvox.AccessibilityApiHandler.prototype.idleSpeechTimeout_ = null;
+
+/**
+ * Array of strings to speak the next time TTS is idle.
+ * @type {!Array.<string>}
+ * @private
+ */
+cvox.AccessibilityApiHandler.prototype.idleSpeechQueue_ = [];
+
+/**
+ * Milliseconds of silence to wait before considering speech to be idle.
+ * @const
+ */
+cvox.AccessibilityApiHandler.prototype.IDLE_SPEECH_DELAY_MS = 500;
 
 /**
  * Adds event listeners.
  */
-cvox.AccessibilityApiHandler.addEventListeners = function() {
+cvox.AccessibilityApiHandler.prototype.addEventListeners = function() {
   /** Alias getMsg as msg. */
   var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
   var ttsProps = {
-    'lang': cvox.ChromeVox.msgs.getLocale()
+    'lang': cvox.ChromeVox.msgs.getLocale(),
+    'punctuationEcho': 'none'
   };
 
   var accessibility = chrome.experimental.accessibility;
 
-  chrome.tabs.onCreated.addListener(function(tab) {
+  chrome.tabs.onCreated.addListener(goog.bind(function(tab) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    var tts = cvox.AccessibilityApiHandler.tts;
-    tts.speak(msg('chrome_tab_created'), 0, ttsProps);
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
-  });
+    this.tts.speak(msg('chrome_tab_created'), 0, ttsProps);
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+  }, this));
 
-  chrome.tabs.onRemoved.addListener(function(tab) {
+  chrome.tabs.onRemoved.addListener(goog.bind(function(tab) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
-  });
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
+  }, this));
 
-  chrome.tabs.onActivated.addListener(function(activeInfo) {
+  chrome.tabs.onActivated.addListener(goog.bind(function(activeInfo) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    chrome.tabs.get(activeInfo.tabId, function(tab) {
+    chrome.tabs.get(activeInfo.tabId, goog.bind(function(tab) {
       if (tab.status == 'loading') {
         return;
       }
-      var tts = cvox.AccessibilityApiHandler.tts;
       var title = tab.title ? tab.title : tab.url;
-      tts.speak(msg('chrome_tab_selected', [title]), 0, ttsProps);
-      var earcons = cvox.AccessibilityApiHandler.earcons;
-      earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
-    });
-  });
+      this.tts.speak(msg('chrome_tab_selected', [title]), 0, ttsProps);
+      this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
+      this.queueAlertsForActiveTab();
+    }, this));
+  }, this));
 
-  chrome.tabs.onUpdated.addListener(function(tabId, selectInfo) {
+  chrome.tabs.onUpdated.addListener(goog.bind(function(tabId, selectInfo) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    chrome.tabs.get(tabId, function(tab) {
+    chrome.tabs.get(tabId, goog.bind(function(tab) {
       if (!tab.active) {
         return;
       }
-      var earcons = cvox.AccessibilityApiHandler.earcons;
       if (tab.status == 'loading') {
-        earcons.playEarcon(cvox.AbstractEarcons.BUSY_PROGRESS_LOOP);
+        this.earcons.playEarcon(cvox.AbstractEarcons.BUSY_PROGRESS_LOOP);
       } else {
-        earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+        this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
       }
-    });
-  });
+    }, this));
+  }, this));
 
-  chrome.windows.onFocusChanged.addListener(function(windowId) {
+  chrome.windows.onFocusChanged.addListener(goog.bind(function(windowId) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
     if (windowId == chrome.windows.WINDOW_ID_NONE) {
       return;
     }
-    chrome.windows.get(windowId, function(window) {
-      chrome.tabs.getSelected(windowId, function(tab) {
-        var tts = cvox.AccessibilityApiHandler.tts;
+    chrome.windows.get(windowId, goog.bind(function(window) {
+      chrome.tabs.getSelected(windowId, goog.bind(function(tab) {
         var msg_id = window.incognito ? 'chrome_incognito_window_selected' :
           'chrome_normal_window_selected';
         var title = tab.title ? tab.title : tab.url;
-        tts.speak(msg(msg_id, [title]), 0, ttsProps);
-        var earcons = cvox.AccessibilityApiHandler.earcons;
-        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
-      });
-    });
-  });
+        this.tts.speak(msg(msg_id, [title]), 0, ttsProps);
+        this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_SELECT);
+      }, this));
+    }, this));
+  }, this));
 
-  chrome.experimental.accessibility.onWindowOpened.addListener(function(win) {
+  chrome.experimental.accessibility.onWindowOpened.addListener(
+      goog.bind(function(win) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    var tts = cvox.AccessibilityApiHandler.tts;
-    tts.speak(win.name, 0, ttsProps);
+    this.tts.speak(win.name, 0, ttsProps);
     // Queue the next utterance because a window opening is always followed
     // by a focus event.
-    cvox.AccessibilityApiHandler.nextQueueMode = 1;
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
-  });
+    this.nextQueueMode = 1;
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+    this.queueAlertsForActiveTab();
+  }, this));
 
-  chrome.experimental.accessibility.onWindowClosed.addListener(function(win) {
+  chrome.experimental.accessibility.onWindowClosed.addListener(
+      goog.bind(function(win) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
     // Don't speak, just play the earcon.
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
-  });
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
+  }, this));
 
-  chrome.experimental.accessibility.onMenuOpened.addListener(function(menu) {
+  chrome.experimental.accessibility.onMenuOpened.addListener(
+      goog.bind(function(menu) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
-    var tts = cvox.AccessibilityApiHandler.tts;
-    tts.speak(msg('chrome_menu_opened', [menu.name]), 0, ttsProps);
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
-  });
+    this.tts.speak(msg('chrome_menu_opened', [menu.name]), 0, ttsProps);
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+  }, this));
 
-  chrome.experimental.accessibility.onMenuClosed.addListener(function(menu) {
+  chrome.experimental.accessibility.onMenuClosed.addListener(
+      goog.bind(function(menu) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
     // Don't speak, just play the earcon.
-    var earcons = cvox.AccessibilityApiHandler.earcons;
-    earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
-  });
+    this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_CLOSE);
+  }, this));
 
   // systemPrivate API is only available when this extension is loaded as a
   // component extension embedded in Chrome.
   chrome.permissions.contains(
       /** @type !Permissions */ ({ permissions: ['systemPrivate'] }),
-      function(result) {
-    if (result) {
-      chrome.systemPrivate.onVolumeChanged.addListener(function(volume) {
-        if (!cvox.ChromeVox.isActive) {
-          return;
-        }
-        // Don't speak, just play the earcon.
-        var earcons = cvox.AccessibilityApiHandler.earcons;
-        earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-      });
-
-      chrome.systemPrivate.onBrightnessChanged.addListener(
-          /**
-           * @param {{brightness: number, userInitiated: boolean}} brightness
-           */
-          function(brightness) {
-        if (brightness.userInitiated) {
-          var earcons = cvox.AccessibilityApiHandler.earcons;
-          earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-          var tts = cvox.AccessibilityApiHandler.tts;
-          tts.speak(msg('chrome_brightness_changed', [brightness.brightness]),
-                    0, ttsProps);
-        }
-      });
-
-      chrome.systemPrivate.onScreenUnlocked.addListener(function() {
-        chrome.systemPrivate.getUpdateStatus(function(status) {
-          if (!cvox.ChromeVox.isActive) {
-            return;
-          }
-          // Speak about system update when it's ready, otherwise speak nothing.
-          if (status.state == 'NeedRestart') {
-            var tts = cvox.AccessibilityApiHandler.tts;
-            tts.speak(msg('chrome_system_need_restart'), 0, ttsProps);
-          }
-          var earcons = cvox.AccessibilityApiHandler.earcons;
-          earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-        });
-      });
-
-      chrome.systemPrivate.onWokeUp.addListener(function() {
-        if (!cvox.ChromeVox.isActive) {
-          return;
-        }
-        // Don't speak, just play the earcon.
-        var earcons = cvox.AccessibilityApiHandler.earcons;
-        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
-      });
+      goog.bind(function(result) {
+    if (!result) {
+      return;
     }
-  });
+    chrome.systemPrivate.onVolumeChanged.addListener(goog.bind(
+        function(volume) {
+      if (!cvox.ChromeVox.isActive) {
+        return;
+      }
+      // Don't speak, just play the earcon.
+      this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+    }, this));
+
+    chrome.systemPrivate.onBrightnessChanged.addListener(
+        /**
+         * @param {{brightness: number, userInitiated: boolean}} brightness
+         */
+        goog.bind(function(brightness) {
+      if (brightness.userInitiated) {
+        this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+        this.tts.speak(
+            msg('chrome_brightness_changed', [brightness.brightness]),
+            0, ttsProps);
+      }
+    }, this));
+
+    chrome.systemPrivate.onScreenUnlocked.addListener(goog.bind(function() {
+      chrome.systemPrivate.getUpdateStatus(goog.bind(function(status) {
+        if (!cvox.ChromeVox.isActive) {
+          return;
+        }
+        // Speak about system update when it's ready, otherwise speak nothing.
+        if (status.state == 'NeedRestart') {
+          this.tts.speak(msg('chrome_system_need_restart'), 0, ttsProps);
+        }
+        this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+      }, this));
+    }, this));
+
+    chrome.systemPrivate.onWokeUp.addListener(goog.bind(function() {
+      if (!cvox.ChromeVox.isActive) {
+        return;
+      }
+      // Don't speak, just play the earcon.
+      this.earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
+    }, this));
+  }, this));
 
   chrome.experimental.accessibility.onControlFocused.addListener(
     /**
      * @param {AccessibilityObject} ctl The focused control.
      */
-    function(ctl) {
+    goog.bind(function(ctl) {
       if (!cvox.ChromeVox.isActive) {
         return;
       }
 
-      var tts = cvox.AccessibilityApiHandler.tts;
       if (ctl.type == 'textbox') {
-        cvox.AccessibilityApiHandler.trimWhitespace(ctl);
-        cvox.AccessibilityApiHandler.editableTextHandler =
+        this.trimWhitespace(ctl);
+        var start = ctl.details.selectionStart;
+        var end = ctl.details.selectionEnd;
+        if (start > end) {
+          start = ctl.details.selectionEnd;
+          end = ctl.details.selectionStart;
+        }
+        this.editableTextHandler =
             new cvox.ChromeVoxEditableTextBase(
                 ctl.details.value,
-                ctl.details.selectionStart,
-                ctl.details.selectionEnd,
+                start,
+                end,
                 ctl.details.isPassword,
-                tts);
+                this.tts);
       } else {
-        cvox.AccessibilityApiHandler.editableTextHandler = null;
+        this.editableTextHandler = null;
       }
 
-      var description = cvox.AccessibilityApiHandler.describe(ctl, false);
-      tts.speak(description.utterance,
-                cvox.AccessibilityApiHandler.nextQueueMode,
-                ttsProps);
-      cvox.AccessibilityApiHandler.nextQueueMode = 0;
+      var description = this.describe(ctl, false);
+      this.tts.speak(description.utterance,
+                    this.nextQueueMode,
+                    ttsProps);
+      this.nextQueueMode = 0;
       if (description.earcon) {
-          var earcons = cvox.AccessibilityApiHandler.earcons;
-          earcons.playEarcon(description.earcon);
+        this.earcons.playEarcon(description.earcon);
       }
-    });
+    }, this));
 
-  chrome.experimental.accessibility.onControlAction.addListener(function(ctl) {
+  chrome.experimental.accessibility.onControlAction.addListener(
+      goog.bind(function(ctl) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
 
-    var tts = cvox.AccessibilityApiHandler.tts;
-    var description = cvox.AccessibilityApiHandler.describe(ctl, true);
-    tts.speak(description.utterance, 0, ttsProps);
+    var description = this.describe(ctl, true);
+    this.tts.speak(description.utterance, 0, ttsProps);
     if (description.earcon) {
-      var earcons = cvox.AccessibilityApiHandler.earcons;
-      earcons.playEarcon(description.earcon);
+      this.earcons.playEarcon(description.earcon);
     }
-  });
+  }, this));
 
-  chrome.experimental.accessibility.onTextChanged.addListener(function(ctl) {
+  chrome.experimental.accessibility.onTextChanged.addListener(
+       goog.bind(function(ctl) {
     if (!cvox.ChromeVox.isActive) {
       return;
     }
 
-    if (!cvox.AccessibilityApiHandler.editableTextHandler) {
+    if (!this.editableTextHandler) {
       return;
     }
 
-    cvox.AccessibilityApiHandler.trimWhitespace(ctl);
+    this.trimWhitespace(ctl);
     var start = ctl.details.selectionStart;
     var end = ctl.details.selectionEnd;
     if (start > end) {
@@ -351,8 +361,8 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
 
     // Only send the most recent text changed event - throw away anything
     // that was pending.
-    if (cvox.AccessibilityApiHandler.textChangeTimeout) {
-      window.clearTimeout(cvox.AccessibilityApiHandler.textChangeTimeout);
+    if (this.textChangeTimeout) {
+      window.clearTimeout(this.textChangeTimeout);
     }
 
     // Handle the text change event after a small delay, so multiple
@@ -360,17 +370,55 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
     // specifically for the location bar with autocomplete - typing a
     // character and getting the autocompleted text and getting that
     // text selected may be three separate events.
-    cvox.AccessibilityApiHandler.textChangeTimeout = window.setTimeout(
-        function() {
+    this.textChangeTimeout = window.setTimeout(
+        goog.bind(function() {
           var textChangeEvent = new cvox.TextChangeEvent(
               ctl.details.value,
               start,
               end,
               true);  // triggered by user
-          cvox.AccessibilityApiHandler.editableTextHandler.changed(
+          this.editableTextHandler.changed(
               textChangeEvent);
-        }, cvox.AccessibilityApiHandler.TEXT_CHANGE_DELAY);
-  });
+        }, this), this.TEXT_CHANGE_DELAY);
+  }, this));
+
+  this.tts.addCapturingEventListener(this);
+};
+
+/**
+ * Called when any speech starts.
+ */
+cvox.AccessibilityApiHandler.prototype.onTtsStart = function() {
+  if (this.idleSpeechTimeout_) {
+    window.clearTimeout(this.idleSpeechTimeout_);
+  }
+};
+
+/**
+ * Called when any speech ends.
+ */
+cvox.AccessibilityApiHandler.prototype.onTtsEnd = function() {
+  if (this.idleSpeechQueue_.length > 0) {
+    this.idleSpeechTimeout_ = window.setTimeout(
+        goog.bind(this.onTtsIdle, this),
+        this.IDLE_SPEECH_DELAY_MS);
+  }
+};
+
+/**
+ * Called when speech has been idle for a certain minimum delay.
+ * Speaks queued messages.
+ */
+cvox.AccessibilityApiHandler.prototype.onTtsIdle = function() {
+  if (this.idleSpeechQueue_.length == 0) {
+    return;
+  }
+  var utterance = this.idleSpeechQueue_.shift();
+  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
+  var ttsProps = {
+    'lang': cvox.ChromeVox.msgs.getLocale()
+  };
+  this.tts.speak(utterance, 0, ttsProps);
 };
 
 /**
@@ -379,7 +427,7 @@ cvox.AccessibilityApiHandler.addEventListeners = function() {
  * selectionStart and selectionEnd.
  * @param {Object} control The text control object.
  */
-cvox.AccessibilityApiHandler.trimWhitespace = function(control) {
+cvox.AccessibilityApiHandler.prototype.trimWhitespace = function(control) {
   var d = control.details;
   var prefix = new RegExp(/^[\s\u200b]+/).exec(d.value);
   var suffix = new RegExp(/[\s\u200b]+$/).exec(d.value);
@@ -402,16 +450,16 @@ cvox.AccessibilityApiHandler.trimWhitespace = function(control) {
  * @return {Object} An object containing a string field |utterance| and
  *     earcon |earcon|.
  */
-cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
+cvox.AccessibilityApiHandler.prototype.describe = function(control, isSelect) {
   /** Alias getMsg as msg. */
   var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
   var s = '';
 
   var context = control.context;
-  if (context && context != cvox.AccessibilityApiHandler.lastContext) {
+  if (context && context != this.lastContext) {
     s += context + ', ';
-    cvox.AccessibilityApiHandler.lastContext = context;
+    this.lastContext = context;
   }
 
   var earcon = undefined;
@@ -503,54 +551,42 @@ cvox.AccessibilityApiHandler.describe = function(control, isSelect) {
 };
 
 /**
- * Speaks alerts for the active tab.  This method is intended to be used to
- * speak alerts which were shown before ChromeVox loading.
+ * Queues alerts for the active tab, if any, which will be spoken
+ * as soon as speech is idle.
  */
-cvox.AccessibilityApiHandler.speakAlertsForActiveTab = function() {
-  var tts = cvox.AccessibilityApiHandler.tts;
-  var earcons = cvox.AccessibilityApiHandler.earcons;
+cvox.AccessibilityApiHandler.prototype.queueAlertsForActiveTab = function() {
+  this.idleSpeechQueue_.length = 0;
+  var msg = goog.bind(cvox.ChromeVox.msgs.getMsg, cvox.ChromeVox.msgs);
 
-  chrome.tabs.query({'active': true}, function(tabs) {
-    if (tabs.length < 1)
+  chrome.tabs.query({'active': true, 'currentWindow': true},
+      goog.bind(function(tabs) {
+    if (tabs.length < 1) {
       return;
-    chrome.experimental.accessibility.getAlertsForTab(tabs[0].id,
-                                                      function(alerts) {
-      if (alerts.length == 0)
-        return;
-
-      var string = '';
-      for (var i = 0; i < alerts.length; i++)
-        string += alerts[i].message + ' ';
-      var speakAlerts = function() {
-        earcons.playEarcon(cvox.AbstractEarcons.OBJECT_OPEN);
-        tts.speak(string, 0, {});
-      };
-
-      // If tab content is already loaded, speak immediately.
-      if (tabs[0].status == 'complete') {
-        speakAlerts();
+    }
+    chrome.experimental.accessibility.getAlertsForTab(
+        tabs[0].id, goog.bind(function(alerts) {
+      if (alerts.length == 0) {
         return;
       }
 
-      // If tab content loading is not complete, wait to avoid interruption
-      // from other messages.
-      var removeListeners = function() {
-        chrome.tabs.onUpdated.removeListener(onUpdated);
-        chrome.tabs.onRemoved.removeListener(removeListeners);
-      };
-      var onUpdated = function(tabId, changeInfo, tab) {
-        if (tabId != tabs[0].id || changeInfo.status != 'complete')
-          return;
-        speakAlerts();
-        removeListeners();
-      };
-      var onRemoved = function(tabId, removeInfo) {
-        if (tabId != tabs[0].id)
-          return;
-        removeListeners();
-      };
-      chrome.tabs.onUpdated.addListener(onUpdated);
-      chrome.tabs.onRemoved.addListener(onRemoved);
-    });
-  });
+      var utterance = '';
+
+      if (alerts.length == 1) {
+        utterance += msg('page_has_one_alert_singular');
+      } else {
+        utterance += msg('page_has_one_alert_plural',
+                         [alerts.length]);
+      }
+
+      for (var i = 0; i < alerts.length; i++) {
+        utterance += ' ' + alerts[i].message;
+      }
+
+      utterance += ' ' + msg('review_alerts');
+
+      if (this.idleSpeechQueue_.indexOf(utterance) == -1) {
+        this.idleSpeechQueue_.push(utterance);
+      }
+    }, this));
+  }, this));
 };

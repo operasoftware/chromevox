@@ -35,7 +35,7 @@ goog.require('cvox.MathWalker');
 cvox.MathmlTokenWalker = function(shifter) {
   goog.base(this, shifter);
 
-  this.traverse.setMode('token');
+  this.granularity = cvox.MathWalker.granularity.MATHML_TOKEN;
 };
 goog.inherits(cvox.MathmlTokenWalker, cvox.MathWalker);
 
@@ -43,6 +43,10 @@ goog.inherits(cvox.MathmlTokenWalker, cvox.MathWalker);
 /**
  * @override
  */
-cvox.MathmlTokenWalker.prototype.getGranularityMsg = function() {
-  return cvox.ChromeVox.msgs.getMsg('mathml_token_granularity');
+cvox.MathmlTokenWalker.prototype.next = function(sel) {
+  var reverse = sel.isReversed();
+  var node = this.traverse.nextLeaf(reverse, cvox.MathUtil.isToken);
+  var newSel = cvox.CursorSelection.fromNode(node);
+  newSel.setReversed(reverse);
+  return newSel;
 };

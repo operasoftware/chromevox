@@ -169,7 +169,6 @@ cvox.SearchWidget.prototype.onKeyDown = function(evt) {
   if (!this.isActive()) {
     return false;
   }
-
   var searchStr = this.txtNode_.textContent;
   if (evt.keyCode == 8) { // Backspace
     if (searchStr.length > 0) {
@@ -218,6 +217,14 @@ cvox.SearchWidget.prototype.onKeyPress = function(evt) {
   evt.preventDefault();
   evt.stopPropagation();
   return true;
+};
+
+
+/**
+ * Called when navigation occurs.
+ * Override this method to react to navigation caused by user input.
+ */
+cvox.SearchWidget.prototype.onNavigate = function() {
 };
 
 
@@ -378,6 +385,7 @@ cvox.SearchWidget.prototype.next_ = function(searchStr, opt_reversed) {
   }
   var result = success ? this.getNextResult_(searchStr) : null;
   this.outputSearchResult_(result);
+  this.onNavigate();
   return result;
 };
 

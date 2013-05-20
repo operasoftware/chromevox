@@ -20,13 +20,7 @@
 goog.provide('cvox.MathWalker');
 
 goog.require('cvox.AbstractWalker');
-goog.require('cvox.AriaUtil');
-goog.require('cvox.BrailleUtil');
 goog.require('cvox.CursorSelection');
-goog.require('cvox.DescriptionUtil');
-goog.require('cvox.DomUtil');
-goog.require('cvox.MathSpeak');
-goog.require('cvox.NavDescription');
 goog.require('cvox.TraverseMath');
 
 
@@ -45,14 +39,22 @@ cvox.MathWalker = function(shifter) {
    * The Traversal object of the walker to which the explore mode
    * delegates.
    * @type {!cvox.TraverseMath}
+   * @protected
    */
-  this.traverse = new cvox.TraverseMath();
+  this.traverse = cvox.TraverseMath.getInstance();
 
   /**
-   * The Math Shifter that handling this walker.
+   * The Math Shifter handling this walker.
    * @type {!cvox.MathShifter}
    */
   this.shifter = shifter;
+
+  /**
+   * Granularity of the MathWalker.
+   * @type {cvox.MathWalker.granularity}
+   * @protected
+   */
+  this.granularity = cvox.MathWalker.granularity.MATHML_TREE;
 
 };
 goog.inherits(cvox.MathWalker, cvox.AbstractWalker);
@@ -62,8 +64,6 @@ goog.inherits(cvox.MathWalker, cvox.AbstractWalker);
  * @override
  */
 cvox.MathWalker.prototype.sync = function(sel) {
-  var mathNode = cvox.DomUtil.getContainingMath(sel.end.node);
-  this.traverse.initialize(mathNode, sel.isReversed());
   var newSel = cvox.CursorSelection.fromNode(this.traverse.activeNode);
   newSel.setReversed(sel.isReversed());
   return newSel;
@@ -84,17 +84,26 @@ cvox.MathWalker.prototype.getDescription = function(prevSel, sel) {
 /**
  * @override
  */
-cvox.MathWalker.prototype.next = function(sel) {
-    var r = sel.isReversed();
-    var newSel = cvox.CursorSelection.fromNode(this.traverse.next(r));
-    newSel.setReversed(r);
-    return newSel;
+cvox.MathWalker.prototype.getBraille = function(prevSel, sel) {
+  throw 'getBraille is unsupported';
 };
 
 
 /**
  * @override
  */
-cvox.MathWalker.prototype.getBraille = function(prevSel, sel) {
-  throw 'getBraille is unsupported';
+cvox.MathWalker.prototype.getGranularityMsg = function() {
+    return cvox.ChromeVox.msgs.getMsg(this.granularity);
+};
+
+
+/**
+ * All available granularities.
+ * @enum {string}
+ */
+cvox.MathWalker.granularity = {
+  MATHML_LEAF: 'mathml_leaf_granularity',
+  MATHML_TREE: 'mathml_tree_granularity',
+  MATHML_TOKEN: 'mathml_token_granularity',
+  MATHML_LAYOUT: 'mathml_layout_granularity'
 };

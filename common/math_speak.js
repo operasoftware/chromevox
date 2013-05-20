@@ -23,11 +23,13 @@ goog.provide('cvox.MathSpeak');
 
 goog.require('cvox.AbstractTts');
 goog.require('cvox.ApiImplementation');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.MathAtom');
 goog.require('cvox.MathFunction');
 goog.require('cvox.MathNode');
+goog.require('cvox.MathNodeRules');
 goog.require('cvox.MathSymbol');
 goog.require('cvox.MathUtil');
 goog.require('cvox.NavMathDescription');
@@ -56,7 +58,15 @@ cvox.MathSpeak = function(kwargs) {
    * @type {cvox.MathNode}
    * @private
    */
-  this.nodes_ = cvox.MathNode.create();
+  this.nodes_ = cvox.MathNode.getInstance();
+  cvox.MathNodeRules.getInstance();
+
+  /**
+   * Indicated if math mappings for Android devices exist.
+   * @type {boolean}
+   * @private
+   */
+  this.hasAndroidMap_ = cvox.ChromeVox.host['mathMap'] != undefined;
 
   // TODO (sorge) Here we should also add customisations.
 
@@ -100,7 +110,7 @@ cvox.MathSpeak.prototype.cycleDomain = function() {
 /**
  * Speaks an array for strings.
  * @param {Array.<string>} seq A list of strings.
- * @return {!Array.<cvox.NavMathDescription>} Messages for the math expression.
+ * @return {!Array.<cvox.NavDescription>} Messages for the math expression.
  */
 cvox.MathSpeak.prototype.speakSequence = function(seq) {
 
@@ -119,7 +129,7 @@ cvox.MathSpeak.prototype.speakSequence = function(seq) {
  * possibly splitting up the string if necessary. It then calls the appropriate
  * functions to have things spoken.
  * @param {string} str A string.
- * @return {!Array.<cvox.NavMathDescription>} Messages for the math expression.
+ * @return {!Array.<cvox.NavDescription>} Messages for the math expression.
  */
 cvox.MathSpeak.prototype.speakString = function(str) {
 
@@ -173,10 +183,14 @@ cvox.MathSpeak.prototype.speakString = function(str) {
  * @param {string} text to be translated.
  * @param {string} action that specifies the translation type.
  * @param {string} alt text that is spoken if translation fails.
- * @return {cvox.NavMathDescription} Navigation description for the
+ * @return {cvox.NavDescription} Navigation description for the
  *     math expression.
  */
 cvox.MathSpeak.prototype.speak = function(text, action, alt) {
+  if (this.hasAndroidMap_) {
+    return cvox.ChromeVox.host['mathMap'].speak(
+        text, action, alt, this.rule, this.domain);
+  }
   return new cvox.NavMathDescription({'type': action,
                                       'text': text,
                                       'rule': this.rule,
@@ -190,23 +204,23 @@ cvox.MathSpeak.prototype.speak = function(text, action, alt) {
  * Creates Navigation Description for a math function. We assume that the
  * incoming string consists only of alpha characters. No whitespaces etc.
  * @param {string} func A string of alpha characters.
- * @return {cvox.NavMathDescription} Navigation description for the math
+ * @return {cvox.NavDescription} Navigation description for the math
  *     expression.
  */
 cvox.MathSpeak.prototype.speakFunction = function(func) {
-  return this.speak(func, cvox.MathSpeak.Types.FUNCTION, func);
+  return this.speak(func, cvox.MathAtom.Types.FUNCTION, func);
 };
 
 
 /**
  * Creates Navigation Description for a single character.
  * @param {string} code A string of length exactly one.
- * @return {cvox.NavMathDescription} Navigation description for the math
+ * @return {cvox.NavDescription} Navigation description for the math
  *     expression.
  */
 cvox.MathSpeak.prototype.speakCharacter = function(code) {
   if (code.length == 1) {
-    return this.speak(code, cvox.MathSpeak.Types.SYMBOL, code);
+    return this.speak(code, cvox.MathAtom.Types.SYMBOL, code);
   }
 };
 
@@ -215,36 +229,32 @@ cvox.MathSpeak.prototype.speakCharacter = function(code) {
  * Creates Navigation Description for a character composed of two surrogate
  * halves.
  * @param {string} code A string of length exactly one.
- * @return {cvox.NavMathDescription} Navigation description for the math
+ * @return {cvox.NavDescription} Navigation description for the math
  *     expression.
  */
 cvox.MathSpeak.prototype.speakSurrogate = function(code) {
-  return this.speak(code, cvox.MathSpeak.Types.SURROGATE, code);
+  return this.speak(code, cvox.MathAtom.Types.SURROGATE, code);
 };
 
 
 /**
  * Creates Navigation Description for unidentified character sequence.
  * @param {string} code A string of length exactly one.
- * @return {cvox.NavMathDescription} Navigation description for the math
+ * @return {cvox.NavDescription} Navigation description for the math
  *     expression.
  */
 cvox.MathSpeak.prototype.speakMsg = function(code) {
-  return this.speak(code, cvox.MathSpeak.Types.REST, code);
+  return this.speak(code, cvox.MathAtom.Types.REST, code);
 };
-
 
 
 /**
  * Recursively speaks a tree.
- * @param {Node|string} tree The root node of the tree.
+ * @param {Node} tree The root node of the tree.
  * @return {!Array.<cvox.NavDescription>} A list of navigation descriptions for
  *    that tree.
  */
 cvox.MathSpeak.prototype.speakTree = function(tree) {
-  if (typeof(tree) === 'string') {
-    return this.speakString(tree);
-  }
   var rule = this.nodes_.getRuleForNode(tree);
   if (rule) {
     return this.speakNode(rule.mappingRule(this.domain, this.rule), tree);
@@ -255,31 +265,51 @@ cvox.MathSpeak.prototype.speakTree = function(tree) {
 
 /**
  * Speaks a node according to a given rule.
- * @param {Array.<string|Object|null>} rule An array representing a speech rule.
+ * @param {Array.<Object|null>} rule An array representing a speech rule.
  * @param {Node} node to apply the speech rule to.
  * @return {!Array.<cvox.NavDescription>} A list of Navigation descriptions.
  */
 cvox.MathSpeak.prototype.speakNode = function(rule, node) {
   var result = [];
   for (var i = 0, elem; elem = rule[i]; i++) {
-    if (typeof(elem) === 'string') {
-      result.push(new cvox.NavDescription({text: elem}));
-    } else {
-      var navs = [];
-      if (elem['function']) {
-        navs = this.speakTree(
-            cvox.MathUtil.applyFunction(node, elem['function']));
+    var navs = [];
+    var content = elem['content'] || '';
+    switch (elem['type']) {
+      case 'node':
+        var selected = cvox.MathUtil.applyFunction(node, content);
+        if (selected) {
+          navs = this.speakTree(selected);
+        // Adding overall context if it exists.
+          if (elem['context']) {
+            navs[0]['context'] = elem['context'];
+          }
+        }
+        break;
+      case 'multi':
+        selected = cvox.MathUtil.applySelector(node, content);
+        if (selected) {
+          navs = this.speakNodeList(
+              selected,
+              elem['separator'], elem['ctxtfunc'], elem['context']);
+        }
+        break;
+      case 'text':
+        selected = cvox.MathUtil.applyFunction(node, content);
+        if (selected) {
+          navs = [new cvox.NavDescription({text: selected.textContent})];
+        }
+        break;
+      case 'string':
+      case 'personality':
+      default:
+        navs = [new cvox.NavDescription({text: content})];
+        // Adding overall context if it exists.
         if (elem['context']) {
           navs[0]['context'] = elem['context'];
         }
-      } else if (elem['selector']) {
-        navs = this.speakNodeList(
-            cvox.MathUtil.applySelector(node, elem['selector']),
-            elem['separator'], elem['cont-function'], elem['cont-string']);
-      }
-      result = result.concat(
-        cvox.MathSpeak.addPersonality(navs, elem));
     }
+    // Adding personality to the nav descriptions.
+    result = result.concat(cvox.MathSpeak.addPersonality(navs, elem));
   }
   return result;
 };
@@ -298,9 +328,11 @@ cvox.MathSpeak.prototype.speakNode = function(rule, node) {
  */
 cvox.MathSpeak.prototype.speakNodeList = function(nodes, separator,
                                                  mapp, context) {
+  if (nodes == []) {
+    return [];
+  }
   if (mapp) {
-    var mappFunc = eval('cvox.MathUtil.' + mapp).call(
-        undefined, nodes, context);
+    var mappFunc = cvox.MathUtil.CONTEXT_FUNCTIONS[mapp](nodes, context);
   }
   if (separator) {
     var sepDescr = new cvox.NavDescription({text: separator});
@@ -309,7 +341,7 @@ cvox.MathSpeak.prototype.speakNodeList = function(nodes, separator,
   for (var i = 0, node; node = nodes[i]; i++) {
     var navs = this.speakTree(node);
     if (mappFunc) {
-      navs[0]['context'] = mappFunc.call();
+      navs[0]['context'] = mappFunc();
     }
     result = result.concat(navs);
     if (sepDescr && i < nodes.length - 1) {
@@ -329,7 +361,9 @@ cvox.MathSpeak.prototype.speakNodeList = function(nodes, separator,
  */
 cvox.MathSpeak.propList = {'pitch': cvox.AbstractTts.RELATIVE_PITCH,
                            'rate': cvox.AbstractTts.RELATIVE_RATE,
-                           'volume': cvox.AbstractTts.RELATIVE_VOLUME};
+                           'volume': cvox.AbstractTts.RELATIVE_VOLUME,
+                           'pause': cvox.AbstractTts.PAUSE
+                          };
 
 
 /**
@@ -361,16 +395,4 @@ cvox.MathSpeak.addPersonality = function(navs, props) {
  */
 cvox.MathSpeak.removeEmpty = function(strs) {
   return strs.filter(function(x) {return x;});
-};
-
-
-/**
- * Types for the MathSpeak object.
- * @enum {string}
- */
-cvox.MathSpeak.Types = {
-  SURROGATE: 'surrogate',
-  SYMBOL: 'symbol',
-  FUNCTION: 'function',
-  REST: 'rest'
 };

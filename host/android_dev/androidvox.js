@@ -56,6 +56,7 @@ cvox.AndroidVox.performAction = function(actionJson) {
   var FAKE_GRANULARITY_READ_CURRENT = -1;
   var FAKE_GRANULARITY_READ_TITLE = -2;
   var FAKE_GRANULARITY_STOP_SPEECH = -3;
+  var FAKE_GRANULARITY_CHANGE_SHIFTER = -4;
 
   // Actions in this range are reserved for Braille use.
   // TODO(jbroman): use event arguments instead of this hack.
@@ -114,36 +115,60 @@ cvox.AndroidVox.performAction = function(actionJson) {
   }
   if (currentTextHandler && granularity == MOVEMENT_GRANULARITY_CHARACTER) {
     if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
-      currentTextHandler.moveCursorToNextCharacter();
+      return currentTextHandler.moveCursorToNextCharacter();
     } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
-      currentTextHandler.moveCursorToPreviousCharacter();
+      return currentTextHandler.moveCursorToPreviousCharacter();
     }
-    return true;
+  } else if (currentTextHandler &&
+      granularity == MOVEMENT_GRANULARITY_WORD) {
+    if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
+      return currentTextHandler.moveCursorToNextWord();
+    } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+      return currentTextHandler.moveCursorToPreviousWord();
+    }
   } else if (currentTextHandler &&
       granularity == MOVEMENT_GRANULARITY_PARAGRAPH) {
     if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
-      currentTextHandler.moveCursorToNextParagraph();
+      return currentTextHandler.moveCursorToNextParagraph();
     } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
-      currentTextHandler.moveCursorToPreviousParagraph();
+      return currentTextHandler.moveCursorToPreviousParagraph();
     }
-    return true;
+  } else if (currentTextHandler &&
+      granularity == MOVEMENT_GRANULARITY_LINE) {
+    // When navigating by line, allow escaping from the field at the ends.
+    var handled = false;
+    if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY) {
+      handled = currentTextHandler.moveCursorToNextLine();
+    } else if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+      handled = currentTextHandler.moveCursorToPreviousLine();
+    }
+    if (handled) {
+      return true;
+    }
   }
 
   // Hack: Using fake granularities for commands. We were using NEXT_HTML, but
   // it is unsafe for TalkBack to do this since TalkBack has no way to check if
   // ChromeVox is actually active.
-  if (granularity == FAKE_GRANULARITY_READ_CURRENT) {
-    cvox.ChromeVox.navigationManager.finishNavCommand('');
-    return true;
+  switch (granularity) {
+    case FAKE_GRANULARITY_READ_CURRENT:
+      cvox.ChromeVox.navigationManager.finishNavCommand('');
+      return true;
+    case FAKE_GRANULARITY_READ_TITLE:
+      cvox.ChromeVoxUserCommands.commands.readCurrentTitle();
+      return true;
+    case FAKE_GRANULARITY_STOP_SPEECH:
+      // Speech was already stopped, nothing more to do.
+      return true;
+    case FAKE_GRANULARITY_CHANGE_SHIFTER:
+      if (action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
+        cvox.ChromeVoxUserCommands.commands.exitShifter();
+      } else {
+        cvox.ChromeVoxUserCommands.commands.enterShifter();
+      }
+      return true;
   }
-  if (granularity == FAKE_GRANULARITY_READ_TITLE) {
-    cvox.ChromeVoxUserCommands.commands.readCurrentTitle();
-    return true;
-  }
-  if (granularity == FAKE_GRANULARITY_STOP_SPEECH) {
-    // Speech was already stopped, nothing more to do.
-    return true;
-  }
+
   // Braille clicks are currently sent under these action IDs.
   // TODO(jbroman): Remove this hack when a better way to send this information
   // exists.
@@ -278,11 +303,13 @@ cvox.AndroidVox.performClickAction = function(node, opt_index) {
       node instanceof HTMLTextAreaElement;
   if (goog.isDef(opt_index) && hasSelectionStartAndEnd) {
     var nodeDescription = cvox.BrailleUtil.getTemplated(null, node);
-    var valueStart = nodeDescription.getSpanStart(cvox.BrailleUtil.VALUE_SPAN);
-    var valueEnd = nodeDescription.getSpanEnd(cvox.BrailleUtil.VALUE_SPAN);
+    var valueSpan = nodeDescription.getSpanInstanceOf(
+        cvox.BrailleUtil.ValueSpan);
+    var valueStart = nodeDescription.getSpanStart(valueSpan);
+    var valueEnd = nodeDescription.getSpanEnd(valueSpan);
     if (valueStart <= opt_index && opt_index <= valueEnd) {
-      node.selectionStart = opt_index - valueStart;
-      node.selectionEnd = opt_index - valueStart;
+      var cursorPosition = opt_index - valueStart + valueSpan.offset;
+      node.selectionStart = node.selectionEnd = cursorPosition;
       cvox.ChromeVoxEventWatcher.handleTextChanged(true);
     }
   }

@@ -35,15 +35,7 @@ goog.inherits(cvox.BrailleBackground, cvox.AbstractBraille);
 
 /** @override */
 cvox.BrailleBackground.prototype.write = function(params) {
-  // To quickly prototype this, we will use a local http server that
-  // will output to the Braille display.
-  // TODO (clchen, plundblad): Replace this with the actual NaCl interface once
-  // that is ready.
-  var xhr = new XMLHttpRequest();
-  xhr.overrideMimeType('text/xml');
-  xhr.open('POST', 'http://127.0.0.1:8000', true);
-  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-  xhr.send('write=' + params);
+  // TODO(plundblad): Send to the braille display API.
 };
 
 /** @override */

@@ -438,12 +438,35 @@ if (typeof(goog) != 'undefined' && goog.require) {
 
    cvox.Api.internalEnable();
 
+   // TODO (sorge) This functions should only be redefined if
+   // they do not yet already exist.
    /*
     * Utility functions. Should these be part of the API?
     * @constructor
     */
    cvox.XpathUtil = function() {
    };
+
+   /**
+    * Mapping for some default namespaces.
+    * @const
+    * @private
+    */
+   cvox.XpathUtil.nameSpaces_ = {
+     'xhtml' : 'http://www.w3.org/1999/xhtml',
+     'mathml': 'http://www.w3.org/1998/Math/MathML'
+   };
+
+
+   /**
+    * Resolve some default name spaces.
+    * @param {string} prefix Namespace prefix.
+    * @return {string} The corresponding namespace URI.
+    */
+   cvox.XpathUtil.resolveNameSpace = function(prefix) {
+     return cvox.XpathUtil.nameSpaces_[prefix] || null;
+   };
+
 
    /**
     * Given an XPath expression and rootNode, it returns an array of
@@ -459,7 +482,7 @@ if (typeof(goog) != 'undefined' && goog.require) {
        var xpathIterator = rootNode.ownerDocument.evaluate(
            expression,
            rootNode,
-           null, // no namespace resolver
+           cvox.XpathUtil.resolveNameSpace,
            XPathResult.ORDERED_NODE_ITERATOR_TYPE,
            null); // no existing results
      } catch (err) {

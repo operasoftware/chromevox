@@ -25,6 +25,7 @@ goog.require('cvox.AriaUtil');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
+goog.require('cvox.Interframe');
 goog.require('cvox.NavDescription');
 goog.require('cvox.NavigationSpeaker');
 
@@ -104,6 +105,27 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode, disableSpeak) {
           anyRegionsAnnounced = true;
         });
   }
+
+  cvox.Interframe.addListener(function(message) {
+    if (message['command'] != 'speakLiveRegion') {
+      return;
+    }
+    var iframes = document.getElementsByTagName('iframe');
+    for (var i = 0, iframe; iframe = iframes[i]; i++) {
+      if (iframe.src == message['src']) {
+        if (!cvox.DomUtil.isVisible(iframe)) {
+          return;
+        }
+        var structs = JSON.parse(message['content']);
+        var descriptions = [];
+        for (var i = 0, description; description = structs[i]; i++) {
+          descriptions.push(new cvox.NavDescription(description));
+        }
+        new cvox.NavigationSpeaker()
+            .speakDescriptionArray(descriptions, message['queueMode'], null);
+      }
+    }
+  });
 
   return anyRegionsAnnounced;
 };
@@ -331,6 +353,16 @@ cvox.LiveRegions.announceChange = function(
   cvox.LiveRegions.lastAnnouncedMap[key] = now;
 
   var assertive = cvox.AriaUtil.getAriaLive(liveRoot) == 'assertive';
+
+  if (cvox.Interframe.isIframe() && !document.hasFocus()) {
+    cvox.Interframe.sendMessageToParentWindow(
+        {'command': 'speakLiveRegion',
+         'content': JSON.stringify(navDescriptions),
+         'queueMode': assertive ? 0 : 1,
+         'src': window.location.href }
+        );
+    return;
+  }
   handler(assertive, navDescriptions);
 };
 

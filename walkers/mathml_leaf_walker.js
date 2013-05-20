@@ -33,7 +33,7 @@ goog.require('cvox.MathWalker');
 cvox.MathmlLeafWalker = function(shifter) {
   goog.base(this, shifter);
 
-  this.traverse.setMode('leaf');
+  this.granularity = cvox.MathWalker.granularity.MATHML_LEAF;
 };
 goog.inherits(cvox.MathmlLeafWalker, cvox.MathWalker);
 
@@ -41,6 +41,11 @@ goog.inherits(cvox.MathmlLeafWalker, cvox.MathWalker);
 /**
  * @override
  */
-cvox.MathmlLeafWalker.prototype.getGranularityMsg = function() {
-  return cvox.ChromeVox.msgs.getMsg('mathml_leaf_granularity');
+cvox.MathmlLeafWalker.prototype.next = function(sel) {
+  var reverse = sel.isReversed();
+  var node = this.traverse.nextLeaf(
+      reverse, function(node) {return node.nodeType == Node.TEXT_NODE;});
+  var newSel = cvox.CursorSelection.fromNode(node);
+  newSel.setReversed(reverse);
+  return newSel;
 };

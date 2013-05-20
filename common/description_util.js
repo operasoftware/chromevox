@@ -23,10 +23,25 @@ goog.provide('cvox.DescriptionUtil');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.AuralStyleUtil');
 goog.require('cvox.BareObjectWalker');
+goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EarconUtil');
+goog.require('cvox.MathShifter');
 goog.require('cvox.NavDescription');
 
+
+/**
+ * Lists all Node tagName's who's description is derived from its subtree.
+ * @type {Object.<string, boolean>}
+ */
+cvox.DescriptionUtil.COLLECTION_NODE_TYPE = {
+  'H1': true,
+  'H2': true,
+  'H3': true,
+  'H4': true,
+  'H5': true,
+  'H6': true
+};
 
 /**
  * Get a control's complete description in the same format as if you
@@ -151,9 +166,6 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
     if (earcon != null && earcons.indexOf(earcon) == -1) {
       earcons.push(earcon);
     }
-    if (cvox.DomUtil.isMath(node)) {
-      break;
-    }
   }
   return new cvox.NavDescription({
     context: cvox.DomUtil.collapseWhitespace(context),
@@ -175,10 +187,50 @@ cvox.DescriptionUtil.getDescriptionFromAncestors = function(
  * @param {boolean} recursive Whether or not the element's subtree should
  *     be used; true by default.
  * @param {number} verbosity The verbosity setting.
- * @return {cvox.NavDescription} The description of the navigation action.
+ * @return {!Array.<cvox.NavDescription>} The description of the navigation
+ * action.
  */
 cvox.DescriptionUtil.getDescriptionFromNavigation =
     function(prevNode, node, recursive, verbosity) {
+  if (!prevNode || !node) {
+    return [];
+  }
+
+  // First, try generating descriptions for specialized content. These
+  // descriptions live here because our navigation shifter should have some
+  // basic notion of how to describe nodes of all types without necessarily
+  // knowing how to traverse it.
+  if (cvox.DomUtil.isMath(node) && !cvox.AriaUtil.isMath(node)) {
+    // TODO(sorge): Using math shifter here pulls in both math speak and
+    // traversal. We only really want a utility class to generate descriptions.
+    var sel = /** @type {!cvox.CursorSelection} */(
+        cvox.CursorSelection.fromNode(node));
+    var mathShifter = cvox.MathShifter.create(sel);
+
+    // MathShifter should be stateless, but it's not, so we need to sync first
+    // for it to initialize itself.
+    mathShifter.sync(sel);
+
+    if (!sel) {
+      // Unable to sync to this node; probably an issue in the shifter.
+      return [new cvox.NavDescription({'text': 'empty math'})];
+    }
+
+    var ret = mathShifter.getDescription(sel, sel);
+    ret[ret.length - 1].annotation = 'math';
+    return ret;
+  }
+
+  // Next, check to see if the current node is a collection type.
+  if (cvox.DescriptionUtil.COLLECTION_NODE_TYPE[node.tagName]) {
+    return cvox.DescriptionUtil.getCollectionDescription(
+        /** @type {!cvox.CursorSelection} */(
+            cvox.CursorSelection.fromNode(prevNode)),
+        /** @type {!cvox.CursorSelection} */(
+            cvox.CursorSelection.fromNode(node)));
+  }
+
+  // Now, generate a description for all other elements.
   var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node);
   var desc = cvox.DescriptionUtil.getDescriptionFromAncestors(
       ancestors, recursive, verbosity);
@@ -191,7 +243,7 @@ cvox.DescriptionUtil.getDescriptionFromNavigation =
           cvox.ChromeVox.msgs.getMsg('exited_container', [prevDesc.context]);
     }
   }
-  return desc;
+  return [desc];
 };
 
 
@@ -238,7 +290,7 @@ cvox.DescriptionUtil.getRawDescriptions_ = function(prevSel, sel) {
   sel = sel.clone().setReversed(false);
   var node = cvox.DescriptionUtil.subWalker_.sync(sel).start.node;
 
-  var prevnode = prevSel.end.node;
+  var prevNode = prevSel.end.node;
   var curSel = cvox.CursorSelection.fromNode(node);
 
   if (!curSel) {
@@ -246,7 +298,7 @@ cvox.DescriptionUtil.getRawDescriptions_ = function(prevSel, sel) {
   }
 
   while (cvox.DomUtil.isDescendantOfNode(node, sel.start.node)) {
-    var ancestors = cvox.DomUtil.getUniqueAncestors(prevnode, node);
+    var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node);
     var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
         ancestors, true, cvox.ChromeVox.verbosity);
     descriptions.push(description);
@@ -256,7 +308,7 @@ cvox.DescriptionUtil.getRawDescriptions_ = function(prevSel, sel) {
     }
 
     curSel = /** @type {!cvox.CursorSelection} */ (curSel);
-    prevnode = node;
+    prevNode = node;
     node = curSel.start.node;
   }
 
@@ -421,9 +473,6 @@ cvox.DescriptionUtil.shouldDescribeExit_ = function(ancestors) {
  * @return {cvox.NavDescription|cvox.NavMathDescription} Updated description.
  */
 cvox.DescriptionUtil.addPersonality = function(nav, personality) {
-  if (personality == {}) {
-    return nav;
-  }
   if (!nav['personality']) {
     nav['personality'] = personality;
     return nav;

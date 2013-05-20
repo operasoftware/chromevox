@@ -51,7 +51,8 @@ cvox.MathFunction.prototype.initFunctionMap_ = function(atoms) {
   var rules = [];
 
   for (var i = 0, func; func = atoms[i]; i++) {
-    var funcObject = cvox.MathAtom.make(func.key, func.category, func.mappings);
+    var funcObject = cvox.MathAtom.make(func.key, func.category,
+                                        func['mappings']);
     this.FUNCTION_MAP_[func.key] = funcObject;
     domains = cvox.MathUtil.union(domains, funcObject.allDomains());
     rules = cvox.MathUtil.union(rules, funcObject.allRules());

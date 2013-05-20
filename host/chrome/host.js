@@ -29,6 +29,7 @@ goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.InitialSpeech');
+goog.require('cvox.MathJaxImplementation');
 goog.require('cvox.PdfProcessor');
 
 /**
@@ -76,12 +77,6 @@ cvox.ChromeHost.prototype.init = function() {
         self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
         if (!self.gotPrefsAtLeastOnce_) {
           cvox.InitialSpeech.speak();
-          if (cvox.ChromeVox.position[document.location.href]) {
-            var pos = cvox.ChromeVox.position[document.location.href];
-            var node = document.elementFromPoint(pos.x, pos.y);
-            cvox.ChromeVox.syncToNode(
-                node, true, cvox.AbstractTts.QUEUE_MODE_QUEUE);
-          }
         }
         self.gotPrefsAtLeastOnce_ = true;
 
@@ -105,6 +100,7 @@ cvox.ChromeHost.prototype.init = function() {
             prefs['siteSpecificScriptBase'];
         if (apiPrefsChanged) {
           cvox.ApiImplementation.init();
+          cvox.MathJaxImplementation.init();
         }
       }
   };

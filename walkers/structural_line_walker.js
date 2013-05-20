@@ -52,11 +52,19 @@ cvox.StructuralLineWalker.prototype.getBraille = function(prevSel, sel) {
   var node = sel.absStart().node;
   var prevNode = prevSel.absEnd().node;
 
-  // Show only the visible line in braille.
-  var name = sel.getText();
+  // Show only the visible line in braille for DOM ranges. This overrides any
+  // labels computed for the node.
+  //
+  // <textarea> needs to be treated specially. It may have TextNode children,
+  // but these reflect the initial value of the node only, and are not updated
+  // as content changes.
+  var name = undefined;
+  if (!sel.start.equals(sel.end) && !(objNode instanceof HTMLTextAreaElement)) {
+    name = sel.getText();
+  }
   var spannable =
       cvox.BrailleUtil.getTemplated(prevNode, objNode, {name: name});
-  spannable.setSpan(node, 0, spannable.getLength());
+  spannable.setSpan(objNode, 0, spannable.getLength());
   braille.text = spannable;
 
   // Remove any selections.

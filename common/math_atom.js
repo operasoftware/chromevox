@@ -19,6 +19,7 @@
 
 goog.provide('cvox.MathAtom');
 
+goog.require('cvox.MathSpeechRule');
 goog.require('cvox.MathUtil');
 
 
@@ -29,12 +30,13 @@ goog.require('cvox.MathUtil');
 cvox.MathAtom = function(key) {
 
   this.key = key;
+  // TODO (sorge) Make this into a proper rules type.
   // This might not be used in every atom.
   this.category = '';
   /**
    * Mapping for domains and speech rules.
    * Default mapping is to the key.
-   * @type {Object.<string, Object.<string, string|Array.<string|Object|null>>>}
+   * @type {Object.<string, Object.<string, string|Array.<string>|cvox.MathSpeechRule.rule>>}
    * @private
    */
   this.mappings_ = {'default' : {'default' : key}};
@@ -206,6 +208,16 @@ cvox.MathAtom.make = function(key, category, mappings) {
 };
 
 
+/**
+ * Types for the MathSpeak object.
+ * @enum {string}
+ */
+cvox.MathAtom.Types = {
+  SURROGATE: 'surrogate',
+  SYMBOL: 'symbol',
+  FUNCTION: 'function',
+  REST: 'rest'
+};
 
 
 // For debugging:

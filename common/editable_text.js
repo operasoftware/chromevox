@@ -625,27 +625,59 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
 
 /**
  * Moves the cursor forward by one character.
+ * @return {boolean} True if the action was handled.
  */
 cvox.ChromeVoxEditableTextBase.prototype.moveCursorToNextCharacter =
-    goog.abstractMethod;
+    function() { return false; };
 
 /**
  * Moves the cursor backward by one character.
+ * @return {boolean} True if the action was handled.
  */
 cvox.ChromeVoxEditableTextBase.prototype.moveCursorToPreviousCharacter =
-    goog.abstractMethod;
+    function() { return false; };
+
+/**
+ * Moves the cursor forward by one word.
+ * @return {boolean} True if the action was handled.
+ */
+cvox.ChromeVoxEditableTextBase.prototype.moveCursorToNextWord =
+    function() { return false; };
+
+/**
+ * Moves the cursor backward by one word.
+ * @return {boolean} True if the action was handled.
+ */
+cvox.ChromeVoxEditableTextBase.prototype.moveCursorToPreviousWord =
+    function() { return false; };
+
+/**
+ * Moves the cursor forward by one line.
+ * @return {boolean} True if the action was handled.
+ */
+cvox.ChromeVoxEditableTextBase.prototype.moveCursorToNextLine =
+    function() { return false; };
+
+/**
+ * Moves the cursor backward by one line.
+ * @return {boolean} True if the action was handled.
+ */
+cvox.ChromeVoxEditableTextBase.prototype.moveCursorToPreviousLine =
+    function() { return false; };
 
 /**
  * Moves the cursor forward by one paragraph.
+ * @return {boolean} True if the action was handled.
  */
 cvox.ChromeVoxEditableTextBase.prototype.moveCursorToNextParagraph =
-    goog.abstractMethod;
+    function() { return false; };
 
 /**
  * Moves the cursor backward by one paragraph.
+ * @return {boolean} True if the action was handled.
  */
 cvox.ChromeVoxEditableTextBase.prototype.moveCursorToPreviousParagraph =
-    goog.abstractMethod;
+    function() { return false; };
 
 
 /******************************************/
@@ -721,6 +753,7 @@ cvox.ChromeVoxEditableElement.prototype.moveCursorToNextCharacter = function() {
   node.selectionEnd++;
   node.selectionStart = node.selectionEnd;
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
@@ -730,6 +763,41 @@ cvox.ChromeVoxEditableElement.prototype.moveCursorToPreviousCharacter =
   node.selectionStart--;
   node.selectionEnd = node.selectionStart;
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
+};
+
+/** @override */
+cvox.ChromeVoxEditableElement.prototype.moveCursorToNextWord = function() {
+  var node = this.node;
+  var length = node.value.length;
+  var re = /\W+/gm;
+  var substring = node.value.substring(node.selectionEnd);
+  var match = re.exec(substring);
+  if (match !== null && match.index == 0) {
+    // Ignore word-breaking sequences right next to the cursor.
+    match = re.exec(substring);
+  }
+  var index = (match === null) ? length : match.index + node.selectionEnd;
+  node.selectionStart = node.selectionEnd = index;
+  cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
+};
+
+/** @override */
+cvox.ChromeVoxEditableElement.prototype.moveCursorToPreviousWord = function() {
+  var node = this.node;
+  var length = node.value.length;
+  var re = /\W+/gm;
+  var substring = node.value.substring(0, node.selectionStart);
+  var index = 0;
+  while (re.exec(substring) !== null) {
+    if (re.lastIndex < node.selectionStart) {
+      index = re.lastIndex;
+    }
+  }
+  node.selectionStart = node.selectionEnd = index;
+  cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
@@ -737,28 +805,28 @@ cvox.ChromeVoxEditableElement.prototype.moveCursorToNextParagraph =
     function() {
   var node = this.node;
   var length = node.value.length;
-  var index = node.selectionEnd == length ? length :
+  var index = node.selectionEnd >= length ? length :
       node.value.indexOf('\n', node.selectionEnd);
   if (index < 0) {
     index = length;
   }
-  node.selectionStart = index + 1;
-  node.selectionEnd = node.selectionStart;
+  node.selectionStart = node.selectionEnd = index + 1;
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
 cvox.ChromeVoxEditableElement.prototype.moveCursorToPreviousParagraph =
     function() {
   var node = this.node;
-  var index = node.selectionStart == 0 ? 0 :
-      node.value.lastIndexOf('\n', node.selectionStart - 1);
+  var index = node.selectionStart <= 0 ? 0 :
+      node.value.lastIndexOf('\n', node.selectionStart - 2) + 1;
   if (index < 0) {
     index = 0;
   }
-  node.selectionStart = index;
-  node.selectionEnd = node.selectionStart;
+  node.selectionStart = node.selectionEnd = index;
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /******************************************/
@@ -882,6 +950,44 @@ cvox.ChromeVoxEditableTextArea.prototype.getShadow = function() {
     this.shadowIsCurrent_ = true;
   }
   return shadow;
+};
+
+/** @override */
+cvox.ChromeVoxEditableTextArea.prototype.moveCursorToNextLine = function() {
+  var node = this.node;
+  var length = node.value.length;
+  if (node.selectionEnd >= length) {
+    return false;
+  }
+  var shadow = this.getShadow();
+  var lineIndex = shadow.getLineIndex(node.selectionEnd);
+  var lineStart = shadow.getLineStart(lineIndex);
+  var offset = node.selectionEnd - lineStart;
+  var lastLine = (length == 0) ? 0 : shadow.getLineIndex(length - 1);
+  var newCursorPosition = (lineIndex >= lastLine) ? length :
+      Math.min(shadow.getLineStart(lineIndex + 1) + offset,
+          shadow.getLineEnd(lineIndex + 1));
+  node.selectionStart = node.selectionEnd = newCursorPosition;
+  cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
+};
+
+/** @override */
+cvox.ChromeVoxEditableTextArea.prototype.moveCursorToPreviousLine = function() {
+  var node = this.node;
+  if (node.selectionStart <= 0) {
+    return false;
+  }
+  var shadow = this.getShadow();
+  var lineIndex = shadow.getLineIndex(node.selectionStart);
+  var lineStart = shadow.getLineStart(lineIndex);
+  var offset = node.selectionStart - lineStart;
+  var newCursorPosition = (lineIndex <= 0) ? 0 :
+      Math.min(shadow.getLineStart(lineIndex - 1) + offset,
+          shadow.getLineEnd(lineIndex - 1));
+  node.selectionStart = node.selectionEnd = newCursorPosition;
+  cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /******************************************/
@@ -1009,6 +1115,7 @@ cvox.ChromeVoxEditableContentEditable.prototype.moveCursorToNextCharacter =
     function() {
   window.getSelection().modify('move', 'forward', 'character');
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
@@ -1016,6 +1123,7 @@ cvox.ChromeVoxEditableContentEditable.prototype.moveCursorToPreviousCharacter =
     function() {
   window.getSelection().modify('move', 'backward', 'character');
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
@@ -1023,6 +1131,7 @@ cvox.ChromeVoxEditableContentEditable.prototype.moveCursorToNextParagraph =
     function() {
   window.getSelection().modify('move', 'forward', 'paragraph');
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };
 
 /** @override */
@@ -1030,4 +1139,5 @@ cvox.ChromeVoxEditableContentEditable.prototype.moveCursorToPreviousParagraph =
     function() {
   window.getSelection().modify('move', 'backward', 'paragraph');
   cvox.ChromeVoxEventWatcher.handleTextChanged(true);
+  return true;
 };

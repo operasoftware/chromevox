@@ -21,6 +21,25 @@
  */
 
 goog.provide('cvox.TtsInterface');
+goog.provide('cvox.TtsCapturingEventListener');
+
+/**
+ * @interface
+ * An interface for clients who want to get notified when an utterance
+ * starts or ends from any source.
+ */
+cvox.TtsCapturingEventListener = function() { };
+
+/**
+ * Called when any utterance starts.
+ */
+cvox.TtsCapturingEventListener.prototype.onTtsStart = function() { };
+
+/**
+ * Called when any utterance ends.
+ */
+cvox.TtsCapturingEventListener.prototype.onTtsEnd = function() { };
+
 
 /**
  * @interface
@@ -50,6 +69,12 @@ cvox.TtsInterface.prototype.isSpeaking = function() { };
  * Stops speech.
  */
 cvox.TtsInterface.prototype.stop = function() { };
+
+/**
+ * Adds a listener to get called whenever any utterance starts or ends.
+ * @param {cvox.TtsCapturingEventListener} listener Listener to get called.
+ */
+cvox.TtsInterface.prototype.addCapturingEventListener = function(listener) { };
 
 /**
  * Increases a TTS speech property.

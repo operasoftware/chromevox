@@ -148,6 +148,11 @@ cvox.DomUtil.isVisible = function(node, opt_options) {
     opt_options.checkDescendants = true;
   }
 
+  // If the node is an iframe that we can never inject into, consider it hidden.
+  if (node.tagName == 'IFRAME' && !node.src) {
+    return false;
+  }
+
   // If the node is being forced visible by ARIA, ARIA wins.
   if (cvox.AriaUtil.isForcedVisibleRecursive(node)) {
     return true;
@@ -346,6 +351,9 @@ cvox.DomUtil.isLeafNode = function(node) {
     return true;
   }
   if (!element.firstChild) {
+    return true;
+  }
+  if (cvox.DomUtil.isMath(element)) {
     return true;
   }
   return false;
@@ -971,6 +979,11 @@ cvox.DomUtil.hasContent = function(node) {
     return true;
   }
 
+  // Math is always considered to have content.
+  if (cvox.DomUtil.isMath(node)) {
+    return true;
+  }
+
   var text = cvox.DomUtil.getValue(node) + ' ' + cvox.DomUtil.getName(node);
   var state = cvox.DomUtil.getState(node, true);
   if (text.match(/^\s+$/) && state === '') {
@@ -1311,8 +1324,10 @@ cvox.DomUtil.isAttachedToDocument = function(targetNode) {
  * @param {boolean} shiftKey Specifies if shift is held down.
  * @param {boolean} callOnClickDirectly Specifies whether or not to directly
  * invoke the onclick method if there is one.
+ * @param {boolean} opt_double True to issue a double click.
  */
-cvox.DomUtil.clickElem = function(targetNode, shiftKey, callOnClickDirectly) {
+cvox.DomUtil.clickElem = function(
+    targetNode, shiftKey, callOnClickDirectly, opt_double) {
   // If there is an activeDescendant of the targetNode, then that is where the
   // click should actually be targeted.
   var activeDescendant = cvox.AriaUtil.getActiveDescendant(targetNode);
@@ -1344,9 +1359,10 @@ cvox.DomUtil.clickElem = function(targetNode, shiftKey, callOnClickDirectly) {
     }
   }
 
-  // Send a mousedown
+  // Send a mousedown (or simply a double click if requested).
   var evt = document.createEvent('MouseEvents');
-  evt.initMouseEvent('mousedown', true, true, document.defaultView,
+  var evtType = opt_double ? 'dblclick' : 'mousedown';
+  evt.initMouseEvent(evtType, true, true, document.defaultView,
                      1, 0, 0, 0, 0, false, false, shiftKey, false, 0, null);
   // Mark any events we generate so we don't try to process our own events.
   evt.fromCvox = true;

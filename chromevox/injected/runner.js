@@ -20,7 +20,6 @@
 goog.provide('cvox.AutoRunner');
 
 goog.require('cvox.AbstractTestCase');
-goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CompositeTts');
 goog.require('cvox.History');
 goog.require('cvox.NodeBreadcrumb');
@@ -364,22 +363,6 @@ cvox.AutoRunner.prototype.mixOurselfIn_ = function(obj) {
   for (var propertyName in cvox.RunnerInterface.prototype) {
     obj[propertyName] = goog.bind(this[propertyName], this);
   }
-};
-
-
-/**
- * Runs the AutoRunner.
- *
- * TODO(deboer): Hard coding tests isn't fun.
- */
-cvox.AutoRunner.prototype.run = function() {
-  new cvox.ChoiceWidget(
-     ['runRadioButtonAnnouncements',
-      'runNextGranularity',
-      'runBackForwardTest'],
-     [goog.bind(this.runTest_, this, runRadioButtonAnnouncements),
-      goog.bind(this.runTest_, this, runNextGranularity),
-      goog.bind(this.runTest_, this, runBackForwardTest)]).show();
 };
 
 

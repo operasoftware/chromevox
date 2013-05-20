@@ -23,7 +23,6 @@
 goog.provide('cvox.MathMap');
 
 goog.require('cvox.MathFunction');
-goog.require('cvox.MathNode');
 goog.require('cvox.MathSymbol');
 goog.require('cvox.MathUtil');
 
@@ -51,13 +50,6 @@ cvox.MathMap = function() {
   this.functions_ = new cvox.MathFunction(cvox.MathMap.fromJSON(
       cvox.MathMap.FUNCTIONS_FILES_.map(
           function(x) {return cvox.MathMap.FUNCTIONS_PATH_ + x;})));
-
-  /**
-   * A node mapping object.
-   * @type {cvox.MathNode}
-   * @private
-   */
-  this.nodes_ = cvox.MathNode.create();
 
   /**
    * Array of domain names.

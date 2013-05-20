@@ -38,10 +38,12 @@ cvox.FindUtil.objectWalker_ = new cvox.BareObjectWalker();
  * @param {function(Array.<Node>):Node} predicate A function taking a
  * unique ancestor tree and outputting Node if the ancestor tree matches
  * the desired node to find.
+ * @param {boolean=} opt_initialNode Whether to start the search from node
+ * (true), or the next node (false); defaults to false.
  * @return {cvox.CursorSelection} The selection that was found.
  * null if end of document reached.
  */
-cvox.FindUtil.findNext = function(sel, predicate) {
+cvox.FindUtil.findNext = function(sel, predicate, opt_initialNode) {
   var r = sel.isReversed();
   var cur = sel.clone();
 
@@ -50,26 +52,25 @@ cvox.FindUtil.findNext = function(sel, predicate) {
   var ancestor;
   if (ancestor = predicate(cvox.DomUtil.getAncestors(cur.start.node))) {
     cur = cvox.CursorSelection.fromNode(ancestor).setReversed(r);
+    if (opt_initialNode) {
+      return cur;
+    }
   }
-  // TODO(stoarca): replace this with a nicer construct for safe infinite loop
-  for (var i = 0; i < 1000; ++i) {
+
+  while (cur) {
     // Use ObjectWalker's traversal which guarantees us a stable iteration of
     // the DOM including returning null at page bounds.
-    cur = cvox.FindUtil.objectWalker_.next(cur ||
-        cvox.FindUtil.objectWalker_.begin({reversed: r}));
+    cur = cvox.FindUtil.objectWalker_.next(cur);
     var retNode = null;
-
     if (!cur ||
         (retNode = predicate(cvox.DomUtil.getAncestors(cur.start.node)))) {
       return retNode ? cvox.CursorSelection.fromNode(retNode) : null;
     }
 
+    // Iframes require inter-frame messaging.
     if (cur.start.node.tagName == 'IFRAME') {
       return cur;
     }
-  }
-  if (i == 1000) {
-    window.console.log('INFINITE LOOP!');
   }
   return null;
 };

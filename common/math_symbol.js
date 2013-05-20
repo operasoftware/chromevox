@@ -37,6 +37,7 @@ cvox.MathSymbol = function(atoms) {
   this.rules = [];
   this.initUnicodeMap_(atoms);
 
+
   // In the unlikely event we want to initialize with a mapping
   // different from the usual, we pass the mapping.
   this.initHtmlEntityMap_(this.UNICODE_MAP_);
@@ -76,7 +77,7 @@ cvox.MathSymbol.prototype.initUnicodeMap_ = function(atoms) {
   var rules = [];
 
   for (var i = 0, uni; uni = atoms[i]; i++) {
-    var uniObject = cvox.MathAtom.make(uni.key, uni.category, uni.mappings);
+    var uniObject = cvox.MathAtom.make(uni.key, uni.category, uni['mappings']);
     var index = cvox.MathSymbol.parseUnicode_(uniObject.getKey());
     if (index) {
       domains = cvox.MathUtil.union(domains, uniObject.allDomains());

@@ -36,13 +36,10 @@ goog.inherits(cvox.ChromeBraille, cvox.AbstractBraille);
 /** @override */
 cvox.ChromeBraille.prototype.write = function(params) {
   var outParams = params.toJson();
-  // Hack to ensure text survives across the JSON stringify/parse and the
-  // XMLHttpRequest.
-  outParams.text = outParams.text.replace(/[\"\'&]/g, '');
 
   var message = {'target': 'BRAILLE',
                  'action': 'write',
-                 'params': JSON.stringify(outParams)};
+                 'params': outParams};
 
   cvox.ExtensionBridge.send(message);
 };

@@ -83,6 +83,16 @@ cvox.CompositeTts.prototype.stop = function() {
 /**
  * @override
  */
+cvox.CompositeTts.prototype.addCapturingEventListener = function(listener) {
+  this.ttsEngines_.forEach(function(engine) {
+    engine.addCapturingEventListener(listener);
+  });
+};
+
+
+/**
+ * @override
+ */
 cvox.CompositeTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   this.ttsEngines_.forEach(function(engine) {

@@ -274,6 +274,9 @@ cvox.NavigationManagerTest.prototype.testSkipNavigation = function() {
       'asdf' +
       '<h2>SecondHeading</h2>' +
     '</div>');
+
+  cvox.ChromeVoxUserCommands.enableCommandDispatchingToPage = false;
+
   this.checkNavSequence(
       'smart',
       [
@@ -1691,4 +1694,73 @@ cvox.NavigationManagerTest.prototype.testAriaHasPopup = function() {
          'annotation': 'Menu item with submenu'
        }
       ]);
+};
+
+
+/** Test Aria Math Roles. */
+cvox.NavigationManagerTest.prototype.testAriaMathRoles = function() {
+  this.appendHtml(
+    '<p><div role="math"' +
+    'aria-label="a times x squared plus b times x plus c equals 0">' +
+    '<math xmlns="http://www.w3.org/1998/Math/MathML">' +
+    '<mrow><mrow><mrow><mi>a</mi><mo> &InvisibleTimes; </mo>' +
+    ' <msup id="foo"><mi>x</mi><mn>2</mn></msup>' +
+    '</mrow><mo>+</mo><mrow><mi>b</mi><mo> &InvisibleTimes; </mo>' +
+    '<mi>x</mi></mrow><mo>+</mo><mi>c</mi></mrow><mo>=</mo><mn>0</mn></mrow>' +
+    '</math></div></p>' +
+    '<p><div role="math" aria-label="square root of n cube">' +
+    '<math><msqrt><msup><mi>n</mi><mn>3</mn></msup></msqrt></math></div></p>'
+      );
+
+  this.waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'Math a times x squared plus b times x plus c equals 0')
+      .waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'Math square root of n cube');
+};
+
+
+// TODO(sorge) Tests fail due to pausing.
+/** Test MathML nodes. */
+cvox.NavigationManagerTest.prototype.failsTestMathmlNodes = function() {
+  this.appendHtml(
+    '<p><div><math xmlns="http://www.w3.org/1998/Math/MathML">' +
+    '<mrow><mrow><mrow><mi>a</mi>' +
+    ' <msup id="foo"><mi>x</mi><mn>2</mn></msup>' +
+    '</mrow><mo>+</mo><mrow><mi>b</mi>' +
+    '<mi>x</mi></mrow><mo>+</mo><mi>c</mi></mrow><mo>=</mo><mn>0</mn></mrow>' +
+    '</math></div></p>' +
+    '<p><div><math><msqrt><msup><mi>n</mi><mn>3</mn></msup></msqrt>' +
+    '</math></div></p>'
+      );
+
+  this.waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'a x super 2 + b x + c = 0 math')
+      .waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'Square root of n super 3 math');
+};
+
+
+// TODO(sorge) Tests fail due to pausing.
+/** Test Mathjax nodes. */
+cvox.NavigationManagerTest.prototype.failsTestMathjaxNodes = function() {
+  this.appendHtml(
+    '<script type="text/x-mathjax-config"> MathJax.Hub.Config({tex2jax:' +
+    '{ inlineMath: [[\'$\',\'$\'],[\'\\\\(\',\'\\\\)\']] }});</script>' +
+    '<script type="text/javascript"' +
+    'src="http://cdn.mathjax.org/mathjax/latest/' +
+    'MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>' +
+    '<p><div><math xmlns="http://www.w3.org/1998/Math/MathML">' +
+    '<mrow><mrow><mrow><mi>a</mi>' +
+    ' <msup id="foo"><mi>x</mi><mn>2</mn></msup>' +
+    '</mrow><mo>+</mo><mrow><mi>b</mi>' +
+    '<mi>x</mi></mrow><mo>+</mo><mi>c</mi></mrow><mo>=</mo><mn>0</mn></mrow>' +
+    '</math></div></p>' +
+    '<p><div><math><msqrt><msup><mi>n</mi><mn>3</mn></msup></msqrt>' +
+    '</math></div></p>'
+      );
+
+  this.waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'a x super 2 + b x + c = 0 math')
+      .waitForCalm(this.userCommand, 'forward')
+      .waitForCalm(this.assertSpoken, 'Square root of n super 3 math');
 };

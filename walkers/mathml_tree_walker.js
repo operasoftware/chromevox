@@ -32,7 +32,7 @@ goog.require('cvox.MathWalker');
 cvox.MathmlTreeWalker = function(shifter) {
   goog.base(this, shifter);
 
-  this.traverse.setMode('tree');
+  this.granularity = cvox.MathWalker.granularity.MATHML_TREE;
 };
 goog.inherits(cvox.MathmlTreeWalker, cvox.MathWalker);
 
@@ -48,6 +48,10 @@ cvox.MathmlTreeWalker.prototype.getDescription = function(prevSel, sel) {
 /**
  * @override
  */
-cvox.MathmlTreeWalker.prototype.getGranularityMsg = function() {
-  return cvox.ChromeVox.msgs.getMsg('mathml_tree_granularity');
+cvox.MathmlTreeWalker.prototype.next = function(sel) {
+  var reverse = sel.isReversed();
+  var node = this.traverse.nextSubtree(reverse, cvox.MathUtil.isMathmlTag);
+  var newSel = cvox.CursorSelection.fromNode(node);
+  newSel.setReversed(reverse);
+  return newSel;
 };

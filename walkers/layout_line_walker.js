@@ -95,14 +95,14 @@ cvox.LayoutLineWalker.prototype.getDescription = function(prevSel, sel) {
 
   // Walk through and collect descriptions for each line.
   while (cur && !cur.end.equals(absSel.end)) {
-    descriptions =
-        descriptions.concat(this.subWalker_.getDescription(prev, cur));
+    descriptions.push.apply(
+        descriptions, this.subWalker_.getDescription(prev, cur));
     prev = cur;
     cur = this.subWalker_.next(cur);
   }
   if (cur) {
-    descriptions =
-        descriptions.concat(this.subWalker_.getDescription(prev, cur));
+    descriptions.push.apply(
+        descriptions, this.subWalker_.getDescription(prev, cur));
   }
   return descriptions;
 };
@@ -154,9 +154,27 @@ cvox.LayoutLineWalker.prototype.getGranularityMsg = function() {
  * @private
  */
 cvox.LayoutLineWalker.prototype.isVisualLineBreak_ = function(lSel, rSel) {
+  if (this.wantsOwnLine_(lSel.end.node) ||
+      this.wantsOwnLine_(rSel.start.node)) {
+    return true;
+  }
   var lRect = lSel.getRange().getBoundingClientRect();
   var rRect = rSel.getRange().getBoundingClientRect();
   return lRect.bottom != rRect.bottom;
+};
+
+
+/**
+ * Determines if node should force a line break.
+ * This is used for elements with unusual semantics, such as multi-line
+ * text fields, where the behaviour would otherwise be confusing.
+ * @param {!Node} node Node.
+ * @return {boolean} True if the node should appear next to a line break.
+ * @private
+ */
+cvox.LayoutLineWalker.prototype.wantsOwnLine_ = function(node) {
+  return node instanceof HTMLTextAreaElement ||
+      node.parentNode instanceof HTMLTextAreaElement;
 };
 
 
@@ -192,30 +210,35 @@ cvox.LayoutLineWalker.prototype.extend_ = function(start) {
 cvox.LayoutLineWalker.prototype.appendBraille_ = function(
     prevSel, sel, cur, braille) {
   var item = this.subWalker_.getBraille(prevSel, cur).text;
-  var valueSpanStart = item.getSpanStart(cvox.BrailleUtil.VALUE_SPAN);
+  var valueSelectionSpan = item.getSpanInstanceOf(
+      cvox.BrailleUtil.ValueSelectionSpan);
 
   if (braille.text.getLength() > 0) {
     braille.text.append(cvox.BrailleUtil.ITEM_SEPARATOR);
   }
 
-  var spanStart = braille.text.getLength();
-  var spanEnd = spanStart + item.getLength();
+  // Find the surrounding logical "leaf node".
+  // This prevents us from labelling the braille output with the wrong node,
+  // such as a text node child of a <textarea>.
+  var node = cur.start.node;
+  while (node.parentNode && cvox.DomUtil.isLeafNode(node.parentNode)) {
+    node = node.parentNode;
+  }
+
+  var nodeStart = braille.text.getLength();
+  var nodeEnd = nodeStart + item.getLength();
   braille.text.append(item.toString());
-  braille.text.setSpan(cur.start.node, spanStart, spanEnd);
+  braille.text.setSpan(node, nodeStart, nodeEnd);
 
   if (sel && cur.absEquals(sel)) {
     // TODO(jbroman): Generalize this to include contenteditable elements
     // via cvox.ContentEditableExtractor.
-    if (valueSpanStart !== null &&
-        (cvox.DomUtil.isInputTypeText(cur.start.node) ||
-            cur.start.node instanceof HTMLTextAreaElement)) {
-      var selectionStart = cur.start.node.selectionStart;
-      var selectionEnd = cur.start.node.selectionEnd;
-      braille.startIndex = spanStart + valueSpanStart + selectionStart;
-      braille.endIndex = spanStart + valueSpanStart + selectionEnd;
+    if (valueSelectionSpan) {
+      braille.startIndex = nodeStart + item.getSpanStart(valueSelectionSpan);
+      braille.endIndex = nodeStart + item.getSpanEnd(valueSelectionSpan);
     } else {
-      braille.startIndex = spanStart;
-      braille.endIndex = spanStart + 1;
+      braille.startIndex = nodeStart;
+      braille.endIndex = nodeStart + 1;
     }
   }
 };

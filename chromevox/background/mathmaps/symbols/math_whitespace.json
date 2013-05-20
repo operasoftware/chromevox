@@ -11,7 +11,8 @@
  "mappings": {
   "default": {
    "default": "no break space",
-   "alternative": "non breaking space"
+   "alternative": "non breaking space",
+   "short": "space"
   }
  },
  "key": "00A0"

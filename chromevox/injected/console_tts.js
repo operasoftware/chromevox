@@ -71,6 +71,9 @@ cvox.ConsoleTts.prototype.stop = function() {
 };
 
 /** @override */
+cvox.ConsoleTts.prototype.addCapturingEventListener = function(listener) { };
+
+/** @override */
 cvox.ConsoleTts.prototype.increaseOrDecreaseProperty = function() { };
 
 /**

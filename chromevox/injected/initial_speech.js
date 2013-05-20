@@ -44,38 +44,41 @@ cvox.InitialSpeech.speak = function() {
     disableSpeak = true;
   }
 
-  var queueMode = cvox.AbstractTts.QUEUE_MODE_FLUSH;
-
   // If we're the top-level frame, speak the title of the page +
   // the active element if it is a user control.
   if (window.top == window) {
     if (document.title && !disableSpeak) {
-      cvox.ChromeVox.tts.speak(document.title, 0);
-      queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+      cvox.ChromeVox.tts.speak(
+          document.title, cvox.AbstractTts.QUEUE_MODE_FLUSH);
     }
-  } else {
-    // If we're not the top-level frame, we should queue all initial
-    // speech so it comes after the main frame's title announcement.
-    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
   }
 
   // Initialize live regions and speak alerts.
-  if (cvox.LiveRegions.init(new Date(), queueMode, disableSpeak)) {
-    queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
+  cvox.LiveRegions.init(
+      new Date(), cvox.AbstractTts.QUEUE_MODE_QUEUE, disableSpeak);
+
+  // If our activeElement is on body, try to sync to the first element. This
+  // actually happens inside of NavigationManager.reset, which doesn't get
+  // called until AbstractHost.onPageLoad, but we need to speak and braille the
+  // initial node here.
+  if (document.hasFocus() && document.activeElement == document.body) {
+    cvox.ChromeVox.navigationManager.syncToBeginning();
   }
 
-  // If this iframe has focus, speak the current focused element.
+  // If we had a previous position recorded, update to it.
+  if (cvox.ChromeVox.position[document.location.href]) {
+    var pos = cvox.ChromeVox.position[document.location.href];
+    cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
+        document.elementFromPoint(pos.x, pos.y));
+  }
+
+  // If this iframe has focus, speak and braille the current focused element.
   if (document.hasFocus()) {
-    var activeElem = document.activeElement;
-    if (cvox.DomUtil.isControl(activeElem)) {
-      cvox.ChromeVox.navigationManager.updateSel(
-          cvox.CursorSelection.fromNode(activeElem));
-      cvox.ChromeVox.navigationManager.setFocus();
-      if (!disableSpeak) {
-        var desc = cvox.DescriptionUtil.getControlDescription(activeElem);
-        desc.speak(queueMode);
-        queueMode = cvox.AbstractTts.QUEUE_MODE_QUEUE;
-      }
+    if (!disableSpeak) {
+      cvox.ChromeVoxEventSuspender.withSuspendedEvents(function() {
+        cvox.ChromeVox.navigationManager.finishNavCommand(
+            '', true, cvox.AbstractTts.QUEUE_MODE_QUEUE);
+      })();
     }
   }
 };

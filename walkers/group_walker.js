@@ -24,7 +24,6 @@ goog.provide('cvox.GroupWalker');
 
 goog.require('cvox.AbstractNodeWalker');
 goog.require('cvox.BrailleUtil');
-goog.require('cvox.ChoiceWidget');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');

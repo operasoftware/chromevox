@@ -117,6 +117,10 @@ cvox.AbstractTts.prototype.stop = function() {
 
 
 /** @override */
+cvox.AbstractTts.prototype.addCapturingEventListener = function(listener) { };
+
+
+/** @override */
 cvox.AbstractTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
   var min = this.propertyMin[propertyName];
@@ -217,7 +221,7 @@ cvox.AbstractTts.prototype.preprocess = function(text, properties) {
   // Handle single characters that we want to make sure we pronounce.
   if (text.length == 1) {
     return cvox.AbstractTts.CHARACTER_DICTIONARY[text] ||
-          text.toUpperCase();
+        text.toUpperCase();
   }
 
   // Substitute all words in the pronunciation dictionary. This is pretty
@@ -289,15 +293,29 @@ cvox.AbstractTts.FONT_WEIGHT = 'fontWeight';
 /** TTS punctuation-echo property. @type {string} */
 cvox.AbstractTts.PUNCTUATION_ECHO = 'punctuationEcho';
 
+/** TTS pause property. @type {string} */
+cvox.AbstractTts.PAUSE = 'pause';
+
 /**
  * TTS personality for annotations - text spoken by ChromeVox that
  * doesn't come from the web page or user interface.
  * @type {Object}
  */
 cvox.AbstractTts.PERSONALITY_ANNOTATION = {
-  'relativePitch': -0.1,
+  'relativePitch': -0.25,
   // TODO:(rshearer) Added this color change for I/O presentation.
   'color': 'yellow'
+};
+
+
+
+/**
+ * TTS personality for annotations - text spoken by ChromeVox that
+ * doesn't come from the web page or user interface.
+ * @type {Object}
+ */
+cvox.AbstractTts.PERSONALITY_ANNOUNCEMENT = {
+  'punctuationEcho': 'none'
 };
 
 
@@ -325,6 +343,7 @@ cvox.AbstractTts.PERSONALITY_CAPITAL = {
  * @type {Object}
  */
 cvox.AbstractTts.PERSONALITY_DELETED = {
+  'punctuationEcho': 'none',
   'relativePitch': -0.6
 };
 
@@ -393,7 +412,7 @@ cvox.AbstractTts.CHARACTER_DICTIONARY = {
   ' ': 'space',
   '`': 'backtick',
   '~': 'tilde',
-  '!': 'exclamation point',
+  '!': 'exclamation',
   '@': 'at',
   '#': 'pound',
   '$': 'dollar',
@@ -403,7 +422,7 @@ cvox.AbstractTts.CHARACTER_DICTIONARY = {
   '*': 'asterisk',
   '(': 'open paren',
   ')': 'close paren',
-  '-': 'hyphen',
+  '-': 'dash',
   '_': 'underscore',
   '=': 'equals',
   '+': 'plus',
@@ -421,7 +440,7 @@ cvox.AbstractTts.CHARACTER_DICTIONARY = {
   '/': 'slash',
   '?': 'question mark',
   '"': 'quote',
-  '\'': 'single quote',
+  '\'': 'apostrophe',
   '\t': 'tab',
   '\r': 'return',
   '\n': 'new line',

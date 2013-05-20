@@ -66,13 +66,6 @@ cvox.ActiveIndicator = function() {
   this.rects_ = null;
 
   /**
-   * An element used to measure the current zoom level.
-   * @type {?Element}
-   * @private
-   */
-  this.zoomMeasureElement_ = null;
-
-  /**
    * The most recent target of a call to syncToNode, syncToRange, or
    * syncToCursorSelection.
    * @type {Array.<Node>|Range}
@@ -101,6 +94,20 @@ cvox.ActiveIndicator = function() {
    * @private
    */
   this.blurred_ = false;
+
+  /**
+   * A cached value of window height.
+   * @type {number|undefined}
+   * @private
+   */
+  this.innerHeight_;
+
+  /**
+   * A cached value of window width.
+   * @type {number|undefined}
+   * @private
+   */
+  this.innerWidth_;
 
   // Hide the indicator when the window doesn't have focus.
   window.addEventListener('focus', goog.bind(function() {
@@ -230,10 +237,6 @@ cvox.ActiveIndicator.MARGIN = 8;
 cvox.ActiveIndicator.prototype.removeFromDom = function() {
   if (this.container_ && this.container_.parentElement) {
     this.container_.parentElement.removeChild(this.container_);
-  }
-  if (this.zoomMeasureElement_ && this.zoomMeasureElement_.parentElement) {
-    this.zoomMeasureElement_.parentElement.removeChild(
-        this.zoomMeasureElement_);
   }
 };
 
@@ -926,7 +929,11 @@ cvox.ActiveIndicator.prototype.setElementCoords_ = function(
     clipTop += 5;
     clipBottom += 5;
   }
-  clipRight = this.fixZoomSum_(left, clipRight + origWidth);
+  if (clipRight == 0 && origWidth == 0) {
+    clipRight = 1;
+  } else {
+    clipRight = this.fixZoomSum_(left, clipRight + origWidth);
+  }
   clipBottom = this.fixZoomSum_(top, clipBottom + origHeight);
 
   element.style.left = this.fixZoom_(left) + 'px';
@@ -962,26 +969,32 @@ cvox.ActiveIndicator.prototype.setElementRect_ = function(
  * @private
  */
 cvox.ActiveIndicator.prototype.computeZoomLevel_ = function() {
-  if (!this.zoomMeasureElement_ ||
-      this.zoomMeasureElement_.parentElement != document.body) {
-    this.zoomMeasureElement_ = document.createElement('div');
-    this.zoomMeasureElement_.innerHTML = 'X';
-    this.zoomMeasureElement_.setAttribute(
-        'style',
-        'font: 5000px/1em sans-serif !important;' +
-        ' -webkit-text-size-adjust:none !important;' +
-        ' visibility:hidden !important;' +
-        ' left: -10000px !important;' +
-        ' top: -10000px !important;' +
-        ' position:absolute !important;');
-    document.body.appendChild(this.zoomMeasureElement_);
+  if (window.innerHeight === this.innerHeight_ &&
+      window.innerWidth === this.innerWidth_) {
+    return;
   }
 
-  var zoomLevel = 5000 / this.zoomMeasureElement_.clientHeight;
+  this.innerHeight_ = window.innerHeight;
+  this.innerWidth_ = window.innerWidth;
+
+  var zoomMeasureElement = document.createElement('div');
+  zoomMeasureElement.innerHTML = 'X';
+  zoomMeasureElement.setAttribute(
+      'style',
+      'font: 5000px/1em sans-serif !important;' +
+          ' -webkit-text-size-adjust:none !important;' +
+          ' visibility:hidden !important;' +
+          ' left: -10000px !important;' +
+          ' top: -10000px !important;' +
+          ' position:absolute !important;');
+  document.body.appendChild(zoomMeasureElement);
+
+  var zoomLevel = 5000 / zoomMeasureElement.clientHeight;
   var newZoom = Math.round(zoomLevel * 500) / 500;
   if (newZoom > 0.1 && newZoom < 10) {
     this.zoom_ = newZoom;
   }
 
   // TODO(dmazzoni): warn or log if the computed zoom is bad?
+  zoomMeasureElement.parentNode.removeChild(zoomMeasureElement);
 };

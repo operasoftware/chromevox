@@ -43,6 +43,7 @@ goog.require('cvox.NavigationSpeaker');
 goog.require('cvox.PageSelection');
 goog.require('cvox.SelectionUtil');
 goog.require('cvox.TableShifter');
+goog.require('cvox.TraverseMath');
 goog.require('cvox.Widget');
 
 
@@ -226,6 +227,11 @@ cvox.NavigationManager.prototype.reset = function() {
   if (document.activeElement != document.body) {
     this.sync();
   }
+
+  // Initializes math support, in particular for Mathjax.
+  if (document.querySelector('math') || document.querySelector('span.math')) {
+    cvox.TraverseMath.getInstance();
+  }
 };
 
 
@@ -342,15 +348,17 @@ cvox.NavigationManager.prototype.hasNext_ = function() {
  * @param {string=} opt_predicateName The programmatic name that exists in
  * cvox.DomPredicates. Used to dispatch calls across iframes since functions
  * cannot be stringified.
+ * @param {boolean=} opt_initialNode Whether to start the search from node
+ * (true), or the next node (false); defaults to false.
  * @return {cvox.CursorSelection} The newly found selection.
  */
 cvox.NavigationManager.prototype.findNext = function(
-    predicate, opt_predicateName) {
+    predicate, opt_predicateName, opt_initialNode) {
   this.predicate_ = opt_predicateName || '';
   this.resolve();
   this.shifter_ = this.shifterStack_[0] || this.shifter_;
   this.shifterStack_ = [];
-  var ret = cvox.FindUtil.findNext(this.curSel_, predicate);
+  var ret = cvox.FindUtil.findNext(this.curSel_, predicate, opt_initialNode);
   if (!this.ignoreIframesNoMatterWhat_) {
     this.tryIframe_(ret && ret.start.node);
   }
@@ -424,11 +432,34 @@ cvox.NavigationManager.prototype.togglePageSel = function() {
  * @return {Array.<cvox.NavDescription>} The summary of the current position.
  */
 cvox.NavigationManager.prototype.getDescription = function() {
+  // Handle description of special content. Consider moving to DescriptionUtil.
+  // Specially annotated nodes.
+  if (this.getCurrentNode().hasAttribute &&
+      this.getCurrentNode().hasAttribute('cvoxnodedesc')) {
+    var preDesc = cvox.ChromeVoxJSON.parse(
+        this.getCurrentNode().getAttribute('cvoxnodedesc'));
+    var currentDesc = new Array();
+    for (var i = 0; i < preDesc.length; ++i) {
+      var inDesc = preDesc[i];
+      // TODO: this can probably be replaced with just NavDescription(inDesc)
+      // need test case to ensure this change will work
+      currentDesc.push(new cvox.NavDescription({
+        context: inDesc.context,
+        text: inDesc.text,
+        userValue: inDesc.userValue,
+        annotation: inDesc.annotation
+      }));
+    }
+    return currentDesc;
+  }
+
+  // Selected content.
   var desc = this.pageSel_ ? this.pageSel_.getDescription(
           this.shifter_, this.prevSel_, this.curSel_) :
       this.shifter_.getDescription(this.prevSel_, this.curSel_);
   var earcons = [];
 
+  // Earcons.
   if (this.skipped_) {
     earcons.push(cvox.AbstractEarcons.PARAGRAPH_BREAK);
     this.skipped_ = false;
@@ -467,8 +498,9 @@ cvox.NavigationManager.prototype.getBraille = function() {
   // This prevents the construction of NavBraille objects which isn't necessary
   // with the lack of an active braille connection, but may be desirable for
   // testing. Replace with a check for such a connection in the future.
-  if (cvox.ChromeVox.version != '1.0' &&
-      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) {
+  if ((cvox.ChromeVox.version != '1.0' &&
+      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) ||
+          cvox.ChromeVox.isChromeOS) {
     return new cvox.NavBraille({});
   }
 
@@ -682,15 +714,15 @@ cvox.NavigationManager.prototype.finishNavCommand = function(
   this.getBraille().write();
 
   var msg = cvox.ChromeVox.position;
-msg[document.location.href] =
-    cvox.DomUtil.elementToPoint(this.getCurrentNode());
+  msg[document.location.href] =
+      cvox.DomUtil.elementToPoint(this.getCurrentNode());
 
-      cvox.ChromeVox.host.sendToBackgroundPage({
-        'target': 'Prefs',
-        'action': 'setPref',
-        'pref': 'position',
-        'value': JSON.stringify(msg)
-      });
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'position',
+    'value': JSON.stringify(msg)
+  });
 };
 
 
@@ -775,6 +807,7 @@ cvox.NavigationManager.prototype.startReading = function(queueMode) {
  */
 cvox.NavigationManager.prototype.stopReading = function(stopTtsImmediately) {
   this.keepReading_ = false;
+  this.navSpeaker_.stopReading = true;
   if (stopTtsImmediately) {
     cvox.ChromeVox.tts.stop();
   }
@@ -888,7 +921,7 @@ cvox.NavigationManager.prototype.addInterframeListener_ = function() {
       if (message['findNext']) {
         var predicateName = message['findNext'];
         var predicate = cvox.DomPredicates[predicateName];
-        var found = self.findNext(predicate, predicateName);
+        var found = self.findNext(predicate, predicateName, true);
         if (predicate && (!found || found.start.node.tagName == 'IFRAME')) {
           return;
         }
@@ -1046,8 +1079,10 @@ cvox.NavigationManager.prototype.tryBoundaries_ = function(sel, iframes) {
     this.updateSel(sel);
     return true;
   } else if (sel && sel.start.node.tagName == 'IFRAME') {
-    this.stopReading(false);
-    return false;
+    // We end up here because iframes got skipped or we failed in trying to
+    // enter or exit an iframe, but our selection is still over an iframe;
+    // explicitly move selection to the next element.
+    return this.next_(iframes);
   }
   if (this.shifterStack_.length > 0) {
     return true;

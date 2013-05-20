@@ -17,9 +17,12 @@
  * @author sorge@google.com (Volker Sorge)
  */
 
-goog.require('cvox.XpathUtil');
-
 goog.provide('cvox.MathUtil');
+
+goog.require('cvox.ChromeVox');
+goog.require('cvox.MathJaxUtil');
+goog.require('cvox.TraverseMath');
+goog.require('cvox.XpathUtil');
 
 
 /**
@@ -274,14 +277,37 @@ cvox.MathUtil.union = function(a, b) {
 
 
 /**
- * Applies an Xpath selector to the node and returns the first result.
+ * Checks if we have a custom function and applies it. Otherwise returns null.
  * @param {Node} node The initial node.
- * @param {string} xpath An Xpath expression string.
+ * @param {string} funcName A function string.
+ * @return {Array.<Node>} The list of resulting nodes.
+ */
+cvox.MathUtil.applyCustomFunction = function(node, funcName) {
+  var func = cvox.MathJaxUtil.customFunctionMapping[funcName];
+  if (func && cvox.TraverseMath.getInstance().activeMathmlHost) {
+    return func(node, cvox.TraverseMath.getInstance().activeMathmlHost);
+  }
+  return null;
+};
+
+
+// TODO (sorge) Separate custom functions from xpath expressions during
+// rule parsing. One might also need more types of custom functions, i.e.,
+// for other cases than just MathJax.
+/**
+ * Applies either an Xpath selector or a custom function to the node
+ * and returns the first result.
+ * @param {Node} node The initial node.
+ * @param {string} xpath An Xpath expression string or a name of a custom
+ *     function.
  * @return {Node} The resulting node.
  */
 // TODO (sorge) Refactor to use FIRST_ORDERED_NODE_TYPE.
 cvox.MathUtil.applyFunction = function(node, xpath) {
-  var result = cvox.XpathUtil.evalXPath(xpath, node);
+  var result = cvox.MathUtil.applyCustomFunction(node, xpath);
+  if (!result) {
+    result = cvox.XpathUtil.evalXPath(xpath, node);
+  }
   if (result.length > 0) {
     return result[0];
   }
@@ -289,6 +315,7 @@ cvox.MathUtil.applyFunction = function(node, xpath) {
 };
 
 
+// TODO (sorge) Add custom functions in the next two functions as well.
 /**
  * Applies an Xpath selector to the node and returns the first result.
  * @param {Node} node The initial node.
@@ -296,7 +323,10 @@ cvox.MathUtil.applyFunction = function(node, xpath) {
  * @return {Array.<Node>} The list of resulting nodes.
  */
 cvox.MathUtil.applySelector = function(node, xpath) {
-  var result = cvox.XpathUtil.evalXPath(xpath, node);
+  var result = cvox.MathUtil.applyCustomFunction(node, xpath);
+  if (!result) {
+    result = cvox.XpathUtil.evalXPath(xpath, node);
+  }
   if (result.length > 0) {
     return result;
   }
@@ -307,14 +337,18 @@ cvox.MathUtil.applySelector = function(node, xpath) {
 /**
  * Applies a boolean Xpath selector to the node.
  * @param {Node} node The initial node.
- * @param {string} expression An Xpath expression string.
+ * @param {string} xpath An Xpath expression string.
  * @return {boolean} The result of the Xpath application.
  */
-cvox.MathUtil.applyConstraint = function(node, expression) {
+cvox.MathUtil.applyConstraint = function(node, xpath) {
+  var result = cvox.MathUtil.applyCustomFunction(node, xpath);
+  if (result && result.length > 0) {
+    return true;
+  }
   // TODO (sorge) Refactor to XpathUtil.
   try {
     var xpathResult = node.ownerDocument.evaluate(
-        expression,
+        xpath,
         node,
         cvox.XpathUtil.resolveNameSpace,
         XPathResult.BOOLEAN_TYPE,
@@ -324,6 +358,14 @@ cvox.MathUtil.applyConstraint = function(node, expression) {
   }
   return xpathResult.booleanValue;
 };
+
+
+/**
+ * Context function for use in math node rules.
+ * @typedef {function(Array.<Node>, ?string): (function(): string)}
+ * @private
+ */
+cvox.MathUtil.ContextFunction_;
 
 
 /**
@@ -347,4 +389,14 @@ cvox.MathUtil.nodeCounter = function(nodes, context) {
     }
     return localContext + ' ' + localCounter;
   };
+};
+
+
+/**
+ * Enumerates context functions which may be referred to in math_node_rules.js.
+ * @const
+ * @type {!Object.<string, cvox.MathUtil.ContextFunction_>}
+ */
+cvox.MathUtil.CONTEXT_FUNCTIONS = {
+  'nodeCounter': cvox.MathUtil.nodeCounter
 };

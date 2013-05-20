@@ -43,6 +43,13 @@
                "keys": {"keyCode": [32]}
               }},
 
+ {"command": "forceDoubleClickOnCurrentItem",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [32],
+                        "ctrlKey": [true],
+                        "shiftKey": [true]}
+              }},
+
  {"command": "previousCharacter",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [37]}
@@ -159,6 +166,11 @@
  {"command": "toggleSelection",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [83]}
+              }},
+
+ {"command": "contextMenu",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [188]}
               }},
 
  {"command": "skipBackward",

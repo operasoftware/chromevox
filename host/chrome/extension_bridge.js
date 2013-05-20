@@ -43,21 +43,13 @@ cvox.ExtensionBridge.init = function() {
   self.messageListeners = [];
   self.disconnectListeners = [];
 
-  try {
-    if (chrome && chrome.windows &&
-        window.location.toString().indexOf('chrome-extension://') == 0 &&
-            window.location.toString().indexOf('background') > 0) {
-      // This depends on the fact that chrome.windows is only available
-      // from background pages.
-      // Also, prevent initializing background specific script in
-      // non-background extension pages.
-      self.context = self.BACKGROUND;
-      self.initBackground();
-      return;
-    }
-  } catch (e) {
-    // Ignore exception that will be raised if we try to access
-    // chrome.windows from a content script.
+  if (/^chrome-extension:\/\/.*background\.html$/.test(window.location.href)) {
+    // This depends on the fact that the background page has a specific url. We
+    // should never be loaded into another extension's background page, so this
+    // is a safe check.
+    self.context = self.BACKGROUND;
+    self.initBackground();
+    return;
   }
 
   if (chrome && chrome.extension) {

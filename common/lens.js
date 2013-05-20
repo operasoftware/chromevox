@@ -846,4 +846,7 @@ cvox.Lens.prototype.isSpeaking = function() { return false; };
 cvox.Lens.prototype.stop = function() { };
 
 /** @override */
+cvox.Lens.prototype.addCapturingEventListener = function(listener) { };
+
+/** @override */
 cvox.Lens.prototype.increaseOrDecreaseProperty = function() { };

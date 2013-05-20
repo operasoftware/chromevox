@@ -42,7 +42,9 @@ goog.require('cvox.KeyboardHelpWidget');
 goog.require('cvox.NodeSearchWidget');
 goog.require('cvox.PlatformUtil');
 goog.require('cvox.SearchWidget');
+goog.require('cvox.SelectWidget');
 goog.require('cvox.TypingEcho');
+goog.require('cvox.UserEventDetail');
 
 
 // TODO(stoarca): First, delete 75% of this functionality. Second,
@@ -114,9 +116,11 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'moveToEndOfLine': {backward: true, announce: true},
   'readFromHere': {forward: true, announce: false},
   'stopSpeech': {announce: false, doDefault: true},
+
   'toggleKeyboardHelp': {announce: false},
-  'nextTtsEngine': {announce: false},
   'help': {announce: false},
+  'contextMenu': {announce: false},
+
   'showBookmarkManager': {announce: false},
   'showOptionsPage': {announce: false},
   'showKbExplorerPage': {announce: false},
@@ -126,6 +130,7 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'announceHeaders': {announce: false},
   'speakTableLocation': {announce: false},
   'forceClickOnCurrentItem': {announce: true, allowEvents: true},
+  'forceDoubleClickOnCurrentItem': {announce: true, allowEvents: true},
   'toggleChromeVox': {announce: false, platformFilter: cvox.PlatformFilter.WML},
   'fullyDescribe': {announce: false},
   'toggleSelection': {announce: true},
@@ -160,59 +165,61 @@ cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
   'toggleKeyPrefix': {announce: false},
   'toggleSearchWidget': {announce: false},
 
-  'showHeadingsList': {announce: false, nodeList: 'heading'},
-  'showLinksList': {announce: false, nodeList: 'link'},
   'showFormsList': {announce: false, nodeList: 'formField'},
-  'showTablesList': {announce: false, nodeList: 'table'},
+  'showHeadingsList': {announce: false, nodeList: 'heading'},
   'showLandmarksList': {announce: false, nodeList: 'landmark'},
+  'showLinksList': {announce: false, nodeList: 'link'},
+  'showTablesList': {announce: false, nodeList: 'table'},
 
-
-  'nextCheckbox': {forward: true, findNext: 'checkbox'},
-  'previousCheckbox': {backward: true, findNext: 'checkbox'},
-  'nextRadio': {forward: true, findNext: 'radio'},
-  'previousRadio': {backward: true, findNext: 'radio'},
-  'nextSlider': {forward: true, findNext: 'slider'},
-  'previousSlider': {backward: true, findNext: 'slider'},
-  'nextGraphic': {forward: true, findNext: 'graphic'},
-  'previousGraphic': {backward: true, findNext: 'graphic'},
+  'nextArticle': {forward: true, findNext: 'article'},
   'nextButton': {forward: true, findNext: 'button'},
-  'previousButton': {backward: true, findNext: 'button'},
+  'nextCheckbox': {forward: true, findNext: 'checkbox'},
   'nextComboBox': {forward: true, findNext: 'combobox'},
-  'previousComboBox': {backward: true, findNext: 'combobox'},
-  'nextEditText': {forward: true, findNext: 'editText'},
-  'previousEditText': {backward: true, findNext: 'editText'},
-  'nextHeading': {forward: true, findNext: 'heading'},
-  'previousHeading': {backward: true, findNext: 'heading'},
-  'nextHeading1': {forward: true, findNext: 'heading1'},
-  'previousHeading1': {backward: true, findNext: 'heading1'},
-  'nextHeading2': {forward: true, findNext: 'heading2'},
-  'previousHeading2': {backward: true, findNext: 'heading2'},
-  'nextHeading3': {forward: true, findNext: 'heading3'},
-  'previousHeading3': {backward: true, findNext: 'heading3'},
-  'nextHeading4': {forward: true, findNext: 'heading4'},
-  'previousHeading4': {backward: true, findNext: 'heading4'},
-  'nextHeading5': {forward: true, findNext: 'heading5'},
-  'previousHeading5': {backward: true, findNext: 'heading5'},
-  'nextHeading6': {forward: true, findNext: 'heading6'},
-  'previousHeading6': {backward: true, findNext: 'heading6'},
-  'nextLink': {forward: true, findNext: 'link'},
-  'previousLink': {backward: true, findNext: 'link'},
-  'nextMath': {forward: true, findNext: 'math'},
-  'previousMath': {backward: true, findNext: 'math'},
-  'nextTable': {forward: true, findNext: 'table'},
-  'previousTable': {backward: true, findNext: 'table'},
-  'nextList': {forward: true, findNext: 'list'},
-  'previousList': {backward: true, findNext: 'list'},
-  'nextListItem': {forward: true, findNext: 'listItem'},
-  'previousListItem': {backward: true, findNext: 'listItem'},
-  'nextFormField': {forward: true, findNext: 'formField'},
-  'previousFormField': {backward: true, findNext: 'formField'},
-  'nextLandmark': {forward: true, findNext: 'landmark'},
-  'previousLandmark': {backward: true, findNext: 'landmark'},
-  'nextSection': {forward: true, findNext: 'section'},
-  'previousSection': {backward: true, findNext: 'section'},
   'nextControl': {forward: true, findNext: 'control'},
+  'nextEditText': {forward: true, findNext: 'editText'},
+  'nextFormField': {forward: true, findNext: 'formField'},
+  'nextGraphic': {forward: true, findNext: 'graphic'},
+  'nextHeading': {forward: true, findNext: 'heading'},
+  'nextHeading1': {forward: true, findNext: 'heading1'},
+  'nextHeading2': {forward: true, findNext: 'heading2'},
+  'nextHeading3': {forward: true, findNext: 'heading3'},
+  'nextHeading4': {forward: true, findNext: 'heading4'},
+  'nextHeading5': {forward: true, findNext: 'heading5'},
+  'nextHeading6': {forward: true, findNext: 'heading6'},
+  'nextLandmark': {forward: true, findNext: 'landmark'},
+  'nextLink': {forward: true, findNext: 'link'},
+  'nextList': {forward: true, findNext: 'list'},
+  'nextListItem': {forward: true, findNext: 'listItem'},
+  'nextMath': {forward: true, findNext: 'math'},
+  'nextRadio': {forward: true, findNext: 'radio'},
+  'nextSection': {forward: true, findNext: 'section'},
+  'nextSlider': {forward: true, findNext: 'slider'},
+  'nextTable': {forward: true, findNext: 'table'},
+
+  'previousArticle': {backward: true, findNext: 'article'},
+  'previousButton': {backward: true, findNext: 'button'},
+  'previousCheckbox': {backward: true, findNext: 'checkbox'},
+  'previousComboBox': {backward: true, findNext: 'combobox'},
   'previousControl': {backward: true, findNext: 'control'},
+  'previousEditText': {backward: true, findNext: 'editText'},
+  'previousFormField': {backward: true, findNext: 'formField'},
+  'previousGraphic': {backward: true, findNext: 'graphic'},
+  'previousHeading': {backward: true, findNext: 'heading'},
+  'previousHeading1': {backward: true, findNext: 'heading1'},
+  'previousHeading2': {backward: true, findNext: 'heading2'},
+  'previousHeading3': {backward: true, findNext: 'heading3'},
+  'previousHeading4': {backward: true, findNext: 'heading4'},
+  'previousHeading5': {backward: true, findNext: 'heading5'},
+  'previousHeading6': {backward: true, findNext: 'heading6'},
+  'previousLandmark': {backward: true, findNext: 'landmark'},
+  'previousLink': {backward: true, findNext: 'link'},
+  'previousList': {backward: true, findNext: 'list'},
+  'previousListItem': {backward: true, findNext: 'listItem'},
+  'previousMath': {backward: true, findNext: 'math'},
+  'previousRadio': {backward: true, findNext: 'radio'},
+  'previousSection': {backward: true, findNext: 'section'},
+  'previousSlider': {backward: true, findNext: 'slider'},
+  'previousTable': {backward: true, findNext: 'table'},
 
   'openLongDesc': {announce: false},
 
@@ -269,6 +276,21 @@ cvox.ChromeVoxUserCommands.commands;
  * TODO (clchen, dmazzoni): Implement syncing on click to avoid needing this.
  */
 cvox.ChromeVoxUserCommands.wasMouseClicked = false;
+
+
+/**
+ * @type {boolean} Flag to set whether or not certain user commands will be
+ * first dispatched to the underlying web page. Some commands (such as finding
+ * the next/prev structural element) may be better implemented by the web app
+ * than by ChromeVox.
+ *
+ * By default, this is enabled; however, for testing, we usually disable this to
+ * reduce flakiness caused by event timing issues.
+ *
+ * TODO (clchen, dtseng): Fix testing framework so that we don't need to turn
+ * this feature off at all.
+ */
+cvox.ChromeVoxUserCommands.enableCommandDispatchingToPage = true;
 
 
 /**
@@ -417,6 +439,10 @@ cvox.ChromeVoxUserCommands.NODE_INFO_MAP_ = {
               forwardError: 'no_next_graphic',
               backwardError: 'no_previous_graphic',
               typeMsg: 'UNUSED'},
+  'article': {predicate: 'articlePredicate',
+             forwardError: 'no_next_ARTICLE',
+             backwardError: 'no_previous_ARTICLE',
+             typeMsg: 'TAG_ARTICLE'},
   'button': {predicate: 'buttonPredicate',
              forwardError: 'no_next_button',
              backwardError: 'no_previous_button',
@@ -497,16 +523,58 @@ cvox.ChromeVoxUserCommands.NODE_INFO_MAP_ = {
  */
 cvox.ChromeVoxUserCommands.createCommand_ = function(cmd) {
   return goog.bind(function() {
-    return cvox.ChromeVoxUserCommands.doCommand_(cmd);
+    return cvox.ChromeVoxUserCommands.dispatchCommand_(cmd);
   }, cvox.ChromeVoxUserCommands);
 };
+
 
 /**
  * @param {string} cmd The command to do.
  * @return {boolean} False to prevent the default action. True otherwise.
  * @private
  */
-cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
+cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmd) {
+  if (cvox.Widget.isActive()) {
+    return true;
+  }
+  var cmdStruct = cvox.ChromeVoxUserCommands.CMD_WHITELIST_[cmd];
+  if (!cmdStruct) {
+    throw 'Invalid command: ' + cmd;
+  }
+  if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter) ||
+      (cmdStruct.skipInput && cvox.FocusUtil.isFocusInTextInputField())) {
+    return true;
+  }
+  // Handle dispatching public command events
+  if (cvox.ChromeVoxUserCommands.enableCommandDispatchingToPage &&
+      (cvox.UserEventDetail.COMMANDS.indexOf(cmd) != -1)) {
+    var detail = new cvox.UserEventDetail({command: cmd});
+    var evt = detail.createEventObject();
+    var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+    if (!currentNode) {
+      currentNode = document.body;
+    }
+    currentNode.dispatchEvent(evt);
+    return false;
+  }
+  // Not a public command; act on this command directly.
+  return cvox.ChromeVoxUserCommands.doCommand_(cmd);
+};
+
+
+/**
+ * @param {string} cmd The command to do.
+ * @param {string=} opt_status Optional string that indicates the status of this
+ *     command.
+ * @param {Node=} opt_resultNode Optional result node that can be included if
+ *     this command was already performed successfully by the page itself.
+ * @return {boolean} False to prevent the default action. True otherwise.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
+      opt_resultNode) {
+  opt_status = opt_status || cvox.UserEventDetail.Status.PENDING;
+  opt_resultNode = opt_resultNode || null;
   if (cvox.Widget.isActive()) {
     return true;
   }
@@ -568,19 +636,33 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
         wrap = cvox.ChromeVox.msgs.getMsg('wrapped_to_bottom');
         error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.backwardError);
       }
-      var found = cvox.ChromeVox.navigationManager.findNext(
-          predicate, predicateName);
-      if (!found) {
-        cvox.ChromeVox.navigationManager.saveSel();
-        prefixMsg = wrap;
-        cvox.ChromeVox.navigationManager.syncToBeginning();
-        cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
-        found = cvox.ChromeVox.navigationManager.findNext(
-            predicate, predicateName);
-        if (!found) {
+      var found = null;
+      switch (opt_status) {
+        case cvox.UserEventDetail.Status.SUCCESS:
+          if (opt_resultNode) {
+            cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
+                opt_resultNode, true);
+          }
+          break;
+        case cvox.UserEventDetail.Status.FAILURE:
           prefixMsg = error;
-          cvox.ChromeVox.navigationManager.restoreSel();
-        }
+          break;
+        default:
+          found = cvox.ChromeVox.navigationManager.findNext(
+              predicate, predicateName);
+          if (!found) {
+            cvox.ChromeVox.navigationManager.saveSel();
+            prefixMsg = wrap;
+            cvox.ChromeVox.navigationManager.syncToBeginning();
+            cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
+            found = cvox.ChromeVox.navigationManager.findNext(
+                predicate, predicateName, true);
+            if (!found) {
+              prefixMsg = error;
+              cvox.ChromeVox.navigationManager.restoreSel();
+            }
+          }
+          break;
       }
       // NavigationManager performs announcement inside of frames when finding.
       if (found && found.start.node.tagName == 'IFRAME') {
@@ -688,15 +770,19 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
     case 'toggleKeyboardHelp':
       cvox.KeyboardHelpWidget.getInstance().toggle();
       break;
-    case 'nextTtsEngine':
-      // TODO(stoarca): Implement.
-      break;
     case 'help':
       cvox.ChromeVox.tts.stop();
       cvox.ChromeVox.host.sendToBackgroundPage({
         'target': 'HelpDocs',
         'action': 'open'
       });
+      break;
+    case 'contextMenu':
+      // Move this logic to a central dispatching class if it grows any bigger.
+      var node = cvox.ChromeVox.navigationManager.getCurrentNode();
+      if (node.tagName == 'SELECT' && !node.multiple) {
+        new cvox.SelectWidget(node).show();
+      }
       break;
     case 'showBookmarkManager':
       // TODO(stoarca): Should this have tts.stop()??
@@ -747,6 +833,11 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
       var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
       cvox.DomUtil.clickElem(targetNode, false, false);
       break;
+    case 'forceDoubleClickOnCurrentItem':
+      prefixMsg = cvox.ChromeVox.msgs.getMsg('element_double_clicked');
+      var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
+      cvox.DomUtil.clickElem(targetNode, false, false, true);
+      break;
     case 'toggleChromeVox':
       cvox.ChromeVox.host.sendToBackgroundPage({
         'target': 'Prefs',
@@ -779,10 +870,6 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
       break;
     case 'enableConsoleTts':
       cvox.ConsoleTts.getInstance().setEnabled(true);
-      break;
-    case 'autorunner':
-      var runner = new cvox.AutoRunner();
-      runner.run();
       break;
 
     // Table actions.
@@ -913,5 +1000,22 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd) {
   }
   return !!cmdStruct.doDefault || ret;
 };
+
+
+/**
+ * Default handler for public user commands that are dispatched to the web app
+ * first so that the web developer can handle these commands instead of
+ * ChromeVox if they decide they can do a better job than the default algorithm.
+ *
+ * @param {Object} cvoxUserEvent The cvoxUserEvent to handle.
+ */
+cvox.ChromeVoxUserCommands.handleChromeVoxUserEvent = function(cvoxUserEvent) {
+  var detail = new cvox.UserEventDetail(cvoxUserEvent.detail);
+  if (detail.command) {
+    cvox.ChromeVoxUserCommands.doCommand_(detail.command, detail.status,
+        detail.resultNode);
+  }
+};
+
 
 cvox.ChromeVoxUserCommands.init_();

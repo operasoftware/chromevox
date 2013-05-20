@@ -19,389 +19,341 @@
 
 goog.provide('cvox.MathNodeRules');
 
+goog.require('cvox.MathNode');
+
 
 /**
- * Speech rules for Math nodes.
- * @type {Array.<{category: string,
- *                mappings: Object,
- *                key: string,
- *                names: Array.<string|Object>}>}
- * @const
- * Format:
- * category -- Category of trees the rules belong to (e.g. MathML).
- * key -- Unique name for the mapping.
- * names -- Names of nodes mapping to the given rules. (E.g., we can
- *          have two different node types map to the same rule.
- * mappings -- Mappings to speech rules by domain.
+ * Rule initialization.
+ * @constructor
  */
-cvox.MathNodeRules.DEFAULT_SPEECH_RULES = [
+cvox.MathNodeRules = function() {
+
+  cvox.MathNodeRules.initDefaultRules();
+  cvox.MathNodeRules.initAliases(); // MathJax Aliases
+  cvox.MathNodeRules.initSpecializationRules(); // Square, cube, etc.
+};
+goog.addSingletonGetter(cvox.MathNodeRules);
+
+
+/**
+ * Initialize the default mathrules.
+ */
+cvox.MathNodeRules.initDefaultRules = function() {
+
+  // Space elements
+  cvox.MathNode.defineMathmlRule('mspace',
+                                 'default.default', '[p] (pause:250)');
+  cvox.MathNode.defineMathmlRule('mstyle',
+                                 'default.default', '[n] ./*[1]');
+
+  cvox.MathNode.defineMathmlRule('mpadded',
+                                 'default.default', '[n] ./*[1]');
+
+  cvox.MathNode.defineMathmlRule('merror',
+                                 'default.default', '[n] ./*[1]');
+
+  cvox.MathNode.defineMathmlRule('mphantom',
+                                 'default.default', '[n] ./*[1]');
+
   // Token elements.
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()'}]
-     }
-   },
-   'key': 'mtext',
-   'names': ['self::mathml:mtext']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()',
-                    'volume': '0.2'}],
-       'short': [{'function': 'text()'}]
-     }
-   },
-   'key': 'mi',
-   'names': ['self::mathml:mi',
-            {'node': 'self::span[@class="mi"]',
-             'constraints': ['./text()']}]
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()',
-                   'pitch': '-1'}],
-       'short': [{'function': 'text()'}]
-     }
-   },
-   'key': 'mo',
-   'names': ['self::mathml:mo',
-             {'node': 'self::span[@class="mo"]',
-              'constraints': ['./text()']}]
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()'}]
-     }
-   },
-   'key': 'mn',
-   'names': ['self::mathml:mn',
-             {'node': 'self::span[@class="mn"]',
-              'constraints': ['./text()']}]
-  },
-  {'category': 'Mathml',
-   'mappings': {'default': {'default': []}},
-   'key': 'mspace',
-   'names': ['self::mathml:mspace']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()'}]
-     }
-   },
-   'key': 'ms',
-   'names': ['self::mathml:ms']
-  },
+  cvox.MathNode.defineMathmlRule('mtext', 'default.default',
+                                 '[t] text(); [p] (pause:200)');
+
+  cvox.MathNode.defineMathmlRule('mi',
+                                 'default.default', '[n] text()');
+
+  cvox.MathNode.defineMathmlRule('mo',
+                                 'default.default', '[n] text() (rate:-0.1)');
+
+  cvox.MathNode.defineMathmlRule('mn',
+                                 'default.default', '[n] text()');
+
+  // TODO (sorge) Needs separate rule for Mathjax to stop pronouncing quotes,
+  //     once we have Xpath expressions for string_type.
+  //     substring(text(),1,string-length(text())-1)
+  cvox.MathNode.defineMathmlRule(
+      'ms', 'default.default',
+      '[s] "string" (pitch:0.5, rate:0.5); [t] text()');
 
   // Script elements.
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'},
-                   'super',
-                   {'function': './*[2]',
-                    'pitch': '0.2'}
-                  ]
-     }
-   },
-   'key': 'msup',
-   'names': ['self::mathml:msup']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'},
-                   'sub',
-                   {'function': './*[2]',
-                    'pitch': '-0.1'},
-                   'super',
-                   {'function': './*[3]',
-                    'pitch': '0.1'}
-                  ]
-     }
-   },
-   'key': 'msubsup',
-   'names': ['self::mathml:msubsup']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'},
-                   'sub',
-                   {'function': './*[2]',
-                    'pitch': '-0.1'}
-                  ]
-     }
-   },
-   'key': 'msub',
-   'names': ['self::mathml:msub']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[2]'},
-                   'over',
-                   {'function': './*[1]'}
-                  ]
-     }
-   },
-   'key': 'mover',
-   'names': ['self::mathml:mover']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[2]'},
-                   'under',
-                   {'function': './*[1]'}
-                  ]
-     }
-   },
-   'key': 'munder',
-   'names': ['self::mathml:munder']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[2]',
-                   'pitch': '0.1'},
-                   'under and',
-                   {'function': './*[3]',
-                    'pitch': '-0.1'},
-                   'over',
-                   {'function': './*[1]'}
-                  ],
-       'short': [{'function': './*[1]'},
-                   'from',
-                 {'function': './*[2]',
-                  'pitch': '0.1'},
-                   'to',
-                 {'function': './*[3]',
-                    'pitch': '-0.1'}
-                  ]
-     }
-   },
-   'key': 'munderover',
-   'names': ['self::mathml:munderover']
-  },
+  cvox.MathNode.defineMathmlRule(
+      'msup',
+      'default.default',
+      '[n] ./*[1]; [s] "super";' +
+          '[n] ./*[2] (pitch:0.35); [p] (pause:300)');
+  cvox.MathNode.defineMathmlRule(
+      'msubsup', 'default.default',
+      '[n] ./*[1]; [s] "sub"; [n] ./*[2] (pitch:-0.35);' +
+          '[p] (pause:200);' +
+              '[s] "super"; [n] ./*[3] (pitch:0.35); [p] (pause:300)'
+      );
+  cvox.MathNode.defineMathmlRule(
+      'msub', 'default.default',
+      '[n] ./*[1]; [s] "sub"; [n] ./*[2] (pitch:-0.35); [p] (pause:300)');
+  cvox.MathNode.defineMathmlRule(
+      'mover',
+      'default.default', '[n] ./*[2] (pitch:0.35); [p] (pause:200);' +
+          ' [s] "over"; [n] ./*[1]; [p] (pause:400)');
+  cvox.MathNode.defineMathmlRule(
+      'munder', 'default.default',
+      '[n] ./*[2] (pitch:-0.35); [s] "under"; [n] ./*[1]; [p] (pause:400)');
+  cvox.MathNode.defineMathmlRule(
+      'munderover', 'default.default',
+      '[n] ./*[2] (pitch:-0.35); [s] "under and"; [n] ./*[3] (pitch:0.35);' +
+          ' [s] "over"; [n] ./*[1]; [p] (pause:400)');
 
   // Layout elements.
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'selector': './*',
-                    'separator': 'next'
-                   }],
-       'alternative': [{'selector': './*',
-                        'cont-function': 'nodeCounter',
-                        'cont-string': 'element',
-                        'separator': 'next',
-                        'volume': '0.5'
-                       }],
-       'short': [{'selector': './*'}]
-     }
+  cvox.MathNode.defineMathmlRule('mrow',
+                                 'default.default', '[m] ./*');
+  cvox.MathNode.defineMathmlRule(
+      'msqrt', 'default.default',
+      '[s] "Square root of"; [n] ./*[1] (rate:0.2); [p] (pause:400)');
+  cvox.MathNode.defineMathmlRule(
+      'mroot', 'default.default',
+      '[s] "root of order"; [n] ./*[2]; [s] "of";' +
+          '[n] ./*[1] (rate:0.2); [p] (pause:400)');
+  cvox.MathNode.defineMathmlRule(
+      'mfrac', 'default.default',
+      '[p] (pause:250); [n] ./*[1] (rate:0.2); [p] (pause:250);' +
+          ' [s] "divided by"; [n] ./*[2] (rate:0.2); [p] (pause:400)');
 
-   },
-   'key': 'mrow',
-   'names': ['self::mathml:mrow', 'self::span[@class="mrow"]']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': ['Square root of',
-                   {'function': './*[1]'}
-                  ]
-     }
-   },
-   'key': 'msqrt',
-   'names': ['self::mathml:msqrt']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': ['root of order',
-                   {'function': './*[2]'},
-                   'of',
-                   {'function': './*[1]'}
-                  ]
-     }
-   },
-   'key': 'mroot',
-   'names': ['self::mathml:mroot']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'},
-                   'over',
-                   {'function': './*[2]',
-                   'pitch': '0.1'}
-                  ]
-     }
-   },
-   'key': 'mfrac',
-   'names': ['self::mathml:mfrac']
-  },
-  // Empty layout elements
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'}]
-     }
-   },
-   'key': 'mstyle',
-   'names': ['self::mathml:mstyle', 'self::span[@class="mstyle"]']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'}]
-     }
-   },
-   'key': 'mpadded',
-   'names': ['self::mathml:mpadded', 'self::span[@class="mpadded"]']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'}]
-     }
-   },
-   'key': 'merror',
-   'names': ['self::mathml:merror', 'self::span[@class="merror"]']
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]'}]
-     }
-   },
-   'key': 'mphantom',
-   'names': ['self::mathml:mphantom', 'self::span[@class="mphantom"]']
-  },
+  // MathJax Rules
+  cvox.MathNode.defineRule(
+      'mj-mfrac', 'Mathjax', 'default.default',
+      '[p] (pause:250); [n] ./*[1]/*[1]/*[1] (rate:0.2); [p] (pause:250);' +
+          ' [s] "divided by"; [n] ./*[1]/*[2]/*[1] (rate:0.2);' +
+              '[p] (pause:400)',
+      'self::span[@class="mfrac"]');
+  cvox.MathNode.defineRule(
+      'mj-mo', 'Mathjax', 'default.default',
+      '[n] ./*[1]/text() (rate:-0.1)',
+      'self::span[@class="mo"]', './*[1]/text()');
+  cvox.MathNode.defineRule(
+      'mj-mi', 'Mathjax', 'default.default',
+      '[n] ./*[1]/text()', 'self::span[@class="mi"]', './*[1]/text()');
+  cvox.MathNode.defineRule(
+      'mj-mn', 'Mathjax', 'default.default',
+      '[n] text()', 'self::span[@class="mn"]', './*[1]/text()');
+  cvox.MathNode.defineRule(
+      'mj-msubsup', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "sub"; [n] ./*[1]/*[3]/*[1] (pitch:-0.35);' +
+      '[p] (pause:200); [s] "super"; [n] ./*[1]/*[2]/*[1] (pitch:0.35);' +
+      '[p] (pause:300)',
+      'self::span[@class="msubsup"]');
 
-// MathJax Rules
-  {'category': 'Mathjax',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/*[1]/*[1]'},
-                   'over',
-                   {'function': './*[1]/*[2]/*[1]',
-                   'pitch': '0.1'}
-                  ]
-     }
-   },
-   'key': 'mj-mfrac',
-   'names': ['self::span[@class="mfrac"]']
-  },
-  {'category': 'Mathjax',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/text()',
-                   'pitch': '-1'}],
-       'short': [{'function': './*[1]/text()'}]
-     }
-   },
-   'key': 'mj-mo',
-   'names': [{'node': 'self::span[@class="mo"]',
-              'constraints': ['./*[1]/text()']}]
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/text()',
-                    'volume': '0.2'}],
-       'short': [{'function': './*[1]/text()'}]
-     }
-   },
-   'key': 'mj-mi',
-   'names': [{'node': 'self::span[@class="mi"]',
-              'constraints': ['./*[1]/text()']}]
-  },
-  {'category': 'Mathml',
-   'mappings': {
-     'default': {
-       'default': [{'function': 'text()'}]
-     }
-   },
-   'key': 'mj-mn',
-   'names': [{'node': 'self::span[@class="mn"]',
-              'constraints': ['./*[1]/text()']}]
-  },
-  {'category': 'Mathjax',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/*[1]/*[1]'},
-                   'sub',
-                   {'function': './*[1]/*[3]/*[1]',
-                    'pitch': '0.1'},
-                   'super',
-                   {'function': './*[1]/*[2]/*[1]',
-                    'pitch': '-0.1'}
-                  ]
-     }
-   },
-   'key': 'mj-msubsup',
-   'names': ['self::span[@class="msubsup"]']
-  },
-  {'category': 'Mathjax',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/*[1]/*[1]'},
-                   'sub',
-                   {'function': './*[1]/*[2]/*[1]',
-                    'pitch': '0.1'}
-                  ]
-     }
-   },
-   'key': 'mj-msub',
-   'names': ['self::span[@class="msub"]',
-             // The following rule fixes a bug in MathJax's LaTeX translation.
-             {'node': 'self::span[@class="msubsup"]',
-              'constraints': ['not(self::span[@class="msubsup"]/*[1]/*[3])',
-                              'substring(substring-before(substring-after(./' +
-                              '*[1]/*[1]/@style, "top: "), ";"), 0, ' +
-                              'string-length(substring-before(' +
-                              'substring-after(./*[1]/*[1]/@style, ' +
-                              '"top: "), ";"))-1)' +
-                              ' <= ' +
-                              'substring(substring-before(substring-after(' +
-                              './*[1]/*[2]/@style, "top: "), ";"), 0, ' +
-                              'string-length(substring-before(' +
-                              'substring-after(./*[1]/*[2]/@style, ' +
-                              '"top: "), ";"))-1)']}
-            ]
-  },
-  {'category': 'Mathjax',
-   'mappings': {
-     'default': {
-       'default': [{'function': './*[1]/*[1]/*[1]'},
-                   'super',
-                   {'function': './*[1]/*[2]/*[1]',
-                    'pitch': '-0.1'}
-                  ]
-     }
-   },
-   'key': 'mj-msup',
-   'names': ['self::span[@class="msup"]',
-             // The following rule fixes a bug in MathJax's LaTeX translation.
-             {'node': 'self::span[@class="msubsup"]',
-              'constraints': ['not(self::span[@class="msubsup"]/*[1]/*[3])',
-                              'substring(substring-before(substring-after(./' +
-                              '*[1]/*[1]/@style, "top: "), ";"), 0, ' +
-                              'string-length(substring-before(' +
-                              'substring-after(./*[1]/*[1]/@style, ' +
-                              '"top: "), ";"))-1)' +
-                              ' > ' +
-                              'substring(substring-before(substring-after(' +
-                              './*[1]/*[2]/@style, "top: "), ";"), 0, ' +
-                              'string-length(substring-before(' +
-                              'substring-after(./*[1]/*[2]/@style, ' +
-                              '"top: "), ";"))-1)']}
-            ]
-  }
-];
+  cvox.MathNode.defineRule(
+      'mj-msub', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "sub";' +
+          '[n] ./*[1]/*[2]/*[1] (pitch:-0.35); [p] (pause:300)',
+      'self::span[@class="msub"]');
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+
+  cvox.MathNode.defineRule(
+      'mj-msup', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "super";' +
+          '[n] ./*[1]/*[2]/*[1] (pitch:0.35); [p] (pause:300)',
+      'self::span[@class="msup"]');
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+
+  cvox.MathNode.defineRule(
+      'mj-msqrt', 'Mathjax', 'default.default',
+      '[s] "Square root of";' +
+          '[n] ./*[1]/*[1]/*[1] (rate:0.2); [p] (pause:400)',
+      'self::span[@class="msqrt"]');
+  cvox.MathNode.defineRule(
+      'mj-munderover', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[2]/*[1] (pitch:0.35); [s] "under and";' +
+          '[n] ./*[1]/*[3]/*[1] (pitch:-0.35); [s] "over";' +
+              '[n] ./*[1]/*[1]/*[1]; [p] (pause:400)',
+      'self::span[@class="munderover"]');
+  cvox.MathNode.defineRule(
+      'mj-munder', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[2]/*[1] (pitch:0.35); [s] "under";' +
+          '[n] ./*[1]/*[1]/*[1]; [p] (pause:400)',
+      'self::span[@class="munder"]');
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+
+  cvox.MathNode.defineRule(
+      'mj-mover', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[2]/*[1] (pitch:0.35); [s] "over";' +
+          '[n] ./*[1]/*[1]/*[1]; [p] (pause:400)',
+      'self::span[@class="mover"]');
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+
+  cvox.MathNode.defineRule(
+      'mj-mo-ext', 'Mathjax', 'default.default',
+      '[n] extender', 'self::span[@class="mo"]',
+      './*[1]/*[1]/text()', './*[1]/*[2]/text()');
+  cvox.MathNode.defineRule(
+      'mj-texatom', 'Mathjax', 'default.default',
+      '[n] ./*[1]', 'self::span[@class="texatom"]');
+
+  // TODO (sorge) Sort out mfenced case with extender fences.
+  cvox.MathNode.defineRule(
+      'mj-mfenced', 'Mathjax', 'default.default',
+      '[s] "open"; [n] ./*[1]; [m] ./*[position()>1 and position()<last()];' +
+          ' [s] "closing"; [n] ./*[last()]',
+      'self::span[@class="mfenced"]');
+};
+
+
+/**
+ * Initialize mathJax Aliases
+ */
+cvox.MathNodeRules.initAliases = function() {
+
+  // Space elements
+
+  cvox.MathNode.defineRuleAlias('mspace',
+                                'self::span[@class="mspace"]');
+
+  cvox.MathNode.defineRuleAlias('mstyle',    // MathJax mstyle
+                                'self::span[@class="mstyle"]');
+
+  cvox.MathNode.defineRuleAlias('mpadded',    // MathJax mpadded
+                                'self::span[@class="mpadded"]');
+
+  cvox.MathNode.defineRuleAlias('merror',    // MathJax merror
+                                'self::span[@class="merror"]');
+
+  cvox.MathNode.defineRuleAlias('mphantom',    // MathJax mphantom
+                                'self::span[@class="mphantom"]');
+
+  // Token elements.
+
+  cvox.MathNode.defineRuleAlias('mtext',     // MathJax mtext
+                                'self::span[@class="mtext"]');
+
+  cvox.MathNode.defineRuleAlias('mi',    // MathJax mi
+                                'self::span[@class="mi"]', './text()');
+
+  cvox.MathNode.defineRuleAlias('mo',    // MathJax mo
+                                'self::span[@class="mo"]', './text()');
+
+  cvox.MathNode.defineRuleAlias('mn',    // MathJax mn
+                                'self::span[@class="mn"]', './text()');
+
+  cvox.MathNode.defineRuleAlias('ms',    // Mathjax ms
+                                'self::span[@class="ms"]');
+
+  // Layout elements.
+
+  cvox.MathNode.defineRuleAlias('mrow',     // MathJax mrow
+                                'self::span[@class="mrow"]');
+
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+  cvox.MathNode.defineRuleAlias(
+      'mj-msub', 'self::span[@class="msubsup"]', 'mathmlmsub');
+
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+  cvox.MathNode.defineRuleAlias(
+      'mj-msup', 'self::span[@class="msubsup"]', 'mathmlmsup');
+
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+  cvox.MathNode.defineRuleAlias(
+      'mj-munder', 'self::span[@class="munderover"]', 'mathmlmunder');
+
+  // The following rule fixes a bug in MathJax's LaTeX translation.
+  cvox.MathNode.defineRuleAlias(
+      'mj-mover', 'self::span[@class="munderover"]', 'mathmlmover');
+
+  // TODO (sorge) Sort out mfenced case with extender fences.
+
+};
+
+
+
+/**
+ * Initialize specializations wrt. content of nodes.
+ */
+cvox.MathNodeRules.initSpecializationRules = function() {
+
+  // Some special nodes for square and cube.
+  // MathML
+  cvox.MathNode.defineRule(
+      'square', 'MathML', 'default.default',
+      '[n] ./*[1]; [s] "square" (pitch:0.35); [p] (pause:300)',
+      'self::mathml:msup', './*[2][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'square', 'self::mathml:msup',
+      './mathml:mrow=./*[2]', 'count(./*[2]/*)=1', './*[2]/*[1][text()=2]');
+
+  cvox.MathNode.defineRule(
+      'cube', 'MathML', 'default.default',
+      '[n] ./*[1]; [s] "cube" (pitch:0.35); [p] (pause:300)',
+      'self::mathml:msup', './*[2][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'cube', 'self::mathml:msup',
+      './mathml:mrow=./*[2]', 'count(./*[2]/*)=1', './*[2]/*[1][text()=3]');
+
+  cvox.MathNode.defineRule(
+      'square-sub', 'MathML', 'default.default',
+      '[n] ./*[1]; [s] "sub"; [n] ./*[2] (pitch:-0.35);' +
+          '[p] (pause:300); [s] "square" (pitch:0.35); [p] (pause:400)',
+      'self::mathml:msubsup', './*[3][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'square-sub', 'self::mathml:msubsup',
+      './mathml:mrow=./*[3]', 'count(./*[3]/*)=1', './*[3]/*[1][text()=2]');
+
+  cvox.MathNode.defineRule(
+      'cube-sub', 'MathML', 'default.default',
+      '[n] ./*[1]; [s] "sub"; [n] ./*[2] (pitch:-0.35);' +
+          '[p] (pause:300); [s] "cube" (pitch:0.35); [p] (pause:400)',
+      'self::mathml:msubsup', './*[3][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'cube-sub', 'self::mathml:msubsup',
+      './mathml:mrow=./*[3]', 'count(./*[3]/*)=1', './*[3]/*[1][text()=3]');
+
+  // MathJax
+  cvox.MathNode.defineRule(
+      'mj-square', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "square" (pitch:0.35); [p] (pause:300)',
+      'self::span[@class="msup"]', './*[1]/*[2]/*[1][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-square', 'self::span[@class="msup"]',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-square', 'self::span[@class="msubsup"]', 'mathmlmsup',
+      './*[1]/*[2]/*[1][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-square', 'self::span[@class="msubsup"]', 'mathmlmsup',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=2]');
+
+  cvox.MathNode.defineRule(
+      'mj-cube', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "cube" (pitch:0.35); [p] (pause:300)',
+      'self::span[@class="msup"]', './*[1]/*[2]/*[1][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-cube', 'self::span[@class="msup"]',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-cube', 'self::span[@class="msubsup"]', 'mathmlmsup',
+      './*[1]/*[2]/*[1][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-cube', 'self::span[@class="msubsup"]', 'mathmlmsup',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=3]');
+
+  cvox.MathNode.defineRule(
+      'mj-square-sub', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "sub"; [n] ./*[1]/*[3]/*[1] (pitch:-0.35); ' +
+          '[p] (pause:300); [s] "square" (pitch:0.35); [p] (pause:400)',
+      'self::span[@class="msubsup"]', './*[1]/*[2]/*[1][text()=2]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-square-sub', 'self::span[@class="msubsup"]',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=2]');
+
+  cvox.MathNode.defineRule(
+      'mj-cube-sub', 'Mathjax', 'default.default',
+      '[n] ./*[1]/*[1]/*[1]; [s] "sub"; [n] ./*[1]/*[3]/*[1] (pitch:-0.35); ' +
+          '[p] (pause:300); [s] "cube" (pitch:0.35); [p] (pause:400)',
+      'self::span[@class="msubsup"]', './*[1]/*[2]/*[1][text()=3]');
+  cvox.MathNode.defineRuleAlias(
+      'mj-cube-sub', 'self::span[@class="msubsup"]',
+      './*[1]/*[2]/*[1]=./*[1]/*[2]/span[@class="mrow"]',
+      'count(./*[1]/*[2]/*[1]/*)=1', './*[1]/*[2]/*[1]/*[1][text()=3]');
+};

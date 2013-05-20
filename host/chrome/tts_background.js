@@ -99,7 +99,7 @@ cvox.TtsBackground = function(opt_enableMath) {
     {
       name: 'some',
       msg: 'some_punctuation',
-      regexp: /[-$#"()*:<>\\\/+=~`%]/g,
+      regexp: /[$#"*<>\\\/\{\}+=~`%]/g,
       clear: false
     },
 
@@ -109,7 +109,7 @@ cvox.TtsBackground = function(opt_enableMath) {
     {
       name: 'all',
       msg: 'all_punctuation',
-      regexp: /[-$#"()*;:<>\n\\\/+='~`!@_.,?%]/g,
+      regexp: /[-$#"()*;:<>\n\\\/\{\}+='~`!@_.,?%]/g,
       clear: false
     }
   ];
@@ -130,8 +130,43 @@ cvox.TtsBackground = function(opt_enableMath) {
    * @private
    */
   this.mathMap_ = opt_enableMath ? new cvox.MathMap() : null;
+
+  /**
+   * The id of a callback returned from setTimeout.
+   * @type {number|undefined}
+   */
+  this.timeoutId_;
+
+  try {
+    /**
+     * @type {Object.<string, string>}
+     * @private
+     * @const
+     */
+    this.PHONETIC_MAP_ = /** @type {Object.<string, string>} */(
+        JSON.parse(cvox.ChromeVox.msgs.getMsg('phonetic_map')));
+  } catch (e) {
+    console.log('Error; unable to parse phonetic map msg.');
+  }
+
+  /**
+   * Capturing tts event listeners.
+   * @type {Array.<cvox.TtsCapturingEventListener>}
+   * @private
+   */
+  this.capturingTtsEventListeners_ = [];
 };
 goog.inherits(cvox.TtsBackground, cvox.AbstractTts);
+
+
+/**
+ * The amount of time to wait before speaking a phonetic word for a
+ * letter.
+ * @type {number}
+ * @private
+ * @const
+ */
+cvox.TtsBackground.PHONETIC_DELAY_MS_ = 1000;
 
 /**
  * Sets the current voice to the one that the user selected on the options page
@@ -225,6 +260,14 @@ cvox.TtsBackground.prototype.speak = function(
   }
 
   mergedProperties['onEvent'] = goog.bind(function(event) {
+    for (var i = 0; i < this.capturingTtsEventListeners_.length; i++) {
+      if (event.type == 'start') {
+        this.capturingTtsEventListeners_[i].onTtsStart();
+      } else if (event.type == 'end') {
+        this.capturingTtsEventListeners_[i].onTtsEnd();
+      }
+    }
+
     this.lastEventType = event['type'];
     if (this.lastEventType == 'end' ||
         this.lastEventType == 'cancelled' ||
@@ -233,9 +276,8 @@ cvox.TtsBackground.prototype.speak = function(
       this.utteranceCount_--;
     }
 
-    if ((event['type'] == 'end' ||
-        event['type'] == 'interrupted') &&
-    endCallback) {
+    if ((event['type'] == 'end' || event['type'] == 'interrupted') &&
+        endCallback) {
       endCallback();
     }
     if (event['type'] == 'start' && startCallback) {
@@ -281,6 +323,11 @@ cvox.TtsBackground.prototype.isSpeaking = function() {
 cvox.TtsBackground.prototype.stop = function() {
   cvox.TtsBackground.superClass_.stop.call(this);
   chrome.tts.stop();
+};
+
+/** @override */
+cvox.TtsBackground.prototype.addCapturingEventListener = function(listener) {
+  this.capturingTtsEventListeners_.push(listener);
 };
 
 /**
@@ -332,18 +379,37 @@ cvox.TtsBackground.prototype.preprocess = function(text, properties) {
   text =
       text.replace(pE.regexp, this.createPunctuationReplace_(pE.clear));
 
-  //  Remove all whitespace from the beginning and end, and collapse all
-  // inner strings of whitespace to a single space.
-  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-
   // TODO(dtseng): Google TTS poorly pronounces these words when spoken without
   // context. Sub them with something TTS actually pronounces well and remove
   // once fixed.
-  if (text.toLowerCase() == 'to') {
-    text = 'too';
+  if (/^to$|\Wto$/.test(text.toLowerCase())) {
+    text = text.slice(0, -2) + 'too';
   } else if (text.toLowerCase() == 'the') {
     text = 'thee';
   }
+
+  // Try pronouncing phonetically for single characters. Cancel previous calls
+  // to pronouncePhonetically_ if we fail to pronounce on this invokation or if
+  // this text is math which should never be pronounced phonetically.
+  if (properties.math || !this.pronouncePhonetically_(text)) {
+    this.clearTimeout_();
+  }
+
+  // Try looking up in our unicode tables for a short description.
+  if (text.length == 1 && this.mathMap_) {
+    var mathAtom = this.mathMap_.symbols().getSymbolByCode(
+        text.toLowerCase().charCodeAt(0));
+    if (mathAtom) {
+      var mapping = mathAtom.mapping('', 'short');
+      if (typeof(mapping) == 'string') {
+        text = mapping;
+      }
+    }
+  }
+
+  //  Remove all whitespace from the beginning and end, and collapse all
+  // inner strings of whitespace to a single space.
+  text = text.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
 
   return text;
 };
@@ -377,19 +443,19 @@ cvox.TtsBackground.prototype.preprocessMath_ = function(text, math) {
   var result = '';
   var type = math['type'];
   switch (type) {
-  case cvox.MathSpeak.Types.FUNCTION:
+  case cvox.MathAtom.Types.FUNCTION:
     result = this.mathMap_.functions().getFunctionByName(text);
     break;
-  case cvox.MathSpeak.Types.SYMBOL:
+  case cvox.MathAtom.Types.SYMBOL:
     result = (this.mathMap_.symbols()).getSymbolByCode(text.charCodeAt(0));
     break;
-  case cvox.MathSpeak.Types.SURROGATE:
+  case cvox.MathAtom.Types.SURROGATE:
     var hi = text.charCodeAt(0);
     var low = text.charCodeAt(1);
     var code = ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
     result = (this.mathMap_.symbols()).getSymbolByCode(code);
     break;
-  case cvox.MathSpeak.Types.REST:
+  case cvox.MathAtom.Types.REST:
     return text;
   }
   if (result) {
@@ -433,4 +499,40 @@ cvox.TtsBackground.prototype.createPunctuationReplace_ = function(clear) {
     return clear ? retain :
         ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match] + retain + ' ';
   }, this);
+};
+
+
+/**
+ * Pronounces single letters phonetically after some timeout.
+ * @param {string} text The text.
+ * @return {boolean} True if the text resulted in speech.
+ * @private
+ */
+cvox.TtsBackground.prototype.pronouncePhonetically_ = function(text) {
+  if (!this.PHONETIC_MAP_) {
+    return false;
+  }
+  text = text.toLowerCase();
+  text = this.PHONETIC_MAP_[text];
+  if (text) {
+    this.clearTimeout_();
+    var self = this;
+    this.timeoutId_ = setTimeout(function() {
+      self.speak(text, 1);
+    }, cvox.TtsBackground.PHONETIC_DELAY_MS_);
+    return true;
+  }
+  return false;
+};
+
+
+/**
+ * Clears the last timeout set via setTimeout.
+ * @private
+ */
+cvox.TtsBackground.prototype.clearTimeout_ = function() {
+  if (goog.isDef(this.timeoutId_)) {
+    clearTimeout(this.timeoutId_);
+    this.timeoutId_ = undefined;
+  }
 };

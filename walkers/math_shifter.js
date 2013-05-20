@@ -23,7 +23,6 @@ goog.require('cvox.AbstractShifter');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.BrailleUtil');
 goog.require('cvox.CursorSelection');
-goog.require('cvox.DescriptionUtil');
 goog.require('cvox.DomUtil');
 goog.require('cvox.MathSpeak');
 goog.require('cvox.MathmlLayoutWalker');
@@ -37,8 +36,9 @@ goog.require('cvox.TraverseMath');
 /**
  * @constructor
  * @extends {cvox.AbstractShifter}
+ * @param {cvox.CursorSelection=} sel A cursor selection.
  */
-cvox.MathShifter = function() {
+cvox.MathShifter = function(sel) {
   goog.base(this);
   // TODO (sorge)
   // Here we can put in some effort to determine the actual domain
@@ -62,6 +62,9 @@ cvox.MathShifter = function() {
 
   this.currentWalkerList_ = this.MathmlWalkers_;
   this.currentWalker_ = this.currentWalkerList_[0];
+  if (sel) {
+    this.next(sel);
+  }
 };
 goog.inherits(cvox.MathShifter, cvox.AbstractShifter);
 
@@ -152,7 +155,9 @@ cvox.MathShifter.prototype.makeMoreGranular = function() {
 cvox.MathShifter.create = function(sel) {
   if (cvox.DomPredicates.mathPredicate(
       cvox.DomUtil.getAncestors(sel.start.node))) {
-    return new cvox.MathShifter();
+    var mathNode = cvox.DomUtil.getContainingMath(sel.end.node);
+    cvox.TraverseMath.getInstance().initialize(mathNode, sel.isReversed());
+    return new cvox.MathShifter(sel);
   }
   return null;
 };

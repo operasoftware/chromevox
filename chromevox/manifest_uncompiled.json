@@ -33,7 +33,8 @@
   },
   "web_accessible_resources": [
     "chromevox/injected/api_util.js",
-    "chromevox/injected/api.js"
+    "chromevox/injected/api.js",
+    "chromevox/injected/mathjax.js"
   ],
   "options_page": "chromevox/background/options.html",
 

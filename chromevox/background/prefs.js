@@ -51,6 +51,7 @@ cvox.ChromeVoxPrefs = function() {
    * @private
    */
   this.keyMap_ = cvox.KeyMap.fromLocalStorage() || cvox.KeyMap.fromDefaults();
+  this.keyMap_.merge(cvox.KeyMap.fromDefaults());
 
   // Clear per session preferences.
   // This is to keep the position dictionary from growing excessively large.

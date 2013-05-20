@@ -112,6 +112,7 @@ cvox.TableWalker.prototype.getGranularityMsg = goog.abstractMethod;
  * Returns the first cell of the table that this selection is inside.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for first cell of the table.
+ * @expose
  */
 cvox.TableWalker.prototype.goToFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -123,6 +124,7 @@ cvox.TableWalker.prototype.goToFirstCell = function(sel) {
  * Returns the last cell of the table that this selection is inside.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the last cell of the table.
+ * @expose
  */
 cvox.TableWalker.prototype.goToLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -134,6 +136,7 @@ cvox.TableWalker.prototype.goToLastCell = function(sel) {
  * Returns the first cell of the row that the selection is in.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the first cell in the row.
+ * @expose
  */
 cvox.TableWalker.prototype.goToRowFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -145,6 +148,7 @@ cvox.TableWalker.prototype.goToRowFirstCell = function(sel) {
  * Returns the last cell of the row that the selection is in.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the last cell in the row.
+ * @expose
  */
 cvox.TableWalker.prototype.goToRowLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -156,6 +160,7 @@ cvox.TableWalker.prototype.goToRowLastCell = function(sel) {
  * Returns the first cell of the column that the selection is in.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the first cell in the col.
+ * @expose
  */
 cvox.TableWalker.prototype.goToColFirstCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -167,6 +172,7 @@ cvox.TableWalker.prototype.goToColFirstCell = function(sel) {
  * Returns the last cell of the column that the selection is in.
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the last cell in the col.
+ * @expose
  */
 cvox.TableWalker.prototype.goToColLastCell = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -179,6 +185,7 @@ cvox.TableWalker.prototype.goToColLastCell = function(sel) {
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the first cell in the next
  * row.
+ * @expose
  */
 cvox.TableWalker.prototype.nextRow = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -192,6 +199,7 @@ cvox.TableWalker.prototype.nextRow = function(sel) {
  * @param {!cvox.CursorSelection} sel The selection.
  * @return {cvox.CursorSelection} The selection for the first cell in the
  * next col.
+ * @expose
  */
 cvox.TableWalker.prototype.nextCol = function(sel) {
   return this.goTo_(sel, goog.bind(function(position) {
@@ -203,6 +211,7 @@ cvox.TableWalker.prototype.nextCol = function(sel) {
 /**
  * @param {!cvox.CursorSelection} sel The current selection.
  * @return {cvox.CursorSelection} The resulting selection.
+ * @expose
  */
 cvox.TableWalker.prototype.announceHeaders = function(sel) {
   cvox.ChromeVox.tts.speak(this.getHeaderText_(sel),
@@ -214,6 +223,7 @@ cvox.TableWalker.prototype.announceHeaders = function(sel) {
 /**
  * @param {!cvox.CursorSelection} sel The current selection.
  * @return {cvox.CursorSelection} The resulting selection.
+ * @expose
  */
 cvox.TableWalker.prototype.speakTableLocation = function(sel) {
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
@@ -227,6 +237,7 @@ cvox.TableWalker.prototype.speakTableLocation = function(sel) {
 /**
  * @param {!cvox.CursorSelection} sel The current selection.
  * @return {cvox.CursorSelection} The resulting selection.
+ * @expose
  */
 cvox.TableWalker.prototype.exitShifterContent = function(sel) {
   var tableNode = this.getTableNode_(sel);

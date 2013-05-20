@@ -23,6 +23,7 @@ goog.provide('cvox.AndroidHost');
 
 goog.require('cvox.AbstractHost');
 goog.require('cvox.AndroidKeyMap');
+goog.require('cvox.AndroidMathMap');
 goog.require('cvox.AndroidVox');
 goog.require('cvox.Api');
 goog.require('cvox.ApiImplementation');
@@ -58,6 +59,12 @@ cvox.AndroidHost.prototype.init = function() {
   if (cvox.ChromeVox.earcons.earconsAvailable()) {
     cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
   }
+
+  /**
+   * A math mapping for Android devices.
+   * @type {cvox.AndroidMathMap}
+   */
+  this.mathMap = new cvox.AndroidMathMap();
 
   cvox.InitialSpeech.speak();
 };

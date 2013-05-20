@@ -441,3 +441,19 @@ cvox.DomPredicates.captionPredicate = function(nodes) {
   }
   return null;
 };
+
+/**
+ * Article.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a article.
+ */
+cvox.DomPredicates.articlePredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if ((nodes[i].getAttribute &&
+            nodes[i].getAttribute('role') == 'article') ||
+        nodes[i].tagName == 'ARTICLE') {
+      return nodes[i];
+    }
+  }
+  return null;
+};

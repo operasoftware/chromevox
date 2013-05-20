@@ -42,4 +42,7 @@ cvox.TtsHistory.prototype.isSpeaking = function() { return false; };
 cvox.TtsHistory.prototype.stop = function() { };
 
 /** @override */
+cvox.TtsHistory.prototype.addCapturingEventListener = function(listener) { };
+
+/** @override */
 cvox.TtsHistory.prototype.increaseOrDecreaseProperty = function() { };

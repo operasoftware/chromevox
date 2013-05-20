@@ -16,7 +16,7 @@
  * @fileoverview Base class for all ChromeVox widgets.
  *
  * Widgets are keyboard driven and modal mediums for ChromeVox to expose
- * additional features such as lists, interative search, or grids.
+ * additional features such as lists, interactive search, or grids.
  * @author dtseng@google.com (David Tseng)
  */
 

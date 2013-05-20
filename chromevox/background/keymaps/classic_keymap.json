@@ -23,6 +23,14 @@
                "keys": {"keyCode": [32]}
               }},
 
+
+ {"command": "forceDoubleClickOnCurrentItem",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [32],
+                        "ctrlKey": [true],
+                        "shiftKey": [true]}
+              }},
+
  {"command": "left",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [37]}
@@ -96,6 +104,11 @@
  {"command": "toggleSearchWidget",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [191]}
+              }},
+
+ {"command": "contextMenu",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [188]}
               }},
 
  {"command": "decreaseTtsRate",
@@ -218,6 +231,11 @@
                "keys": {"keyCode": [78, 54]}
               }},
 
+ {"command": "nextArticle",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [78, 65]}
+              }},
+
  {"command": "nextButton",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [78, 66]}
@@ -326,6 +344,11 @@
  {"command": "previousHeading6",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [80, 54]}
+              }},
+
+ {"command": "previousArticle",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [80, 65]}
               }},
 
  {"command": "previousButton",

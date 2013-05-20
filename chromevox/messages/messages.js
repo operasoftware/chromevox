@@ -1972,7 +1972,14 @@ msgs.MSG_CHROMEVOX_NO_PREVIOUS_CONTROL = goog.getMsg('No previous control.');
  * @desc Spoken when the current HTML element is clicked.
  */
 msgs.MSG_CHROMEVOX_ELEMENT_CLICKED =
-    goog.getMsg('Clicked.');
+    goog.getMsg('Clicked');
+
+
+/**
+ * @desc Spoken when the current HTML element is double clicked.
+ */
+msgs.MSG_CHROMEVOX_ELEMENT_DOUBLE_CLICKED =
+    goog.getMsg('double clicked');
 
 
 /**
@@ -4742,3 +4749,61 @@ msgs.MSG_CHROMEVOX_NAVIGATION_SHIFTER =
  */
 msgs.MSG_CHROMEVOX_MATH_SHIFTER =
     goog.getMsg('math');
+
+
+/**
+ * @desc Used as a phonetic word hint for a particular letter. The word is used
+ * to clarify similarly sounding letters like m and n.  This mapping is taken
+ * directly from the NATO phonetic standard:
+ * https://en.wikipedia.org/wiki/NATO_phonetic_alphabet
+ * Please retain the structure of this string.  The structure is of the form
+ * {"letter": "phonetic word equivalent", ..., "letter": "phonetic word
+ * equivalent"}.  The first part of the mapping (letter) should be all letters
+ * of the localization in lower case. The second part (phonetic word equivalent)
+ * should be the word that describes the letter.
+ */
+msgs.MSG_CHROMEVOX_PHONETIC_MAP = goog.getMsg(
+    '{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta", "e": "echo",' +
+    ' "f": "foxtrot", "g": "golf", "h": "hotel", "i": "india", "j": "juliet",' +
+    '"k": "kilo", "l": "lima", "m": "mike", "n": "november", "o": "oscar",' +
+    '"p": "papa", "q": "quebec", "r": "romeo", "s": "sierra",' +
+    ' "t": "tango", "u": "uniform", "v": "victor", "w": "whiskey",' +
+    '"x": "xray", "y": "yankee", "z": "zulu"}');
+
+
+/**
+ * @desc Announces that the current page has 1 alert.
+ */
+msgs.MSG_CHROMEVOX_PAGE_HAS_ONE_ALERT_SINGULAR =
+    goog.getMsg('This page has 1 alert');
+
+
+/**
+ * @desc Announces that the current page has multiple alerts.
+ */
+msgs.MSG_CHROMEVOX_PAGE_HAS_ALERTS_PLURAL =
+    goog.getMsg('This page has {$num} alerts', {'num': '$1'});
+
+
+/**
+ * @desc Describes a key sequence that will let the user review
+ * (examine and make a decision on) all of the alerts on the page.
+ */
+msgs.MSG_CHROMEVOX_REVIEW_ALERTS =
+    goog.getMsg('Press Alt+Shift+A to review alerts');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the next article when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_ARTICLE =
+    goog.getMsg('No next article.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous article when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_ARTICLE =
+    goog.getMsg('No previous article.');

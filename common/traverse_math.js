@@ -14,11 +14,9 @@
 
 goog.provide('cvox.TraverseMath');
 
-goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
-goog.require('cvox.MathUtil');
-goog.require('cvox.SelectionUtil');
-goog.require('cvox.TraverseUtil');
+goog.require('cvox.MathJaxImplementation');
+goog.require('cvox.MathJaxUtil');
 
 
 /**
@@ -42,52 +40,24 @@ cvox.TraverseMath = function() {
   this.activeNode = null;
 
   /**
-   * The current traversal mode. Currently a simple string.
-   * TODO (sorge) This should be replaced by proper reading rules.
-   * @type {string}
-   */
-  this.activeTraversalMode = 'layout';
-
-  /**
-   * All available traversal mode. Currently an array of strings.
-   * TODO (sorge) This should be replaced by proper reading rules.
-   * @type {!Array.<string>}
+   * Dictionary of all MathJaxs elements in the page if there are any.
+   * @type {!Object.<string, Node>}
    * @private
    */
-  this.traversalModes_ = ['leaf', 'token', 'tree', 'layout'];
+  this.allMathjaxs_ = {};
+
+  /**
+   * When traversing a Mathjax node this will contain the internal
+   * MathML representation of the node.
+   * @type {Node}
+   */
+  this.activeMathmlHost = null;
+
+  // Initializing the Mathjax object dictionary.
+  cvox.MathJaxUtil.initializeMathjaxs(this.allMathjaxs_);
+
 };
-
-
-/**
- * Setting the traversal mode. Remains previous mode if the supplied mode
- * is unknown.
- * TODO (sorge) Should be updated for reading rules.
- * @param {string} mode The new mode.
- */
-cvox.TraverseMath.prototype.setMode = function(mode) {
-  if (this.traversalModes_.indexOf(mode) != -1) {
-    this.activeTraversalMode = mode;
-    }
-};
-
-
-/**
- * Sets the active mode for the TraverseMath object to the next one in the list
- * restarting from the first, if necessary.
- * @return {string} The name of the newly set mode.
- */
-cvox.TraverseMath.prototype.cycleTraversalMode = function() {
-
-  var index = this.traversalModes_.indexOf(this.activeTraversalMode);
-  ++index;
-
-  if (index == this.traversalModes_.length) {
-    this.activeTraversalMode = this.traversalModes_[0];
-    } else {
-      this.activeTraversalMode = this.traversalModes_[index];
-    }
-  return this.activeTraversalMode;
-};
+goog.addSingletonGetter(cvox.TraverseMath);
 
 
 /**
@@ -98,35 +68,9 @@ cvox.TraverseMath.prototype.cycleTraversalMode = function() {
 cvox.TraverseMath.prototype.initialize = function(node, reverse) {
   this.activeMath = node;
   this.activeNode = node;
-  this.next(reverse);
-};
-
-
-/**
- * Compiles all leaf node of the MathML tree (left to right).
- * @param {Node} math A MathML node.
- * @return {Array.<string>} The content of the leaf nodes of math.
- */
-cvox.TraverseMath.allLeafNodes = function(math) {
-
-  var leafs = [];
-
-  function getLeafs(node) {
-    var children = node.childNodes;
-    for (var i = 0, child; child = children[i]; i++) {
-      // It is text.
-      if (child.nodeType == 3) {
-        leafs.push(child.textContent);
-      } else if (cvox.MathUtil.isToken(child)) {
-        leafs.push(child.textContent);
-      } else {
-        getLeafs(child);
-      }
-    }
-  };
-
-  getLeafs(math);
-  return leafs;
+  if (cvox.DomUtil.isMathJax(node)) {
+    this.activeMathmlHost = this.allMathjaxs_[node.getAttribute('id')];
+  }
 };
 
 
@@ -150,35 +94,7 @@ cvox.TraverseMath.prototype.nextLeaf = function(reverse, pred) {
 };
 
 
-/**
- * Moves to the next leaf node in the current Math expression if it exists.
- * @param {boolean=} reverse True if reversed. False by default.
- * @return {Node} The next node.
- */
-cvox.TraverseMath.prototype.next = function(reverse) {
-  reverse = !!reverse;
-  if (!this.activeNode) {
-    return null;
-  }
-  switch (this.activeTraversalMode) {
-    case 'leaf':
-      return this.nextLeaf(reverse, cvox.DomUtil.isLeafNode);
-      break;
-    case 'token':
-      return this.nextLeaf(reverse, cvox.MathUtil.isToken);
-      break;
-    case 'tree':
-      return this.nextSubtree(reverse, cvox.MathUtil.isMathmlTag);
-      break;
-    case 'layout':
-      return this.nextSubtree(reverse, cvox.MathUtil.isLayout);
-      break;
-    default:
-      return this.nextSubtree(reverse, cvox.MathUtil.isMathmlTag);
-  }
-};
-
-
+// TODO (sorge) Refactor this logic into single walkers.
 /**
  * Returns a string with the content of the active node.
  * @return {string} The active content.

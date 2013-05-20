@@ -21,23 +21,22 @@
 goog.provide('cvox.ChromeVoxBackground');
 
 goog.require('cvox.AccessibilityApiHandler');
+goog.require('cvox.BrailleBackground');
 goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxPrefs');
+goog.require('cvox.CompositeTts');
+goog.require('cvox.ConsoleTts');
 goog.require('cvox.EarconsBackground');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.InjectedScriptLoader');
-goog.require('cvox.TtsBackground');
-goog.require('cvox.ConsoleTts');
-goog.require('cvox.CompositeTts');
-goog.require('cvox.BrailleBackground');
-
-
+goog.require('cvox.NavBraille');
 // TODO(dtseng): This is required to prevent Closure from stripping our export
 // prefs on window.
 goog.require('cvox.OptionsPage');
+goog.require('cvox.TtsBackground');
 
 
 /**
@@ -54,6 +53,15 @@ cvox.ChromeVoxBackground = function() {
  * Initialize the background page: set up TTS and bridge listeners.
  */
 cvox.ChromeVoxBackground.prototype.init = function() {
+  // In the case of ChromeOS, only continue initialization if this instance of
+  // ChromeVox is as we expect. This prevents ChromeVox from the webstore from
+  // running.
+  if (cvox.ChromeVox.isChromeOS &&
+      chrome.i18n.getMessage('@@extension_id') !=
+          'mndnfokpggljbaajbnioimlmbfngpief') {
+    return;
+  }
+
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
   this.prefs = new cvox.ChromeVoxPrefs();
   this.readPrefs();
@@ -85,7 +93,8 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   this.earcons = new cvox.EarconsBackground();
   this.addBridgeListener();
 
-  cvox.AccessibilityApiHandler.init(this.tts, this.earcons);
+  this.accessibilityApiHandler = new cvox.AccessibilityApiHandler(
+      this.tts, this.earcons);
 
   var listOfFiles;
 
@@ -251,7 +260,7 @@ cvox.ChromeVoxBackground.prototype.onTtsMessage = function(msg) {
  */
 cvox.ChromeVoxBackground.prototype.onBrailleMessage = function(msg) {
   if (msg['action'] == 'write') {
-    this.backgroundBraille_.write(msg['params']);
+    this.backgroundBraille_.write(new cvox.NavBraille(msg['params']));
   }
 };
 

@@ -389,6 +389,10 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
   if (!cvox.ChromeVox.isActive || cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
+  // Listen for our own events to handle public user commands if the web app
+  // doesn't do it for us.
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'cvoxUserEvent', cvox.ChromeVoxUserCommands.handleChromeVoxUserEvent, false);
 
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'focus', cvox.ChromeVoxEventWatcher.focusEventWatcher, true);
@@ -710,7 +714,9 @@ cvox.ChromeVoxEventWatcher.focusHandler = function(evt) {
 
     // Navigate to this control so that it will be the same for focus as for
     // regular navigation.
-    cvox.ApiImplementation.syncToNode(target, true, queueMode);
+    cvox.ApiImplementation.syncToNode(
+        target, !document.webkitHidden, queueMode);
+
     if ((evt.target.constructor == HTMLVideoElement) ||
         (evt.target.constructor == HTMLAudioElement)) {
       cvox.ChromeVoxEventWatcher.setUpMediaHandler_();

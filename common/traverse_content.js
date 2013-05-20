@@ -280,14 +280,17 @@ cvox.TraverseContent.prototype.moveNext = function(grain) {
   } while (this.skipInvalidSelections && isInvalid);
 
   if (!cvox.SelectionUtil.isRangeValid(range)) {
-    // It's OK if the selection navigation lands on whitespace once, but if it
-    // hits whitespace more than once, then skip forward until there is real
-    // content.
-    if (!this.lastSelectionWasWhitespace) {
+    // It's OK if the selection navigation lands on whitespace once (in
+    // character granularity), but if it hits whitespace more than once, then
+    // skip forward until there is real content.
+    if (!this.lastSelectionWasWhitespace &&
+        grain == cvox.TraverseContent.kCharacter) {
       this.lastSelectionWasWhitespace = true;
     } else {
       while (!cvox.SelectionUtil.isRangeValid(this.getCurrentRange())) {
-        this.moveNext(grain);
+        if (this.moveNext(grain) == null) {
+          break;
+        }
       }
     }
   } else {
@@ -362,14 +365,17 @@ cvox.TraverseContent.prototype.movePrev = function(grain) {
   } while (this.skipInvalidSelections && isInvalid);
 
   if (!cvox.SelectionUtil.isRangeValid(range)) {
-    // It's OK if the selection navigation lands on whitespace once, but if it
-    // hits whitespace more than once, then skip forward until there is real
-    // content.
-    if (!this.lastSelectionWasWhitespace) {
+    // It's OK if the selection navigation lands on whitespace once (in
+    // character granularity), but if it hits whitespace more than once, then
+    // skip forward until there is real content.
+    if (!this.lastSelectionWasWhitespace &&
+        grain == cvox.TraverseContent.kCharacter) {
       this.lastSelectionWasWhitespace = true;
     } else {
       while (!cvox.SelectionUtil.isRangeValid(this.getCurrentRange())) {
-        this.moveNext(grain);
+        if (this.movePrev(grain) == null) {
+          break;
+        }
       }
     }
   } else {
