@@ -22,6 +22,7 @@ window.CLOSURE_USE_EXT_MESSAGES = true;
 
 goog.require('cvox.ChromeEarcons');
 goog.require('cvox.ChromeHost');
+goog.require('cvox.ChromeMathJax');
 goog.require('cvox.ChromeMsgs');
 goog.require('cvox.ChromeTts');
 goog.require('cvox.ChromeBraille');

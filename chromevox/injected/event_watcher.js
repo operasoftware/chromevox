@@ -450,6 +450,7 @@ cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
   }
 };
 
+
 /**
  * Remove all registered event watchers.
  * @param {!Document|!Window} doc The DOM document to add event listeners to.
@@ -536,6 +537,7 @@ cvox.ChromeVoxEventWatcher.mutationHandler = function(mutations) {
         return true;
       });
 };
+
 
 /**
  * Handles mouseclick events.
@@ -765,8 +767,6 @@ cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
-  cvox.ChromeVoxEventWatcher.lastKeypressTime = new Date().getTime();
-
   if (cvox.ChromeVox.isChromeOS && evt.keyCode == 91) {
     cvox.ChromeVoxEventWatcher.searchKeyHeld_ = true;
   }
@@ -822,6 +822,32 @@ cvox.ChromeVoxEventWatcher.keyUpEventWatcher = function(evt) {
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxEventWatcher.keyPressEventWatcher = function(evt) {
+  var url = document.location.href;
+  // Use ChromeVox.typingEcho as default value.
+  var speakChar = cvox.TypingEcho.shouldSpeakChar(cvox.ChromeVox.typingEcho);
+
+  if (typeof cvox.ChromeVox.keyEcho[url] !== 'undefined') {
+    speakChar = cvox.ChromeVox.keyEcho[url];
+  }
+
+  // Directly handle typed characters here while key echo is on. This
+  // skips potentially costly computations (especially for content editable).
+  // This is done deliberately for the sake of responsiveness.
+  if (cvox.ChromeVoxEditableTextBase.eventTypingEcho && (speakChar &&
+          cvox.DomPredicates.editTextPredicate([document.activeElement])) &&
+      document.activeElement.type !== 'password') {
+    // Explicitly control the amount of time we allow spoken characters to queue
+    // up in order to prevent dropping characters. Some users prefer to hear
+    // almost all characters typed even if they are typing rapidly. This figure
+    // attempts to reach a balance between clarity and responsiveness.
+    var curTime = new Date().getTime();
+    if (curTime - cvox.ChromeVoxEventWatcher.lastKeypressTime > 150) {
+      cvox.ChromeVox.tts.stop();
+    }
+    cvox.ChromeVoxEventWatcher.lastKeypressTime = curTime;
+    cvox.ChromeVox.tts.speak(
+        String.fromCharCode(evt.charCode), 1, {'relativeRate': 2});
+  }
   cvox.ChromeVoxEventWatcher.addEvent(evt);
   if (cvox.ChromeVoxEventWatcher.eventToEat &&
       evt.keyCode == cvox.ChromeVoxEventWatcher.eventToEat.keyCode) {
@@ -911,6 +937,9 @@ cvox.ChromeVoxEventWatcher.subtreeModifiedEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.visibilityChangeWatcher = function() {
   cvox.ChromeVoxEventWatcher.initialVisibility = !document.webkitHidden;
+  if (document.webkitHidden) {
+    cvox.ChromeVox.navigationManager.stopReading(true);
+  }
 };
 
 /**

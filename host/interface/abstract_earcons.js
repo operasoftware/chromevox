@@ -22,21 +22,27 @@
 
 goog.provide('cvox.AbstractEarcons');
 
+
 /**
  * @constructor
  */
 cvox.AbstractEarcons = function() {
+  /**
+   * Public flag set to enable or disable earcons. Callers should prefer
+   * toggle(); however, this member is public for initialization.
+   * @type {boolean}
+   */
+  this.enabled = true;
 };
+
 
 /**
  * Plays the specified earcon sound.
  * @param {number} earcon An earcon index.
  */
 cvox.AbstractEarcons.prototype.playEarcon = function(earcon) {
-  if (window['console']) {
-    window['console']['log']('Earcon ' + this.getEarconName(earcon));
-  }
 };
+
 
 /**
  * Plays the specified earcon sound, given the name of the earcon.
@@ -45,6 +51,7 @@ cvox.AbstractEarcons.prototype.playEarcon = function(earcon) {
 cvox.AbstractEarcons.prototype.playEarconByName = function(earconName) {
   this.playEarcon(this.getEarconId(earconName));
 };
+
 
 /**
  * Whether or not earcons are available.
@@ -94,6 +101,7 @@ cvox.AbstractEarcons.prototype.getEarconName = function(earcon) {
     this.earconNames.push('SECTION');
     this.earconNames.push('SELECTION');
     this.earconNames.push('SELECTION_REVERSE');
+    this.earconNames.push('SPECIAL_CONTENT');
     this.earconNames.push('TASK_SUCCESS');
     this.earconNames.push('WRAP');
     this.earconNames.push('WRAP_EDGE');
@@ -148,12 +156,15 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
     this.earconNamesToIds['SELECTION'] = cvox.AbstractEarcons.SELECTION;
     this.earconNamesToIds['SELECTION_REVERSE'] =
         cvox.AbstractEarcons.SELECTION_REVERSE;
+    this.earconNamesToIds['SPECIAL_CONTENT'] =
+        cvox.AbstractEarcons.SPECIAL_CONTENT;
     this.earconNamesToIds['TASK_SUCCESS'] = cvox.AbstractEarcons.TASK_SUCCESS;
     this.earconNamesToIds['WRAP'] = cvox.AbstractEarcons.WRAP;
     this.earconNamesToIds['WRAP_EDGE'] = cvox.AbstractEarcons.WRAP_EDGE;
   }
   return this.earconNamesToIds[earconName];
 };
+
 
 /**
  * @param {number} earconId The earcon ID.
@@ -162,6 +173,17 @@ cvox.AbstractEarcons.prototype.getEarconId = function(earconName) {
 cvox.AbstractEarcons.prototype.getEarconFilename = function(earconId) {
   return cvox.AbstractEarcons.earconMap[earconId];
 };
+
+
+/**
+ * Toggles earcons on or off.
+ * @return {boolean} True if earcons are now enabled; false otherwise.
+ */
+cvox.AbstractEarcons.prototype.toggle = function() {
+  this.enabled = !this.enabled;
+  return this.enabled;
+};
+
 
 /**
  * @type {number}
@@ -326,17 +348,22 @@ cvox.AbstractEarcons.SELECTION_REVERSE = 31;
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.TASK_SUCCESS = 32;
+cvox.AbstractEarcons.SPECIAL_CONTENT = 32;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP = 33;
+cvox.AbstractEarcons.TASK_SUCCESS = 33;
 
 /**
  * @type {number}
  */
-cvox.AbstractEarcons.WRAP_EDGE = 34;
+cvox.AbstractEarcons.WRAP = 34;
+
+/**
+ * @type {number}
+ */
+cvox.AbstractEarcons.WRAP_EDGE = 35;
 
 /**
  * The earcon map.
@@ -397,6 +424,8 @@ cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SELECTION] =
     'selection.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SELECTION_REVERSE] =
     'selection_reverse.ogg';
+cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.SPECIAL_CONTENT] =
+    'special_content.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.TASK_SUCCESS] =
     'task_success.ogg';
 cvox.AbstractEarcons.earconMap[cvox.AbstractEarcons.WRAP] = 'wrap.ogg';

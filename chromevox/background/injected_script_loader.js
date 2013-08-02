@@ -52,7 +52,7 @@ cvox.InjectedScriptLoader.fetchCode = function(files, done) {
           var debugSrc = src.replace('closure/../', '');
           // The 'chromevox' id is only used in the DevTools instead of a long
           // extension id.
-          scriptText += '\n//@ sourceURL= chrome-extension://chromevox/' +
+          scriptText += '\n//# sourceURL= chrome-extension://chromevox/' +
               debugSrc + '\n';
           code[src] = scriptText;
           waiting--;

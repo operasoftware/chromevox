@@ -54,7 +54,8 @@ goog.require('cvox.ChromeVox');
  *
  * @param {Object.<{command: (string),
  *                         status: (undefined|string),
- *                         resultNode: (undefined|Node)
+ *                         resultNode: (undefined|Node),
+ *                         customCommand: (undefined|string)
  *                         }>} detailObj
  * command: The ChromeVox UserCommand to be performed.
  * status: The status of the event. If the status is left at PENDING, ChromeVox
@@ -65,6 +66,10 @@ goog.require('cvox.ChromeVox');
  * resultNode: The result of the action if it has been performed and there is a
  * result. If this is a valid node and the status is set to SUCCESS, ChromeVox
  * will sync to this node and speak it.
+ * customCommand: The custom command to be performed. This is designed to allow
+ * web apps / other extensions to define custom actions that can be shown in
+ * ChromeVox (for example, inside the context menu) and then dispatched back to
+ * the page.
  */
 cvox.UserEventDetail = function(detailObj) {
   /**
@@ -74,6 +79,15 @@ cvox.UserEventDetail = function(detailObj) {
   this.command = '';
   if (cvox.UserEventDetail.COMMANDS.indexOf(detailObj.command) != -1) {
     this.command = detailObj.command;
+  }
+
+  /**
+   * The custom command that should be performed.
+   * @type {string}
+   */
+  this.customCommand = '';
+  if (detailObj.customCommand) {
+    this.customCommand = detailObj.customCommand;
   }
 
   /**

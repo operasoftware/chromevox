@@ -52,7 +52,7 @@ cvox.ScriptInstaller.installScript = function(srcs, uid, opt_onload,
           var scriptText = xhr.responseText;
           // Add a magic comment to the bottom of the file so that
           // Chrome knows the name of the script in the JavaScript debugger.
-          scriptText += '\n//@ sourceURL=' + scriptSrc + '\n';
+          scriptText += '\n//# sourceURL=' + scriptSrc + '\n';
 
           var apiScript = document.createElement('script');
           apiScript.type = 'text/javascript';

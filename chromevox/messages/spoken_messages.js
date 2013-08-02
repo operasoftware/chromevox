@@ -88,7 +88,8 @@ cvox.SpokenMessages.speak = function(mode) {
       }
     }
 
-    cvox.ChromeVox.tts.speak(finalText, mode);
+    cvox.ChromeVox.tts.speak(finalText, mode,
+                             cvox.AbstractTts.PERSONALITY_ANNOUNCEMENT);
 
     // Always queue after the first message.
     mode = cvox.AbstractTts.QUEUE_MODE_QUEUE;

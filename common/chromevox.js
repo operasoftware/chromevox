@@ -42,6 +42,11 @@ goog.addDependency(
     []);
 
 goog.addDependency(
+    '../host/interface/mathjax_interface.js',
+    ['cvox.MathJaxInterface'],
+    []);
+
+goog.addDependency(
     '../host/interface/abstract_msgs.js',
     ['cvox.AbstractMsgs'],
     []);
@@ -99,6 +104,10 @@ cvox.ChromeVox.tts;
  */
 cvox.ChromeVox.braille;
 /**
+ * @type {cvox.MathJaxInterface}
+ */
+cvox.ChromeVox.mathJax;
+/**
  * @type {cvox.AbstractMsgs}
  */
 cvox.ChromeVox.msgs = null;
@@ -141,6 +150,11 @@ cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
  */
 cvox.ChromeVox.typingEcho = 0;
 /**
+ * Echoing on key press events.
+ * @type {Object.<string, boolean>}
+ */
+cvox.ChromeVox.keyEcho = {};
+/**
  * @type {Object.<string, {x:number, y:number}>}
  */
 cvox.ChromeVox.position = {};
@@ -171,6 +185,8 @@ else
  * @type {!Array.<cvox.KeySequence>}
  */
 cvox.ChromeVox.sequenceSwitchKeyCodes = [];
+/** @type {Object.<string, boolean>} */
+cvox.ChromeVox.visitedUrls = {};
 /**
  * This function can be called before doing an operation that may trigger
  * focus events and other events that would normally be announced. This

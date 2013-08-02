@@ -28,15 +28,30 @@ goog.require('cvox.MathAtom');
  * @constructor
  */
 cvox.MathFunction = function(atoms) {
-
+  /**
+   * Dictionary of common mathematical function names.
+   * @type {Object.<string, cvox.MathAtom>}
+   * @private
+   */
   this.FUNCTION_MAP_ = {};
 
+  /**
+   * List of unique domain names occuring in function mappings.
+   * @type {Array.<string>}
+   */
   this.domains = [];
-  this.rules = [];
+
+  /**
+   * List of unique style names occuring in function mappings.
+   * @type {Array.<string>}
+   */
+  this.styles = [];
+
+  /**
+   * Initialize the dictionary.
+   */
   this.initFunctionMap_(atoms);
-
 };
-
 
 
 /**
@@ -46,22 +61,22 @@ cvox.MathFunction = function(atoms) {
  * @private
  */
 cvox.MathFunction.prototype.initFunctionMap_ = function(atoms) {
-
   var domains = [];
-  var rules = [];
+  var styles = [];
 
   for (var i = 0, func; func = atoms[i]; i++) {
-    var funcObject = cvox.MathAtom.make(func.key, func.category,
-                                        func['mappings']);
+    var funcObject = new cvox.MathAtom(
+        func.key, func.category,
+        cvox.MathAtom.mappingsFromJSON(func['mappings']));
     this.FUNCTION_MAP_[func.key] = funcObject;
     domains = cvox.MathUtil.union(domains, funcObject.allDomains());
-    rules = cvox.MathUtil.union(rules, funcObject.allRules());
+    styles = cvox.MathUtil.union(styles, funcObject.allStyles());
     for (var j = 0, key; key = func['names'][j]; j++) {
       this.FUNCTION_MAP_[key] = funcObject;
     }
   }
   this.domains = domains;
-  this.rules = rules;
+  this.styles = styles;
 };
 
 

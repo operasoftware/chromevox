@@ -68,6 +68,12 @@ cvox.LiveRegions.MAX_DISCARD_DUPS_MS = 2000;
 cvox.LiveRegions.lastAnnouncedTime = null;
 
 /**
+ * Tracks nodes handled during mutation processing.
+ * @type {!Array.<Node>}
+ */
+cvox.LiveRegions.nodesAlreadyHandled = [];
+
+/**
  * @param {Date} pageLoadTime The time the page was loaded. Live region
  *     updates within the first INITIAL_SILENCE_MS milliseconds are ignored.
  * @param {number} queueMode Interrupt or flush.  Polite live region
@@ -118,7 +124,7 @@ cvox.LiveRegions.init = function(pageLoadTime, queueMode, disableSpeak) {
         }
         var structs = JSON.parse(message['content']);
         var descriptions = [];
-        for (var i = 0, description; description = structs[i]; i++) {
+        for (var j = 0, description; description = structs[j]; j++) {
           descriptions.push(new cvox.NavDescription(description));
         }
         new cvox.NavigationSpeaker()

@@ -22,6 +22,7 @@ goog.require('cvox.AndroidEarcons');
 goog.require('cvox.AndroidHost');
 goog.require('cvox.AndroidTts');
 goog.require('cvox.AndroidBraille');
+goog.require('cvox.AndroidMathJax');
 goog.require('cvox.ChromeVoxInit');
 goog.require('cvox.TestMsgs');
 

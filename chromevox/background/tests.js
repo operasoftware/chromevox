@@ -29,7 +29,8 @@ goog.require('cvox.EventWatcherTest');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.InitGlobals');
 goog.require('cvox.HostFactory');
-goog.require('cvox.MathSpeechRuleTest');
+goog.require('cvox.SpeechRuleTest');
+goog.require('cvox.MathNodeRulesTest');
 goog.require('cvox.MathWalkerTest');
 goog.require('cvox.NavigationManagerTest');
 
@@ -37,7 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
   cvox.InitGlobals.initGlobals();
   var runner = new cvox.AutoRunner();
   runner.runTestCase(new cvox.EventWatcherTest());
-  runner.runTestCase(new cvox.MathSpeechRuleTest());
+  runner.runTestCase(new cvox.SpeechRuleTest());
   runner.runTestCase(new cvox.MathWalkerTest());
+  runner.runTestCase(new cvox.MathNodeRulesTest());
   runner.runTestCase(new cvox.NavigationManagerTest());
 }, false);

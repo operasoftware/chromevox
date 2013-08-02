@@ -86,6 +86,7 @@ cvox.OverlayWidget.prototype.onKeyDown = function(evt) {
     } else {
       cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(this.host_);
     }
+    this.onNavigate();
     cvox.ChromeVox.navigationManager.speakDescriptionArray(
         cvox.ChromeVox.navigationManager.getDescription(), 0, null);
   }

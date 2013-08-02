@@ -36,6 +36,20 @@ goog.inherits(cvox.CharacterWalker, cvox.AbstractSelectionWalker);
 /**
  * @override
  */
+cvox.CharacterWalker.prototype.getDescription = function(prevSel, sel) {
+  var desc = goog.base(this, 'getDescription', prevSel, sel);
+  desc.forEach(function(item) {
+    if (!item.personality) {
+      item.personality = {};
+    }
+    item.personality['phoneticCharacters'] = true;
+  });
+  return desc;
+};
+
+/**
+ * @override
+ */
 cvox.CharacterWalker.prototype.getGranularityMsg = function() {
   return cvox.ChromeVox.msgs.getMsg('character_granularity');
 };

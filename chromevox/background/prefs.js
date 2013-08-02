@@ -72,17 +72,20 @@ cvox.ChromeVoxPrefs.DEFAULT_PREFS = {
   // class to manage multiple key maps. Also, this doesn't belong as a pref;
   // should just store in local storage.
   'currentKeyMap' : cvox.KeyMap.DEFAULT_KEYMAP,
-  'useIBeamCursor': cvox.ChromeVox.isMac,
   'cvoxKey': '',
+  'earcons': true,
   'focusFollowsMouse': false,
+  'granularity': undefined,
+  'position': '{}',
   'siteSpecificScriptBase':
       'https://ssl.gstatic.com/accessibility/javascript/ext/',
   'siteSpecificScriptLoader':
       'https://ssl.gstatic.com/accessibility/javascript/ext/loader.js',
   'sticky': false,
   'typingEcho': 0,
-  'position': '{}',
-  'useVerboseMode': true
+  'useIBeamCursor': cvox.ChromeVox.isMac,
+  'useVerboseMode': true,
+  'siteSpecificEnhancements': true
 };
 
 

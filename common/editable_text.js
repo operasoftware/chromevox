@@ -85,12 +85,23 @@ cvox.TypingEcho = {
 };
 
 
-  /**
-   * @param {number} cur Current typing echo.
-   * @return {number} Next typing echo.
-   */
+/**
+ * @param {number} cur Current typing echo.
+ * @return {number} Next typing echo.
+ */
 cvox.TypingEcho.cycle = function(cur) {
   return (cur + 1) % cvox.TypingEcho.COUNT;
+};
+
+
+/**
+ * Return if characters should be spoken given the typing echo option.
+ * @param {number} typingEcho Typing echo option.
+ * @return {boolean} Whether the character should be spoken.
+ */
+cvox.TypingEcho.shouldSpeakChar = function(typingEcho) {
+  return typingEcho == cvox.TypingEcho.CHARACTER_AND_WORD ||
+      typingEcho == cvox.TypingEcho.CHARACTER;
 };
 
 
@@ -179,6 +190,14 @@ cvox.ChromeVoxEditableTextBase = function(value, start, end, isPassword, tts) {
  * @type {boolean}
  */
 cvox.ChromeVoxEditableTextBase.useIBeamCursor = cvox.ChromeVox.isMac;
+
+/**
+ * Switches on or off typing echo based on events. When set, editable text
+ * updates for single-character insertions are handled in event watcher's key
+ * press handler.
+ * @type {boolean}
+ */
+cvox.ChromeVoxEditableTextBase.eventTypingEcho = false;
 
 /**
  * The maximum number of characters that are short enough to speak in response
@@ -386,11 +405,14 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
         if (evt.start == this.value.length) {
           this.speak(cvox.ChromeVox.msgs.getMsg('end'), evt.triggeredByUser);
         } else {
-          this.speak(this.value.substr(evt.start, 1), evt.triggeredByUser);
+          this.speak(this.value.substr(evt.start, 1),
+                     evt.triggeredByUser,
+                     {'phoneticCharacters': evt.triggeredByUser});
         }
       } else {
         this.speak(this.value.substr(Math.min(this.start, evt.start), 1),
-            evt.triggeredByUser);
+            evt.triggeredByUser,
+            {'phoneticCharacters': evt.triggeredByUser});
       }
     } else {
       // Moved by more than one character. Read all characters crossed.
@@ -531,6 +553,22 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
     }
   }
 
+  if (this.multiline) {
+    // Fall back to announce deleted but omit the text that was deleted.
+    if (evt.value.length < this.value.length) {
+      this.speak(cvox.ChromeVox.msgs.getMsg('text_deleted'),
+                 evt.triggeredByUser, personality);
+    }
+    // The below is a somewhat loose way to deal with non-standard
+    // insertions/deletions. Intentionally skip for multiline since deletion
+    // announcements are covered above and insertions are non-standard (possibly
+    // due to auto complete). Since content editable's often refresh content by
+    // removing and inserting entire chunks of text, this type of logic often
+    // results in unintended consequences such as reading all text when only one
+    // character has been entered.
+    return;
+  }
+
   // If the text is short, just speak the whole thing.
   if (newLen <= this.maxShortPhraseLen) {
     this.describeTextChangedHelper(evt, 0, 0, '', personality);
@@ -585,6 +623,7 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
   var insertedLen = newLen - prefixLen - suffixLen;
   var inserted = evt.value.substr(prefixLen, insertedLen);
   var utterance = '';
+  var triggeredByUser = evt.triggeredByUser;
 
   if (insertedLen > 1) {
     utterance = inserted;
@@ -603,10 +642,14 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
         utterance = evt.value.substr(index, prefixLen + 1 - index);
       } else {
         utterance = inserted;
+        triggeredByUser = false; // Implies QUEUE_MODE_QUEUE.
       }
     } else if (cvox.ChromeVox.typingEcho == cvox.TypingEcho.CHARACTER ||
         cvox.ChromeVox.typingEcho == cvox.TypingEcho.CHARACTER_AND_WORD) {
-      utterance = inserted;
+      // This particular case is handled in event watcher. See the key press
+      // handler for more details.
+      utterance = cvox.ChromeVoxEditableTextBase.eventTypingEcho ? '' :
+          inserted;
     }
   } else if (deletedLen > 1 && !autocompleteSuffix) {
     utterance = deleted + ', deleted';
@@ -620,7 +663,9 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChangedHelper = function(
     utterance = autocompleteSuffix;
   }
 
-  this.speak(utterance, evt.triggeredByUser, opt_personality);
+  if (utterance) {
+    this.speak(utterance, triggeredByUser, opt_personality);
+  }
 };
 
 /**

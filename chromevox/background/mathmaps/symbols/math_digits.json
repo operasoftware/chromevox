@@ -2076,7 +2076,9 @@
 {"category": "Nd",
  "mappings": {
   "default": {
-   "default": "mathematical double struck digit zero"
+   "default": "mathematical double struck digit zero",
+   "alternative": "double struck zero",
+   "short": "blackboard zero"
   }
  },
  "key": "1D7D8"

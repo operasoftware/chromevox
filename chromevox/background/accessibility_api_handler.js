@@ -39,6 +39,8 @@ cvox.AccessibilityApiHandler = function(tts, earcons) {
   this.earcons = earcons;
   try {
     chrome.experimental.accessibility.setAccessibilityEnabled(true);
+    chrome.experimental.accessibility.setNativeAccessibilityEnabled(
+        !cvox.ChromeVox.isActive);
     this.addEventListeners();
     if (cvox.ChromeVox.isActive) {
       this.queueAlertsForActiveTab();
@@ -256,17 +258,18 @@ cvox.AccessibilityApiHandler.prototype.addEventListeners = function() {
     }, this));
 
     chrome.systemPrivate.onBrightnessChanged.addListener(
+        goog.bind(
         /**
          * @param {{brightness: number, userInitiated: boolean}} brightness
          */
-        goog.bind(function(brightness) {
-      if (brightness.userInitiated) {
-        this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
-        this.tts.speak(
-            msg('chrome_brightness_changed', [brightness.brightness]),
-            0, ttsProps);
-      }
-    }, this));
+        function(brightness) {
+          if (brightness.userInitiated) {
+            this.earcons.playEarcon(cvox.AbstractEarcons.TASK_SUCCESS);
+            this.tts.speak(
+                msg('chrome_brightness_changed', [brightness.brightness]),
+                0, ttsProps);
+          }
+        }, this));
 
     chrome.systemPrivate.onScreenUnlocked.addListener(goog.bind(function() {
       chrome.systemPrivate.getUpdateStatus(goog.bind(function(status) {

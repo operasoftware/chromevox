@@ -46,11 +46,12 @@ cvox.ChromeVox.recallInit_ = function(reason) {
  * Initializes cvox.ChromeVox when the document is ready.
  */
 cvox.ChromeVox.initDocument = function() {
-  if (document.readyState != 'complete') {
+  if (!document.body) {
     cvox.ChromeVox.recallInit_('ChromeVox not starting on unloaded page: ' +
-                               document.location.href + '.');
+        document.location.href + '.');
     return;
   }
+
   // Setup globals
   cvox.ChromeVox.host = cvox.HostFactory.getHost();
 

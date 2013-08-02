@@ -21,7 +21,7 @@ goog.provide('cvox.MathWalkerTest');
 goog.require('cvox.AbstractTestCase');
 goog.require('cvox.ChromeVoxTester');
 goog.require('cvox.CursorSelection');
-goog.require('cvox.MathShifter');
+goog.require('cvox.MathSpeak');
 goog.require('cvox.MathWalker');
 
 
@@ -39,17 +39,11 @@ goog.inherits(cvox.MathWalkerTest, cvox.AbstractTestCase);
 /**
  * Simulates speaking the node (only text, no annotations!).
  * @param {Node} node The node to be described.
- * @return {string} The resulting string.
+ * @return {!string} The resulting string.
  */
 cvox.MathWalkerTest.prototype.getNodeDescription = function(node) {
-  // TODO (sorge) This should be initialized in the constructor.
-  // Currently this leads to an error on blaze, however!
-  var sel = cvox.CursorSelection.fromNode(node);
-
-  if (sel) {
-    this.shifter = cvox.MathShifter.create(sel);
-    this.shifter.sync(sel);
-    var descs = this.shifter.getDescription(sel, sel);
+  if (node) {
+    var descs = cvox.MathSpeak.getDescriptionForNode(node);
     var descs_str = descs.map(function(desc) {return desc.text;});
     return descs_str.filter(function(str) {return str;}).join(' ');
   }

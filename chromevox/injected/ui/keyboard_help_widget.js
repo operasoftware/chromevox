@@ -30,7 +30,6 @@ goog.require('cvox.OverlayWidget');
  */
 cvox.KeyboardHelpWidget = function() {
   goog.base(this, '');
-  cvox.CommandStore.init();
   this.container_ = document.createElement('div');
   var list = [];
   var callbacks = [];

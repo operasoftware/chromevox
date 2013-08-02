@@ -342,7 +342,7 @@ cvox.DomUtil.isLeafNode = function(node) {
       return true;
   }
 
-  if (element.tagName == 'A' && element.getAttribute('href')) {
+  if (!!cvox.DomPredicates.linkPredicate([element])) {
     return !cvox.DomUtil.findNode(element, function(node) {
       return !!cvox.DomPredicates.headingPredicate([node]);
     });
@@ -355,6 +355,11 @@ cvox.DomUtil.isLeafNode = function(node) {
   }
   if (cvox.DomUtil.isMath(element)) {
     return true;
+  }
+  if (cvox.DomPredicates.headingPredicate([element])) {
+    return !cvox.DomUtil.findNode(element, function(n) {
+      return !!cvox.DomPredicates.controlPredicate([n]);
+    });
   }
   return false;
 };
@@ -529,7 +534,7 @@ cvox.DomUtil.getInputName_ = function(node) {
  * @return {string} See getName_.
  */
 cvox.DomUtil.getName = function(node, recursive, includeControls) {
-  if (node.cvoxGetNameMarked == true) {
+  if (!node || node.cvoxGetNameMarked == true) {
     return '';
   }
   node.cvoxGetNameMarked = true;
@@ -547,7 +552,8 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
  * @private
  */
 cvox.DomUtil.hasChildrenBasedName_ = function(node) {
-  if (node.tagName == 'A' ||
+  if (!!cvox.DomPredicates.linkPredicate([node]) ||
+      !!cvox.DomPredicates.headingPredicate([node]) ||
       node.tagName == 'BUTTON' ||
       cvox.AriaUtil.isControlWidget(node) ||
       !cvox.DomUtil.isLeafNode(node)) {
@@ -772,7 +778,8 @@ cvox.DomUtil.getValue = function(node) {
     node = /** @type {HTMLSelectElement} */(node);
     var value = '';
     var start = node.selectedOptions ? node.selectedOptions[0] : null;
-    var end = node.selectedOptions ? node.selectedOptions[node.selectedOptions.length - 1] : null;
+    var end = node.selectedOptions ?
+        node.selectedOptions[node.selectedOptions.length - 1] : null;
     // TODO(dtseng): Keeping this stateless means we describe the start and end
     // of the selection only since we don't know which was added or
     // removed. Once we keep the previous selection, we can read the diff.
@@ -969,8 +976,7 @@ cvox.DomUtil.hasContent = function(node) {
     }
   }
 
-  if (node.tagName == 'A' && node.getAttribute('href') &&
-      node.getAttribute('href') != '') {
+  if (!!cvox.DomPredicates.linkPredicate([node])) {
     return true;
   }
 
@@ -981,6 +987,10 @@ cvox.DomUtil.hasContent = function(node) {
 
   // Math is always considered to have content.
   if (cvox.DomUtil.isMath(node)) {
+    return true;
+  }
+
+  if (cvox.DomPredicates.headingPredicate([node])) {
     return true;
   }
 
@@ -1050,14 +1060,19 @@ cvox.DomUtil.compareAncestors = function(ancestorsA, ancestorsB) {
  *
  * @param {Node} previousNode The previous node.
  * @param {Node} currentNode The current node.
- * @return {Array.<Node>} An array of unique ancestors for the current node.
+ * @param {boolean=} opt_fallback True returns node's ancestors in the case
+ * where node's ancestors is a subset of previousNode's ancestors.
+ * @return {Array.<Node>} An array of unique ancestors for the current node
+ * (inclusive).
  */
-cvox.DomUtil.getUniqueAncestors = function(previousNode, currentNode) {
+cvox.DomUtil.getUniqueAncestors = function(
+    previousNode, currentNode, opt_fallback) {
   var prevAncestors = cvox.DomUtil.getAncestors(previousNode);
   var currentAncestors = cvox.DomUtil.getAncestors(currentNode);
   var divergence = cvox.DomUtil.compareAncestors(prevAncestors,
       currentAncestors);
-  return currentAncestors.slice(divergence);
+  var diff = currentAncestors.slice(divergence);
+  return (diff.length == 0 && opt_fallback) ? currentAncestors : diff;
 };
 
 
@@ -1176,14 +1191,16 @@ cvox.DomUtil.getStateMsgs = function(targetNode, primary) {
   }
 
   if (targetNode.tagName == 'INPUT') {
-    var INPUT_MSGS = {
-      'checkbox-true': 'checkbox_checked_state',
-      'checkbox-false': 'checkbox_unchecked_state',
-      'radio-true': 'radio_selected_state',
-      'radio-false': 'radio_unselected_state' };
-    var msgId = INPUT_MSGS[targetNode.type + '-' + !!targetNode.checked];
-    if (msgId) {
-      info.push([msgId]);
+    if (!targetNode.hasAttribute('aria-checked')) {
+      var INPUT_MSGS = {
+        'checkbox-true': 'checkbox_checked_state',
+        'checkbox-false': 'checkbox_unchecked_state',
+        'radio-true': 'radio_selected_state',
+        'radio-false': 'radio_unselected_state' };
+      var msgId = INPUT_MSGS[targetNode.type + '-' + !!targetNode.checked];
+      if (msgId) {
+        info.push([msgId]);
+      }
     }
   } else if (targetNode.tagName == 'SELECT') {
     if (targetNode.selectedOptions && targetNode.selectedOptions.length <= 1) {
@@ -1204,6 +1221,11 @@ cvox.DomUtil.getStateMsgs = function(targetNode, primary) {
 
   if (cvox.DomUtil.isDisabled(targetNode)) {
     info.push(['aria_disabled_true']);
+  }
+
+  if (cvox.DomPredicates.linkPredicate([targetNode]) &&
+      cvox.ChromeVox.visitedUrls[targetNode.href]) {
+    info.push(['visited_url']);
   }
 
   return info;
@@ -2201,12 +2223,63 @@ cvox.DomUtil.findMathNodeInList = function(nodes) {
 cvox.DomUtil.isMath = function(node) {
   return cvox.DomUtil.isMathml(node) ||
       cvox.DomUtil.isMathJax(node) ||
-          cvox.AriaUtil.isMath(node);
+          cvox.DomUtil.isMathImg(node) ||
+              cvox.AriaUtil.isMath(node);
 };
 
 
 /**
- * Checks to see wether a node is a MathML node.
+ * Specifies node classes in which we expect maths expressions a alt text.
+ * @type {{tex: Array.<string>,
+ *         asciimath: Array.<string>}}
+ */
+// These are the classes for which we assume they contain Maths in the ALT or
+// TITLE attribute.
+// tex: Wikipedia;
+// latex: Wordpress;
+// numberedequation, inlineformula, displayformula: MathWorld;
+cvox.DomUtil.ALT_MATH_CLASSES = {
+  tex: ['tex', 'latex'],
+  asciimath: ['numberedequation', 'inlineformula', 'displayformula']
+};
+
+
+/**
+ * Composes a query selector string for image nodes with alt math content by
+ * type of content.
+ * @param {string} contentType The content type, e.g., tex, asciimath.
+ * @return {!string} The query elector string.
+ */
+cvox.DomUtil.altMathQuerySelector = function(contentType) {
+  var classes = cvox.DomUtil.ALT_MATH_CLASSES[contentType];
+  if (classes) {
+    return classes.map(function(x) {return 'img.' + x;}).join(', ');
+  }
+  return '';
+};
+
+
+/**
+ * Check if a given node is potentially a math image with alternative text in
+ * LaTeX.
+ * @param {Node} node The node to be tested.
+ * @return {boolean} Whether or not a node has an image with class TeX or LaTeX.
+ */
+cvox.DomUtil.isMathImg = function(node) {
+  if (!node || !node.tagName || !node.className) {
+    return false;
+  }
+  if (node.tagName != 'IMG') {
+    return false;
+  }
+  var className = node.className.toLowerCase();
+  return cvox.DomUtil.ALT_MATH_CLASSES.tex.indexOf(className) != -1 ||
+      cvox.DomUtil.ALT_MATH_CLASSES.asciimath.indexOf(className) != -1;
+};
+
+
+/**
+ * Checks to see whether a node is a MathML node.
  * !! This is necessary as Chrome currently does not upperCase Math tags !!
  * @param {Node} node The node to be tested.
  * @return {boolean} Whether or not a node is a MathML node.
@@ -2239,6 +2312,24 @@ cvox.DomUtil.isMathJax = function(node) {
     return ancestors.some(function(x) {return isSpanWithClass(x, 'mathjax');});
   }
   return false;
+};
+
+
+/**
+ * Computes the id of the math span in a MathJax DOM element.
+ * @param {string} jaxId The id of the MathJax node.
+ * @return {?string} The id of the span node.
+ */
+cvox.DomUtil.getMathSpanId = function(jaxId) {
+  var node = document.getElementById(jaxId + '-Frame');
+  if (!node) {
+    return null;
+  }
+  var span = node.querySelector('span.math');
+  if (span) {
+    return span.id;
+  }
+  return null;
 };
 
 

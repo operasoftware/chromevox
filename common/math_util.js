@@ -158,7 +158,7 @@ cvox.MathUtil.isScript = function(element) {
  * Array of MathML Table and Matrix tokens.
  * @type {!Array.<string>}
  */
-cvox.MathUtil.TABLES_LIST = ['MTABLE', 'MTABLE', 'MLABELEDTR', 'MTR', 'MTD',
+cvox.MathUtil.TABLES_LIST = ['MTABLE', 'MLABELEDTR', 'MTR', 'MTD',
                              'MALIGNGROUP', 'MALIGNMARK'];
 
 
@@ -317,9 +317,11 @@ cvox.MathUtil.applyFunction = function(node, xpath) {
 
 // TODO (sorge) Add custom functions in the next two functions as well.
 /**
- * Applies an Xpath selector to the node and returns the first result.
+ * Applies either an Xpath selector or a custom function to the node
+ * and returns the resulting node list.
  * @param {Node} node The initial node.
- * @param {string} xpath An Xpath expression string.
+ * @param {string} xpath An Xpath expression string or a name of a custom
+ *     function.
  * @return {Array.<Node>} The list of resulting nodes.
  */
 cvox.MathUtil.applySelector = function(node, xpath) {
@@ -335,9 +337,11 @@ cvox.MathUtil.applySelector = function(node, xpath) {
 
 
 /**
- * Applies a boolean Xpath selector to the node.
+ * Applies either an Xpath selector or a custom function to the node and returns
+ * the true if the application yields a non-empty result.
  * @param {Node} node The initial node.
- * @param {string} xpath An Xpath expression string.
+ * @param {string} xpath An Xpath expression string or a name of a custom
+ *     function.
  * @return {boolean} The result of the Xpath application.
  */
 cvox.MathUtil.applyConstraint = function(node, xpath) {
@@ -345,18 +349,30 @@ cvox.MathUtil.applyConstraint = function(node, xpath) {
   if (result && result.length > 0) {
     return true;
   }
-  // TODO (sorge) Refactor to XpathUtil.
-  try {
-    var xpathResult = node.ownerDocument.evaluate(
-        xpath,
-        node,
-        cvox.XpathUtil.resolveNameSpace,
-        XPathResult.BOOLEAN_TYPE,
-        null); // no existing results
-  } catch (err) {
-    return false;
+  return cvox.XpathUtil.evaluateBoolean(xpath, node);
+};
+
+
+/**
+ * Constructs a string from the given expression and the node.
+ * @param {Node} node The initial node.
+ * @param {string} xpath An Xpath expression string, a name of a custom
+ *     function or a string.
+ * @return {string} The result of the Xpath application.
+ */
+cvox.MathUtil.constructString = function(node, xpath) {
+  if (!xpath) {
+    return '';
   }
-  return xpathResult.booleanValue;
+  if (xpath.charAt(0) == '"') {
+    return xpath.slice(1, -1);
+  }
+  // TODO (sorge) Similar to custom functions that compute node lists
+  // (currently given in cvox.MathJaxUtil.customFunctionMapping)
+  // we will want to have custom functions returning strings.
+  // This should be introduced when refactoring all this to the new
+  // speech rules.
+  return cvox.XpathUtil.evaluateString(xpath, node);
 };
 
 
@@ -393,10 +409,67 @@ cvox.MathUtil.nodeCounter = function(nodes, context) {
 
 
 /**
+ * Constructs a closure that returns separators for an MathML mfenced
+ * expression.
+ * Separators in MathML are represented by a list and used up one by one
+ * until the final element is used as the default.
+ * Example: a b c d e  and separators [+,-,*]
+ * would result in a + b - c * d * e.
+ * @param {string} separators String representing a list of mfenced separators.
+ * @return {function(): string|null} A closure that returns the next separator
+ * for an mfenced expression starting with the first node in nodes.
+ */
+cvox.MathUtil.nextSeparatorFunction = function(separators) {
+  if (separators) {
+    if (separators.match(/^\s+$/)) {
+      return null;
+    } else {
+      var sepList = separators.replace(/\s/g, '')
+          .split('')
+              .filter(function(x) {return x;});
+    }
+  } else {
+    // When no separator is given MathML uses comma as default.
+    var sepList = [','];
+  }
+
+  return function() {
+    if (sepList.length > 1) {
+      return sepList.shift();
+    }
+    return sepList[0];
+  };
+};
+
+
+/**
+ * Computes the correct separators for each node.
+ * @param {Array.<Node>} nodes A node array.
+ * @param {?string} context A context string.
+ * @return {function(): string} A closure that returns the next separator for an
+ * mfenced expression starting with the first node in nodes.
+ */
+cvox.MathUtil.mfencedSeparators = function(nodes, context) {
+  // Local state.
+  var separators = nodes[0].parentNode.getAttribute('separators');
+  var isFirstElement = true;
+  var nextSeparator = cvox.MathUtil.nextSeparatorFunction(separators);
+  return function() {
+    if (isFirstElement) {
+      isFirstElement = false;
+      return '';
+    }
+    return nextSeparator ? nextSeparator() : '';
+  };
+};
+
+
+/**
  * Enumerates context functions which may be referred to in math_node_rules.js.
  * @const
  * @type {!Object.<string, cvox.MathUtil.ContextFunction_>}
  */
 cvox.MathUtil.CONTEXT_FUNCTIONS = {
-  'nodeCounter': cvox.MathUtil.nodeCounter
+  'nodeCounter': cvox.MathUtil.nodeCounter,
+  'mfSeparators': cvox.MathUtil.mfencedSeparators
 };

@@ -330,10 +330,23 @@ cvox.AutoRunner.prototype.runTests = function() {
  * Displays the results of running the tests.
  */
 cvox.AutoRunner.prototype.displayResults = function() {
+
+  var colorStatus = function(status) {
+  switch (status) {
+    case cvox.AutoRunner.FAIL:
+    return '<font color="red">fail</font>';
+    case cvox.AutoRunner.PASS:
+    return '<font color="green">pass</font>';
+    default:
+    return status;
+  }
+  };
+
+
   document.body.innerHTML = '<h1>Tests Done</h1><br>';
   for (var i = 0, result; result = this.results_[i]; i++) {
     document.body.innerHTML = document.body.innerHTML + result.tag + ': ' +
-        result.status + '<br>';
+        colorStatus(result.status) + '<br>';
   }
 };
 
@@ -350,6 +363,7 @@ cvox.AutoRunner.prototype.runTestCase = function(testcase) {
                    testcase[propertyName], testcase);
     }
   }
+  testcase.setUpTest();
   this.runTests();
 };
 

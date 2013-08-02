@@ -19,29 +19,58 @@
 
 goog.provide('cvox.MathAtom');
 
-goog.require('cvox.MathSpeechRule');
 goog.require('cvox.MathUtil');
+goog.require('cvox.SpeechRule');
 
 
 /** Basic MathAtom object
- * @param {string} key For the Atomic object.
+ * @param {string} key For the Atom.
+ * @param {string} category The category of the Atom.
+ * @param {cvox.MathAtom.DomainMapping} mappings Domain mappings for speech
+ * rules.
  * @constructor
  */
-cvox.MathAtom = function(key) {
-
-  this.key = key;
-  // TODO (sorge) Make this into a proper rules type.
-  // This might not be used in every atom.
-  this.category = '';
+cvox.MathAtom = function(key, category, mappings) {
   /**
-   * Mapping for domains and speech rules.
-   * Default mapping is to the key.
-   * @type {Object.<string, Object.<string, string|Array.<string>|cvox.MathSpeechRule.rule>>}
+   * @type {string}
+   */
+  this.key = key;
+
+  /**
+   * @type {string}
+   */
+  this.category = '';
+
+  /**
+   * Mapping for domains and styles.
+   * Here domains is meant to be the mathematical domain while styles are the
+   * particular ways in which rules for the domain are implemented.
+   * For example, we could have three different type of styles for the domain
+   * of geometry: default, verbose, short.
+   * Hence a math atom has domain mappings, associating mathematical domains
+   * with one or several styles, and style mappings associating particular
+   * styles with actual speech rules.
+   * Default mapping (default domain and default style) is to the key.
+   * @type {cvox.MathAtom.DomainMapping}
    * @private
    */
-  this.mappings_ = {'default' : {'default' : key}};
-
+  this.mappings_ = mappings ? mappings :
+      {'default': {'default': cvox.MathAtom.textRuleFromString_(key)}};
 };
+
+
+/**
+ * Type of style mappings for Math Atoms.
+ * @typedef {Object.<string, cvox.SpeechRule.Rule>}
+ */
+cvox.MathAtom.StyleMapping;
+
+
+/**
+ * Type of domain mappings for Math Atoms.
+ * @typedef {Object.<string, cvox.MathAtom.StyleMapping>}
+ */
+cvox.MathAtom.DomainMapping;
 
 
 /**
@@ -54,8 +83,8 @@ cvox.MathAtom.prototype.getKey = function() {
 
 
 /**
- *  Sets the category of a MathAtom.
- * @param {string} category string.
+ * Sets the category of a MathAtom.
+ * @param {string} category The category string.
  */
 cvox.MathAtom.prototype.setCategory = function(category) {
   this.category = category;
@@ -72,7 +101,7 @@ cvox.MathAtom.prototype.getCategory = function() {
 
 /**
  *
- * @return {Object} The mappings objects of a MathAtom.
+ * @return {cvox.MathAtom.DomainMapping} The domain mappings of a MathAtom.
  */
 cvox.MathAtom.prototype.getMappings = function() {
   return this.mappings_;
@@ -81,77 +110,59 @@ cvox.MathAtom.prototype.getMappings = function() {
 
 /**
  * Customizes an atom mapping. Possibly updates the old mapping if it existed.
- * @param {string} domain in which the mapping is valid.
- * @param {Object.<string, string|Array.<string|Object|null>>} value
- *     Codomain value that should be returned for that domain.
+ * @param {string} domain Domain to which the style mapping is to be attached.
+ * @param {cvox.MathAtom.StyleMapping} maps The new style mapping.
  */
-cvox.MathAtom.prototype.addMapping = function(domain, value) {
-  this.mappings_[domain] = value;
+cvox.MathAtom.prototype.addMapping = function(domain, maps) {
+  for (var style in maps) {
+    this.mappings_[domain][style] = maps[style];
+  }
 };
 
 
 /**
  * Customizes an atom mapping. Possibly updates the old mapping if it existed.
- * @param {Object} maps that relate key strings to value strings.
+ * @param {cvox.MathAtom.DomainMapping} maps that relate key strings to value
+ * strings.
  */
 cvox.MathAtom.prototype.addMappings = function(maps) {
-  for (var map in maps) {
-    this.mappings_[map] = maps[map];
+  for (var domain in maps) {
+    this.hasMapping(domain) ?
+        this.addMapping(domain, maps[domain]) :
+            this.mappings_[domain] = maps[domain];
   }
 };
 
 
 /**
- * Returns the value of a mapping given its domain. Returns default if
- * no mapping for that domain exists.
+ * Returns the speech rule of a mapping if it exists.
  * @param {string} domain of the mapping.
- * @param {string} rule of the mapping.
- * @return {string|Array.<string|Object|null>} Codomain of the mapping
- *     for the given rule.
+ * @param {string} style of the mapping.
+ * @return {cvox.SpeechRule.Rule} Speech rule of the given domain and style.
  */
-cvox.MathAtom.prototype.mapping = function(domain, rule) {
+cvox.MathAtom.prototype.mappingRule = function(domain, style) {
   var mapping = this.mappings_[domain];
-  var value = mapping ? mapping[rule] : this.mappings_['default'][rule];
+  var value = mapping ? mapping[style] : this.mappings_['default'][style];
   if (value) {
     return value;
   }
-  // In case there is deliberately an empty mapping!
-  else if (value === '') {
-    return '';
-  } else {
-    return this.mappings_['default']['default'];
-  }
+  return this.mappings_['default']['default'];
 };
 
 
 /**
- * Returns the value of a mapping given its domain if it is a string.
+ * Returns the string value of a mapping given by domain and style.
+ * Here the string value is the concatenation of content strings of the speech
+ * rule components.
  * @param {string} domain of the mapping.
- * @param {string} rule of the mapping.
- * @return {string} Codomain of the mapping for the given rule.
+ * @param {string} style of the mapping.
+ * @return {string} String version of the speech rule.
  */
-cvox.MathAtom.prototype.mappingString = function(domain, rule) {
-  var mapping = this.mapping(domain, rule);
-  if (typeof(mapping) == 'string') {
-    return mapping;
-  }
-  return '';
-};
-
-
-/**
- * Returns the value of a mapping given its domain if it is a rule.
- * @param {string} domain of the mapping.
- * @param {string} rule of the mapping.
- * @return {Array.<string|Object|null>} Codomain of the mapping for
- *     the given rule.
- */
-cvox.MathAtom.prototype.mappingRule = function(domain, rule) {
-  var mapping = this.mapping(domain, rule);
-  if (typeof(mapping) != 'string') {
-    return mapping;
-  }
-  return [];
+cvox.MathAtom.prototype.mappingString = function(domain, style) {
+  var speechRule = this.mappingRule(domain, style);
+  return speechRule.components.
+      map(function(x) {return x.content;}).
+          join(' ');
 };
 
 
@@ -176,35 +187,16 @@ cvox.MathAtom.prototype.allDomains = function() {
 
 
 /**
- * @return {Array.<string|Array.<string|Object|null>>} Set of all
- *     rules in the atom.
+ * @return {Array.<string>} Set of all styles in the atom.
  */
-cvox.MathAtom.prototype.allRules = function() {
-
-  var rules = [];
+cvox.MathAtom.prototype.allStyles = function() {
+  var styles = [];
   for (var map in this.getMappings()) {
     // Explicit cast to keep the compiler happy!
-    rules = cvox.MathUtil.union(
-        rules, Object.keys(/** @type {!Object} */ (this.getMappings()[map])));
+    styles = cvox.MathUtil.union(
+        styles, Object.keys(/** @type {!Object} */ (this.getMappings()[map])));
   }
-  return rules;
-};
-
-
-/**
- * Makes a MathAtom from an initial objects.
- * @param {string} key For the Atom.
- * @param {string} category of the Atom.
- * @param {Object} mappings for the domain specific translations.
- * @return {cvox.MathAtom} The newly created atom.
- */
-cvox.MathAtom.make = function(key, category, mappings) {
-
-  var that = new cvox.MathAtom(key);
-
-  if (category) { that.setCategory(category); }
-  if (mappings) { that.addMappings(mappings); }
-  return that;
+  return styles;
 };
 
 
@@ -220,26 +212,51 @@ cvox.MathAtom.Types = {
 };
 
 
-// For debugging:
-
 /**
- *
- * @return {string} The Atom as a string.
+ * Turns a domain mapping from its JSON representation containing simple strings
+ * only into a domain mapping containing speech rules.
+ * @param {Object.<string, Object.<string, string>>} mappings Simple string
+ * mapping.
+ * @return {cvox.MathAtom.DomainMapping} The updated domain mapping.
  */
-
-cvox.MathAtom.prototype.toString = function() {
-
-  var output = '';
-  var mappings = this.getMappings();
-
-  output += 'key:\t\t' + this.getKey();
-  output += '\ncategory:\t\t' + this.getCategory();
-  output += '\nmappings:';
+cvox.MathAtom.mappingsFromJSON = function(mappings) {
+  var newMappings = new Object;
   for (var domain in mappings) {
-    output += '\n\t' + domain + ':';
-    for (var rule in mappings[domain]) {
-      output += '\n\t\t' + rule + ' -> ' + mappings[domain][rule];
+    newMappings[domain] = new Object;
+    for (var style in mappings[domain]) {
+      newMappings[domain][style] =
+          cvox.MathAtom.textRuleFromString_(mappings[domain][style]);
     }
   }
-  return output;
+  return newMappings;
+};
+
+
+/**
+ * @override
+ */
+cvox.MathAtom.prototype.toString = function() {
+  var output = this.getKey() + ':';
+  var mappings = this.getMappings();
+  for (var domain in mappings) {
+    for (var style in mappings[domain]) {
+      output += '\t' + domain + ', ' + style + ': ' +
+          mappings[domain][style].toString() + '\n';
+    }
+  }
+  return output.slice(0, -1);
+};
+
+
+// TODO (sorge) Move eventually into speech_rule.
+/**
+ * Creates a simple speech rule with singular text component from a string.
+ * @param {string} str The text for the speech rule.
+ * @return {!cvox.SpeechRule.Rule} The new speech rule.
+ * @private
+ */
+cvox.MathAtom.textRuleFromString_ = function(str) {
+  var comp = new cvox.SpeechRule.Component({type: cvox.SpeechRule.Type.TEXT,
+                                            content: str});
+  return new cvox.SpeechRule.Rule([comp]);
 };

@@ -26,7 +26,7 @@ goog.require('cvox.BareObjectWalker');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EarconUtil');
-goog.require('cvox.MathShifter');
+goog.require('cvox.MathSpeak');
 goog.require('cvox.NavDescription');
 
 
@@ -201,24 +201,7 @@ cvox.DescriptionUtil.getDescriptionFromNavigation =
   // basic notion of how to describe nodes of all types without necessarily
   // knowing how to traverse it.
   if (cvox.DomUtil.isMath(node) && !cvox.AriaUtil.isMath(node)) {
-    // TODO(sorge): Using math shifter here pulls in both math speak and
-    // traversal. We only really want a utility class to generate descriptions.
-    var sel = /** @type {!cvox.CursorSelection} */(
-        cvox.CursorSelection.fromNode(node));
-    var mathShifter = cvox.MathShifter.create(sel);
-
-    // MathShifter should be stateless, but it's not, so we need to sync first
-    // for it to initialize itself.
-    mathShifter.sync(sel);
-
-    if (!sel) {
-      // Unable to sync to this node; probably an issue in the shifter.
-      return [new cvox.NavDescription({'text': 'empty math'})];
-    }
-
-    var ret = mathShifter.getDescription(sel, sel);
-    ret[ret.length - 1].annotation = 'math';
-    return ret;
+    return cvox.MathSpeak.getDescriptionForNode(node);
   }
 
   // Next, check to see if the current node is a collection type.
@@ -231,7 +214,7 @@ cvox.DescriptionUtil.getDescriptionFromNavigation =
   }
 
   // Now, generate a description for all other elements.
-  var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node);
+  var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node, true);
   var desc = cvox.DescriptionUtil.getDescriptionFromAncestors(
       ancestors, recursive, verbosity);
   var prevAncestors = cvox.DomUtil.getUniqueAncestors(node, prevNode);

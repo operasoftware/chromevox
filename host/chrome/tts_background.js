@@ -22,6 +22,7 @@
 goog.provide('cvox.TtsBackground');
 
 goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeTtsBase');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.MathMap');
 goog.require('cvox.MathSpeak');
@@ -30,31 +31,25 @@ goog.require('cvox.MathSpeak');
  * @constructor
  * @param {boolean=} opt_enableMath Whether to process math. Used when running
  * on forge. Defaults to true.
- * @extends {cvox.AbstractTts}
+ * @extends {cvox.ChromeTtsBase}
  */
 cvox.TtsBackground = function(opt_enableMath) {
   opt_enableMath = opt_enableMath == undefined ? true : opt_enableMath;
   goog.base(this);
-  var defaultVolume = 1;
-  var defaultPitch = 1;
-  var defaultRate = 1;
-  this.currentVoice = '';
+  this.currentVoice = localStorage['voiceName'] || '';
 
   this.ttsProperties['rate'] = (parseFloat(localStorage['rate']) ||
-                                defaultRate);
+      this.propertyDefault['rate']);
   this.ttsProperties['pitch'] = (parseFloat(localStorage['pitch']) ||
-                                 defaultPitch);
+      this.propertyDefault['pitch']);
   this.ttsProperties['volume'] = (parseFloat(localStorage['volume']) ||
-                                  defaultVolume);
+      this.propertyDefault['volume']);
 
-  this.propertyMin['pitch'] = 0.2;
-  this.propertyMax['pitch'] = 2.0;
-
-  this.propertyMin['rate'] = 0.2;
-  this.propertyMax['rate'] = 5.0;
-
-  this.propertyMin['volume'] = 0.2;
-  this.propertyMax['volume'] = 1.0;
+  // Use the current locale as the speech language if not otherwise
+  // specified.
+  if (this.ttsProperties['lang'] == undefined) {
+    this.ttsProperties['lang'] = cvox.ChromeVox.msgs.getLocale();
+  }
 
   this.lastEventType = 'end';
 
@@ -109,7 +104,7 @@ cvox.TtsBackground = function(opt_enableMath) {
     {
       name: 'all',
       msg: 'all_punctuation',
-      regexp: /[-$#"()*;:<>\n\\\/\{\}+='~`!@_.,?%]/g,
+      regexp: /[-$#"()*;:<>\n\\\/\{\}\[\]+='~`!@_.,?%]/g,
       clear: false
     }
   ];
@@ -127,9 +122,8 @@ cvox.TtsBackground = function(opt_enableMath) {
   /**
    * Mapping for math elements.
    * @type {cvox.MathMap}
-   * @private
    */
-  this.mathMap_ = opt_enableMath ? new cvox.MathMap() : null;
+  this.mathmap = opt_enableMath ? new cvox.MathMap() : null;
 
   /**
    * The id of a callback returned from setTimeout.
@@ -156,7 +150,7 @@ cvox.TtsBackground = function(opt_enableMath) {
    */
   this.capturingTtsEventListeners_ = [];
 };
-goog.inherits(cvox.TtsBackground, cvox.AbstractTts);
+goog.inherits(cvox.TtsBackground, cvox.ChromeTtsBase);
 
 
 /**
@@ -379,31 +373,21 @@ cvox.TtsBackground.prototype.preprocess = function(text, properties) {
   text =
       text.replace(pE.regexp, this.createPunctuationReplace_(pE.clear));
 
-  // TODO(dtseng): Google TTS poorly pronounces these words when spoken without
-  // context. Sub them with something TTS actually pronounces well and remove
-  // once fixed.
-  if (/^to$|\Wto$/.test(text.toLowerCase())) {
-    text = text.slice(0, -2) + 'too';
-  } else if (text.toLowerCase() == 'the') {
-    text = 'thee';
-  }
-
   // Try pronouncing phonetically for single characters. Cancel previous calls
   // to pronouncePhonetically_ if we fail to pronounce on this invokation or if
   // this text is math which should never be pronounced phonetically.
-  if (properties.math || !this.pronouncePhonetically_(text)) {
+  if (properties.math ||
+      !properties['phoneticCharacters'] ||
+      !this.pronouncePhonetically_(text)) {
     this.clearTimeout_();
   }
 
   // Try looking up in our unicode tables for a short description.
-  if (text.length == 1 && this.mathMap_) {
-    var mathAtom = this.mathMap_.symbols().getSymbolByCode(
+  if (text.length == 1 && this.mathmap) {
+    var mathAtom = this.mathmap.symbols().getSymbolByCode(
         text.toLowerCase().charCodeAt(0));
     if (mathAtom) {
-      var mapping = mathAtom.mapping('', 'short');
-      if (typeof(mapping) == 'string') {
-        text = mapping;
-      }
+      text = mathAtom.mappingString('', 'short');
     }
   }
 
@@ -437,23 +421,23 @@ cvox.TtsBackground.prototype.cyclePunctuationEcho = function() {
  * @private
  */
 cvox.TtsBackground.prototype.preprocessMath_ = function(text, math) {
-  if (!this.mathMap_) {
+  if (!this.mathmap) {
     return text;
   }
   var result = '';
   var type = math['type'];
   switch (type) {
   case cvox.MathAtom.Types.FUNCTION:
-    result = this.mathMap_.functions().getFunctionByName(text);
+    result = this.mathmap.functions().getFunctionByName(text);
     break;
   case cvox.MathAtom.Types.SYMBOL:
-    result = (this.mathMap_.symbols()).getSymbolByCode(text.charCodeAt(0));
+    result = (this.mathmap.symbols()).getSymbolByCode(text.charCodeAt(0));
     break;
   case cvox.MathAtom.Types.SURROGATE:
     var hi = text.charCodeAt(0);
     var low = text.charCodeAt(1);
     var code = ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
-    result = (this.mathMap_.symbols()).getSymbolByCode(code);
+    result = (this.mathmap.symbols()).getSymbolByCode(code);
     break;
   case cvox.MathAtom.Types.REST:
     return text;

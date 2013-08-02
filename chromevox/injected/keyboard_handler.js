@@ -88,46 +88,12 @@ cvox.ChromeVoxKbHandler.sortKeyToFunctionsTable_ = function(
 
 
 /**
- * Checks if ChromeVox must pass the enter key to the browser.
- * For example, if the user has focus on an input field, link, button,
- * etc., then that takes precedence over anything else ChromeVox
- * might be doing and so it must pass the enter key to the browser.
- *
- * @return {boolean} True if an Enter key event must be passed to the browser.
- */
-cvox.ChromeVoxKbHandler.mustPassEnterKey = function() {
-  var activeElement = document.activeElement;
-  if (!activeElement) {
-    return false;
-  }
-  return (activeElement.isContentEditable) ||
-         (activeElement.getAttribute('role') == 'textbox') ||
-         (activeElement.tagName == 'INPUT') ||
-         (activeElement.tagName == 'A' &&
-             !cvox.DomUtil.isInternalLink(activeElement)) ||
-         (activeElement.tagName == 'SELECT') ||
-         (activeElement.tagName == 'BUTTON') ||
-         (activeElement.tagName == 'TEXTAREA');
-};
-
-/**
  * Handles key down events.
  *
  * @param {Event} evt The key down event to process.
  * @return {boolean} True if the default action should be performed.
  */
 cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
-  // The enter key can be handled either by ChromeVox or by the browser.
-  if (evt.keyCode == 13 && cvox.ChromeVox.isActive) {
-    // TODO(stoarca): This block belongs inside actOnCurrentItem
-    // If this is an internal link, try to sync to it.
-    if (document.activeElement.tagName == 'A' &&
-        cvox.DomUtil.isInternalLink(document.activeElement)) {
-      cvox.DomUtil.syncInternalLink(document.activeElement);
-    }
-    return true;
-  }
-
   var keySequence = cvox.KeyUtil.keyEventToKeySequence(evt);
 
   var functionName;

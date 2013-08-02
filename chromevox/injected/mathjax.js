@@ -24,149 +24,165 @@ if (typeof(goog) != 'undefined' && goog.provide) {
 
 if (typeof(goog) != 'undefined' && goog.require) {
   goog.require('cvox.Api');
+  goog.require('cvox.MathJaxExternalUtil');
 }
 
 (function() {
-   /**
-    * The channel between the page and content script.
-    * @type {MessageChannel}
-    */
-   var channel_ = new MessageChannel();
+  /**
+   * The channel between the page and content script.
+   * @type {MessageChannel}
+   */
+  var channel_ = new MessageChannel();
 
 
-   /**
-    * MathJaxImplementation - this is only visible if all the scripts are
-    * compiled together like in the Android case. Otherwise, implementation
-    * will remain null which means communication must happen over the bridge.
-    *
-    * @type {*}
-    */
-   var implementation_ = null;
-   if (typeof(cvox.MathJaxImplementation) != 'undefined') {
-     implementation_ = cvox.MathJaxImplementation;
-   }
+  /**
+   * @constructor
+   */
+  cvox.MathJax = function() {
+  };
 
 
-   /**
-    * @constructor
-    */
-   cvox.MathJax = function() {
-   };
+  /**
+   * Initializes message channel in Chromevox.
+   */
+  cvox.MathJax.initMessage = function() {
+    channel_.port1.onmessage = function(evt) {
+      cvox.MathJax.execMessage(evt.data);
+    };
+    window.postMessage('cvox.MathJaxPortSetup', [channel_.port2], '*');
+  };
 
 
-   /**
-    * Initialises message channel in Chromevox.
-    */
-   cvox.MathJax.initMessage = function() {
-     if (!implementation_) {
-       channel_.port1.onmessage = function(evt) {
-             cvox.MathJax.execMessage(evt.data);
-           };
-       window.postMessage('cvox.MathJaxPortSetup', [channel_.port2], '*');
-     }
-   };
+  /**
+   * Post a message to Chromevox.
+   * @param {string} cmd The command to be executed in Chromevox.
+   * @param {string} callbackId A string representing the callback id.
+   * @param {Object.<string, *>} args Dictionary of arguments.
+   */
+  cvox.MathJax.postMessage = function(cmd, callbackId, args) {
+    channel_.port1.postMessage({'cmd': cmd, 'id': callbackId, 'args': args});
+  };
 
 
-   /**
-    * Post a message to Chromevox.
-    * @param {string} cmd The command to be executed in Chromevox.
-    * @param {Array} args List of arguments.
-    */
-   cvox.MathJax.postMessage = function(cmd, args) {
-     if (!implementation_) {
-       channel_.port1.postMessage(
-           JSON.stringify({'cmd': cmd, 'args': args}));
-     } else {
-       implementation_.dispatchMessage({'cmd': cmd, 'args': args});
-     }
-   };
+  /**
+   * Executes a command for an incoming message.
+   * @param {{cmd: string, id: string, args: string}} msg A
+   *     serializable message.
+   */
+  cvox.MathJax.execMessage = function(msg) {
+    var args = msg.args;
+    switch (msg.cmd) {
+      case 'Active':
+        cvox.MathJax.isActive(msg.id);
+      break;
+      case 'AllJax':
+        cvox.MathJax.getAllJax(msg.id);
+      break;
+      case 'AsciiMathToMml':
+        cvox.MathJax.asciiMathToMml(msg.id, args.alt, args.id);
+      break;
+      case 'InjectScripts':
+        cvox.MathJax.injectScripts();
+      break;
+      case 'RegSig':
+        cvox.MathJax.registerSignal(msg.id, args.sig);
+      break;
+      case 'TexToMml':
+        cvox.MathJax.texToMml(msg.id, args.alt, args.id);
+      break;
+    }
+  };
 
 
-   /**
-    * Executes a command for an incoming message.
-    * @param {{cmd: string, id: string, args: string}} msg A
-    *     serializable message.
-    */
-   cvox.MathJax.execMessage = function(msg) {
-     var args = [];
-     if (msg.args) {
-       args = JSON.parse(msg.args);
-     }
-     switch (msg.cmd) {
-     case 'Active': cvox.MathJax.isActive(msg.id); break;
-     case 'NodeMML': cvox.MathJax.getCurrentNodeMML(msg.id); break;
-     case 'IdMML': cvox.MathJax.getNodeMMLById(msg.id, args[0]); break;
-     }
-   };
+  /**
+   * Compute the MathML representation for all currently available MathJax
+   * nodes.
+   * @param {string} callbackId A string representing the callback id.
+   */
+  cvox.MathJax.getAllJax = function(callbackId) {
+    cvox.MathJaxExternalUtil.getAllJax(
+        cvox.MathJax.getMathmlCallback_(callbackId));
+  };
 
 
-   // TODO (sorge) Refactor to a common util module.
-   /**
-    * Compute the MathML representation of a MathJax element.
-    * @param {Object} jax MathJax object.
-    * @param {Function} fn Callback function.
-    */
-   cvox.MathJax.getMathML = function(jax, fn) {
-     try {
-       var mathMl = jax.root.toMathML('');
-     } catch (err) {
-       // Taken and adapted from MathJax extensions/MathMenu.js
-       if (!err.restart) {throw err;}
-       MathJax.Callback.After([cvox.MathJax.getMathML, jax, fn], err.restart);
-     }
-     MathJax.Callback(fn)(mathMl);
-   };
+  /**
+   * Registers a callback for a particular Mathjax signal.
+   * @param {string} callbackId A string representing the callback id.
+   * @param {string} signal The Mathjax signal on which to fire the callback.
+   */
+  cvox.MathJax.registerSignal = function(callbackId, signal) {
+    cvox.MathJaxExternalUtil.registerSignal(
+        cvox.MathJax.getMathmlCallback_(callbackId), signal);
+  };
 
 
-   /**
-    * Compute the MathML representation for the current node if it is a
-    * MathJax node.
-    * @param {string} id A string representing the callback id.
-    */
-   cvox.MathJax.getCurrentNodeMML = function(id) {
-     cvox.Api.getCurrentNode(
-       function(node) {
-         var jax = MathJax.Hub.getJaxFor(node);
-         if (jax) {
-           cvox.MathJax.getMathML(jax,
-                                  function(x) {
-                                    cvox.MathJax.postMessage(
-                                      'NodeMML', [id, x]);});}});
-   };
+  /**
+   * Constructs a callback that posts a string with the MathML representation of
+   * a MathJax element to ChromeVox.
+   * @param {string} callbackId A string representing the callback id.
+   * @return {function(Node, string)} A function taking a Mathml node and an id
+   * string.
+   * @private
+   */
+  cvox.MathJax.getMathmlCallback_ = function(callbackId) {
+    return function(mml, id) {
+      cvox.MathJax.postMessage('NodeMml', callbackId,
+                               {'mathml': mml, 'elementId': id});
+    };
+  };
 
 
-
-   /**
-    * Compute the MathML representation for a given node id.
-    * @param {string} callbackId A string representing the callback id.
-    * @param {Array.<string>} nodeId A string representing the Mathjax node id.
-    */
-   cvox.MathJax.getNodeMMLById = function(callbackId, nodeId) {
-     var node = document.getElementById(nodeId);
-     if (node) {
-       var jax = MathJax.Hub.getJaxFor(node);
-       cvox.MathJax.getMathML(jax,
-                              function(x) {
-                                cvox.MathJax.postMessage(
-                                    'NodeMML', [callbackId, x]);});}
-   };
+  /**
+   * Inject a minimalistic MathJax script into a page for LaTeX translation.
+   */
+  cvox.MathJax.injectScripts = function() {
+    cvox.MathJaxExternalUtil.injectConfigScript();
+    cvox.MathJaxExternalUtil.injectLoadScript();
+  };
 
 
+  /**
+   * Translates a LaTeX expressions into a MathML element.
+   * @param {string} callbackId A string representing the callback id.
+   * @param {string} tex The LaTeX expression.
+   * @param {string} cvoxId A string representing the cvox id for the node.
+   */
+  cvox.MathJax.texToMml = function(callbackId, tex, cvoxId) {
+    cvox.MathJaxExternalUtil.texToMml(
+        tex, true,
+        function(mml) {
+          cvox.MathJax.getMathmlCallback_(callbackId)(mml, cvoxId);
+        });
+  };
 
-   /**
-    * Check if MathJax is injected in the page.
-    * @param {string} id A string representing the callback id.
-    * @return {boolean} True if MathJax is active.
-    */
-   cvox.MathJax.isActive = function(id) {
-     if (typeof(MathJax) == 'undefined') {
-       cvox.MathJax.postMessage('Active', [id, false]);
-     } else {
-       cvox.MathJax.postMessage('Active', [id, true]);
-     }
-   };
 
-   // Initializing the bridge.
-   cvox.MathJax.initMessage();
+  /**
+   * Translates an AsciiMath expression into a MathML element.
+   * @param {string} callbackId A string representing the callback id.
+   * @param {string} asciiMath The AsciiMath expression.
+   * @param {string} cvoxId A string representing the cvox id for the node.
+   */
+  cvox.MathJax.asciiMathToMml = function(callbackId, asciiMath, cvoxId) {
+    cvox.MathJaxExternalUtil.asciiMathToMml(
+        asciiMath, true,
+        function(mml) {
+          cvox.MathJax.getMathmlCallback_(callbackId)(mml, cvoxId);
+        });
+  };
+
+
+  /**
+   * Check if MathJax is injected in the page.
+   * @param {string} callbackId A string representing the callback id.
+   */
+  cvox.MathJax.isActive = function(callbackId) {
+    cvox.MathJax.postMessage(
+        'Active', callbackId,
+        {'status': cvox.MathJaxExternalUtil.isActive()});
+  };
+
+
+  // Initializing the bridge.
+  cvox.MathJax.initMessage();
 
 })();

@@ -99,3 +99,16 @@ cvox.CompositeTts.prototype.increaseOrDecreaseProperty =
     engine.increaseOrDecreaseProperty(propertyName, increase);
   });
 };
+
+
+/**
+ * @override
+ */
+cvox.CompositeTts.prototype.getDefaultProperty = function(property) {
+  for (var i = 0, engine; engine = this.ttsEngines_[i]; i++) {
+    var value = engine.getDefaultProperty(property);
+    if (value) {
+      return value;
+    }
+  }
+};

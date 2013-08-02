@@ -117,3 +117,47 @@ cvox.XpathUtil.xpathSupported = function() {
   }
   return true;
 };
+
+
+/**
+ * Given an XPath expression and rootNode, it evaluates the XPath expression as
+ * a boolean type and returns the result.
+ * @param {string} expression The XPath expression to evaluate.
+ * @param {Node} rootNode The HTML node to start evaluating the XPath from.
+ * @return {boolean} The result of evaluating the xpath expression.
+ */
+cvox.XpathUtil.evaluateBoolean = function(expression, rootNode) {
+  try {
+    var xpathResult = rootNode.ownerDocument.evaluate(
+        expression,
+        rootNode,
+        cvox.XpathUtil.resolveNameSpace,
+        XPathResult.BOOLEAN_TYPE,
+        null); // no existing results
+  } catch (err) {
+    return false;
+  }
+  return xpathResult.booleanValue;
+};
+
+
+/**
+ * Given an XPath expression and rootNode, it evaluates the XPath expression as
+ * a string type and returns the result.
+ * @param {string} expression The XPath expression to evaluate.
+ * @param {Node} rootNode The HTML node to start evaluating the XPath from.
+ * @return {string} The result of evaluating the Xpath expression.
+ */
+cvox.XpathUtil.evaluateString = function(expression, rootNode) {
+  try {
+    var xpathResult = rootNode.ownerDocument.evaluate(
+        expression,
+        rootNode,
+        cvox.XpathUtil.resolveNameSpace,
+        XPathResult.STRING_TYPE,
+        null); // no existing results
+  } catch (err) {
+    return '';
+  }
+  return xpathResult.stringValue;
+};

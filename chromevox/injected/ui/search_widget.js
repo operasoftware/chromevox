@@ -98,10 +98,13 @@ cvox.SearchWidget.prototype.show = function() {
   promptNode.innerHTML = this.PROMPT_;
   overlayNode.appendChild(promptNode);
 
-  this.txtNode_ = document.createElement('span');
+  this.txtNode_ = this.createTextAreaNode_();
+
   overlayNode.appendChild(this.txtNode_);
 
   document.body.appendChild(containerNode);
+
+  this.txtNode_.focus();
 
   window.setTimeout(function() {
     containerNode.style['opacity'] = '1.0';
@@ -140,7 +143,18 @@ cvox.SearchWidget.prototype.hide = function(opt_noSync) {
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
       cvox.ChromeVox.navigationManager.getDescription(),
       cvox.AbstractTts.QUEUE_MODE_QUEUE,
-      null);
+      null,
+      cvox.AbstractTts.PERSONALITY_ANNOUNCEMENT);
+
+  // Update on Braille too.
+  // TODO: Use line granularity in search so we can simply call
+  // cvox.ChromeVox.navigationManager.getBraille().write() instead.
+  var text = this.textFromCurrentDescription_();
+  cvox.ChromeVox.braille.write(new cvox.NavBraille({
+    text: text,
+    startIndex: 0,
+    endIndex: 0
+  }));
 
   goog.base(this, 'hide', true);
 };
@@ -169,11 +183,11 @@ cvox.SearchWidget.prototype.onKeyDown = function(evt) {
   if (!this.isActive()) {
     return false;
   }
-  var searchStr = this.txtNode_.textContent;
+  var searchStr = this.txtNode_.value;
   if (evt.keyCode == 8) { // Backspace
     if (searchStr.length > 0) {
       searchStr = searchStr.substring(0, searchStr.length - 1);
-      this.txtNode_.textContent = searchStr;
+      this.txtNode_.value = searchStr;
       this.beginSearch_(searchStr);
     } else {
       cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
@@ -211,8 +225,8 @@ cvox.SearchWidget.prototype.onKeyPress = function(evt) {
     return false;
   }
 
-  this.txtNode_.textContent += String.fromCharCode(evt.charCode);
-  var searchStr = this.txtNode_.textContent;
+  this.txtNode_.value += String.fromCharCode(evt.charCode);
+  var searchStr = this.txtNode_.value;
   this.beginSearch_(searchStr);
   evt.preventDefault();
   evt.stopPropagation();
@@ -238,6 +252,20 @@ cvox.SearchWidget.prototype.getPredicate = function() {
 
 
 /**
+ * Goes to the next or previous result. For use in AndroidVox.
+ * @param {boolean=} opt_reverse Whether to find the next result in reverse.
+ * @return {Array.<cvox.NavDescription>} The next result.
+ */
+cvox.SearchWidget.prototype.nextResult = function(opt_reverse) {
+  if (!this.isActive()) {
+    return null;
+  }
+  var searchStr = this.txtNode_.value;
+  return this.next_(searchStr, opt_reverse);
+};
+
+
+/**
  * Create the container node for the search overlay.
  *
  * @return {!Element} The new element, not yet added to the document.
@@ -245,6 +273,7 @@ cvox.SearchWidget.prototype.getPredicate = function() {
  */
 cvox.SearchWidget.prototype.createContainerNode_ = function() {
   var containerNode = document.createElement('div');
+  containerNode.id = 'cvox-search';
   containerNode.style['position'] = 'fixed';
   containerNode.style['top'] = '50%';
   containerNode.style['left'] = '50%';
@@ -276,6 +305,26 @@ cvox.SearchWidget.prototype.createOverlayNode_ = function() {
   overlayNode.style['background-color'] = 'rgba(0, 0, 0, 0.7)';
   overlayNode.style['border-radius'] = '10px';
   return overlayNode;
+};
+
+
+/**
+ * Create the text area node. This should be the child of the node
+ * returned from createOverlayNode.
+ *
+ * @return {!Element} The new element, not yet added to the document.
+ * @private
+ */
+cvox.SearchWidget.prototype.createTextAreaNode_ = function() {
+  var textNode = document.createElement('textarea');
+  textNode.setAttribute('aria-hidden', 'true');
+  textNode.setAttribute('rows', '1');
+  textNode.style['color'] = '#fff';
+  textNode.style['background-color'] = 'rgba(0, 0, 0, 0.7)';
+  textNode.style['vertical-align'] = 'middle';
+  textNode.addEventListener('textInput',
+    this.handleSearchChanged_, false);
+  return textNode;
 };
 
 
@@ -354,7 +403,7 @@ cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
  */
 cvox.SearchWidget.prototype.beginSearch_ = function(searchStr) {
   var result = this.getNextResult_(searchStr);
-  this.outputSearchResult_(result);
+  this.outputSearchResult_(result, searchStr);
 };
 
 
@@ -384,7 +433,7 @@ cvox.SearchWidget.prototype.next_ = function(searchStr, opt_reversed) {
     success = cvox.ChromeVox.navigationManager.navigate(true);
   }
   var result = success ? this.getNextResult_(searchStr) : null;
-  this.outputSearchResult_(result);
+  this.outputSearchResult_(result, searchStr);
   this.onNavigate();
   return result;
 };
@@ -397,9 +446,10 @@ cvox.SearchWidget.prototype.next_ = function(searchStr, opt_reversed) {
  *
  * @param {Array.<cvox.NavDescription>} result The description of the next
  * result. If null, no more results were found and an error will be presented.
+ * @param {string} searchStr The text to search for.
  * @private
  */
-cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
+cvox.SearchWidget.prototype.outputSearchResult_ = function(result, searchStr) {
   cvox.ChromeVox.tts.stop();
   if (!result) {
     cvox.ChromeVox.earcons.playEarcon(cvox.AbstractEarcons.WRAP);
@@ -417,9 +467,87 @@ cvox.SearchWidget.prototype.outputSearchResult_ = function(result) {
   cvox.ChromeVox.navigationManager.speakDescriptionArray(
       result,
       cvox.AbstractTts.QUEUE_MODE_FLUSH,
-      null);
+      null,
+      cvox.AbstractTts.PERSONALITY_ANNOUNCEMENT);
 
   cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('search_help_item'),
                            cvox.AbstractTts.QUEUE_MODE_QUEUE,
                            cvox.AbstractTts.PERSONALITY_ANNOTATION);
+
+  // Output to Braille.
+  // TODO: Use line granularity in search so we can simply call
+  // cvox.ChromeVox.navigationManager.getBraille().write() instead.
+  this.outputSearchResultToBraille_(searchStr);
+};
+
+
+/**
+ * Writes the currently selected search result to Braille, with description
+ * text formatted for Braille display instead of speech.
+ *
+ * @param {string} searchStr The text to search for.
+ *    Should be in navigation manager's description.
+ * @private
+ */
+cvox.SearchWidget.prototype.outputSearchResultToBraille_ = function(searchStr) {
+  // Do nothing if braille instance not defined (as in tests).
+  if (!cvox.ChromeVox.braille) {
+    return;
+  }
+
+  // Construct object we can pass to Chromevox.braille to write.
+  // We concatenate the text together and set the "cursor"
+  // position to be at the end of search query string
+  // (consistent with editing text in a field).
+  var text = this.textFromCurrentDescription_();
+  var targetStr = this.caseSensitive_ ? text :
+          text.toLowerCase();
+  searchStr = this.caseSensitive_ ? searchStr : searchStr.toLowerCase();
+  var targetIndex = targetStr.indexOf(searchStr);
+  if (targetIndex == -1) {
+    console.log('Search string not in result when preparing for Braille.');
+    return;
+  }
+
+  // Mark the string as a search result by adding a prefix
+  // and adjust the targetIndex accordingly.
+  var oldLength = text.length;
+  text = cvox.ChromeVox.msgs.getMsg('mark_as_search_result_brl', [text]);
+  var newLength = text.length;
+  targetIndex += (newLength - oldLength);
+
+  // Write to Braille with cursor at the end of the search hit.
+  cvox.ChromeVox.braille.write(new cvox.NavBraille({
+    text: text,
+    startIndex: (targetIndex + searchStr.length),
+    endIndex: (targetIndex + searchStr.length)
+  }));
+};
+
+
+/**
+ * Returns the concatenated text from the current description in the
+ * NavigationManager.
+ * TODO: May not be needed after we just simply use line granularity in search,
+ * since this is mostly used to display the long search result descriptions on
+ * Braille.
+ * @return {string} The concatenated text from the current description.
+ * @private
+ */
+cvox.SearchWidget.prototype.textFromCurrentDescription_ = function() {
+  var descriptions = cvox.ChromeVox.navigationManager.getDescription();
+  var text = '';
+  for (var i = 0; i < descriptions.length; i++) {
+    text += descriptions[i].text + ' ';
+  }
+  return text;
+};
+
+/**
+ * @param {Object} evt The onInput event that the function is handling.
+ * @private
+ */
+cvox.SearchWidget.prototype.handleSearchChanged_ = function(evt) {
+  var searchStr = evt.target.value + evt.data;
+  cvox.SearchWidget.prototype.beginSearch_(searchStr);
 };

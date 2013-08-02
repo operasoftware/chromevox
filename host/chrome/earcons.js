@@ -19,31 +19,61 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
+
 goog.provide('cvox.ChromeEarcons');
 
 goog.require('cvox.AbstractEarcons');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 
+
 /**
  * @constructor
  * @extends {cvox.AbstractEarcons}
  */
 cvox.ChromeEarcons = function() {
-  cvox.AbstractEarcons.call(this);
+  goog.base(this);
 };
 goog.inherits(cvox.ChromeEarcons, cvox.AbstractEarcons);
 
+
 /**
- * Plays the specified earcon.
- * @param {number} earcon The earcon to be played.
+ * @override
  */
 cvox.ChromeEarcons.prototype.playEarcon = function(earcon) {
-  cvox.ChromeEarcons.superClass_.playEarcon.call(this, earcon);
+  goog.base(this, 'playEarcon', earcon);
+  if (!this.enabled) {
+    return;
+  }
+
   cvox.ExtensionBridge.send({
                               'target': 'EARCON',
                               'action': 'play',
                               'earcon': earcon});
 };
+
+
+/**
+ * @override
+ */
+cvox.ChromeEarcons.prototype.toggle = function() {
+  goog.base(this, 'toggle');
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'earcons',
+    'value': this.enabled
+  });
+  if (!this.enabled) {
+    cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'useVerboseMode',
+      'value': true
+    });
+  }
+  return this.enabled;
+};
+
 
 cvox.HostFactory.earconsConstructor = cvox.ChromeEarcons;

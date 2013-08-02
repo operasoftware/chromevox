@@ -20,15 +20,10 @@
 goog.provide('cvox.MathShifter');
 
 goog.require('cvox.AbstractShifter');
-goog.require('cvox.AriaUtil');
 goog.require('cvox.BrailleUtil');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.MathSpeak');
-goog.require('cvox.MathmlLayoutWalker');
-goog.require('cvox.MathmlLeafWalker');
-goog.require('cvox.MathmlTokenWalker');
-goog.require('cvox.MathmlTreeWalker');
 goog.require('cvox.NavDescription');
 goog.require('cvox.TraverseMath');
 
@@ -48,23 +43,32 @@ cvox.MathShifter = function(sel) {
    * The Math Speak object of the shifter.
    * @type {!cvox.MathSpeak}
    */
-  this.speak = new cvox.MathSpeak({domain: 'default'});
+  this.speak = new cvox.MathSpeak(
+      {domain: cvox.TraverseMath.getInstance().domain,
+       rule: cvox.TraverseMath.getInstance().style});
 
-  this.MathmlWalkers_ = [new cvox.MathmlTreeWalker(this),
-                         new cvox.MathmlLayoutWalker(this),
-                         new cvox.MathmlTokenWalker(this),
-                         // TODO (sorge) Replace Leaf Walker by Object Walker
-                         // once math translation is refactored.
-                         new cvox.MathmlLeafWalker(this)
-                        ];
+  /**
+   * Indicates the depth of the currently read expression.
+   * @type {number}
+   * @private
+   */
+  this.level_ = 0;
 
-  this.SemanticWalkers_ = [];
+  /**
+   * Indicates the vertical direction of movement (true for up, false for down).
+   * @type {boolean}
+   * @private
+   */
+  this.direction_ = false;
 
-  this.currentWalkerList_ = this.MathmlWalkers_;
-  this.currentWalker_ = this.currentWalkerList_[0];
-  if (sel) {
-    this.next(sel);
-  }
+  /**
+   * Indicates whether or not we've bumped against an edge in the math
+   * structure.
+   * @private
+   */
+  this.bumped_ = false;
+
+cvox.TraverseMath.getInstance().initialize(sel.start.node);
 };
 goog.inherits(cvox.MathShifter, cvox.AbstractShifter);
 
@@ -73,7 +77,11 @@ goog.inherits(cvox.MathShifter, cvox.AbstractShifter);
  * @override
  */
 cvox.MathShifter.prototype.next = function(sel) {
-  return this.currentWalker_.next(sel);
+  // Delegate to TraverseMath which manages selection inside of the math tree.
+  var r = sel.isReversed();
+  this.bumped_ = !cvox.TraverseMath.getInstance().nextSibling(r);
+  var attachedNode = cvox.TraverseMath.getInstance().getAttachedActiveNode();
+  return attachedNode ? cvox.CursorSelection.fromNode(attachedNode) : sel;
 };
 
 
@@ -81,9 +89,8 @@ cvox.MathShifter.prototype.next = function(sel) {
  * @override
  */
 cvox.MathShifter.prototype.sync = function(sel) {
-  // TODO (sorge): We currently delegate to the active walker.
-  // See if this is sufficient in all cases!
-  return this.currentWalker_.sync(sel);
+  var attachedNode = cvox.TraverseMath.getInstance().getAttachedActiveNode();
+  return attachedNode ? cvox.CursorSelection.fromNode(attachedNode) : sel;
 };
 
 
@@ -99,7 +106,11 @@ cvox.MathShifter.prototype.getName = function() {
  * @override
  */
 cvox.MathShifter.prototype.getDescription = function(prevSel, sel) {
-  return this.currentWalker_.getDescription(prevSel, sel);
+  var descs = this.speak.speakTree(cvox.TraverseMath.getInstance().activeNode);
+  if (this.bumped_ && descs.length > 0) {
+    descs[0].pushEarcon(cvox.AbstractEarcons.WRAP_EDGE);
+  }
+  return descs;
 };
 
 
@@ -117,7 +128,8 @@ cvox.MathShifter.prototype.getBraille = function(prevSel, sel) {
  * @override
  */
 cvox.MathShifter.prototype.getGranularityMsg = function() {
-  return this.currentWalker_.getGranularityMsg();
+  return this.direction_ ? 'up to level ' + this.level_ :
+      'down to level ' + this.level_;
 };
 
 
@@ -125,13 +137,9 @@ cvox.MathShifter.prototype.getGranularityMsg = function() {
  * @override
  */
 cvox.MathShifter.prototype.makeLessGranular = function() {
-  goog.base(this, 'makeLessGranular');
-  var index = this.currentWalkerList_.indexOf(this.currentWalker_);
-  --index;
-
-  if (index >= 0) {
-    this.currentWalker_ = this.currentWalkerList_[index];
-  }
+  this.level_ = this.level_ > 0 ? this.level_ - 1 : 0;
+  this.direction_ = true;
+  this.bumped_ = !cvox.TraverseMath.getInstance().nextParentChild(true);
 };
 
 
@@ -139,12 +147,10 @@ cvox.MathShifter.prototype.makeLessGranular = function() {
  * @override
  */
 cvox.MathShifter.prototype.makeMoreGranular = function() {
-  goog.base(this, 'makeMoreGranular');
-  var index = this.currentWalkerList_.indexOf(this.currentWalker_);
-  ++index;
-
-  if (index < this.currentWalkerList_.length) {
-    this.currentWalker_ = this.currentWalkerList_[index];
+  this.direction_ = false;
+  this.bumped_ = !cvox.TraverseMath.getInstance().nextParentChild(false);
+  if (!this.bumped_) {
+    this.level_++;
   }
 };
 
@@ -155,8 +161,6 @@ cvox.MathShifter.prototype.makeMoreGranular = function() {
 cvox.MathShifter.create = function(sel) {
   if (cvox.DomPredicates.mathPredicate(
       cvox.DomUtil.getAncestors(sel.start.node))) {
-    var mathNode = cvox.DomUtil.getContainingMath(sel.end.node);
-    cvox.TraverseMath.getInstance().initialize(mathNode, sel.isReversed());
     return new cvox.MathShifter(sel);
   }
   return null;

@@ -186,7 +186,6 @@ cvox.Widget.prototype.onKeyDown = function(evt) {
   if (evt.keyCode == 27) { // Escape
     this.hide();
     evt.preventDefault();
-    evt.stopPropagation();
     return true;
   } else if (evt.keyCode == 9) { // Tab
     this.hide();
@@ -195,7 +194,8 @@ cvox.Widget.prototype.onKeyDown = function(evt) {
     cvox.ChromeVox.tts.stop();
   }
 
-  return false;
+  evt.stopPropagation();
+  return true;
 };
 
 

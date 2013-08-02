@@ -21,19 +21,19 @@
 
 goog.provide('cvox.ChromeTts');
 
-goog.require('cvox.AbstractTts');
+goog.require('cvox.ChromeTtsBase');
 goog.require('cvox.HostFactory');
 
 /**
  * @constructor
- * @extends {cvox.AbstractTts}
+ * @extends {cvox.ChromeTtsBase}
  */
 cvox.ChromeTts = function() {
-  cvox.AbstractTts.call(this);
+  goog.base(this);
 
   this.addBridgeListener();
 };
-goog.inherits(cvox.ChromeTts, cvox.AbstractTts);
+goog.inherits(cvox.ChromeTts, cvox.ChromeTtsBase);
 
 /**
  * Current call id, used for matching callback functions.
@@ -51,28 +51,6 @@ cvox.ChromeTts.functionMap = new Object();
 cvox.ChromeTts.prototype.speak = function(textString, queueMode, properties) {
   if (!properties) {
     properties = {};
-  }
-
-  properties['lang'] = cvox.ChromeVox.msgs.getLocale();
-
-  // TODO (clchen, dmazzoni): Remove this once the TTS is able to fall back
-  // gracefully if 'fr' is specified instead of 'fr-FR'.
-  switch(properties['lang']) {
-    case 'de':
-      properties['lang'] = 'de-DE';
-      break;
-    case 'es':
-      properties['lang'] = 'es-ES';
-      break;
-    case 'fr':
-      properties['lang'] = 'fr-FR';
-      break;
-    case 'it':
-      properties['lang'] = 'it-IT';
-      break;
-    case 'en':
-      properties['lang'] = 'en-US';
-      break;
   }
 
   goog.base(this, 'speak', textString, queueMode, properties);

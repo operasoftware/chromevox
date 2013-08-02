@@ -18,13 +18,10 @@
  * Usage:
  * If you are here, you probably want to add a new user command. Here are some
  * general steps to get you started.
- * - Pick a unique programmatic name for the command.
- * - Add something to the WHITELIST_CMD structure.
+ * - Go to command_store.js, where all static data about a command lives. Follow
+ * the instructions there.
  * - Add the logic of the command to doCommand_ below. Try to reuse or group
  * your command with related commands.
- * - Add a row in cvox.CommandStore (and follow the instructions there).
- * - Add some key bindings in background/keymaps (likely one binding per
- * keymap).
  * @author clchen@google.com (Charles L. Chen)
  */
 
@@ -33,200 +30,20 @@ goog.provide('cvox.ChromeVoxUserCommands');
 
 goog.require('cvox.AutoRunner');
 goog.require('cvox.ChromeVox');
+goog.require('cvox.CommandStore');
 goog.require('cvox.ConsoleTts');
 goog.require('cvox.CssSpace');
 goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
 goog.require('cvox.FocusUtil');
 goog.require('cvox.KeyboardHelpWidget');
+goog.require('cvox.ContextMenuWidget');
 goog.require('cvox.NodeSearchWidget');
 goog.require('cvox.PlatformUtil');
 goog.require('cvox.SearchWidget');
 goog.require('cvox.SelectWidget');
 goog.require('cvox.TypingEcho');
 goog.require('cvox.UserEventDetail');
-
-
-// TODO(stoarca): First, delete 75% of this functionality. Second,
-// write functions (one function per group instead of one function per
-// command) for the groups remaining so that the switch statement
-// in the doCommand_() delegates to those functions.
-/**
- * List of commands and their properties
- * @type {Object.<string, {forward: (undefined|boolean),
- *                         backward: (undefined|boolean),
- *                         announce: boolean,
- *                         findNext: (undefined|string),
- *                         doDefault: (undefined|boolean),
- *                         nodeList: (undefined|string),
- *                         platformFilter: (undefined|cvox.PlatformFilter),
- *                         skipInput: (undefined|boolean),
- *                         allowEvents: (undefined|boolean),
- *                         allowContinuation: (undefined|boolean)
- *                         }>}
- *  forward: Whether this command points forward.
- *  backward: Whether this command points backward. If neither forward or
- *            backward are specified, it stays facing in the current direction.
- *  announce: Whether to call finishNavCommand and announce the current
- *            position after the command is done.
- *  findNext: The id from the map above if this command is used for
- *            finding next/previous of something.
- *  doDefault: Whether to do the default action. This means that keys will be
- *             passed through to the usual DOM capture/bubble phases.
- *  nodeList: The id from the map above if this command is used for
- *            showing a list of nodes.
- *  platformFilter: Specifies to which platforms this command applies. If left
- *                  undefined, the command applies to all platforms.
- *  skipInput: Explicitly skips this command when text input has focus.
- *             Defaults to false.
- *  allowEvents: Allows EventWatcher to continue processing events which can
- * trump TTS.
- *  allowContinuation: Allows continuous read to proceed even if the command
- * results in speech.
- * @private
- */
-cvox.ChromeVoxUserCommands.CMD_WHITELIST_ = {
-  'forward': {forward: true, announce: true},
-  'backward': {backward: true, announce: true},
-  'right': {forward: true, announce: true},
-  'left': {backward: true, announce: true},
-  'skipForward': {forward: true, announce: false, allowContinuation: true},
-  'skipBackward': {backward: true, announce: false, allowContinuation: true},
-  'previousGranularity': {announce: true},
-  'nextGranularity': {announce: true},
-
-  'previousCharacter': {backward: true, announce: true, skipInput: true},
-  'nextCharacter': {forward: true, announce: true, skipInput: true},
-  'previousWord': {backward: true, announce: true, skipInput: true},
-  'nextWord': {forward: true, announce: true, skipInput: true},
-  'previousLine': {backward: true, announce: true},
-  'nextLine': {forward: true, announce: true},
-  'previousSentence': {backward: true, announce: true, skipInput: true},
-  'nextSentence': {forward: true, announce: true, skipInput: true},
-  'previousObject': {backward: true, announce: true},
-  'nextObject': {forward: true, announce: true},
-  'previousGroup': {backward: true, announce: true, skipInput: true},
-  'nextGroup': {forward: true, announce: true, skipInput: true},
-
-  'cycleTypingEcho': {announce: false},
-
-  'jumpToTop': {forward: true, announce: true},
-  'jumpToBottom': {backward: true, announce: true},
-  'moveToStartOfLine': {forward: true, announce: true},
-  'moveToEndOfLine': {backward: true, announce: true},
-  'readFromHere': {forward: true, announce: false},
-  'stopSpeech': {announce: false, doDefault: true},
-
-  'toggleKeyboardHelp': {announce: false},
-  'help': {announce: false},
-  'contextMenu': {announce: false},
-
-  'showBookmarkManager': {announce: false},
-  'showOptionsPage': {announce: false},
-  'showKbExplorerPage': {announce: false},
-  'readLinkURL': {announce: false},
-  'readCurrentTitle': {announce: false},
-  'readCurrentURL': {announce: false},
-  'announceHeaders': {announce: false},
-  'speakTableLocation': {announce: false},
-  'forceClickOnCurrentItem': {announce: true, allowEvents: true},
-  'forceDoubleClickOnCurrentItem': {announce: true, allowEvents: true},
-  'toggleChromeVox': {announce: false, platformFilter: cvox.PlatformFilter.WML},
-  'fullyDescribe': {announce: false},
-  'toggleSelection': {announce: true},
-  'startHistoryRecording': {announce: false},
-  'stopHistoryRecording': {announce: false},
-  'enterCssSpace': {announce: false},
-  'enableConsoleTts': {announce: false},
-  'autorunner': {announce: false},
-
-  // Table Actions.
-  'goToFirstCell': {announce: true},
-  'goToLastCell': {announce: true},
-  'goToRowFirstCell': {announce: true},
-  'goToRowLastCell': {announce: true},
-  'goToColFirstCell': {announce: true},
-  'goToColLastCell': {announce: true},
-
-  // Generic Actions.
-  'enterShifter': {announce: true},
-  'exitShifter': {announce: true},
-  'exitShifterContent': {announce: true},
-
-  'decreaseTtsRate': {announce: false, allowContinuation: true},
-  'increaseTtsRate': {announce: false, allowContinuation: true},
-  'decreaseTtsPitch': {announce: false, allowContinuation: true},
-  'increaseTtsPitch': {announce: false, allowContinuation: true},
-  'decreaseTtsVolume': {announce: false, allowContinuation: true},
-  'increaseTtsVolume': {announce: false, allowContinuation: true},
-  'cyclePunctuationEcho': {announce: false, allowContinuation: true},
-
-  'toggleStickyMode': {announce: false},
-  'toggleKeyPrefix': {announce: false},
-  'toggleSearchWidget': {announce: false},
-
-  'showFormsList': {announce: false, nodeList: 'formField'},
-  'showHeadingsList': {announce: false, nodeList: 'heading'},
-  'showLandmarksList': {announce: false, nodeList: 'landmark'},
-  'showLinksList': {announce: false, nodeList: 'link'},
-  'showTablesList': {announce: false, nodeList: 'table'},
-
-  'nextArticle': {forward: true, findNext: 'article'},
-  'nextButton': {forward: true, findNext: 'button'},
-  'nextCheckbox': {forward: true, findNext: 'checkbox'},
-  'nextComboBox': {forward: true, findNext: 'combobox'},
-  'nextControl': {forward: true, findNext: 'control'},
-  'nextEditText': {forward: true, findNext: 'editText'},
-  'nextFormField': {forward: true, findNext: 'formField'},
-  'nextGraphic': {forward: true, findNext: 'graphic'},
-  'nextHeading': {forward: true, findNext: 'heading'},
-  'nextHeading1': {forward: true, findNext: 'heading1'},
-  'nextHeading2': {forward: true, findNext: 'heading2'},
-  'nextHeading3': {forward: true, findNext: 'heading3'},
-  'nextHeading4': {forward: true, findNext: 'heading4'},
-  'nextHeading5': {forward: true, findNext: 'heading5'},
-  'nextHeading6': {forward: true, findNext: 'heading6'},
-  'nextLandmark': {forward: true, findNext: 'landmark'},
-  'nextLink': {forward: true, findNext: 'link'},
-  'nextList': {forward: true, findNext: 'list'},
-  'nextListItem': {forward: true, findNext: 'listItem'},
-  'nextMath': {forward: true, findNext: 'math'},
-  'nextRadio': {forward: true, findNext: 'radio'},
-  'nextSection': {forward: true, findNext: 'section'},
-  'nextSlider': {forward: true, findNext: 'slider'},
-  'nextTable': {forward: true, findNext: 'table'},
-
-  'previousArticle': {backward: true, findNext: 'article'},
-  'previousButton': {backward: true, findNext: 'button'},
-  'previousCheckbox': {backward: true, findNext: 'checkbox'},
-  'previousComboBox': {backward: true, findNext: 'combobox'},
-  'previousControl': {backward: true, findNext: 'control'},
-  'previousEditText': {backward: true, findNext: 'editText'},
-  'previousFormField': {backward: true, findNext: 'formField'},
-  'previousGraphic': {backward: true, findNext: 'graphic'},
-  'previousHeading': {backward: true, findNext: 'heading'},
-  'previousHeading1': {backward: true, findNext: 'heading1'},
-  'previousHeading2': {backward: true, findNext: 'heading2'},
-  'previousHeading3': {backward: true, findNext: 'heading3'},
-  'previousHeading4': {backward: true, findNext: 'heading4'},
-  'previousHeading5': {backward: true, findNext: 'heading5'},
-  'previousHeading6': {backward: true, findNext: 'heading6'},
-  'previousLandmark': {backward: true, findNext: 'landmark'},
-  'previousLink': {backward: true, findNext: 'link'},
-  'previousList': {backward: true, findNext: 'list'},
-  'previousListItem': {backward: true, findNext: 'listItem'},
-  'previousMath': {backward: true, findNext: 'math'},
-  'previousRadio': {backward: true, findNext: 'radio'},
-  'previousSection': {backward: true, findNext: 'section'},
-  'previousSlider': {backward: true, findNext: 'slider'},
-  'previousTable': {backward: true, findNext: 'table'},
-
-  'openLongDesc': {announce: false},
-
-  'debug': {announce: false},
-
-  'nop': {announce: false}
-};
 
 
 /**
@@ -240,28 +57,10 @@ cvox.ChromeVoxUserCommands.init_ = function() {
   } else {
     cvox.ChromeVoxUserCommands.commands = {};
   }
-  for (var cmd in cvox.ChromeVoxUserCommands.CMD_WHITELIST_) {
+  for (var cmd in cvox.CommandStore.CMD_WHITELIST) {
     cvox.ChromeVoxUserCommands.commands[cmd] =
         cvox.ChromeVoxUserCommands.createCommand_(cmd);
   }
-
-  // TODO(stoarca): These two are the only ones that do not use
-  // doCommand because they require that focus events are detected.
-  /**
-   * Handles TAB navigation.
-   * @return {boolean} True if the default action should be taken.
-   */
-  cvox.ChromeVoxUserCommands.commands['handleTab'] = function() {
-    return cvox.ChromeVoxUserCommands.handleTabAction_();
-  };
-
-  /**
-   * Handles SHIFT+TAB navigation
-   * @return {boolean} True if the default action should be taken.
-   */
-  cvox.ChromeVoxUserCommands.commands['handleTabPrev'] = function() {
-    return cvox.ChromeVoxUserCommands.handleTabAction_();
-  };
 };
 
 
@@ -413,110 +212,6 @@ cvox.ChromeVoxUserCommands.createTabDummySpan_ = function() {
 
 
 /**
- * List of find next commands and their associated data.
- * @type {Object.<string, {predicate: string,
- *                         forwardError: string,
- *                         backwardError: string}>}
- *  predicate: The name of the predicate. This must be defined in DomPredicates.
- *  forwardError: The message id of the error string when moving forward.
- *  backwardError: The message id of the error string when moving backward.
- * @private
- */
-cvox.ChromeVoxUserCommands.NODE_INFO_MAP_ = {
-  'checkbox': {predicate: 'checkboxPredicate',
-               forwardError: 'no_next_checkbox',
-               backwardError: 'no_previous_checkbox',
-               typeMsg: 'aria_role_checkbox'},
-  'radio': {predicate: 'radioPredicate',
-            forwardError: 'no_next_radio_button',
-            backwardError: 'no_previous_radio_button',
-            typeMsg: 'aria_role_radio'},
-  'slider': {predicate: 'sliderPredicate',
-             forwardError: 'no_next_slider',
-             backwardError: 'no_previous_slider',
-             typeMsg: 'aria_role_slider'},
-  'graphic': {predicate: 'graphicPredicate',
-              forwardError: 'no_next_graphic',
-              backwardError: 'no_previous_graphic',
-              typeMsg: 'UNUSED'},
-  'article': {predicate: 'articlePredicate',
-             forwardError: 'no_next_ARTICLE',
-             backwardError: 'no_previous_ARTICLE',
-             typeMsg: 'TAG_ARTICLE'},
-  'button': {predicate: 'buttonPredicate',
-             forwardError: 'no_next_button',
-             backwardError: 'no_previous_button',
-             typeMsg: 'aria_role_button'},
-  'combobox': {predicate: 'comboBoxPredicate',
-               forwardError: 'no_next_combo_box',
-               backwardError: 'no_previous_combo_box',
-               typeMsg: 'aria_role_combobox'},
-  'editText': {predicate: 'editTextPredicate',
-               forwardError: 'no_next_edit_text',
-               backwardError: 'no_previous_edit_text',
-               typeMsg: 'input_type_text'},
-  'heading': {predicate: 'headingPredicate',
-              forwardError: 'no_next_heading',
-              backwardError: 'no_previous_heading',
-              typeMsg: 'aria_role_heading'},
-  'heading1': {predicate: 'heading1Predicate',
-               forwardError: 'no_next_heading_1',
-               backwardError: 'no_previous_heading_1'},
-  'heading2': {predicate: 'heading2Predicate',
-               forwardError: 'no_next_heading_2',
-               backwardError: 'no_previous_heading_2'},
-  'heading3': {predicate: 'heading3Predicate',
-               forwardError: 'no_next_heading_3',
-               backwardError: 'no_previous_heading_3'},
-  'heading4': {predicate: 'heading4Predicate',
-               forwardError: 'no_next_heading_4',
-               backwardError: 'no_previous_heading_4'},
-  'heading5': {predicate: 'heading5Predicate',
-               forwardError: 'no_next_heading_5',
-               backwardError: 'no_previous_heading_5'},
-  'heading6': {predicate: 'heading6Predicate',
-               forwardError: 'no_next_heading_6',
-               backwardError: 'no_previous_heading_6'},
-
-  'link': {predicate: 'linkPredicate',
-           forwardError: 'no_next_link',
-           backwardError: 'no_previous_link',
-           typeMsg: 'aria_role_link'},
-  'table': {predicate: 'tablePredicate',
-            forwardError: 'no_next_table',
-            backwardError: 'no_previous_table',
-            typeMsg: 'table_strategy'},
-  'list': {predicate: 'listPredicate',
-           forwardError: 'no_next_list',
-           backwardError: 'no_previous_list',
-           typeMsg: 'aria_role_list'},
-  'listItem': {predicate: 'listItemPredicate',
-               forwardError: 'no_next_list_item',
-               backwardError: 'no_previous_list_item',
-               typeMsg: 'aria_role_listitem'},
-  'formField': {predicate: 'formFieldPredicate',
-                forwardError: 'no_next_form_field',
-                backwardError: 'no_previous_form_field',
-                typeMsg: 'aria_role_form'},
-  'landmark': {predicate: 'landmarkPredicate',
-               forwardError: 'no_next_landmark',
-               backwardError: 'no_previous_landmark',
-               typeMsg: 'role_landmark'},
-  'math': {predicate: 'mathPredicate',
-           forwardError: 'no_next_math',
-           backwardError: 'no_previous_math',
-           typeMsg: 'math_expr'},
-  'section': {predicate: 'sectionPredicate',
-           forwardError: 'no_next_section',
-           backwardError: 'no_previous_section'},
-  'control': {predicate: 'controlPredicate',
-           forwardError: 'no_next_control',
-           backwardError: 'no_previous_control'}
-};
-
-
-
-/**
  * @param {string} cmd The programmatic command name.
  * @return {function(): boolean} The callable command.
  * @private
@@ -537,7 +232,7 @@ cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmd) {
   if (cvox.Widget.isActive()) {
     return true;
   }
-  var cmdStruct = cvox.ChromeVoxUserCommands.CMD_WHITELIST_[cmd];
+  var cmdStruct = cvox.CommandStore.CMD_WHITELIST[cmd];
   if (!cmdStruct) {
     throw 'Invalid command: ' + cmd;
   }
@@ -578,7 +273,7 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
   if (cvox.Widget.isActive()) {
     return true;
   }
-  var cmdStruct = cvox.ChromeVoxUserCommands.CMD_WHITELIST_[cmd];
+  var cmdStruct = cvox.CommandStore.CMD_WHITELIST[cmd];
   if (!cmdStruct) {
     throw 'Invalid command: ' + cmd;
   }
@@ -592,8 +287,8 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
     cvox.ChromeVoxEventSuspender.enterSuspendEvents();
   }
 
-  if (!cmdStruct.allowContinuation) {
-    cvox.ChromeVox.navigationManager.stopReading(false);
+  if (cmdStruct.disallowContinuation) {
+    cvox.ChromeVox.navigationManager.stopReading(true);
   }
 
   if (cmdStruct.forward) {
@@ -611,6 +306,10 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
   var errorMsg = '';
   var ret = false;
   switch (cmd) {
+    case 'handleTab':
+    case 'handleTabPrev':
+      ret = cvox.ChromeVoxUserCommands.handleTabAction_();
+      break;
     case 'forward':
     case 'backward':
       ret = !cvox.ChromeVox.navigationManager.navigate();
@@ -624,7 +323,7 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
         throw 'Invalid find command.';
       }
       var NodeInfoStruct =
-          cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.findNext];
+          cvox.CommandStore.NODE_INFO_MAP[cmdStruct.findNext];
       var predicateName = NodeInfoStruct.predicate;
       var predicate = cvox.DomPredicates[predicateName];
       var error = '';
@@ -737,6 +436,17 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
           cvox.NavigationShifter.GRANULARITIES.GROUP);
       break;
 
+    case 'previousRow':
+    case 'previousCol':
+      // Fold these commands to their "next" equivalents since we already set
+      // isReversed above.
+      cmd = cmd == 'previousRow' ? 'nextRow' : 'nextCol';
+    case 'nextRow':
+    case 'nextCol':
+      cvox.ChromeVox.navigationManager.performAction('enterShifterSilently');
+      cvox.ChromeVox.navigationManager.performAction(cmd);
+      break;
+
     case 'moveToStartOfLine':
     case 'moveToEndOfLine':
       cvox.ChromeVox.navigationManager.setGranularity(
@@ -782,6 +492,9 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       var node = cvox.ChromeVox.navigationManager.getCurrentNode();
       if (node.tagName == 'SELECT' && !node.multiple) {
         new cvox.SelectWidget(node).show();
+      } else {
+        var contextMenuWidget = new cvox.ContextMenuWidget();
+        contextMenuWidget.toggle();
       }
       break;
     case 'showBookmarkManager':
@@ -828,6 +541,15 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
     case 'readCurrentURL':
       cvox.ChromeVox.tts.speak(document.URL);
       break;
+    case 'performDefaultAction':
+      if (cvox.DomPredicates.linkPredicate([document.activeElement])) {
+        cmdStruct.announce = true;
+        if (cvox.DomUtil.isInternalLink(document.activeElement)) {
+          cvox.DomUtil.syncInternalLink(document.activeElement);
+          cvox.ChromeVox.navigationManager.sync();
+        }
+      }
+      break;
     case 'forceClickOnCurrentItem':
       prefixMsg = cvox.ChromeVox.msgs.getMsg('element_clicked');
       var targetNode = cvox.ChromeVox.navigationManager.getCurrentNode();
@@ -852,6 +574,11 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
           descs,
           cvox.AbstractTts.QUEUE_MODE_FLUSH,
           null);
+      break;
+    case 'speakTimeAndDate':
+      var dateTime = new Date();
+      cvox.ChromeVox.tts.speak(
+          dateTime.toLocaleTimeString() + ', ' + dateTime.toLocaleDateString());
       break;
     case 'toggleSelection':
       var selState = cvox.ChromeVox.navigationManager.togglePageSel();
@@ -943,6 +670,12 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       cvox.SearchWidget.getInstance().toggle();
       break;
 
+    case 'toggleEarcons':
+      prefixMsg = cvox.ChromeVox.earcons.toggle() ?
+          cvox.ChromeVox.msgs.getMsg('earcons_on') :
+              cvox.ChromeVox.msgs.getMsg('earcons_off');
+      break;
+
     case 'showHeadingsList':
     case 'showLinksList':
     case 'showFormsList':
@@ -952,7 +685,7 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
         break;
       }
       var nodeListStruct =
-          cvox.ChromeVoxUserCommands.NODE_INFO_MAP_[cmdStruct.nodeList];
+          cvox.CommandStore.NODE_INFO_MAP[cmdStruct.nodeList];
 
       cvox.NodeSearchWidget.create(nodeListStruct.typeMsg,
                   cvox.DomPredicates[nodeListStruct.predicate]).show();
@@ -975,6 +708,17 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       }
       break;
 
+    case 'pauseAllMedia':
+      var videos = document.getElementsByTagName('VIDEO');
+      for (var i = 0, mediaElem; mediaElem = videos[i]; i++) {
+        mediaElem.pause();
+      }
+      var audios = document.getElementsByTagName('AUDIO');
+      for (var i = 0, mediaElem; mediaElem = audios[i]; i++) {
+        mediaElem.pause();
+      }
+      break;
+
     case 'debug':
       // TODO(stoarca): This doesn't belong here.
       break;
@@ -990,6 +734,12 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
         cvox.ChromeVox.msgs.getMsg(errorMsg),
         cvox.AbstractTts.QUEUE_MODE_FLUSH,
         cvox.AbstractTts.PERSONALITY_ANNOTATION);
+  } else if (cvox.ChromeVox.navigationManager.isReading()) {
+    if (cmdStruct.disallowContinuation) {
+      cvox.ChromeVox.navigationManager.stopReading(true);
+    } else {
+      cvox.ChromeVox.navigationManager.skip();
+    }
   } else {
     if (cmdStruct.announce) {
       cvox.ChromeVox.navigationManager.finishNavCommand(prefixMsg);

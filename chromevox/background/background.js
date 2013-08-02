@@ -146,11 +146,17 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   // which means that script is not visible in Dev Tools.
   cvox.InjectedScriptLoader.fetchCode(listOfFiles, stageTwo);
 
-  // Warn the user when the browser first starts if ChromeVox is inactive.
   if (localStorage['active'] == 'false') {
-    self.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
+    // Warn the user when the browser first starts if ChromeVox is inactive.
+    this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'), 1);
+  } else if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WML)) {
+    // Introductory message.
+    this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_intro'), 1);
+    if (localStorage['sticky'] == 'true') {
+      // Warn the user if sticky mode is on.
+      this.tts.speak(cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled'), 1);
+    }
   }
-
 };
 
 
@@ -185,8 +191,8 @@ cvox.ChromeVoxBackground.prototype.injectChromeVoxIntoTab =
           }
           sawError = true;
           console.error('Could not inject into tab', tab);
-          this.tts.speak('Error starting ChromeVox for '
-                         + tab.title + ', ' + tab.url);
+          this.tts.speak('Error starting ChromeVox for ' +
+              tab.title + ', ' + tab.url, 1);
         }, this));
   }, this);
 
@@ -308,16 +314,38 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
         chrome.tabs.create(optionsPage);
       }
       break;
+    case 'Data':
+      if (action == 'getHistory') {
+        var results = {};
+        chrome.history.search({text: '', maxResults: 25}, function(items) {
+          items.forEach(function(item) {
+            if (item.url) {
+              results[item.url] = true;
+            }
+          });
+          port.postMessage({
+            'history': results
+          });
+        });
+      }
+      break;
     case 'Prefs':
       if (action == 'getPrefs') {
         this.prefs.sendPrefsToPort(port);
       } else if (action == 'setPref') {
         if (msg['pref'] == 'active' &&
-            msg['value'] != 'true' &&
-            cvox.ChromeVox.isActive) {
-          this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
-        }
-        else if (msg['pref'] == 'sticky' && msg['announce']) {
+            msg['value'] != cvox.ChromeVox.isActive) {
+          if (cvox.ChromeVox.isActive) {
+            this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_inactive'));
+            chrome.experimental.accessibility.setNativeAccessibilityEnabled(
+                true);
+          } else {
+            chrome.experimental.accessibility.setNativeAccessibilityEnabled(
+                false);
+          }
+        } else if (msg['pref'] == 'earcons') {
+          this.earcons.enabled = msg['value'];
+        } else if (msg['pref'] == 'sticky' && msg['announce']) {
           if (msg['value']) {
             this.tts.speak(cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled'));
           } else {
@@ -351,7 +379,12 @@ cvox.ChromeVoxBackground.prototype.addBridgeListener = function() {
       }
       break;
     case 'Math':
-      // TODO (sorge): Put the change of rules etc. here!
+      // TODO (sorge): Put the change of styles etc. here!
+      if (msg['action'] == 'getDomains') {
+        port.postMessage({'message': 'DOMAINS_STYLES',
+                          'domains': this.backgroundTts_.mathmap.allDomains,
+                          'styles': this.backgroundTts_.mathmap.allStyles});
+      }
       break;
     case 'TTS':
       if (msg['startCallbackId'] != undefined) {

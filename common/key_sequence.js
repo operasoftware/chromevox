@@ -48,9 +48,16 @@ goog.require('cvox.ChromeVox');
  * @param {boolean?} opt_cvoxModifier Whether or not the ChromeVox modifier key
  * is active. If not specified, we will try to determine whether the modifier
  * was active by looking at the originalEvent.
+ * @param {boolean=} opt_skipStripping Skips stripping of ChromeVox modifiers
+ * from key events when the cvox modifiers are set. Defaults to false.
+ * @param {boolean=} opt_doubleTap Whether this is triggered via double tap.
  * @constructor
  */
-cvox.KeySequence = function(originalEvent, opt_cvoxModifier) {
+cvox.KeySequence = function(
+    originalEvent, opt_cvoxModifier, opt_skipStripping, opt_doubleTap) {
+  /** @type {boolean} */
+  this.doubleTap = !!opt_doubleTap;
+
   if (opt_cvoxModifier == undefined) {
     this.cvoxModifier = this.isCVoxModifierActive(originalEvent);
   } else {
@@ -58,6 +65,7 @@ cvox.KeySequence = function(originalEvent, opt_cvoxModifier) {
   }
   this.stickyMode = !!originalEvent['stickyMode'];
   this.prefixKey = !!originalEvent['keyPrefix'];
+  this.skipStripping = !!opt_skipStripping;
 
   if (this.stickyMode && this.prefixKey) {
     throw 'Prefix key and sticky mode cannot both be enabled: ' + originalEvent;
@@ -68,7 +76,7 @@ cvox.KeySequence = function(originalEvent, opt_cvoxModifier) {
   // TODO (rshearer): We should take the user out of sticky mode if they
   // try to use the CVox modifier or prefix key.
 
-  /*
+  /**
    * Stores the key codes and modifiers for the keys in the key sequence.
    * TODO(rshearer): Consider making this structure an array of minimal
    * keyEvent-like objects instead so we don't have to worry about what happens
@@ -113,6 +121,14 @@ cvox.KeySequence.KEY_PRESS_CODE = {
   93: 221
 };
 
+/**
+ * A cache of all key sequences that have been set as double-tappable. We need
+ * this cache because repeated key down computations causes ChromeVox to become
+ * less responsive. This list is small so we currently use an array.
+ * @type {!Array.<cvox.KeySequence>}
+ */
+cvox.KeySequence.doubleTapCache = [];
+
 
 /**
  * Adds an additional key onto the original sequence, for use when the user
@@ -150,6 +166,10 @@ cvox.KeySequence.prototype.addKeyEvent = function(additionalKeyEvent) {
 cvox.KeySequence.prototype.equals = function(rhs) {
   // Check to make sure the same keys with the same modifiers were pressed.
   if (!this.checkKeyEquality_(rhs)) {
+    return false;
+  }
+
+  if (this.doubleTap != rhs.doubleTap) {
     return false;
   }
 
@@ -215,6 +235,10 @@ cvox.KeySequence.prototype.extractKey_ = function(keyEvent) {
  * @private
  */
 cvox.KeySequence.prototype.rationalizeKeys_ = function() {
+  if (this.skipStripping) {
+    return;
+  }
+
   // TODO (rshearer): This is a hack. When the modifier key becomes customizable
   // then we will not have to deal with strings here.
   var modifierKeyCombo = cvox.ChromeVox.modKeyStr.split(/\+/g);
@@ -423,11 +447,15 @@ cvox.KeySequence.deserialize = function(sequenceObject) {
   }
 
   var keySeq = new cvox.KeySequence(firstSequenceEvent,
-                                    sequenceObject.cvoxModifier);
+      sequenceObject.cvoxModifier, true, sequenceObject.doubleTap);
   if (secondKeyPressed) {
     cvox.ChromeVox.sequenceSwitchKeyCodes.push(
         new cvox.KeySequence(firstSequenceEvent, sequenceObject.cvoxModifier));
     keySeq.addKeyEvent(secondSequenceEvent);
+  }
+
+  if (sequenceObject.doubleTap) {
+    cvox.KeySequence.doubleTapCache.push(keySeq);
   }
 
   return keySeq;

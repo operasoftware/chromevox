@@ -65,6 +65,9 @@ cvox.SelectWidget.prototype.show = function() {
  * @override
  */
 cvox.SelectWidget.prototype.hide = function(opt_noSync) {
+  var evt = document.createEvent('Event');
+  evt.initEvent('change', false, false);
+  this.selectNode_.dispatchEvent(evt);
   goog.base(this, 'hide', true);
 };
 

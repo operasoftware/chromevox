@@ -20,13 +20,13 @@
 
 goog.provide('cvox.ApiImplementation');
 
+goog.require('cvox.ApiUtil');
 goog.require('cvox.AriaUtil');
 goog.require('cvox.BuildInfo');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxJSON');
 goog.require('cvox.DomUtil');
 goog.require('cvox.ScriptInstaller');
-goog.require('cvox.ApiUtil');
 
 /**
  * @constructor
@@ -48,8 +48,9 @@ cvox.ApiImplementation.siteSpecificScriptBase;
 
 /**
  * Inject the API into the page and set up communication with it.
+ * @param {function()?} opt_onload A function called when the script is loaded.
  */
-cvox.ApiImplementation.init = function() {
+cvox.ApiImplementation.init = function(opt_onload) {
   window.addEventListener('message', cvox.ApiImplementation.portSetup, true);
   var scripts = new Array();
   scripts.push(cvox.ChromeVox.host.getFileSrc(
@@ -58,7 +59,7 @@ cvox.ApiImplementation.init = function() {
   scripts.push(cvox.ApiImplementation.siteSpecificScriptLoader);
 
   var apiScript = cvox.ScriptInstaller.installScript(scripts,
-      'cvoxapi', null, cvox.ApiImplementation.siteSpecificScriptBase);
+      'cvoxapi', opt_onload, cvox.ApiImplementation.siteSpecificScriptBase);
 
   if (!apiScript) {
     // If the API script is already installed, just re-enable it.
@@ -103,6 +104,10 @@ cvox.ApiImplementation.dispatchApiMessage = function(message) {
     case 'getVersion': method = cvox.ApiImplementation.getVersion; break;
     case 'getCurrentNode': method = cvox.ApiImplementation.getCurrentNode;
         break;
+    case 'getCvoxModKeys': method = cvox.ApiImplementation.getCvoxModKeys;
+        break;
+    case 'isKeyShortcut': method = cvox.ApiImplementation.isKeyShortcut; break;
+    case 'setKeyEcho': method = cvox.ApiImplementation.setKeyEcho; break;
   }
   if (!method) {
     throw 'Unknown API call: ' + message['cmd'];
@@ -241,6 +246,8 @@ cvox.ApiImplementation.syncToNode = function(
 
     cvox.ChromeVox.navigationManager.getBraille().write();
   }
+
+  cvox.ChromeVox.navigationManager.updatePosition(targetNode);
 };
 
 /**
@@ -325,4 +332,45 @@ cvox.ApiImplementation.getVersion = function(callbackId) {
         'id': callbackId,
         'version': version
       }));
+};
+
+/**
+ * Get the ChromeVox modifier keys.
+ * @param {number} callbackId The callback Id.
+ */
+cvox.ApiImplementation.getCvoxModKeys = function(callbackId) {
+  cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
+      {
+        'id': callbackId,
+        'keyCodes': cvox.KeyUtil.cvoxModKeyCodes()
+      }));
+};
+
+/**
+ * Return if the keyEvent has a key binding.
+ * @param {number} callbackId The callback Id.
+ * @param {Event} keyEvent A key event.
+ */
+cvox.ApiImplementation.isKeyShortcut = function(callbackId, keyEvent) {
+  var keySeq = cvox.KeyUtil.keyEventToKeySequence(keyEvent);
+  cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
+      {
+        'id': callbackId,
+        'isHandled': cvox.ChromeVoxKbHandler.handlerKeyMap.hasKey(keySeq)
+      }));
+};
+
+/**
+* Set key echoing on key press.
+* @param {boolean} keyEcho Whether key echoing should be on or off.
+*/
+cvox.ApiImplementation.setKeyEcho = function(keyEcho) {
+  var msg = cvox.ChromeVox.keyEcho;
+  msg[document.location.href] = keyEcho;
+  cvox.ChromeVox.host.sendToBackgroundPage({
+  'target': 'Prefs',
+  'action': 'setPref',
+  'pref': 'keyEcho',
+  'value': JSON.stringify(msg)
+  });
 };

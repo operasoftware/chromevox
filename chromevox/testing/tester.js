@@ -21,6 +21,7 @@ goog.require('cvox.LiveRegions');
 goog.require('cvox.NavigationManager');
 goog.require('cvox.NavigationShifter');
 goog.require('cvox.TestHost');
+goog.require('cvox.TestMathJax');
 goog.require('cvox.TestMsgs');
 goog.require('cvox.TestTts');
 
@@ -39,6 +40,8 @@ goog.require('cvox.TestTts');
  * @param {!Document} doc The DOM document to add event listeners to.
  */
 cvox.ChromeVoxTester.setUp = function(doc) {
+  cvox.ChromeVox.mathJax = new cvox.TestMathJax();
+
   cvox.ChromeVox.navigationManager = new cvox.NavigationManager();
   cvox.ChromeVoxTester.testTts_ = new cvox.TestTts();
   cvox.ChromeVox.tts = cvox.ChromeVoxTester.testTts_;

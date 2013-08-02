@@ -31,6 +31,61 @@ goog.require('cvox.TtsInterface');
 cvox.AbstractTts = function() {
   this.ttsProperties = new Object();
 
+  /**
+   * Default value for TTS properties.
+   * Note that these as well as the subsequent properties might be different
+   * on different host platforms (like Chrome, Android, etc.).
+   * @type {{pitch : number,
+   *         rate: number,
+   *         volume: number}}
+   * @protected
+   */
+  this.propertyDefault = {
+    'rate': 0.5,
+    'pitch': 0.5,
+    'volume': 0.5
+  };
+
+  /**
+   * Min value for TTS properties.
+   * @type {{pitch : number,
+   *         rate: number,
+   *         volume: number}}
+   * @protected
+   */
+  this.propertyMin = {
+    'rate': 0.0,
+    'pitch': 0.0,
+    'volume': 0.0
+  };
+
+  /**
+   * Max value for TTS properties.
+   * @type {{pitch : number,
+   *         rate: number,
+   *         volume: number}}
+   * @protected
+   */
+  this.propertyMax = {
+    'rate': 1.0,
+    'pitch': 1.0,
+    'volume': 1.0
+  };
+
+  /**
+   * Step value for TTS properties.
+   * @type {{pitch : number,
+   *         rate: number,
+   *         volume: number}}
+   * @protected
+   */
+  this.propertyStep = {
+    'rate': 0.1,
+    'pitch': 0.1,
+    'volume': 0.1
+  };
+
+
   /** @private */
 
   if (cvox.AbstractTts.pronunciationDictionaryRegexp_ == undefined) {
@@ -65,40 +120,6 @@ cvox.AbstractTts = function() {
 cvox.AbstractTts.prototype.ttsProperties;
 
 
-/**
- * Min value for TTS properties. Note that these might be different
- * on different host platforms (like Chrome, Android, etc.).
- * @type {Object.<string, number>}
- **/
-cvox.AbstractTts.prototype.propertyMin = {
-  'rate': 0.0,
-  'pitch': 0.0,
-  'volume': 0.0
-};
-
-/**
- * Max value for TTS properties. Note that these might be different
- * on different host platforms (like Chrome, Android, etc.).
- * @type {Object.<string, number>}
- **/
-cvox.AbstractTts.prototype.propertyMax = {
-  'rate': 1.0,
-  'pitch': 1.0,
-  'volume': 1.0
-};
-
-/**
- * Step value for TTS properties. Note that these might be different
- * on different host platforms (like Chrome, Android, etc.).
- * @type {Object.<string, number>}
- **/
-cvox.AbstractTts.prototype.propertyStep = {
-  'rate': 0.1,
-  'pitch': 0.1,
-  'volume': 0.1
-};
-
-
 /** @override */
 cvox.AbstractTts.prototype.speak = function(textString, queueMode, properties) {
   return this;
@@ -123,20 +144,20 @@ cvox.AbstractTts.prototype.addCapturingEventListener = function(listener) { };
 /** @override */
 cvox.AbstractTts.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) {
-  var min = this.propertyMin[propertyName];
-  var max = this.propertyMax[propertyName];
-  var step = this.propertyStep[propertyName];
-  var current = this.ttsProperties[propertyName];
-  current = increase ? current + step : current - step;
-  this.ttsProperties[propertyName] = Math.max(Math.min(current, max), min);
-};
+      var min = this.propertyMin[propertyName];
+      var max = this.propertyMax[propertyName];
+      var step = this.propertyStep[propertyName];
+      var current = this.ttsProperties[propertyName];
+      current = increase ? current + step : current - step;
+      this.ttsProperties[propertyName] = Math.max(Math.min(current, max), min);
+    };
 
 
 /**
  * Merges the given properties with the default ones. Always returns a
  * new object, so that you can safely modify the result of mergeProperties
  * without worrying that you're modifying an object used elsewhere.
- * @param {Object=} properties The properties to merge with the default.
+ * @param {Object=} properties The properties to merge with the current ones.
  * @return {Object} The merged properties.
  * @protected
  */
@@ -206,7 +227,7 @@ cvox.AbstractTts.prototype.mergeProperties = function(properties) {
 cvox.AbstractTts.prototype.preprocess = function(text, properties) {
   if (text.length == 1 && text >= 'A' && text <= 'Z') {
     for (var prop in cvox.AbstractTts.PERSONALITY_CAPITAL)
-      properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
+    properties[prop] = cvox.AbstractTts.PERSONALITY_CAPITAL[prop];
   }
 
   // Substitute all symbols in the substitution dictionary. This is pretty
@@ -237,6 +258,7 @@ cvox.AbstractTts.prototype.preprocess = function(text, properties) {
   // Special case for google+, where the punctuation must be pronounced.
   text = text.replace(/google\+/ig, 'google plus');
 
+  // Expand all repeated characters.
   text = text.replace(
       cvox.AbstractTts.repetitionRegexp_, cvox.AbstractTts.repetitionReplace_);
 
@@ -298,20 +320,20 @@ cvox.AbstractTts.PAUSE = 'pause';
 
 /**
  * TTS personality for annotations - text spoken by ChromeVox that
- * doesn't come from the web page or user interface.
+ * elaborates on a user interface element but isn't displayed on-screen.
  * @type {Object}
  */
 cvox.AbstractTts.PERSONALITY_ANNOTATION = {
   'relativePitch': -0.25,
   // TODO:(rshearer) Added this color change for I/O presentation.
-  'color': 'yellow'
+  'color': 'yellow',
+  'punctuationEcho': 'none'
 };
 
 
-
 /**
- * TTS personality for annotations - text spoken by ChromeVox that
- * doesn't come from the web page or user interface.
+ * TTS personality for announcements - text spoken by ChromeVox that
+ * isn't tied to any user interface elements.
  * @type {Object}
  */
 cvox.AbstractTts.PERSONALITY_ANNOUNCEMENT = {
@@ -553,7 +575,7 @@ cvox.AbstractTts.substitutionDictionaryRegexp_;
  * @private
  */
 cvox.AbstractTts.repetitionRegexp_ =
-    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>])\1{2,}/g;
+    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>])\1{3,}/g;
 
 
 /**
@@ -566,4 +588,12 @@ cvox.AbstractTts.repetitionRegexp_ =
 cvox.AbstractTts.repetitionReplace_ = function(match) {
   var count = match.length;
   return count + ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match[0]];
+};
+
+
+/**
+ * @override
+ */
+cvox.AbstractTts.prototype.getDefaultProperty = function(property) {
+  return this.propertyDefault[property];
 };

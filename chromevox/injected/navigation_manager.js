@@ -122,8 +122,8 @@ cvox.NavigationManager.prototype.reset = function() {
    * @private
    */
   this.curSel_ = document.activeElement != document.body ?
-      (/** @type {!cvox.CursorSelection} **/
-      cvox.CursorSelection.fromNode(document.activeElement)) :
+      /** @type {!cvox.CursorSelection} **/
+      (cvox.CursorSelection.fromNode(document.activeElement)) :
       this.shifter_.begin(this.curSel_, {reversed: false});
 
   /**
@@ -228,10 +228,8 @@ cvox.NavigationManager.prototype.reset = function() {
     this.sync();
   }
 
-  // Initializes math support, in particular for Mathjax.
-  if (document.querySelector('math') || document.querySelector('span.math')) {
-    cvox.TraverseMath.getInstance();
-  }
+  // This object is effectively empty when no math is in the page.
+  cvox.TraverseMath.getInstance();
 };
 
 
@@ -516,6 +514,7 @@ cvox.NavigationManager.prototype.performAction = function(name) {
   var newSel = null;
   switch (name) {
     case 'enterShifter':
+    case 'enterShifterSilently':
       for (var i = this.shifterTypes_.length - 1, shifterType;
            shifterType = this.shifterTypes_[i];
            i--) {
@@ -524,7 +523,7 @@ cvox.NavigationManager.prototype.performAction = function(name) {
           this.shifterStack_.push(this.shifter_);
           this.shifter_ = shifter;
           this.sync();
-          this.enteredShifter_ = true;
+          this.enteredShifter_ = name != 'enterShifterSilently';
           break;
         } else if (shifter && this.shifter_.getName() == shifter.getName()) {
           break;
@@ -572,19 +571,25 @@ cvox.NavigationManager.prototype.getGranularityMsg = function() {
 
 /**
  * Delegates to NavigationShifter.
+ * @param {boolean=} opt_persist Persist the granularity to all running tabs;
+ * defaults to true.
  */
-cvox.NavigationManager.prototype.makeMoreGranular = function() {
+cvox.NavigationManager.prototype.makeMoreGranular = function(opt_persist) {
   this.shifter_.makeMoreGranular();
   this.sync();
+  this.persistGranularity_(opt_persist);
 };
 
 
 /**
  * Delegates to current shifter.
+ * @param {boolean=} opt_persist Persist the granularity to all running tabs;
+ * defaults to true.
  */
-cvox.NavigationManager.prototype.makeLessGranular = function() {
+cvox.NavigationManager.prototype.makeLessGranular = function(opt_persist) {
   this.shifter_.makeLessGranular();
   this.sync();
+  this.persistGranularity_(opt_persist);
 };
 
 
@@ -599,8 +604,8 @@ cvox.NavigationManager.prototype.makeLessGranular = function() {
  * @param {boolean=} opt_force Forces current shifter to NavigationShifter;
  * false by default.
  */
-cvox.NavigationManager.prototype.setGranularity =
-    function(granularity, opt_force) {
+cvox.NavigationManager.prototype.setGranularity = function(
+    granularity, opt_force) {
   if (!opt_force && this.shifterStack_.length > 0) {
     return;
   }
@@ -649,12 +654,37 @@ cvox.NavigationManager.prototype.ensureNotSubnavigating = function() {
  *     NavDescriptions to speak.
  * @param {number} initialQueueMode The initial queue mode.
  * @param {Function} completionFunction Function to call when finished speaking.
- *
+ * @param {Object} opt_personality Optional personality for all descriptions.
  */
 cvox.NavigationManager.prototype.speakDescriptionArray = function(
-    descriptionArray, initialQueueMode, completionFunction) {
+    descriptionArray, initialQueueMode, completionFunction, opt_personality) {
+  if (opt_personality) {
+    descriptionArray.every(function(desc) {
+      if (!desc.personality) {
+        desc.personality = opt_personality;
+      }
+    });
+  }
+
   this.navSpeaker_.speakDescriptionArray(
       descriptionArray, initialQueueMode, completionFunction);
+};
+
+/**
+ * Add the position of the node on the page.
+ * @param {Node} node The node that ChromeVox should update the position.
+ */
+cvox.NavigationManager.prototype.updatePosition = function(node) {
+  var msg = cvox.ChromeVox.position;
+  msg[document.location.href] =
+      cvox.DomUtil.elementToPoint(node);
+
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'position',
+    'value': JSON.stringify(msg)
+  });
 };
 
 
@@ -713,16 +743,7 @@ cvox.NavigationManager.prototype.finishNavCommand = function(
 
   this.getBraille().write();
 
-  var msg = cvox.ChromeVox.position;
-  msg[document.location.href] =
-      cvox.DomUtil.elementToPoint(this.getCurrentNode());
-
-  cvox.ChromeVox.host.sendToBackgroundPage({
-    'target': 'Prefs',
-    'action': 'setPref',
-    'pref': 'position',
-    'value': JSON.stringify(msg)
-  });
+  this.updatePosition(this.getCurrentNode());
 };
 
 
@@ -747,8 +768,9 @@ cvox.NavigationManager.prototype.navigate = function(
   }
   this.ensureNotSubnavigating();
   if (opt_granularity !== undefined &&
-      opt_granularity !== this.getGranularity()) {
-    this.setGranularity(opt_granularity);
+      (opt_granularity !== this.getGranularity() ||
+          this.shifterStack_.length > 0)) {
+    this.setGranularity(opt_granularity, true);
     this.sync();
   }
   return this.next_(!opt_ignoreIframes);
@@ -778,7 +800,7 @@ cvox.NavigationManager.prototype.skip = function() {
   if (!this.keepReading_) {
     return false;
   }
-  if (cvox.ChromeVox.host.hasTtsCallback() && this.next_(true)) {
+  if (cvox.ChromeVox.host.hasTtsCallback()) {
     this.skipped_ = true;
     this.setReversed(false);
     this.startCallbackReading_(cvox.AbstractTts.QUEUE_MODE_FLUSH);
@@ -798,6 +820,14 @@ cvox.NavigationManager.prototype.startReading = function(queueMode) {
   } else {
     this.startNonCallbackReading_(queueMode);
   }
+  this.prevStickyState_ = cvox.ChromeVox.isStickyOn;
+  cvox.ChromeVox.host.sendToBackgroundPage({
+    'target': 'Prefs',
+    'action': 'setPref',
+    'pref': 'sticky',
+    'value': true,
+    'announce': false
+  });
 };
 
 /**
@@ -811,6 +841,25 @@ cvox.NavigationManager.prototype.stopReading = function(stopTtsImmediately) {
   if (stopTtsImmediately) {
     cvox.ChromeVox.tts.stop();
   }
+  if (this.prevStickyState_ != undefined) {
+    cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'sticky',
+      'value': this.prevStickyState_,
+      'announce': false
+    });
+    this.prevStickyState_ = undefined;
+  }
+};
+
+
+/**
+ * The current current state of continuous read.
+ * @return {boolean} The state.
+ */
+cvox.NavigationManager.prototype.isReading = function() {
+  return this.keepReading_;
 };
 
 
@@ -1075,20 +1124,16 @@ cvox.NavigationManager.prototype.tryBoundaries_ = function(sel, iframes) {
   if (iframes && this.tryIframe_(sel && sel.start.node)) {
     return true;
   }
-  if (sel && sel.start.node.tagName != 'IFRAME') {
+  if (sel) {
     this.updateSel(sel);
     return true;
-  } else if (sel && sel.start.node.tagName == 'IFRAME') {
-    // We end up here because iframes got skipped or we failed in trying to
-    // enter or exit an iframe, but our selection is still over an iframe;
-    // explicitly move selection to the next element.
-    return this.next_(iframes);
   }
   if (this.shifterStack_.length > 0) {
     return true;
   }
   this.syncToBeginning(!iframes);
   this.clearPageSel(true);
+  this.stopReading(true);
   this.pageEnd_ = true;
   return false;
 };
@@ -1182,4 +1227,22 @@ cvox.NavigationManager.prototype.saveSel = function() {
  */
 cvox.NavigationManager.prototype.restoreSel = function() {
   this.curSel_ = this.saveSel_ || this.curSel_;
+};
+
+
+/**
+ * @param {boolean=} opt_persist Persist the granularity to all running tabs;
+ * defaults to true.
+ * @private
+ */
+cvox.NavigationManager.prototype.persistGranularity_ = function(opt_persist) {
+  opt_persist = opt_persist === undefined ? true : opt_persist;
+  if (opt_persist) {
+    cvox.ChromeVox.host.sendToBackgroundPage({
+      'target': 'Prefs',
+      'action': 'setPref',
+      'pref': 'granularity',
+      'value': this.getGranularity()
+    });
+  }
 };

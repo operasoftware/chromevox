@@ -723,6 +723,38 @@ msgs.MSG_CHROMEVOX_PREVIOUS_LIST =
 
 
 /**
+ * @desc The description of the nextMath key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_NEXT_MATH =
+    goog.getMsg('Next math');
+
+
+/**
+ * @desc The description of the previousMath key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_PREVIOUS_MATH =
+    goog.getMsg('Previous math');
+
+
+/**
+ * @desc The description of the nextMedia key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_NEXT_MEDIA =
+    goog.getMsg('Next media');
+
+
+/**
+ * @desc The description of the previousMedia key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_PREVIOUS_MEDIA =
+    goog.getMsg('Previous media');
+
+
+/**
  * @desc The description of the nextBlockquote key.
  * Displayed in the Options page.
  */
@@ -779,11 +811,27 @@ msgs.MSG_CHROMEVOX_NEXT_TABLE =
 
 
 /**
+ * @desc The description of the nextVisitedLink key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_NEXT_VISITED_LINK =
+    goog.getMsg('Next visited link');
+
+
+/**
  * @desc The description of the previousTable key.
  * Displayed in the Options page.
  */
 msgs.MSG_CHROMEVOX_PREVIOUS_TABLE =
     goog.getMsg('Previous table');
+
+
+/**
+ * @desc The description of the previousVisitedLink key.
+ * Displayed in the Options page.
+ */
+msgs.MSG_CHROMEVOX_PREVIOUS_VISITED_LINK =
+    goog.getMsg('Previous visited link');
 
 
 /**
@@ -889,6 +937,14 @@ msgs.MSG_CHROMEVOX_OPTIONS_PAGE_SUMMARY =
  */
 msgs.MSG_CHROMEVOX_OPTIONS_MOUSE_FOCUS_FOLLOWS =
     goog.getMsg('Use the mouse to change focus.');
+
+
+/**
+ * @desc An option to enhance the experience of specific sites such as Google
+ * Search.
+ */
+msgs.MSG_CHROMEVOX_OPTIONS_SITE_SPECIFIC_ENHANCEMENTS =
+    goog.getMsg('Enhance specific sites (like Google Search).');
 
 
 /**
@@ -1362,6 +1418,13 @@ msgs.MSG_CHROMEVOX_KEYBOARD_HELP_INTRO =
 
 
 /**
+ * @desc Prompt spoken when user opens the Context Menu Widget.
+ */
+msgs.MSG_CHROMEVOX_CONTEXT_MENU_INTRO =
+    goog.getMsg('Context Menu');
+
+
+/**
  * @desc Prompt spoken as a generic name for any choice widget of some type.
  */
 msgs.MSG_CHROMEVOX_CHOICE_WIDGET_NAME =
@@ -1749,6 +1812,22 @@ msgs.MSG_CHROMEVOX_NO_PREVIOUS_TABLE =
 
 
 /**
+ * @desc Spoken if the user attempts to jump to the next visited link when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_VISITED_LINK =
+    goog.getMsg('No next visited link.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous visited link when
+ * none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_VISITED_LINK =
+    goog.getMsg('No previous visited link.');
+
+
+/**
  * @desc Spoken if the user attempts to jump to the next math expression
  * when none exists.
  */
@@ -1763,6 +1842,21 @@ msgs.MSG_CHROMEVOX_NO_NEXT_MATH =
 msgs.MSG_CHROMEVOX_NO_PREVIOUS_MATH =
     goog.getMsg('No previous math expression.');
 
+
+/**
+ * @desc Spoken if the user attempts to jump to the next media widget
+ * (audio/video) when none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_NEXT_MEDIA_WIDGET =
+    goog.getMsg('No next media widget.');
+
+
+/**
+ * @desc Spoken if the user attempts to jump to the previous media widget
+ * (audio/video) when none exists.
+ */
+msgs.MSG_CHROMEVOX_NO_PREVIOUS_MEDIA_WIDGET =
+    goog.getMsg('No previous media widget.');
 
 /**
  * @desc Spoken if the user attempts to jump to the next list when
@@ -4079,7 +4173,7 @@ msgs.MSG_CHROMEVOX_MODIFIER_KEYS = goog.getMsg('Modifier Keys');
 /**
  * @desc Category displayed in the options page under keyboard commands.
  */
-msgs.MSG_CHROMEVOX_CHROMEVOX_NAVIGATION = goog.getMsg('ChromeVox Navigation');
+msgs.MSG_CHROMEVOX_NAVIGATION = goog.getMsg('ChromeVox Navigation');
 
 
 /**
@@ -4591,6 +4685,12 @@ msgs.MSG_CHROMEVOX_CYCLE_PUNCTUATION_ECHO =
 msgs.MSG_CHROMEVOX_CYCLE_TYPING_ECHO =
     goog.getMsg('Cycle typing echo');
 
+/**
+ * @desc The description of the pauseAllMedia key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_PAUSE_ALL_MEDIA =
+    goog.getMsg('Pauses all currently playing media widgets');
 
 /**
  * @desc The description of the openLongDesc key.
@@ -4807,3 +4907,70 @@ msgs.MSG_CHROMEVOX_NO_NEXT_ARTICLE =
  */
 msgs.MSG_CHROMEVOX_NO_PREVIOUS_ARTICLE =
     goog.getMsg('No previous article.');
+
+
+/**
+ * @desc Spoken when the browser first starts and ChromeVox is active.
+ */
+msgs.MSG_CHROMEVOX_CHROMEVOX_INTRO = goog.getMsg('ChromeVox is ready');
+
+
+/**
+ * @desc Spoken when earcons are on.
+ */
+msgs.MSG_CHROMEVOX_EARCONS_ON = goog.getMsg('Earcons on');
+
+
+/**
+ * @desc Spoken when earcons are off.
+ */
+msgs.MSG_CHROMEVOX_EARCONS_OFF = goog.getMsg('Earcons off');
+
+/**
+ * @desc Description of the toggle earcons key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_TOGGLE_EARCONS =
+    goog.getMsg('Turn sound feedback (earcons) on or off.');
+
+/**
+ * @desc Description of the speak time and date key.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_SPEAK_TIME_AND_DATE =
+    goog.getMsg('Speak the current time and date.');
+
+/**
+ * @desc Abbreviation indicating following text is an incremental search result.
+ * For example, in English, the abbreviation might be 'S:' for 'Search'.
+ */
+msgs.MSG_CHROMEVOX_MARK_AS_SEARCH_RESULT_BRL =
+    goog.getMsg('S:{$result}', {'result': '$1'});
+
+
+/**
+ * @desc Announced when text within an editable text field gets deleted.
+ */
+msgs.MSG_CHROMEVOX_TEXT_DELETED =
+    goog.getMsg('Deleted');
+
+
+/**
+ * @desc Describes the perform default action command. This is usually triggered
+ * by hitting the enter key over a control.
+ * Shown in options page.
+ */
+msgs.MSG_CHROMEVOX_PERFORM_DEFAULT_ACTION =
+    goog.getMsg('Perform default action');
+
+
+/**
+ * @desc Spoken to describe a link (url) that has been previously visited.
+ */
+msgs.MSG_CHROMEVOX_VISITED_URL = goog.getMsg('visited');
+
+
+/**
+ * @desc Brailled to describe a link (url) that has been previously visited.
+ */
+msgs.MSG_CHROMEVOX_VISITED_URL_BRL = goog.getMsg('visited');

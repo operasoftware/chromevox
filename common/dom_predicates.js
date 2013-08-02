@@ -272,9 +272,23 @@ cvox.DomPredicates.cellPredicate = function(nodes) {
         (node.getAttribute && node.getAttribute('role') == 'gridcell')) {
       return node;
     }
-
   }
   return null;
+};
+
+
+/**
+ * Visited link.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a visited link.
+ */
+cvox.DomPredicates.visitedLinkPredicate = function(nodes) {
+  for (var i = nodes.length - 1; i >= 0; --i) {
+    if (cvox.DomPredicates.linkPredicate([nodes[i]]) &&
+        cvox.ChromeVox.visitedUrls[nodes[i].href]) {
+      return nodes[i];
+    }
+  }
 };
 
 
@@ -452,6 +466,21 @@ cvox.DomPredicates.articlePredicate = function(nodes) {
     if ((nodes[i].getAttribute &&
             nodes[i].getAttribute('role') == 'article') ||
         nodes[i].tagName == 'ARTICLE') {
+      return nodes[i];
+    }
+  }
+  return null;
+};
+
+/**
+ * Media.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a media widget (video or audio).
+ */
+cvox.DomPredicates.mediaPredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].tagName == 'AUDIO' ||
+        nodes[i].tagName == 'VIDEO') {
       return nodes[i];
     }
   }

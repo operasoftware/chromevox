@@ -850,3 +850,6 @@ cvox.Lens.prototype.addCapturingEventListener = function(listener) { };
 
 /** @override */
 cvox.Lens.prototype.increaseOrDecreaseProperty = function() { };
+
+/** @override */
+cvox.Lens.prototype.getDefaultProperty = function() { };

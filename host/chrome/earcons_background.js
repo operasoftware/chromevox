@@ -19,21 +19,26 @@
  * @author clchen@google.com (Charles L. Chen)
  */
 
+
 goog.provide('cvox.EarconsBackground');
 
 goog.require('cvox.AbstractEarcons');
+
 
 /**
  * @constructor
  * @extends {cvox.AbstractEarcons}
  */
 cvox.EarconsBackground = function() {
-  //Inherit AbstractEarcons
-  cvox.AbstractEarcons.call(this);
+  goog.base(this);
 
   this.audioMap = new Object();
+  if (localStorage['earcons'] === 'false') {
+    this.enabled = false;
+  }
 };
 goog.inherits(cvox.EarconsBackground, cvox.AbstractEarcons);
+
 
 /**
  * @return {string} The human-readable name of the earcon set.
@@ -42,6 +47,7 @@ cvox.EarconsBackground.prototype.getName = function() {
   return 'ChromeVox earcons';
 };
 
+
 /**
  * @return {string} The base URL for loading earcons.
  */
@@ -49,12 +55,19 @@ cvox.EarconsBackground.prototype.getBaseUrl = function() {
   return cvox.EarconsBackground.BASE_URL;
 };
 
+
 /**
- * Plays the specified earcon sound.
- * @param {number} earcon The earcon index.
+ * @override
  */
 cvox.EarconsBackground.prototype.playEarcon = function(earcon) {
-  cvox.EarconsBackground.superClass_.playEarcon.call(this, earcon);
+  goog.base(this, 'playEarcon', earcon);
+  if (!this.enabled) {
+    return;
+  }
+  if (window['console']) {
+    window['console']['log']('Earcon ' + this.getEarconName(earcon));
+  }
+
   this.currentAudio = this.audioMap[earcon];
   if (!this.currentAudio) {
     this.currentAudio = new Audio(this.getBaseUrl() +
@@ -66,9 +79,11 @@ cvox.EarconsBackground.prototype.playEarcon = function(earcon) {
   } catch (e) {
   }
   if (this.currentAudio.paused) {
+    this.currentAudio.volume = 0.7;
     this.currentAudio.play();
   }
 };
+
 
 /**
  * The base URL for  loading eracons.

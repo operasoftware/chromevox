@@ -29,15 +29,16 @@ goog.require('cvox.ChromeVoxKbHandler');
 goog.require('cvox.ExtensionBridge');
 goog.require('cvox.HostFactory');
 goog.require('cvox.InitialSpeech');
-goog.require('cvox.MathJaxImplementation');
 goog.require('cvox.PdfProcessor');
+goog.require('cvox.SearchLoader');
+goog.require('cvox.TraverseMath');
 
 /**
  * @constructor
  * @extends {cvox.AbstractHost}
  */
 cvox.ChromeHost = function() {
-  cvox.AbstractHost.call(this);
+  goog.base(this);
 
   /** @type {boolean} @private */
   this.gotPrefsAtLeastOnce_ = false;
@@ -52,59 +53,79 @@ cvox.ChromeHost.prototype.init = function() {
   // compiled to native code and not possible to debug.
   var self = this;
   var listener = function(message) {
-      if (message['keyBindings']) {
-        cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message['keyBindings']);
+    if (message['history']) {
+      cvox.ChromeVox.visitedUrls = message['history'];
+    }
+
+    if (message['keyBindings']) {
+      cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable(message['keyBindings']);
+    }
+    if (message['prefs']) {
+      var prefs = message['prefs'];
+      cvox.ChromeVoxEditableTextBase.useIBeamCursor =
+          (prefs['useIBeamCursor'] == 'true');
+      cvox.ChromeVoxEditableTextBase.eventTypingEcho = true;
+      cvox.ChromeVoxEventWatcher.focusFollowsMouse =
+          (prefs['focusFollowsMouse'] == 'true');
+
+      cvox.ChromeVox.version = prefs['version'];
+
+      cvox.ChromeVox.earcons.enabled =
+          /** @type {boolean} */(JSON.parse(prefs['earcons']));
+
+      cvox.ChromeVox.typingEcho =
+          /** @type {number} */(JSON.parse(prefs['typingEcho']));
+
+      if (prefs['position']) {
+        cvox.ChromeVox.position =
+            /** @type {Object.<string, {x:number, y:number}>} */ (
+                JSON.parse(prefs['position']));
       }
-      if (message['prefs']) {
-        var prefs = message['prefs'];
-        cvox.ChromeVoxEditableTextBase.useIBeamCursor =
-            (prefs['useIBeamCursor'] == 'true');
-        cvox.ChromeVoxEventWatcher.focusFollowsMouse =
-            (prefs['focusFollowsMouse'] == 'true');
 
-        cvox.ChromeVox.version = prefs['version'];
-
-        cvox.ChromeVox.typingEcho =
-            /** @type {number} */(JSON.parse(prefs['typingEcho']));
-
-        if (prefs['position']) {
-          cvox.ChromeVox.position =
-              /** @type {Object.<string, {x:number, y:number}>} */ (
-                  JSON.parse(prefs['position']));
-        }
-
-        self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
-        self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
-        if (!self.gotPrefsAtLeastOnce_) {
-          cvox.InitialSpeech.speak();
-        }
-        self.gotPrefsAtLeastOnce_ = true;
-
-        if (prefs['useVerboseMode'] == 'false') {
-          cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
-        } else {
-          cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
-        }
-        if (prefs['cvoxKey']) {
-          cvox.ChromeVox.modKeyStr = prefs['cvoxKey'];
-        }
-
-        var apiPrefsChanged = (
-            prefs['siteSpecificScriptLoader'] !=
-                cvox.ApiImplementation.siteSpecificScriptLoader ||
-            prefs['siteSpecificScriptBase'] !=
-                cvox.ApiImplementation.siteSpecificScriptBase);
-        cvox.ApiImplementation.siteSpecificScriptLoader =
-            prefs['siteSpecificScriptLoader'];
-        cvox.ApiImplementation.siteSpecificScriptBase =
-            prefs['siteSpecificScriptBase'];
-        if (apiPrefsChanged) {
-          cvox.ApiImplementation.init();
-          cvox.MathJaxImplementation.init();
-        }
+      if (prefs['granularity'] != 'undefined') {
+        cvox.ChromeVox.navigationManager.setGranularity(
+            /** @type {number} */ (JSON.parse(prefs['granularity'])));
       }
+
+      self.activateOrDeactivateChromeVox(prefs['active'] == 'true');
+      self.activateOrDeactivateStickyMode(prefs['sticky'] == 'true');
+      if (!self.gotPrefsAtLeastOnce_) {
+        cvox.InitialSpeech.speak();
+      }
+      self.gotPrefsAtLeastOnce_ = true;
+
+      if (prefs['useVerboseMode'] == 'false') {
+        cvox.ChromeVox.verbosity = cvox.VERBOSITY_BRIEF;
+      } else {
+        cvox.ChromeVox.verbosity = cvox.VERBOSITY_VERBOSE;
+      }
+      if (prefs['cvoxKey']) {
+        cvox.ChromeVox.modKeyStr = prefs['cvoxKey'];
+      }
+
+      var apiPrefsChanged = (
+          prefs['siteSpecificScriptLoader'] !=
+              cvox.ApiImplementation.siteSpecificScriptLoader ||
+                  prefs['siteSpecificScriptBase'] !=
+                      cvox.ApiImplementation.siteSpecificScriptBase);
+      cvox.ApiImplementation.siteSpecificScriptLoader =
+          prefs['siteSpecificScriptLoader'];
+      cvox.ApiImplementation.siteSpecificScriptBase =
+          prefs['siteSpecificScriptBase'];
+      if (apiPrefsChanged) {
+        var searchInit = prefs['siteSpecificEnhancements'] === 'true' ?
+            cvox.SearchLoader.init : null;
+        cvox.ApiImplementation.init(searchInit);
+      }
+    }
   };
   cvox.ExtensionBridge.addMessageListener(listener);
+
+  cvox.ExtensionBridge.addMessageListener(function(msg, port) {
+    if (msg['message'] == 'DOMAINS_STYLES') {
+      cvox.TraverseMath.getInstance().addDomainsAndStyles(
+          msg['domains'], msg['styles']);
+    }});
 
   cvox.ExtensionBridge.addMessageListener(function(msg, port) {
     var message = msg['message'];
@@ -120,53 +141,14 @@ cvox.ChromeHost.prototype.init = function() {
       'action': 'getPrefs'
     });
 
-  this.hidePageFromNativeScreenReaders();
+  cvox.ExtensionBridge.send({
+      'target': 'Data',
+      'action': 'getHistory'
+    });
 };
 
 cvox.ChromeHost.prototype.reinit = function() {
   cvox.ExtensionBridge.init();
-};
-
-/**
- * On Windows and Mac, cause any existing system screen readers to not try to
- * speak the web content in the browser.
- */
-cvox.ChromeHost.prototype.hidePageFromNativeScreenReaders = function() {
-  var originalHidden = document.body.getAttribute('aria-hidden');
-  if (originalHidden == 'true') {
-    cvox.ChromeVox.entireDocumentIsHidden = true;
-  }
-
-  if ((navigator.platform.indexOf('Win') == 0) ||
-      (navigator.platform.indexOf('Mac') == 0)) {
-    if (!cvox.ChromeVox.entireDocumentIsHidden) {
-      document.body.setAttribute('aria-hidden', true);
-      document.body.setAttribute('chromevoxignoreariahidden', true);
-    }
-    var originalRole = document.body.getAttribute('role');
-    document.body.setAttribute('role', 'application');
-    document.body.setAttribute('chromevoxoriginalrole', originalRole);
-  }
-};
-
-/**
- * Clean up after ourselves to re-enable native screen readers.
- */
-cvox.ChromeHost.prototype.unhidePageFromNativeScreenReaders = function() {
-  if ((navigator.platform.indexOf('Win') == 0) ||
-      (navigator.platform.indexOf('Mac') == 0)) {
-    if (document.body.getAttribute('chromevoxoriginalrole') != '') {
-      document.body.setAttribute(
-          'role', document.body.getAttribute('chromevoxoriginalrole'));
-    } else {
-      document.body.removeAttribute('role');
-    }
-    if (!cvox.ChromeVox.entireDocumentIsHidden) {
-      document.body.removeAttribute('aria-hidden');
-      document.body.removeAttribute('chromevoxignoreariahidden');
-    }
-    document.body.removeAttribute('chromevoxoriginalrole');
-  }
 };
 
 cvox.ChromeHost.prototype.onPageLoad = function() {
@@ -178,7 +160,6 @@ cvox.ChromeHost.prototype.onPageLoad = function() {
     // TODO(stoarca): Huh?? Why are we resetting during disconnect?
     // This is not appropriate behavior!
     cvox.ChromeVox.navigationManager.reset();
-    this.unhidePageFromNativeScreenReaders();
   }, this));
 };
 
@@ -216,12 +197,6 @@ cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
     cvox.ApiImplementation.syncToNode(document.activeElement, speakNodeAlso);
   } else {
     cvox.ChromeVox.navigationManager.updateIndicator();
-  }
-
-  if (active) {
-    this.hidePageFromNativeScreenReaders();
-  } else {
-    this.unhidePageFromNativeScreenReaders();
   }
 };
 

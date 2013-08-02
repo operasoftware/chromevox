@@ -46,3 +46,6 @@ cvox.TtsHistory.prototype.addCapturingEventListener = function(listener) { };
 
 /** @override */
 cvox.TtsHistory.prototype.increaseOrDecreaseProperty = function() { };
+
+/** @override */
+cvox.TtsHistory.prototype.getDefaultProperty = function() { };

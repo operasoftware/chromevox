@@ -57,13 +57,13 @@ cvox.MathMap = function() {
    */
   this.allDomains = cvox.MathUtil.union(this.functions_.domains,
                                         this.symbols_.domains);
+
   /**
-   * Array of speech rule names.
+   * Array of style names.
    * @type {Array.<string>}
    */
-  this.allRules = cvox.MathUtil.union(this.functions_.rules,
-                                      this.symbols_.rules);
-
+  this.allStyles = cvox.MathUtil.union(this.functions_.styles,
+                                       this.symbols_.styles);
 };
 
 
@@ -153,7 +153,9 @@ cvox.MathMap.SYMBOLS_FILES_ = [
  * @const
  * @private
  */
-cvox.MathMap.FUNCTIONS_FILES_ = ['elementary.json', 'trigonometry.json'];
+cvox.MathMap.FUNCTIONS_FILES_ = [
+  'algebra.json', 'elementary.json', 'hyperbolic.json', 'trigonometry.json'
+];
 
 
 /**

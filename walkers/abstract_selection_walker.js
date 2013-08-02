@@ -52,7 +52,8 @@ cvox.AbstractSelectionWalker.prototype.next = function(sel) {
   var ret = r ? this.tc_.prevElement(this.grain) :
       this.tc_.nextElement(this.grain);
   if (ret == null) {
-    return null;
+    // Unfortunately, we can't trust TraverseContent; fall back to ObjectWalker.
+    return this.objWalker_.next(sel);
   }
   var retSel = this.tc_.getCurrentCursorSelection().setReversed(r);
   var objSel = this.objWalker_.next(sel);
@@ -80,7 +81,9 @@ cvox.AbstractSelectionWalker.prototype.sync = function(sel) {
   var newSel = null;
   if (sel.start.equals(sel.end) && sel.start.node.constructor.name != 'Text') {
     var node = sel.start.node;
-    while (node && cvox.DomUtil.directedFirstChild(node, r)) {
+    while (node &&
+        cvox.DomUtil.directedFirstChild(node, r) &&
+        !cvox.TraverseUtil.treatAsLeafNode(node)) {
       node = cvox.DomUtil.directedFirstChild(node, r);
     }
     newSel = cvox.CursorSelection.fromNode(node);

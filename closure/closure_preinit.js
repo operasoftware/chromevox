@@ -62,7 +62,11 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
         chrome.extension.sendMessage(
             {'srcFile': relativeSrc},
             function(response) {
-              eval(response['code']);
+              try {
+                eval(response['code']);
+              } catch (e) {
+                console.error('Script error: ' + e + ' in ' + src);
+              }
               goog.global.queue_ = goog.global.queue_.slice(1);
               loadNextScript();
             });
@@ -81,7 +85,7 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
           var scriptText = xhr.responseText;
           // Add a magic comment to the bottom of the file so that
           // Chrome knows the name of the script in the JavaScript debugger.
-          scriptText += '\n//@ sourceURL=' + src + '\n';
+          scriptText += '\n//# sourceURL=' + src + '\n';
           eval(scriptText);
           goog.global.queue_ = goog.global.queue_.slice(1);
           loadNextScript();
@@ -99,4 +103,3 @@ window.CLOSURE_IMPORT_SCRIPT = function(src) {
     return goog.writeScriptTag_(src);
   }
 };
-

@@ -38,6 +38,16 @@
                         "keyCode": [186]}
               }},
 
+ {"command": "toggleStickyMode",
+  "sequence": {"keys": {"keyCode": [91]},
+               "doubleTap": true
+              }},
+
+ {"command": "performDefaultAction",
+  "sequence": {
+               "keys": {"keyCode": [13]}
+              }},
+
  {"command": "forceClickOnCurrentItem",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [32]}
@@ -45,9 +55,8 @@
 
  {"command": "forceDoubleClickOnCurrentItem",
   "sequence": {"cvoxModifier": true,
-               "keys": {"keyCode": [32],
-                        "ctrlKey": [true],
-                        "shiftKey": [true]}
+               "keys": {"keyCode": [32]},
+               "doubleTap": true
               }},
 
  {"command": "previousCharacter",
@@ -79,6 +88,18 @@
              "ctrlKey": [true]}
   }},
 
+ {"command": "previousRow",
+  "sequence": {"keys": {"keyCode": [38],
+                        "altKey": [true],
+                        "shiftKey": [true]}
+              }},
+
+ {"command": "previousCol",
+  "sequence": {"keys": {"keyCode": [37],
+                        "altKey": [true],
+                        "shiftKey": [true]}
+              }},
+
  {"command": "nextCharacter",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [39]}
@@ -106,6 +127,18 @@
     "keys": {"keyCode": [40],
              "ctrlKey": [true]}
   }},
+
+ {"command": "nextRow",
+  "sequence": {"keys": {"keyCode": [40],
+                        "altKey": [true],
+                        "shiftKey": [true]}
+              }},
+
+ {"command": "nextCol",
+  "sequence": {"keys": {"keyCode": [39],
+                        "altKey": [true],
+                        "shiftKey": [true]}
+              }},
 
  {"command": "left",
   "sequence": {"cvoxModifier": true,
@@ -158,6 +191,11 @@
                "keys": {"keyCode": [75]}
               }},
 
+ {"command": "speakTimeAndDate",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [123]}
+              }},
+
  {"command": "readFromHere",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [82]}
@@ -171,16 +209,6 @@
  {"command": "contextMenu",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [188]}
-              }},
-
- {"command": "skipBackward",
-  "sequence": {"cvoxModifier": false,
-               "keys": {"keyCode": [37]}
-              }},
-
- {"command": "skipForward",
-  "sequence": {"cvoxModifier": false,
-               "keys": {"keyCode": [39]}
               }},
 
  {"command": "toggleKeyboardHelp",
@@ -231,6 +259,11 @@
  {"command": "cycleTypingEcho",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [65, 84]}
+              }},
+
+ {"command": "toggleEarcons",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [65, 69]}
               }},
 
  {"command": "showFormsList",
@@ -346,6 +379,11 @@
  {"command": "nextTable",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [84]}
+              }},
+
+ {"command": "nextVisitedLink",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [86]}
               }},
 
  {"command": "nextCheckbox",
@@ -471,6 +509,12 @@
                         "shiftKey": [true]}
               }},
 
+ {"command": "previousVisitedLink",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [86],
+                        "shiftKey": [true]}
+              }},
+
  {"command": "previousCheckbox",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [88],
@@ -485,11 +529,6 @@
  {"command": "speakTableLocation",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [222, 76]}
-              }},
-
- {"command": "exitShifterContent",
-  "sequence": {"cvoxModifier": true,
-               "keys": {"keyCode": [84, 69]}
               }},
 
  {"command": "nextLandmark",

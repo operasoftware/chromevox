@@ -18,17 +18,25 @@
                         "keyCode": [186]}
               }},
 
+ {"command": "toggleStickyMode",
+  "sequence": {"keys": {"keyCode": [91]},
+               "doubleTap": true
+              }},
+
+ {"command": "performDefaultAction",
+  "sequence": {
+               "keys": {"keyCode": [13]}
+              }},
+
  {"command": "forceClickOnCurrentItem",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [32]}
               }},
 
-
  {"command": "forceDoubleClickOnCurrentItem",
   "sequence": {"cvoxModifier": true,
-               "keys": {"keyCode": [32],
-                        "ctrlKey": [true],
-                        "shiftKey": [true]}
+               "keys": {"keyCode": [32]},
+               "doubleTap": true
               }},
 
  {"command": "left",
@@ -56,6 +64,11 @@
                "keys": {"keyCode": [67, 75]}
               }},
 
+ {"command": "speakTimeAndDate",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [67, 68]}
+              }},
+
  {"command": "readFromHere",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [82]}
@@ -64,16 +77,6 @@
  {"command": "toggleSelection",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [83]}
-              }},
-
- {"command": "skipBackward",
-  "sequence": {"cvoxModifier": false,
-               "keys": {"keyCode": [37]}
-              }},
-
- {"command": "skipForward",
-  "sequence": {"cvoxModifier": false,
-               "keys": {"keyCode": [39]}
               }},
 
  {"command": "jumpToTop",
@@ -139,6 +142,11 @@
  {"command": "cycleTypingEcho",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [69, 84]}
+              }},
+
+ {"command": "toggleEarcons",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [69, 69]}
               }},
 
  {"command": "enterShifter",
@@ -286,6 +294,11 @@
                "keys": {"keyCode": [78, 77]}
               }},
 
+ {"command": "nextMedia",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [78, 87]}
+              }},
+
  {"command": "nextRadio",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [78, 82]}
@@ -294,6 +307,11 @@
  {"command": "nextTable",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [78, 84]}
+              }},
+
+ {"command": "nextVisitedLink",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [78, 86]}
               }},
 
  {"command": "nextCheckbox",
@@ -401,6 +419,11 @@
                "keys": {"keyCode": [80, 77]}
               }},
 
+ {"command": "previousMedia",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [80, 87]}
+              }},
+
  {"command": "previousRadio",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [80, 82]}
@@ -409,6 +432,11 @@
  {"command": "previousTable",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [80, 84]}
+              }},
+
+ {"command": "previousVisitedLink",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [80, 86]}
               }},
 
  {"command": "previousCheckbox",
@@ -469,6 +497,11 @@
  {"command": "goToRowLastCell",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [84, 222]}
+              }},
+
+ {"command": "pauseAllMedia",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [88]}
               }},
 
  {"command": "enableConsoleTts",

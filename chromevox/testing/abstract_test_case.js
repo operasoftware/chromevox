@@ -47,6 +47,12 @@ cvox.AbstractTestCase.prototype.setFocus = goog.abstractMethod;
 /** @override */
 cvox.AbstractTestCase.prototype.userCommand = goog.abstractMethod;
 
+
+/**
+ * Local setup method for tests.
+ */
+cvox.AbstractTestCase.prototype.setUpTest = function() { };
+
 /**
  * @return {cvox.SpokenListBuilder} A new builder.
  */

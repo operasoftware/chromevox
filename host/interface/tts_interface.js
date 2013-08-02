@@ -84,3 +84,11 @@ cvox.TtsInterface.prototype.addCapturingEventListener = function(listener) { };
  */
 cvox.TtsInterface.prototype.increaseOrDecreaseProperty =
     function(propertyName, increase) { };
+
+
+/**
+ * Returns the default properties of the first tts that has default properties.
+ * @param {string} property Name of property.
+ * @return {?number} The default value.
+ */
+cvox.TtsInterface.prototype.getDefaultProperty = function(property) { };

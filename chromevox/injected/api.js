@@ -436,67 +436,90 @@ if (typeof(goog) != 'undefined' && goog.require) {
      }
    };
 
+   /**
+    * Returns the key codes of the ChromeVox modifier keys.
+    * @param {function(Array.<number>)} callback Function to receive the keys.
+    */
+   cvox.Api.getCvoxModifierKeys = function(callback) {
+     if (!cvox.Api.isChromeVoxActive() || !callback) {
+       return;
+     }
+     if (implementation_) {
+       callback(cvox.KeyUtil.cvoxModKeyCodes());
+     } else {
+       callAsync_({'cmd': 'getCvoxModKeys'}, function(response) {
+         callback(response['keyCodes']);
+       });
+     }
+   };
+
+   /**
+    * Returns if ChromeVox will handle this key event.
+    * @param {Event} keyEvent A key event.
+    * @param {function(boolean)} callback Function to receive the keys.
+    */
+   cvox.Api.isKeyShortcut = function(keyEvent, callback) {
+     if (!callback) {
+       return;
+     }
+     if (!cvox.Api.isChromeVoxActive()) {
+       callback(false);
+       return;
+     }
+     /* TODO(peterxiao): Ignore these keys until we do this in a smarter way. */
+     var KEY_IGNORE_LIST = [
+      37, /* Left arrow. */
+      39  /* Right arrow. */
+     ];
+     if (KEY_IGNORE_LIST.indexOf(keyEvent.keyCode) && !keyEvent.altKey &&
+         !keyEvent.shiftKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
+       callback(false);
+       return;
+     }
+
+     if (implementation_) {
+       var keySeq = cvox.KeyUtil.keyEventToKeySequence(keyEvent);
+       callback(cvox.ChromeVoxKbHandler.handlerKeyMap.hasKey(keySeq));
+     } else {
+       var strippedKeyEvent = {};
+       /* Blacklist these props so we can safely stringify. */
+       var BLACK_LIST_PROPS = ['target', 'srcElement', 'currentTarget', 'view'];
+       for (var prop in keyEvent) {
+         if (BLACK_LIST_PROPS.indexOf(prop) === -1) {
+           strippedKeyEvent[prop] = keyEvent[prop];
+         }
+       }
+       var message = {
+         'cmd': 'isKeyShortcut',
+         'args': [strippedKeyEvent]
+       };
+       callAsync_(message, function(response) {
+         callback(response['isHandled']);
+       });
+     }
+   };
+
+   /**
+    * Set key echoing on key press.
+    * @param {boolean} keyEcho Whether key echoing should be on or off.
+    */
+   cvox.Api.setKeyEcho = function(keyEcho) {
+     if (!cvox.Api.isChromeVoxActive()) {
+       return;
+     }
+
+     if (implementation_) {
+       implementation_.setKeyEcho(keyEcho);
+     } else {
+       var message = {
+         'cmd': 'setKeyEcho',
+         'args': [keyEcho]
+       };
+       channel_.port1.postMessage(JSON.stringify(message));
+     }
+   };
+
    cvox.Api.internalEnable();
-
-   // TODO (sorge) This functions should only be redefined if
-   // they do not yet already exist.
-   /*
-    * Utility functions. Should these be part of the API?
-    * @constructor
-    */
-   cvox.XpathUtil = function() {
-   };
-
-   /**
-    * Mapping for some default namespaces.
-    * @const
-    * @private
-    */
-   cvox.XpathUtil.nameSpaces_ = {
-     'xhtml' : 'http://www.w3.org/1999/xhtml',
-     'mathml': 'http://www.w3.org/1998/Math/MathML'
-   };
-
-
-   /**
-    * Resolve some default name spaces.
-    * @param {string} prefix Namespace prefix.
-    * @return {string} The corresponding namespace URI.
-    */
-   cvox.XpathUtil.resolveNameSpace = function(prefix) {
-     return cvox.XpathUtil.nameSpaces_[prefix] || null;
-   };
-
-
-   /**
-    * Given an XPath expression and rootNode, it returns an array of
-    * children nodes that match. The code for this function was taken
-    * from Mihai Parparita's GMail Macros Greasemonkey Script.
-    * http://gmail-greasemonkey.googlecode.com/svn/trunk/scripts/gmail-new-macros.user.js
-    * @param {string} expression The XPath expression to evaluate.
-    * @param {Node} rootNode The HTML node to start evaluating the XPath from.
-    * @return {Array} The array of children nodes that match.
-    */
-   cvox.XpathUtil.evalXPath = function(expression, rootNode) {
-     try {
-       var xpathIterator = rootNode.ownerDocument.evaluate(
-           expression,
-           rootNode,
-           cvox.XpathUtil.resolveNameSpace,
-           XPathResult.ORDERED_NODE_ITERATOR_TYPE,
-           null); // no existing results
-     } catch (err) {
-       return [];
-     }
-     var results = [];
-     // Convert result to JS array
-     for (var xpathNode = xpathIterator.iterateNext();
-          xpathNode;
-          xpathNode = xpathIterator.iterateNext()) {
-       results.push(xpathNode);
-     }
-     return results;
-   };
 
    /**
     * NodeDescription

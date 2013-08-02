@@ -27,6 +27,8 @@ goog.require('cvox.ChromeVoxEventWatcher');
 goog.require('cvox.ChromeVoxUserCommands');
 goog.require('cvox.DomUtil');
 goog.require('cvox.Focuser');
+goog.require('cvox.SearchWidget');
+
 
 /**
  * @constructor
@@ -57,6 +59,7 @@ cvox.AndroidVox.performAction = function(actionJson) {
   var FAKE_GRANULARITY_READ_TITLE = -2;
   var FAKE_GRANULARITY_STOP_SPEECH = -3;
   var FAKE_GRANULARITY_CHANGE_SHIFTER = -4;
+  var FAKE_TOGGLE_INCREMENTAL_SEARCH = -5;
 
   // Actions in this range are reserved for Braille use.
   // TODO(jbroman): use event arguments instead of this hack.
@@ -75,6 +78,8 @@ cvox.AndroidVox.performAction = function(actionJson) {
   var action = jsonObj.action;
   var granularity = jsonObj.granularity;
   var htmlElementName = jsonObj.element;
+
+  var inSearchMode = cvox.SearchWidget.getInstance().isActive();
 
   // This is a hack because of limitations in the Android framework; we're using
   // page and previous to mean reset ChromeVox. Note that ChromeVox will reset
@@ -103,10 +108,12 @@ cvox.AndroidVox.performAction = function(actionJson) {
   // if a text control is being used.
   if (action == ACTION_NEXT_AT_MOVEMENT_GRANULARITY ||
       action == ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY) {
-    // Need to fix currentTextHandler.
-    // This may be wrong because ChromeVox drops focus events that originate
-    // from itself.
-    cvox.ChromeVoxEventWatcher.setUpTextHandler();
+    if (!inSearchMode) {
+      // Need to fix currentTextHandler.
+      // This may be wrong because ChromeVox drops focus events that originate
+      // from itself.
+      cvox.ChromeVoxEventWatcher.setUpTextHandler();
+    }
   }
   var currentTextHandler = cvox.ChromeVoxEventWatcher.currentTextHandler;
   if (!currentTextHandler && document.activeElement != document.body) {
@@ -167,6 +174,9 @@ cvox.AndroidVox.performAction = function(actionJson) {
         cvox.ChromeVoxUserCommands.commands.enterShifter();
       }
       return true;
+    case FAKE_TOGGLE_INCREMENTAL_SEARCH:
+      cvox.SearchWidget.getInstance().toggle();
+      return true;
   }
 
   // Braille clicks are currently sent under these action IDs.
@@ -206,14 +216,16 @@ cvox.AndroidVox.performAction = function(actionJson) {
   ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[MOVEMENT_GRANULARITY_CHARACTER] =
       cvox.NavigationShifter.GRANULARITIES.CHARACTER;
 
-  var targetNavStrategy;
-  if (!granularity) {
-    // Default to ChromeVox DOM object navigation.
-    targetNavStrategy = cvox.NavigationShifter.GRANULARITIES.OBJECT;
-  } else {
-    targetNavStrategy = ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[granularity];
+  if (!inSearchMode) {
+    var targetNavStrategy;
+    if (!granularity) {
+      // Default to ChromeVox DOM object navigation.
+      targetNavStrategy = cvox.NavigationShifter.GRANULARITIES.OBJECT;
+    } else {
+      targetNavStrategy = ANDROID_TO_CHROMEVOX_GRANULARITY_MAP[granularity];
+    }
+    cvox.ChromeVox.navigationManager.setGranularity(targetNavStrategy);
   }
-  cvox.ChromeVox.navigationManager.setGranularity(targetNavStrategy);
 
   // Perform the action - return the NOT of it since the ChromeVoxUserCommands
   // return TRUE for using the default action (ie, ChromeVox was unable to
@@ -222,6 +234,11 @@ cvox.AndroidVox.performAction = function(actionJson) {
 
   switch (action) {
     case ACTION_CLICK:
+      // Prevent clicking (and unfocusing text area) when incremental search
+      // is on.
+      if (inSearchMode) {
+        break;
+      }
       // Touches do not dispatch ACTION_CLICK, but BrailleBack does.
       // The click is sent to the current node.
       cvox.ChromeVox.tts.speak(
@@ -253,7 +270,12 @@ cvox.AndroidVox.performAction = function(actionJson) {
         break;
       }
     case ACTION_NEXT_AT_MOVEMENT_GRANULARITY:
-      actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
+      if (inSearchMode) {
+        cvox.SearchWidget.getInstance().nextResult(false /*reverse*/);
+        actionPerformed = true;
+      } else {
+        actionPerformed = !cvox.ChromeVoxUserCommands.commands.forward();
+      }
       break;
     case ACTION_PREVIOUS_HTML_ELEMENT:
       switch (htmlElementName) {
@@ -275,7 +297,12 @@ cvox.AndroidVox.performAction = function(actionJson) {
         break;
       }
     case ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY:
-      actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
+      if (inSearchMode) {
+        cvox.SearchWidget.getInstance().nextResult(true /*reverse*/);
+        actionPerformed = true;
+      } else {
+        actionPerformed = !cvox.ChromeVoxUserCommands.commands.backward();
+      }
       break;
   }
   return actionPerformed;

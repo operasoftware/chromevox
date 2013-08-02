@@ -93,46 +93,12 @@ cvox.KeyUtil.keyEventToKeySequence = function(keyEvent) {
   // modifier key combination is active.
   var keyWasCvox = keySequence.cvoxModifier;
 
-  // TODO (rshearer): Make the sticky mode double tap key configurable.
-  // Sticky mode is when a sequence contains two key events (where the sticky
-  // key is pressed) within a short duration.
-  var currTime = new Date().getTime();
-  var stickyKeyCode = cvox.KeyUtil.getStickyKeyCode();
-  var stickyKeySequenceFirst = new cvox.KeySequence({keyCode: stickyKeyCode});
-  if (keySequence.equals(stickyKeySequenceFirst)) {
-    // The first part of the sticky key sequence was pressed. The user may be
-    // toggling the sticky mode.
-    var prevTime = util.modeKeyPressTime;
-    // TODO (clchen): Make double tap speed configurable
-    // through ChromeVox setting?
-    if (prevTime > 0 && currTime - prevTime < 300) {  // Double tap
-      if (util.prevKeySequence.addKeyEvent(keyEvent)) {
-        keySequence = util.prevKeySequence;
-        util.prevKeySequence = null;
-        util.sequencing = false;
-        return keySequence;
-      } else {
-        throw 'Think sticky mode is enabled (by double-tapping), yet ' +
-            'util.prevKeySequence already has two key codes ' +
-                util.prevKeySequence;
-      }
-    }
-    // The user double tapped the sticky key but didn't do it within the
-    // required time. It's possible they will try again, so keep track of the
-    // time the sticky key was pressed and keep track of the corresponding
-    // key sequence.
-    util.modeKeyPressTime = currTime;
-    util.prevKeySequence = keySequence;
-  } else {
-    util.modeKeyPressTime = 0;
-  }
-  // TODO (rshearer): Clean up this logic and give all key sequences a timer
-  // just like sticky mode.
   if (keyIsPrefixed || keyWasCvox) {
     if (!util.sequencing && util.isSequenceSwitchKeyCode(keySequence)) {
-      // If this is the beginning of a sequence
+      // If this is the beginning of a sequence.
       util.sequencing = true;
       util.prevKeySequence = keySequence;
+      return keySequence;
     } else if (util.sequencing) {
       if (util.prevKeySequence.addKeyEvent(keyEvent)) {
         keySequence = util.prevKeySequence;
@@ -147,6 +113,27 @@ cvox.KeyUtil.keyEventToKeySequence = function(keyEvent) {
   } else {
     util.sequencing = false;
   }
+
+  // Repeated keys pressed.
+  var currTime = new Date().getTime();
+  if (cvox.KeyUtil.isDoubleTapKey(keySequence) &&
+      util.prevKeySequence &&
+      keySequence.equals(util.prevKeySequence)) {
+    var prevTime = util.modeKeyPressTime;
+    if (prevTime > 0 && currTime - prevTime < 300) {  // Double tap
+      keySequence = util.prevKeySequence;
+      keySequence.doubleTap = true;
+      util.prevKeySequence = null;
+      util.sequencing = false;
+      return keySequence;
+    }
+    // The user double tapped the sticky key but didn't do it within the
+    // required time. It's possible they will try again, so keep track of the
+    // time the sticky key was pressed and keep track of the corresponding
+    // key sequence.
+  }
+  util.prevKeySequence = keySequence;
+  util.modeKeyPressTime = currTime;
   return keySequence;
 };
 
@@ -194,6 +181,40 @@ cvox.KeyUtil.keyCodeToString = function(keyCode) {
 };
 
 /**
+ * Returns the keycode of a string representation of the specified modifier.
+ *
+ * @param {string} keyString Modifier key.
+ * @return {number} Key code.
+ */
+cvox.KeyUtil.modStringToKeyCode = function(keyString) {
+  switch (keyString) {
+  case 'Ctrl':
+    return 17;
+  case 'Alt':
+    return 18;
+  case 'Shift':
+    return 16;
+  case 'Cmd':
+  case 'Win':
+    return 91;
+  }
+  return -1;
+};
+
+/**
+ * Returns the key codes of a string respresentation of the ChromeVox modifiers.
+ *
+ * @return {Array.<number>} Array of key codes.
+ */
+cvox.KeyUtil.cvoxModKeyCodes = function() {
+  var modKeyCombo = cvox.ChromeVox.modKeyStr.split(/\+/g);
+  var modKeyCodes = modKeyCombo.map(function(keyString) {
+    return cvox.KeyUtil.modStringToKeyCode(keyString);
+  });
+  return modKeyCodes;
+};
+
+/**
  * Checks if the specified key code is a key used for switching into a sequence
  * mode. Sequence switch keys are specified in
  * cvox.KeyUtil.sequenceSwitchKeyCodes
@@ -202,7 +223,7 @@ cvox.KeyUtil.keyCodeToString = function(keyCode) {
  * @return {boolean} true if it is a sequence switch keycode, false otherwise.
  */
 cvox.KeyUtil.isSequenceSwitchKeyCode = function(rhKeySeq) {
-  for (var i = 0; i < cvox.ChromeVox.sequenceSwitchKeyCodes.length ; i++) {
+  for (var i = 0; i < cvox.ChromeVox.sequenceSwitchKeyCodes.length; i++) {
     var lhKeySeq = cvox.ChromeVox.sequenceSwitchKeyCodes[i];
     if (lhKeySeq.equals(rhKeySeq)) {
       return true;
@@ -471,4 +492,23 @@ cvox.KeyUtil.keySequenceToString = function(
     str = str + '+' + str;
   }
   return str;
+};
+
+/**
+ * Looks up if the given key sequence is triggered via double tap.
+ * @param {cvox.KeySequence} key The key.
+ * @return {boolean} True if key is triggered via double tap.
+ */
+cvox.KeyUtil.isDoubleTapKey = function(key) {
+  var isSet = false;
+  var originalState = key.doubleTap;
+  key.doubleTap = true;
+  for (var i = 0, keySeq; keySeq = cvox.KeySequence.doubleTapCache[i]; i++) {
+    if (keySeq.equals(key)) {
+      isSet = true;
+      break;
+    }
+  }
+  key.doubleTap = originalState;
+  return isSet;
 };

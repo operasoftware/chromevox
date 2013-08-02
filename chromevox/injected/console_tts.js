@@ -83,3 +83,6 @@ cvox.ConsoleTts.prototype.increaseOrDecreaseProperty = function() { };
 cvox.ConsoleTts.prototype.setEnabled = function(enabled) {
   this.enabled_ = enabled;
 };
+
+/** @override */
+cvox.ConsoleTts.prototype.getDefaultProperty = function(property) { };

@@ -29,19 +29,43 @@ goog.require('cvox.MathUtil');
  * @constructor
  */
 cvox.MathSymbol = function(atoms) {
-
+  /**
+   *  Sparse array for unicode symbol mappings.
+   * @type {Array.<cvox.MathAtom>}
+   * @private
+   */
   this.UNICODE_MAP_ = new Array;
+
+  /**
+   *  Dicionary associating HTML entities to unicode symbol mappings.
+   * @type {Object.<string, cvox.MathAtom>}
+   * @private
+   */
   this.HTML_ENTITY_MAP_ = {};
 
+  /**
+   * List of unique domain names occuring in function mappings.
+   * @type {Array.<string>}
+   */
   this.domains = [];
-  this.rules = [];
+
+  /**
+   *  List of unique style names occuring in function mappings.
+   * @type {Array.<string>}
+   */
+  this.styles = [];
+
+  /**
+   *  Initialize the unicode symbol array.
+   */
   this.initUnicodeMap_(atoms);
 
-
-  // In the unlikely event we want to initialize with a mapping
-  // different from the usual, we pass the mapping.
+  /**
+   * Initialize the HTML entity dictionary.
+   * In the unlikely event we want to initialize with a mapping
+   * different from the usual, we pass the mapping.
+   */
   this.initHtmlEntityMap_(this.UNICODE_MAP_);
-
 };
 
 
@@ -72,21 +96,22 @@ cvox.MathSymbol.parseUnicode_ = function(number) {
  * @private
  */
 cvox.MathSymbol.prototype.initUnicodeMap_ = function(atoms) {
-
   var domains = [];
-  var rules = [];
+  var styles = [];
 
   for (var i = 0, uni; uni = atoms[i]; i++) {
-    var uniObject = cvox.MathAtom.make(uni.key, uni.category, uni['mappings']);
+    var uniObject = new cvox.MathAtom(
+        uni.key, uni.category,
+        cvox.MathAtom.mappingsFromJSON(uni['mappings']));
     var index = cvox.MathSymbol.parseUnicode_(uniObject.getKey());
     if (index) {
       domains = cvox.MathUtil.union(domains, uniObject.allDomains());
-      rules = cvox.MathUtil.union(rules, uniObject.allRules());
+      styles = cvox.MathUtil.union(styles, uniObject.allStyles());
       this.UNICODE_MAP_[index] = uniObject;
     }
   }
   this.domains = domains;
-  this.rules = rules;
+  this.styles = styles;
 };
 
 

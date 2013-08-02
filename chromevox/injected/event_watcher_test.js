@@ -22,17 +22,6 @@ goog.provide('cvox.EventWatcherTest');
 goog.require('cvox.AbstractTestCase');
 goog.require('cvox.ChromeVoxTester');
 
-/**
- * Remove all whitespace from the beginning and end, and collapse all
- * inner strings of whitespace to a single space.
- * @param {string} str The input string.
- * @return {string} The cleaned-up string.
- **/
-function collapseWhitespace(str) {
-  return str.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-}
-
-
 
 /**
  * @constructor
@@ -387,6 +376,7 @@ cvox.EventWatcherTest.prototype.testListBoxOptionFeedbackWithFocus =
  * @export
  */
 cvox.EventWatcherTest.prototype.testEditableText = function() {
+  cvox.ChromeVoxEditableTextBase.eventTypingEcho = false;
   this.appendHtml('<div>' +
       '<button id="before">Before</button>' +
       '<label for="input">Query</label>' +

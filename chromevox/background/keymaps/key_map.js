@@ -35,6 +35,7 @@ goog.provide('cvox.KeyMap');
 
 // TODO(dtseng): Only needed for sticky mode.
 goog.require('cvox.KeyUtil');
+goog.require('cvox.PlatformUtil');
 
 /**
  * @param {Array.<Object.<string,
@@ -57,14 +58,16 @@ cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
   this.bindings_ = commandsAndKeySequences;
 
   if (!opt_complete) {
-    // TODO(dtseng): Sticky key is platform dependent, so making this ugly
-    // exception.
-    var stickyKey = cvox.KeyUtil.getStickyKeySequence();
-    var stickyKeyBinding = {
-      command: 'toggleStickyMode',
-      sequence: stickyKey
-    };
-    this.bindings_.push(stickyKeyBinding);
+    if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WINDOWS)) {
+      // TODO(dtseng): Sticky key is different on Win, so making this ugly
+      // exception.
+      var stickyKey = cvox.KeyUtil.getStickyKeySequence();
+      var stickyKeyBinding = {
+        command: 'toggleStickyMode',
+        sequence: stickyKey
+      };
+      this.bindings_.push(stickyKeyBinding);
+    }
 
     // Bind ChromeOS specific keys.
     if (cvox.ChromeVox.isChromeOS) {
@@ -77,8 +80,7 @@ cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
 
   /**
    * Maps a command to a key. This optimizes the process of searching for a
-   * key sequence when you already know the command. This will not be created
-   * if there is more than one key sequence mapped to a command.
+   * key sequence when you already know the command.
    * @type {Object.<string, cvox.KeySequence>}
    * @private
    */
@@ -101,7 +103,6 @@ cvox.KeyMap.KEYMAP_PATH = 'chromevox/background/keymaps/';
  * TODO(dtseng): Not really sure this belongs here, but it doesn't seem to be
  * user configurable, so it doesn't make sense to json-stringify it.
  * Should have class to siwtch among and manage multiple key maps.
- * TODO(dtseng): Document the JSON format (it's just a map).
  * @type {Object.<string, Object.<string, string>>}
  * @const
  */
@@ -245,7 +246,7 @@ cvox.KeyMap.prototype.commandForKey = function(key) {
     for (var i = 0; i < this.bindings_.length; i++) {
       var binding = this.bindings_[i];
       if (binding.sequence.equals(key)) {
-      return binding.command;
+        return binding.command;
       }
     }
   }
@@ -484,9 +485,9 @@ cvox.KeyMap.prototype.buildCommandToKey_ = function() {
   for (var i = 0; i < this.bindings_.length; i++) {
     var binding = this.bindings_[i];
     if (this.commandToKey_[binding.command] != undefined) {
-      // There's at least two key sequences mapped to the same command. Break.
-      this.commandToKey_ = null;
-      return;
+      // There's at least two key sequences mapped to the same
+      // command. continue.
+      continue;
     }
     this.commandToKey_[binding.command] = binding.sequence;
   }

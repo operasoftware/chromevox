@@ -243,7 +243,7 @@ cvox.NavigationManagerTest.prototype.testControlElementsWithFieldset = function(
          'annotation': ''
        },
        { 'command': 'forward',
-         'text': 'This is a legend inside a fieldset',
+         'text': 'This is a legend inside a fieldset'
        },
        { 'command': 'forward',
          'annotation': 'Edit text'

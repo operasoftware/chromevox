@@ -70,7 +70,6 @@ cvox.OptionsPage.TEXT_TO_KEYCODE = {
  * @suppress {missingProperties} Property prefs never defined on Window
  */
 cvox.OptionsPage.init = function() {
-  cvox.CommandStore.init();
   cvox.ChromeVox.msgs = cvox.HostFactory.getMsgs();
 
   cvox.OptionsPage.prefs = chrome.extension.getBackgroundPage().prefs;
