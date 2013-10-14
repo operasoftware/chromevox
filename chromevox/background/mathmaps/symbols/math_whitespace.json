@@ -2,7 +2,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "space"
+   "default": "space",
+   "short": ""
   }
  },
  "key": "0020"
@@ -12,7 +13,7 @@
   "default": {
    "default": "no break space",
    "alternative": "non breaking space",
-   "short": "space"
+   "short": ""
   }
  },
  "key": "00A0"
@@ -20,7 +21,8 @@
 {"category": "Cf",
  "mappings": {
   "default": {
-   "default": "soft hyphen"
+   "default": "soft hyphen",
+   "short": ""
   }
  },
  "key": "00AD"
@@ -28,7 +30,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "en quad"
+   "default": "en quad",
+   "short": ""
   }
  },
  "key": "2000"
@@ -36,7 +39,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "em quad"
+   "default": "em quad",
+   "short": ""
   }
  },
  "key": "2001"
@@ -44,7 +48,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "en space"
+   "default": "en space",
+   "short": ""
   }
  },
  "key": "2002"
@@ -52,7 +57,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "em space"
+   "default": "em space",
+   "short": ""
   }
  },
  "key": "2003"
@@ -60,7 +66,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "three per em space"
+   "default": "three per em space",
+   "short": ""
   }
  },
  "key": "2004"
@@ -68,7 +75,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "four per em space"
+   "default": "four per em space",
+   "short": ""
   }
  },
  "key": "2005"
@@ -76,7 +84,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "six per em space"
+   "default": "six per em space",
+   "short": ""
   }
  },
  "key": "2006"
@@ -84,7 +93,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "figure space"
+   "default": "figure space",
+   "short": ""
   }
  },
  "key": "2007"
@@ -92,7 +102,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "punctuation space"
+   "default": "punctuation space",
+   "short": ""
   }
  },
  "key": "2008"
@@ -100,7 +111,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "thin space"
+   "default": "thin space",
+   "short": ""
   }
  },
  "key": "2009"
@@ -108,7 +120,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "hair space"
+   "default": "hair space",
+   "short": ""
   }
  },
  "key": "200A"
@@ -116,7 +129,8 @@
 {"category": "Cf",
  "mappings": {
   "default": {
-   "default": "zero width space"
+   "default": "zero width space",
+   "short": ""
   }
  },
  "key": "200B"
@@ -124,7 +138,8 @@
 {"category": "Cf",
  "mappings": {
   "default": {
-   "default": "zero width non joiner"
+   "default": "zero width non joiner",
+   "short": ""
   }
  },
  "key": "200C"
@@ -212,7 +227,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "narrow no break space"
+   "default": "narrow no break space",
+   "short": ""
   }
  },
  "key": "202F"
@@ -220,7 +236,8 @@
 {"category": "Zs",
  "mappings": {
   "default": {
-   "default": "medium mathematical space"
+   "default": "medium mathematical space",
+   "short": ""
   }
  },
  "key": "205F"

@@ -139,6 +139,13 @@ cvox.ExtensionBridge.addDisconnectListener = function(listener) {
 };
 
 /**
+ * Removes all message listeners from the extension bridge.
+ */
+cvox.ExtensionBridge.removeMessageListeners = function() {
+  cvox.ExtensionBridge.messageListeners.length = 0;
+};
+
+/**
  * Initialize the extension bridge in a background page context by registering
  * a listener for connections from the content script.
  */
@@ -308,10 +315,12 @@ cvox.ExtensionBridge.sendContentScriptToBackground = function(message) {
  * @param {Object} message The message to send.
  */
 cvox.ExtensionBridge.sendBackgroundToContentScript = function(message) {
-  chrome.tabs.getSelected(
-      null,
-      function(tab) {
-        chrome.tabs.sendMessage(tab.id, message);
+  chrome.tabs.query(
+      {'active': true, 'lastFocusedWindow': true},
+      function(tabs) {
+        if (tabs && tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, message);
+        }
       });
 };
 

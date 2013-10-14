@@ -41,14 +41,9 @@ goog.require('cvox.PlatformUtil');
  * @param {Array.<Object.<string,
  *         {command: string, sequence: cvox.KeySequence}>>}
  * commandsAndKeySequences An array of pairs - KeySequences and commands.
- * @param {boolean=} opt_complete Whether the given keySequence collection is
- * complete. Defaults to false.
  * @constructor
  */
-cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
-  // TODO(dtseng): Add a check to remove duplicate entries so we can remove
-  // opt_complete.
-
+cvox.KeyMap = function(commandsAndKeySequences) {
   /**
    * An array of bindings - commands and KeySequences.
    * @type {Array.<Object.<string,
@@ -56,27 +51,6 @@ cvox.KeyMap = function(commandsAndKeySequences, opt_complete) {
    * @private
    */
   this.bindings_ = commandsAndKeySequences;
-
-  if (!opt_complete) {
-    if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WINDOWS)) {
-      // TODO(dtseng): Sticky key is different on Win, so making this ugly
-      // exception.
-      var stickyKey = cvox.KeyUtil.getStickyKeySequence();
-      var stickyKeyBinding = {
-        command: 'toggleStickyMode',
-        sequence: stickyKey
-      };
-      this.bindings_.push(stickyKeyBinding);
-    }
-
-    // Bind ChromeOS specific keys.
-    if (cvox.ChromeVox.isChromeOS) {
-      this.bind_('jumpToTop',
-                 new cvox.KeySequence({'keyCode': 65}, true));
-      this.bind_('jumpToBottom',
-                 new cvox.KeySequence({'keyCode': 90}, true));
-    }
-  }
 
   /**
    * Maps a command to a key. This optimizes the process of searching for a
@@ -370,16 +344,18 @@ cvox.KeyMap.fromDefaults = function() {
  * Convenience method for creating a key map based on a JSON (key, value) Object
  * where the key is a literal keyboard string and value is a command string.
  * @param {string} json The JSON.
- * @param {boolean=} opt_complete Whether the JSON is complete; defaults to
- * false.
  * @return {cvox.KeyMap} The resulting object; null if unable to parse.
  */
-cvox.KeyMap.fromJSON = function(json, opt_complete) {
+cvox.KeyMap.fromJSON = function(json) {
   try {
     var commandsAndKeySequences =
         /** @type {Array.<Object.<string,
          *          {command: string, sequence: cvox.KeySequence}>>} */
     (JSON.parse(json).bindings);
+    commandsAndKeySequences = commandsAndKeySequences.filter(function(value) {
+      return value.sequence.platformFilter === undefined ||
+          cvox.PlatformUtil.matchesPlatform(value.sequence.platformFilter);
+    });
   } catch (e) {
     return null;
   }
@@ -397,7 +373,7 @@ cvox.KeyMap.fromJSON = function(json, opt_complete) {
         (cvox.KeySequence.deserialize(commandsAndKeySequences[i].sequence));
     }
   }
-  return new cvox.KeyMap(commandsAndKeySequences, opt_complete);
+  return new cvox.KeyMap(commandsAndKeySequences);
 };
 
 

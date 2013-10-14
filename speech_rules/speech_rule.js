@@ -27,14 +27,47 @@
  */
 
 goog.provide('cvox.SpeechRule');
+goog.provide('cvox.SpeechRule.Action');
 goog.provide('cvox.SpeechRule.Component');
+goog.provide('cvox.SpeechRule.DynamicCstr');
 goog.provide('cvox.SpeechRule.Precondition');
 goog.provide('cvox.SpeechRule.Type');
 
+
 /**
- * @interface
+ * Creates a speech rule with precondition, actions and admin information.
+ * @constructor
+ * @param {string} name The name of the rule.
+ * @param {cvox.SpeechRule.DynamicCstr} dynamic Dynamic constraint annotations
+ *     of the rule.
+ * @param {cvox.SpeechRule.Precondition} prec Precondition of the rule.
+ * @param {cvox.SpeechRule.Action} action Action of the speech rule.
  */
-cvox.SpeechRule = function() {};
+cvox.SpeechRule = function(name, dynamic, prec, action) {
+  /** @type {string} */
+  this.name = name;
+  /** @type {cvox.SpeechRule.DynamicCstr} */
+  this.dynamicCstr = dynamic;
+  /** @type {cvox.SpeechRule.Precondition} */
+  this.precondition = prec;
+  /** @type {cvox.SpeechRule.Action} */
+  this.action = action;
+};
+
+
+/**
+ *
+ * @override
+ */
+cvox.SpeechRule.prototype.toString = function() {
+  var cstrStrings = [];
+  for (var key in this.dynamicCstr) {
+    cstrStrings.push(this.dynamicCstr[key]);
+  }
+  return this.name + ' | ' + cstrStrings.join('.') + ' | ' +
+    this.precondition.toString() + ' ==> ' +
+    this.action.toString();
+};
 
 
 /**
@@ -112,7 +145,7 @@ cvox.SpeechRule.Component.fromString = function(input) {
   // Prep the rest of the parsing.
   var rest = input.slice(3).trimLeft();
   if (!rest) {
-    throw new cvox.SpeechRule.OutputError_('Missing content.');
+    throw new cvox.SpeechRule.OutputError('Missing content.');
   }
 
   switch (output.type) {
@@ -120,7 +153,7 @@ cvox.SpeechRule.Component.fromString = function(input) {
       if (rest[0] == '"') {
         var quotedString = cvox.SpeechRule.splitString_(rest, '\\(')[0].trim();
         if (quotedString.slice(-1) != '"') {
-          throw new cvox.SpeechRule.OutputError_('Invalid string syntax.');
+          throw new cvox.SpeechRule.OutputError('Invalid string syntax.');
         }
         output.content = quotedString;
         rest = rest.slice(quotedString.length).trim();
@@ -186,7 +219,7 @@ cvox.SpeechRule.Component.prototype.addAttribute = function(attr) {
  */
 cvox.SpeechRule.Component.prototype.addAttributes = function(attrs) {
   if (attrs[0] != '(' || attrs.slice(-1) != ')') {
-    throw new cvox.SpeechRule.OutputError_(
+    throw new cvox.SpeechRule.OutputError(
         'Invalid attribute expression: ' + attrs);
   }
   var attribs = cvox.SpeechRule.splitString_(attrs.slice(1, -1), ',');
@@ -216,7 +249,7 @@ cvox.SpeechRule.Component.prototype.getAttributes = function() {
  * @param {Array.<cvox.SpeechRule.Component>} components The input rule.
  * @constructor
  */
-cvox.SpeechRule.Rule = function(components) {
+cvox.SpeechRule.Action = function(components) {
   /** @type {Array.<cvox.SpeechRule.Component>} */
   this.components = components;
 };
@@ -225,9 +258,9 @@ cvox.SpeechRule.Rule = function(components) {
 /**
  * Parses an input string into a speech rule class object.
  * @param {string} input The input string.
- * @return {cvox.SpeechRule.Rule} The resulting object.
+ * @return {cvox.SpeechRule.Action} The resulting object.
  */
-cvox.SpeechRule.Rule.fromString = function(input) {
+cvox.SpeechRule.Action.fromString = function(input) {
   var comps = cvox.SpeechRule.splitString_(input, ';')
       .filter(function(x) {return x.match(/\S/);})
       .map(function(x) {return x.trim();});
@@ -238,14 +271,14 @@ cvox.SpeechRule.Rule.fromString = function(input) {
       newComps.push(comp);
     }
   }
-return new cvox.SpeechRule.Rule(newComps);
+return new cvox.SpeechRule.Action(newComps);
 };
 
 
 /**
  * @override
  */
-cvox.SpeechRule.Rule.prototype.toString = function() {
+cvox.SpeechRule.Action.prototype.toString = function() {
   var comps = this.components.map(function(c) { return c.toString(); });
   return comps.join('; ');
 };
@@ -269,6 +302,15 @@ cvox.SpeechRule.Precondition = function(query, opt_constraints) {
 
 
 /**
+ * @override
+ */
+cvox.SpeechRule.Precondition.prototype.toString = function() {
+  var constrs = this.constraints.join(', ');
+  return this.query + ', ' + constrs;
+};
+
+
+/**
  * Split a string wrt. a given separator symbol while not splitting inside of a
  * double quoted string. For example, splitting
  * '[t] "matrix; 3 by 3"; [n] ./*[1]' with separators ';' would yield
@@ -286,7 +328,7 @@ cvox.SpeechRule.splitString_ = function(str, sep) {
     var sepPos = str.search(sep);
     if (sepPos == -1) {
       if ((str.match(/"/g) || []).length % 2 != 0) {
-        throw new cvox.SpeechRule.OutputError_(
+        throw new cvox.SpeechRule.OutputError(
             'Invalid string in expression: ' + str);
       }
       strList.push(prefix + str);
@@ -300,7 +342,7 @@ cvox.SpeechRule.splitString_ = function(str, sep) {
     } else {
       var nextQuot = str.substring(sepPos).search('"');
       if (nextQuot == -1) {
-        throw new cvox.SpeechRule.OutputError_(
+        throw new cvox.SpeechRule.OutputError(
             'Invalid string in expression: ' + str);
       } else {
         prefix = prefix + str.substring(0, sepPos + nextQuot + 1);
@@ -316,14 +358,33 @@ cvox.SpeechRule.splitString_ = function(str, sep) {
 
 
 /**
+ * Attributes for dynamic constraints.
+ * We define one default attribute as style. Speech rule stores can add other
+ * attributes later.
+ * @enum {string}
+ */
+cvox.SpeechRule.DynamicCstrAttrib =
+{
+  STYLE: 'style'
+};
+
+
+/**
+ * Dynamic constraints are a means to specialize rules that can be changed
+ * dynamically by the user, for example by choosing different styles, etc.
+ * @typedef {!Object.<cvox.SpeechRule.DynamicCstrAttrib, string>}
+ */
+cvox.SpeechRule.DynamicCstr;
+
+
+/**
  * Error object for signaling parsing errors.
  * @param {string} msg The error message.
  * @constructor
  * @extends {Error}
- * @private
  */
-cvox.SpeechRule.OutputError_ = function(msg) {
+cvox.SpeechRule.OutputError = function(msg) {
   this.name = 'RuleError';
   this.message = msg || '';
 };
-goog.inherits(cvox.SpeechRule.OutputError_, Error);
+goog.inherits(cvox.SpeechRule.OutputError, Error);

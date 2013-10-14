@@ -7,6 +7,8 @@
 
 goog.provide('cvox.SearchTool');
 
+goog.require('cvox.ChromeVox');
+goog.require('cvox.DomUtil');
 goog.require('cvox.Search');
 goog.require('cvox.SearchConstants');
 goog.require('cvox.SearchUtil');
@@ -53,7 +55,7 @@ cvox.SearchTool.CLEAR_ID = 'hdtb_rst';
 cvox.SearchTool.toggleMenu = function() {
   var menu = cvox.SearchTool.menus[cvox.SearchTool.menuIndex];
   var menuDiv = menu.previousSibling;
-  cvox.Api.click(menuDiv, false, false, false);
+  cvox.DomUtil.clickElem(menuDiv, false, false, false);
 };
 
 /**
@@ -71,7 +73,7 @@ cvox.SearchTool.syncToMenu = function() {
  */
 cvox.SearchTool.syncToMenuItem = function() {
   var menuItem = cvox.SearchTool.menuItems[cvox.SearchTool.menuItemIndex];
-  cvox.Api.syncToNode(menuItem, true);
+  cvox.ChromeVox.syncToNode(menuItem, true);
 };
 
 /**
@@ -145,7 +147,7 @@ cvox.SearchTool.gotoMenuItem = function() {
   case CDR_ID:
     var CDR_LINK_SELECTOR = '#cdrlnk';
     var cdrLink = menuItem.querySelector(CDR_LINK_SELECTOR);
-    cvox.Api.click(cdrLink);
+    cvox.DomUtil.clickElem(cdrLink, false, false, false);
     cvox.SearchTool.toggleMenu();
     break;
   default:

@@ -39,8 +39,15 @@
               }},
 
  {"command": "toggleStickyMode",
+  "sequence": {"keys": {"keyCode": [45]},
+               "doubleTap": true,
+               "platformFilter": 5
+              }},
+
+ {"command": "toggleStickyMode",
   "sequence": {"keys": {"keyCode": [91]},
-               "doubleTap": true
+               "doubleTap": true,
+               "platformFilter": 10
               }},
 
  {"command": "performDefaultAction",

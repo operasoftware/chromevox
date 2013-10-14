@@ -73,12 +73,19 @@ goog.require('cvox.ChromeVox');
  */
 cvox.UserEventDetail = function(detailObj) {
   /**
+   * The category of command that should be performed.
+   * @type {string}
+   */
+  this.category = '';
+
+  /**
    * The user command that should be performed.
    * @type {string}
    */
   this.command = '';
-  if (cvox.UserEventDetail.COMMANDS.indexOf(detailObj.command) != -1) {
+  if (cvox.UserEventDetail.JUMP_COMMANDS.indexOf(detailObj.command) != -1) {
     this.command = detailObj.command;
+    this.category = cvox.UserEventDetail.Category.JUMP;
   }
 
   /**
@@ -88,6 +95,7 @@ cvox.UserEventDetail = function(detailObj) {
   this.customCommand = '';
   if (detailObj.customCommand) {
     this.customCommand = detailObj.customCommand;
+    this.category = cvox.UserEventDetail.Category.CUSTOM;
   }
 
   /**
@@ -116,6 +124,15 @@ cvox.UserEventDetail = function(detailObj) {
   }
 };
 
+/**
+ * Category of the user event. This is the event name that the web app should
+ * be listening for.
+ * @enum {string}
+ */
+cvox.UserEventDetail.Category = {
+  JUMP: 'ATJumpEvent',
+  CUSTOM: 'ATCustomEvent'
+};
 
 /**
  * Status of the cvoxUserEvent. Events start off as PENDING. If the underlying
@@ -135,7 +152,8 @@ cvox.UserEventDetail.Status = {
  *
  * @type {Array}
  */
-cvox.UserEventDetail.COMMANDS = [
+// TODO (clchen): Integrate this with command_store.js.
+cvox.UserEventDetail.JUMP_COMMANDS = [
   'nextCheckbox', 'previousCheckbox', 'nextRadio', 'previousRadio',
   'nextSlider', 'previousSlider', 'nextGraphic', 'previousGraphic',
   'nextButton', 'previousButton', 'nextComboBox', 'previousComboBox',
@@ -159,6 +177,6 @@ cvox.UserEventDetail.prototype.createEventObject = function() {
   // We use CustomEvent so that it will go all the way to the page and come back
   // into the ChromeVox context correctly.
   var evt = document.createEvent('CustomEvent');
-  evt.initCustomEvent('cvoxUserEvent', true, true, this);
+  evt.initCustomEvent(this.category, true, true, this);
   return evt;
 };

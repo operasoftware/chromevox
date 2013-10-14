@@ -22,6 +22,8 @@
 
 goog.provide('cvox.BrailleInterface');
 
+goog.require('cvox.BrailleKeyCommand');
+goog.require('cvox.BrailleKeyEvent');
 goog.require('cvox.NavBraille');
 
 /**
@@ -31,12 +33,8 @@ cvox.BrailleInterface = function() { };
 
 /**
  * Sends the given params to the Braille display for output.
- * @param {cvox.NavBraille} params Parameters to send to the
+ * @param {!cvox.NavBraille} params Parameters to send to the
  * platform braille service.
- *  text The text of the object itself, including text from
- *     titles, labels, etc.
- *  startIndex The beginning of a selection within text.
- *  endIndex The end of a selection within text.
  */
 cvox.BrailleInterface.prototype.write =
     function(params) { };
@@ -45,9 +43,8 @@ cvox.BrailleInterface.prototype.write =
  * Sets a callback for when the user pans beyond either edge of the current
  * buffer.
  *
- * @param {Function} func The function to be called when the user tries to go
- *     past either edge of the current buffer. The callback function will take
- *     cvox.AbstractBraille.PAN_OUT_LEFT or cvox.AbstractBraille.PAN_OUT_RIGHT.
+ * @param {function(!cvox.BrailleKeyEvent)} func The function to be called when
+ *     the user invokes a keyboard command on the braille display.
  */
-cvox.BrailleInterface.prototype.setPanOutListener =
+cvox.BrailleInterface.prototype.setCommandListener =
     function(func) { };

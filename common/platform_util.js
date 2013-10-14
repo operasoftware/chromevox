@@ -50,7 +50,7 @@ cvox.PlatformFilter = {
 /**
  *Checks whether the given filter matches the current platform. An undefined
  * filter always matches the current platform.
- * @param {undefined|cvox.PlatformFilter} filter The filter.
+ * @param {undefined|cvox.PlatformFilter|number} filter The filter.
  * @return {boolean} Whether the filter matches the current platform.
  */
 cvox.PlatformUtil.matchesPlatform = function(filter) {

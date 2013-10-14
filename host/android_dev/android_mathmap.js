@@ -19,12 +19,12 @@
 
 goog.provide('cvox.AndroidMathMap');
 
-goog.require('cvox.MathAtom');
-goog.require('cvox.MathFunction');
-goog.require('cvox.MathSymbol');
+goog.require('cvox.MathSimpleStore');
+goog.require('cvox.MathStore');
 goog.require('cvox.NavDescription');
 
 
+// TODO (sorge): Combine this code with the one used in Chrome.
 /**
  * Create a math android mapping object.
  * @constructor
@@ -32,66 +32,43 @@ goog.require('cvox.NavDescription');
 cvox.AndroidMathMap = function() {
 
   /**
-   * A symbol mapping object.
-   * @type {cvox.MathSymbol}
+   * The compund store for symbol and function mappings.
+   * @type {cvox.MathCompoundStore}
    * @private
    */
-  this.symbols_ = new cvox.MathSymbol(cvox.AndroidMathMap.SYMBOL_MAPPINGS_);
+  this.store_ = cvox.MathCompoundStore.getInstance();
+  cvox.AndroidMathMap.FUNCTION_MAPPINGS_
+      .forEach(goog.bind(this.store_.addFunctionRules, this.store_));
+  cvox.AndroidMathMap.SYMBOL_MAPPINGS_
+      .forEach(goog.bind(this.store_.addSymbolRules, this.store_));
 
-  /**
-   * A function mapping object.
-   * @type {cvox.MathFunction}
-   * @private
-   */
-  this.functions_ = new cvox.MathFunction(
-    cvox.AndroidMathMap.FUNCTION_MAPPINGS_);
-
+  var cstrValues = this.store_.getDynamicConstraintValues();
   /**
    * Array of domain names.
    * @type {Array.<string>}
    */
-  this.allDomains = cvox.MathUtil.union(this.functions_.domains,
-                                        this.symbols_.domains);
+  this.allDomains = cstrValues.domain;
+
   /**
-   * Array of speech style names.
+   * Array of style names.
    * @type {Array.<string>}
    */
-  this.allStyles = cvox.MathUtil.union(this.functions_.styles,
-                                      this.symbols_.styles);
+  this.allStyles = cstrValues.style;
 };
 
 
 /**
- * Process a math expression into a string suitable for a speech engine.
+ * Process a math expression into a navigation description.
  * @param {string} text Text representing a math expression.
- * @param {string} type Type of math expression to be translated.
- * @param {string} alt Alternative text spoken if no translation can be found.
- * @param {string} style The speech style.
  * @param {string} domain The mathematical domain.
+ * @param {string} style The speech style.
  * @return {cvox.NavDescription} The navigation description for the text.
  */
-cvox.AndroidMathMap.prototype.speak = function(text, type, alt, style, domain) {
-  var result = null;
-  switch (type) {
-  case cvox.MathAtom.Types.FUNCTION:
-    result = this.functions_.getFunctionByName(text);
-    break;
-  case cvox.MathAtom.Types.SYMBOL:
-    result = this.symbols_.getSymbolByCode(text.charCodeAt(0));
-    break;
-  case cvox.MathAtom.Types.SURROGATE:
-    var hi = text.charCodeAt(0);
-    var low = text.charCodeAt(1);
-    var code = ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
-    result = this.symbols_.getSymbolByCode(code);
-    break;
-  case cvox.MathAtom.Types.REST:
-    result = text;
-  }
-  if (result) {
-    return new cvox.NavDescription({text: result.mappingString(domain, style)});
-  }
-  return new cvox.NavDescription({text: alt});
+cvox.AndroidMathMap.prototype.evaluate = function(text, domain, style) {
+  var result = '';
+  var dynamicCstr = cvox.MathStore.createDynamicConstraint(domain, style);
+  result = this.store_.lookupString(text, dynamicCstr);
+  return new cvox.NavDescription({text: result ? result : text});
 };
 
 

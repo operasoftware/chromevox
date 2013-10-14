@@ -238,14 +238,5 @@
    "default": "greek capital letter omega",
    "alternative": "",
    "short": "cap omega"
-  }}},
-{"category": "Lu",
- "mappings": {
-  "default": {
-   "default": "greek capital theta symbol",
-   "short": "cap theta"
-  }
- },
- "key": "03F4"
-}
+  }}}
 ]

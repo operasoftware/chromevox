@@ -73,7 +73,7 @@ cvox.ChromeVox.initDocument = function() {
   // any existing copy of the content script (if any) before loading it again,
   // otherwise there can be duplicate event listeners.
   window.disableChromeVox = function() {
-    cvox.ChromeVox.host.activateOrDeactivateChromeVox(false);
+    cvox.ChromeVox.host.killChromeVox();
   };
 };
 

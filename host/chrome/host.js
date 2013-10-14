@@ -40,11 +40,13 @@ goog.require('cvox.TraverseMath');
 cvox.ChromeHost = function() {
   goog.base(this);
 
-  /** @type {boolean} @private */
+  /** @private {boolean} */
   this.gotPrefsAtLeastOnce_ = false;
 };
 goog.inherits(cvox.ChromeHost, cvox.AbstractHost);
 
+
+/** @override */
 cvox.ChromeHost.prototype.init = function() {
   // TODO(deboer): This pattern is relatively painful since it
   // must be duplicated in all host.js files. It also causes odd
@@ -131,8 +133,7 @@ cvox.ChromeHost.prototype.init = function() {
     var message = msg['message'];
     if (message == 'USER_COMMAND') {
       var cmd = msg['command'];
-      // TODO(stoarca): Should whitelist commands.
-      cvox.ChromeVoxUserCommands.commands[cmd]();
+      cvox.ChromeVoxUserCommands.commands[cmd](msg);
     }
   });
 
@@ -147,10 +148,14 @@ cvox.ChromeHost.prototype.init = function() {
     });
 };
 
+
+/** @override */
 cvox.ChromeHost.prototype.reinit = function() {
   cvox.ExtensionBridge.init();
 };
 
+
+/** @override */
 cvox.ChromeHost.prototype.onPageLoad = function() {
   cvox.PdfProcessor.processEmbeddedPdfs();
 
@@ -163,42 +168,31 @@ cvox.ChromeHost.prototype.onPageLoad = function() {
   }, this));
 };
 
+
+/** @override */
 cvox.ChromeHost.prototype.sendToBackgroundPage = function(message) {
   cvox.ExtensionBridge.send(message);
 };
 
+
+/** @override */
 cvox.ChromeHost.prototype.getApiSrc = function() {
   return this.getFileSrc('chromevox/injected/api.js');
 };
 
+
+/** @override */
 cvox.ChromeHost.prototype.getFileSrc = function(file) {
   return window.chrome.extension.getURL(file);
 };
 
-/**
- * Activates or deactivates ChromeVox.
- * @param {boolean} active Whether ChromeVox should be active.
- */
-cvox.ChromeHost.prototype.activateOrDeactivateChromeVox = function(active) {
-  if (active == cvox.ChromeVox.isActive) {
-    return;
-  }
 
-  cvox.ChromeVox.isActive = active;
-  cvox.ChromeVox.navigationManager.showOrHideIndicator(active);
-
-  // If ChromeVox is inactive, the event watcher will only listen
-  // for key events.
-  cvox.ChromeVoxEventWatcher.cleanup(window);
-  cvox.ChromeVoxEventWatcher.init(window);
-
-  if (document.activeElement) {
-    var speakNodeAlso = document.hasFocus();
-    cvox.ApiImplementation.syncToNode(document.activeElement, speakNodeAlso);
-  } else {
-    cvox.ChromeVox.navigationManager.updateIndicator();
-  }
+/** @override */
+cvox.ChromeHost.prototype.killChromeVox = function() {
+  goog.base(this, 'killChromeVox');
+  cvox.ExtensionBridge.removeMessageListeners();
 };
+
 
 /**
  * Activates or deactivates Sticky Mode.

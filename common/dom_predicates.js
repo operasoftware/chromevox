@@ -133,6 +133,7 @@ cvox.DomPredicates.editTextPredicate = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
     if ((nodes[i].getAttribute && nodes[i].getAttribute('role') == 'textbox') ||
         nodes[i].tagName == 'TEXTAREA' ||
+        nodes[i].isContentEditable ||
         (nodes[i].tagName == 'INPUT' &&
         cvox.DomUtil.isInputTypeText(nodes[i]))) {
       return nodes[i];
@@ -481,6 +482,21 @@ cvox.DomPredicates.mediaPredicate = function(nodes) {
   for (var i = 0; i < nodes.length; i++) {
     if (nodes[i].tagName == 'AUDIO' ||
         nodes[i].tagName == 'VIDEO') {
+      return nodes[i];
+    }
+  }
+  return null;
+};
+
+
+/**
+ * Ordered List.
+ * @param {Array.<Node>} nodes An array of nodes to check.
+ * @return {?Node} Node in the array that is a ordered list.
+ */
+cvox.DomPredicates.orderedListPredicate = function(nodes) {
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].tagName == 'OL') {
       return nodes[i];
     }
   }

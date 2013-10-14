@@ -30,16 +30,18 @@ goog.require('cvox.ExtensionBridge');
 goog.require('cvox.InitGlobals');
 goog.require('cvox.HostFactory');
 goog.require('cvox.SpeechRuleTest');
-goog.require('cvox.MathNodeRulesTest');
-goog.require('cvox.MathWalkerTest');
+goog.require('cvox.MathmlStoreTest');
+goog.require('cvox.MathShifterTest');
 goog.require('cvox.NavigationManagerTest');
+goog.require('cvox.SemanticTreeTest');
 
 document.addEventListener('DOMContentLoaded', function() {
   cvox.InitGlobals.initGlobals();
   var runner = new cvox.AutoRunner();
   runner.runTestCase(new cvox.EventWatcherTest());
-  runner.runTestCase(new cvox.SpeechRuleTest());
-  runner.runTestCase(new cvox.MathWalkerTest());
-  runner.runTestCase(new cvox.MathNodeRulesTest());
+  runner.runTestCase(new cvox.MathShifterTest());
+  runner.runTestCase(new cvox.MathmlStoreTest());
   runner.runTestCase(new cvox.NavigationManagerTest());
+  runner.runTestCase(new cvox.SemanticTreeTest());
+  runner.runTestCase(new cvox.SpeechRuleTest());
 }, false);

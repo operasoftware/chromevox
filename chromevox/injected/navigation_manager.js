@@ -489,19 +489,13 @@ cvox.NavigationManager.prototype.getDescription = function() {
 
 /**
  * Delegates to NavigationShifter with the current page state.
- * @return {cvox.NavBraille} The braille description.
+ * @return {!cvox.NavBraille} The braille description.
  */
 cvox.NavigationManager.prototype.getBraille = function() {
-  // TODO(dtseng): Prototype braille on development versions of ChromeVox only.
-  // This prevents the construction of NavBraille objects which isn't necessary
-  // with the lack of an active braille connection, but may be desirable for
-  // testing. Replace with a check for such a connection in the future.
-  if ((cvox.ChromeVox.version != '1.0' &&
-      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) ||
-          cvox.ChromeVox.isChromeOS) {
+  if (!cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID |
+      cvox.PlatformFilter.CHROMEOS)) {
     return new cvox.NavBraille({});
   }
-
   return this.shifter_.getBraille(this.prevSel_, this.curSel_);
 };
 
@@ -603,15 +597,18 @@ cvox.NavigationManager.prototype.makeLessGranular = function(opt_persist) {
  * @param {number} granularity The desired granularity.
  * @param {boolean=} opt_force Forces current shifter to NavigationShifter;
  * false by default.
+ * @param {boolean=} opt_persist Persists setting to all running tabs; defaults
+ * to false.
  */
 cvox.NavigationManager.prototype.setGranularity = function(
-    granularity, opt_force) {
+    granularity, opt_force, opt_persist) {
   if (!opt_force && this.shifterStack_.length > 0) {
     return;
   }
   this.shifter_ = this.shifterStack_.shift() || this.shifter_;
   this.shifters_ = [];
   this.shifter_.setGranularity(granularity);
+  this.persistGranularity_(opt_persist);
 };
 
 
@@ -1232,11 +1229,11 @@ cvox.NavigationManager.prototype.restoreSel = function() {
 
 /**
  * @param {boolean=} opt_persist Persist the granularity to all running tabs;
- * defaults to true.
+ * defaults to false.
  * @private
  */
 cvox.NavigationManager.prototype.persistGranularity_ = function(opt_persist) {
-  opt_persist = opt_persist === undefined ? true : opt_persist;
+  opt_persist = opt_persist === undefined ? false : opt_persist;
   if (opt_persist) {
     cvox.ChromeVox.host.sendToBackgroundPage({
       'target': 'Prefs',

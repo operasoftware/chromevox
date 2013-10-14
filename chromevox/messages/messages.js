@@ -4215,6 +4215,12 @@ msgs.MSG_CHROMEVOX_JUMP_COMMANDS = goog.getMsg('Jump Commands');
 /**
  * @desc Category displayed in the options page under keyboard commands.
  */
+msgs.MSG_CHROMEVOX_BRAILLE = goog.getMsg('Braille');
+
+
+/**
+ * @desc Category displayed in the options page under keyboard commands.
+ */
 msgs.MSG_CHROMEVOX_DEVELOPER = goog.getMsg('Developer');
 
 
@@ -4285,12 +4291,6 @@ msgs.MSG_CHROMEVOX_CUT = goog.getMsg('cut.');
  * @desc Spoken when the browser's paste command is invoked.
  */
 msgs.MSG_CHROMEVOX_PASTE = goog.getMsg('paste.');
-
-
-/**
- * @desc Spoken in place of characters typed in a password input field.
- */
-msgs.MSG_CHROMEVOX_DOT = goog.getMsg('dot');
 
 
 /**
@@ -4852,6 +4852,27 @@ msgs.MSG_CHROMEVOX_MATH_SHIFTER =
 
 
 /**
+ * @desc Displayed to describes the key that toggles semantic interpretation of
+ *     mathematical formulas.
+ */
+msgs.MSG_CHROMEVOX_TOGGLE_SEMANTICS =
+    goog.getMsg('Toggle interpretation of math expressions between structural' +
+        ' and semantic');
+
+
+/**
+ * @desc Spoken when semantics interpretation is switched on.
+ */
+msgs.MSG_CHROMEVOX_SEMANTICS_ON = goog.getMsg('Semantics on');
+
+
+/**
+ * @desc Spoken when semantics interpretation is switched off.
+ */
+msgs.MSG_CHROMEVOX_SEMANTICS_OFF = goog.getMsg('Semantics off');
+
+
+/**
  * @desc Used as a phonetic word hint for a particular letter. The word is used
  * to clarify similarly sounding letters like m and n.  This mapping is taken
  * directly from the NATO phonetic standard:
@@ -4916,6 +4937,11 @@ msgs.MSG_CHROMEVOX_CHROMEVOX_INTRO = goog.getMsg('ChromeVox is ready');
 
 
 /**
+ * @desc Brailled when ChromeVox is connected to a braille display.
+ */
+msgs.MSG_CHROMEVOX_INTRO_BRL = goog.getMsg('ChromeVox connected');
+
+/**
  * @desc Spoken when earcons are on.
  */
 msgs.MSG_CHROMEVOX_EARCONS_ON = goog.getMsg('Earcons on');
@@ -4974,3 +5000,339 @@ msgs.MSG_CHROMEVOX_VISITED_URL = goog.getMsg('visited');
  * @desc Brailled to describe a link (url) that has been previously visited.
  */
 msgs.MSG_CHROMEVOX_VISITED_URL_BRL = goog.getMsg('visited');
+
+
+/**
+ * @desc Exclamation (!) character description.
+ */
+msgs.MSG_CHROMEVOX_EXCLAMATION = goog.getMsg('{COUNT, plural, ' +
+    '=1 {exclamation point}' +
+    'other {# exclamation points}}');
+
+
+/**
+ * @desc Space ( ) character description.
+ */
+msgs.MSG_CHROMEVOX_SPACE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {space}' +
+    'other {# spaces}}');
+
+
+/**
+ * @desc Backtcik (`) character description.
+ */
+msgs.MSG_CHROMEVOX_BACKTICK = goog.getMsg('{COUNT, plural, ' +
+    '=1 {backtick}' +
+    'other {# backticks}}');
+
+
+/**
+ * @desc Tilde (~) character description.
+ */
+msgs.MSG_CHROMEVOX_TILDE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {TILDE}' +
+    'other {# tildes}}');
+
+
+/**
+ * @desc At (@) character description.
+ */
+msgs.MSG_CHROMEVOX_AT = goog.getMsg('{COUNT, plural, ' +
+    '=1 {at}' +
+    'other {# at signs}}');
+
+
+/**
+ * @desc Pound (#) character description.
+ */
+msgs.MSG_CHROMEVOX_POUND = goog.getMsg('{COUNT, plural, ' +
+    '=1 {pound}' +
+    'other {# pound signs}}');
+
+
+/**
+ * @desc Dollar ($) character description.
+ */
+msgs.MSG_CHROMEVOX_DOLLAR = goog.getMsg('{COUNT, plural, ' +
+    '=1 {dollar}' +
+    'other {# dollar signs}}');
+
+
+/**
+ * @desc Percent (%) character description.
+ */
+msgs.MSG_CHROMEVOX_PERCENT = goog.getMsg('{COUNT, plural, ' +
+    '=1 {percent}' +
+    'other {# percent signs}}');
+
+
+/**
+ * @desc Caret (^) character description.
+ */
+msgs.MSG_CHROMEVOX_CARET = goog.getMsg('{COUNT, plural, ' +
+    '=1 {caret}' +
+    'other {# carets}}');
+
+
+/**
+ * @desc Ampersand (&) character description.
+ */
+msgs.MSG_CHROMEVOX_AMPERSAND = goog.getMsg('{COUNT, plural, ' +
+    '=1 {ampersand}' +
+    'other {# ampersands}}');
+
+
+/**
+ * @desc Asterisk (*) character description.
+ */
+msgs.MSG_CHROMEVOX_ASTERISK = goog.getMsg('{COUNT, plural, ' +
+    '=1 {asterisk}' +
+    'other {# asterisks}}');
+
+
+/**
+ * @desc Left parenthesis (() character description.
+ */
+msgs.MSG_CHROMEVOX_OPEN_PAREN = goog.getMsg('{COUNT, plural, ' +
+    '=1 {open paren}' +
+    'other {# open parens}}');
+
+
+/**
+ * @desc Right parenthesis ()) character description.
+ */
+msgs.MSG_CHROMEVOX_CLOSE_PAREN = goog.getMsg('{COUNT, plural, ' +
+    '=1 {close paren}' +
+    'other {# close parens}}');
+
+
+/**
+ * @desc Dash (-) character description.
+ */
+msgs.MSG_CHROMEVOX_DASH = goog.getMsg('{COUNT, plural, ' +
+    '=1 {dash}' +
+    'other {# dashes}}');
+
+
+/**
+ * @desc Underscore (_) character description.
+ */
+msgs.MSG_CHROMEVOX_UNDERSCORE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {underscore}' +
+    'other {# underscores}}');
+
+
+/**
+ * @desc Equals (=) character description.
+ */
+msgs.MSG_CHROMEVOX_EQUALS = goog.getMsg('{COUNT, plural, ' +
+    '=1 {equal}' +
+    'other {# equal signs}}');
+
+
+/**
+ * @desc Plus (+) character description.
+ */
+msgs.MSG_CHROMEVOX_PLUS = goog.getMsg('{COUNT, plural, ' +
+    '=1 {plus}' +
+    'other {# plus signs}}');
+
+
+/**
+ * @desc Left bracket ([) character description.
+ */
+msgs.MSG_CHROMEVOX_LEFT_BRACKET = goog.getMsg('{COUNT, plural, ' +
+    '=1 {left bracket}' +
+    'other {# left brackets}}');
+
+
+/**
+ * @desc Right bracket (]) character description.
+ */
+msgs.MSG_CHROMEVOX_RIGHT_BRACKET = goog.getMsg('{COUNT, plural, ' +
+    '=1 {right bracket}' +
+    'other {# right brackets}}');
+
+
+/**
+ * @desc Left brace ({) character description.
+ */
+msgs.MSG_CHROMEVOX_LEFT_BRACE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {left brace}' +
+    'other {# left braces}}');
+
+
+/**
+ * @desc Right brace (}) character description.
+ */
+msgs.MSG_CHROMEVOX_RIGHT_BRACE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {right brace}' +
+    'other {# right braces}}');
+
+
+/**
+ * @desc Pipe (|) character description.
+ */
+msgs.MSG_CHROMEVOX_PIPE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {pipe}' +
+    'other {# vertical pipes}}');
+
+
+/**
+ * @desc Semicolon (;) character description.
+ */
+msgs.MSG_CHROMEVOX_SEMICOLON = goog.getMsg('{COUNT, plural, ' +
+    '=1 {semicolon}' +
+    'other {# semicolons}}');
+
+
+/**
+ * @desc Colon (:) character description.
+ */
+msgs.MSG_CHROMEVOX_COLON = goog.getMsg('{COUNT, plural, ' +
+    '=1 {colon}' +
+    'other {# colons}}');
+
+
+/**
+ * @desc Comma (,) character description.
+ */
+msgs.MSG_CHROMEVOX_COMMA = goog.getMsg('{COUNT, plural, ' +
+    '=1 {comma}' +
+    'other {# commas}}');
+
+
+/**
+ * @desc Dot (.) character description.
+ */
+msgs.MSG_CHROMEVOX_DOT = goog.getMsg('{COUNT, plural, ' +
+    '=1 {dot}' +
+    '=3 {ellipsis}' +
+    'other {# dots}}');
+
+
+/**
+ * @desc Less than (<) character description.
+ */
+msgs.MSG_CHROMEVOX_LESS_THAN = goog.getMsg('{COUNT, plural, ' +
+    '=1 {less than}' +
+    'other {# less than signs}}');
+
+
+/**
+ * @desc Greater than (>) character description.
+ */
+msgs.MSG_CHROMEVOX_GREATER_THAN = goog.getMsg('{COUNT, plural, ' +
+    '=1 {greater than}' +
+    'other {# greater than signs}}');
+
+
+/**
+ * @desc Slash (/) character description.
+ */
+msgs.MSG_CHROMEVOX_SLASH = goog.getMsg('{COUNT, plural, ' +
+    '=1 {slash}' +
+    'other {# slashes}}');
+
+
+/**
+ * @desc Question mark (?) character description.
+ */
+msgs.MSG_CHROMEVOX_QUESTION_MARK = goog.getMsg('{COUNT, plural, ' +
+    '=1 {question mark}' +
+    'other {# question marks}}');
+
+
+/**
+ * @desc Quote (") character description.
+ */
+msgs.MSG_CHROMEVOX_QUOTE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {quote}' +
+    'other {# quotes}}');
+
+
+/**
+ * @desc Apostrophe (') character description.
+ */
+msgs.MSG_CHROMEVOX_APOSTROPHE = goog.getMsg('{COUNT, plural, ' +
+    '=1 {apostrophe}' +
+    'other {# apostrophes}}');
+
+
+/**
+ * @desc Tab (\t) character description.
+ */
+msgs.MSG_CHROMEVOX_TAB = goog.getMsg('{COUNT, plural, ' +
+    '=1 {tab}' +
+    'other {# tabs}}');
+
+
+/**
+ * @desc Backslash (\) character description.
+ */
+msgs.MSG_CHROMEVOX_BACKSLASH = goog.getMsg('{COUNT, plural, ' +
+    '=1 {backslash}' +
+    'other {# backslashes}}');
+
+
+/**
+ * @desc Describes the braille click command.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_ROUTING =
+    goog.getMsg('Click the item under a routing key');
+
+
+/**
+ * @desc Describes the braille pan backward command.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_PAN_LEFT =
+    goog.getMsg('Pan backward');
+
+
+/**
+ * @desc Describes the braille pan forward command.
+ * Displayed in the options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_PAN_RIGHT =
+    goog.getMsg('Pan bforward');
+
+
+/**
+ * @desc The description of the braille previous line command.  Displayed in the
+ * Options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_LINE_UP = goog.getMsg('Braille previous Line');
+
+
+/**
+ * @desc The description of the braille next line command.  Displayed in the
+ * Options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_LINE_DOWN = goog.getMsg('Braille next Line');
+
+
+/**
+ * @desc The description of the braille top command.  Displayed in the
+ * Options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_TOP =
+    goog.getMsg('Move braille display to top of page');
+
+
+/**
+ * @desc The description of the braille bottom command.  Displayed in the
+ * Options page.
+ */
+msgs.MSG_CHROMEVOX_BRAILLE_BOTTOM =
+    goog.getMsg('Move braille display to bottom of page');
+
+
+/**
+ * @desc Spoken to describe an access key.  An access key consists of a single
+ * letter. When pressed along with a modifier (usually alt, but depends on
+ * platform), a targetted node will be activated.
+ */
+msgs.MSG_CHROMEVOX_ACCESS_KEY =
+    goog.getMsg('has access key, {$key}', {'key': '$1'});

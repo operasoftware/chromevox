@@ -246,8 +246,6 @@ cvox.LayoutLineWalker.prototype.appendBraille_ = function(
   braille.text.setSpan(node, nodeStart, nodeEnd);
 
   if (sel && cur.absEquals(sel)) {
-    // TODO(jbroman): Generalize this to include contenteditable elements
-    // via cvox.ContentEditableExtractor.
     if (valueSelectionSpan) {
       braille.startIndex = nodeStart + item.getSpanStart(valueSelectionSpan);
       braille.endIndex = nodeStart + item.getSpanEnd(valueSelectionSpan);

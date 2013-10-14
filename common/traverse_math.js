@@ -16,6 +16,7 @@ goog.provide('cvox.TraverseMath');
 
 goog.require('cvox.ChromeVox');
 goog.require('cvox.DomUtil');
+goog.require('cvox.SemanticTree');
 
 
 /**
@@ -67,6 +68,12 @@ cvox.TraverseMath = function() {
   this.activeMathmlHost = null;
 
   /**
+   * Semantic representation of the current node.
+   * @type {Node}
+   */
+  this.activeSemanticHost = null;
+
+  /**
    * List of domain names.
    * @type {Array.<string>}
    */
@@ -102,11 +109,27 @@ goog.addSingletonGetter(cvox.TraverseMath);
 
 
 /**
+ * @type {boolean}
+ * @private
+ */
+cvox.TraverseMath.setSemantic_ = false;
+
+
+/**
+ * Toggles the semantic setting.
+ * @return {boolean} True if semantic interpretation is switched on. False
+ *     otherwise.
+ */
+cvox.TraverseMath.toggleSemantic = function() {
+  return cvox.TraverseMath.setSemantic_ = !cvox.TraverseMath.setSemantic_;
+};
+
+
+/**
  * Initializes a traversal of a math expression.
  * @param {Node} node A MathML node.
- * @param {boolean=} reverse True if reversed. False by default.
  */
-cvox.TraverseMath.prototype.initialize = function(node, reverse) {
+cvox.TraverseMath.prototype.initialize = function(node) {
   if (cvox.DomUtil.isMathImg(node)) {
     // If a node has a cvoxid attribute we know that it contains a LaTeX
     // expression that we have rewritten into its corresponding MathML
@@ -118,10 +141,15 @@ cvox.TraverseMath.prototype.initialize = function(node, reverse) {
     node = this.allTexs_[cvoxid];
   }
   if (cvox.DomUtil.isMathJax(node)) {
-    this.activeMathmlHost = this.allMathjaxs_[node.getAttribute('id')];
+      this.activeMathmlHost = this.allMathjaxs_[node.getAttribute('id')];
   }
   this.activeMath = this.activeMathmlHost || node;
   this.activeNode = this.activeMathmlHost || node;
+  if (this.activeNode && cvox.TraverseMath.setSemantic_ &&
+      this.activeNode.nodeType == Node.ELEMENT_NODE) {
+    this.activeNode =
+        (new cvox.SemanticTree(/** @type {!Element} */ (this.activeNode))).xml();
+  }
 };
 
 
@@ -195,6 +223,7 @@ cvox.TraverseMath.prototype.initializeAltMaths = function() {
   cvox.ChromeVox.mathJax.isMathjaxActive(
       function(active) {
         if (active) {
+          cvox.ChromeVox.mathJax.configMediaWiki();
           cvox.ChromeVox.mathJax.getAllTexs(callback);
           cvox.ChromeVox.mathJax.getAllAsciiMaths(callback);
         }

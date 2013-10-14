@@ -256,6 +256,14 @@ cvox.ChromeMathJax.prototype.injectScripts = function() {
 /**
  * @override
  */
+cvox.ChromeMathJax.prototype.configMediaWiki = function() {
+  this.postMsg('ConfWikipedia', function() { });
+};
+
+
+/**
+ * @override
+ */
 cvox.ChromeMathJax.prototype.getTex = function(callback, tex) {
   var altText = tex['alt'] || tex['title'];
   if (altText) {

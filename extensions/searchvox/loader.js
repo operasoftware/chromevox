@@ -1,6 +1,7 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 
 goog.provide('cvox.SearchLoader');
+goog.require('cvox.SearchContextMenu');
 
 /**
  * @fileoverview Inject the script into the page.
@@ -30,23 +31,7 @@ cvox.SearchLoader.onReadyStateChange = function() {
     return;
   }
 
-  var SEARCH_FILES = [
-    'closure/base.js',
-    'extensions/searchvox/constants.js',
-    'extensions/searchvox/util.js',
-    'extensions/searchvox/abstract_result.js',
-    'extensions/searchvox/results.js',
-    'extensions/searchvox/search.js',
-    'extensions/searchvox/search_tools.js',
-    'extensions/searchvox/context_menu.js'];
-
-  var scripts = [];
-  for (var i = 0; i < SEARCH_FILES.length; i++) {
-    scripts.push(cvox.ChromeVox.host.getFileSrc(SEARCH_FILES[i]));
-  }
-
-  var apiScript = cvox.ScriptInstaller.installScript(scripts,
-    'searchvox', null, cvox.ApiImplementation.siteSpecificScriptBase);
+  cvox.SearchContextMenu.init();
 };
 
 /**

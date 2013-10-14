@@ -45,7 +45,7 @@
      "default": {
        "default": "greatest common divisor",
        "short": "gcd"
-     } 
+     }
    },
    "key": "gcd",
    "names": ["gcd"]
@@ -55,10 +55,10 @@
      "default": {
        "default": "least common multiple",
        "short": "lcm"
-     } 
+     }
    },
-   "key": "gcd",
-   "names": ["gcd"]
+   "key": "lcm",
+   "names": ["lcm"]
   },
 
   {"category": "Complex",

@@ -313,9 +313,10 @@ cvox.DomUtil.isSemanticElt = function(node) {
  *     about what we mean by leaf node.
  *
  * @param {Node} node The node to be checked.
+ * @param {boolean=} opt_allowHidden Allows hidden nodes during descent.
  * @return {boolean} True if the node is a leaf node.
  */
-cvox.DomUtil.isLeafNode = function(node) {
+cvox.DomUtil.isLeafNode = function(node, opt_allowHidden) {
   // If it's not an Element, then it's a leaf if it has no first child.
   if (!(node instanceof Element)) {
     return (node.firstChild == null);
@@ -323,10 +324,11 @@ cvox.DomUtil.isLeafNode = function(node) {
 
   // Now we know for sure it's an element.
   var element = /** @type {Element} */(node);
-  if (!cvox.DomUtil.isVisible(element, {checkAncestors: false})) {
+  if (!opt_allowHidden &&
+      !cvox.DomUtil.isVisible(element, {checkAncestors: false})) {
     return true;
   }
-  if (cvox.AriaUtil.isHidden(element)) {
+  if (!opt_allowHidden && cvox.AriaUtil.isHidden(element)) {
     return true;
   }
   if (cvox.AriaUtil.isLeafElement(element)) {
@@ -445,15 +447,13 @@ cvox.DomUtil.getBaseLabel_ = function(node, recursive, includeControls) {
         var labelNode = document.getElementById(labelNodeId);
         if (labelNode) {
           label += ' ' + cvox.DomUtil.getName(
-              labelNode, true, includeControls);
+              labelNode, true, includeControls, true);
         }
       }
     } else if (node.hasAttribute('aria-label')) {
       label = node.getAttribute('aria-label');
     } else if (node.constructor == HTMLImageElement) {
       label = cvox.DomUtil.getImageTitle(node);
-    } else if (node.hasAttribute('title')) {
-      label = node.getAttribute('title');
     } else if (node.tagName == 'FIELDSET') {
       // Other labels will trump fieldset legend with this implementation.
       // Depending on how this works out on the web, we may later switch this
@@ -531,16 +531,20 @@ cvox.DomUtil.getInputName_ = function(node) {
  * @param {Node} node See getName_.
  * @param {boolean=} recursive See getName_.
  * @param {boolean=} includeControls See getName_.
+ * @param {boolean=} opt_allowHidden Allows hidden nodes in name computation.
  * @return {string} See getName_.
  */
-cvox.DomUtil.getName = function(node, recursive, includeControls) {
+cvox.DomUtil.getName = function(
+    node, recursive, includeControls, opt_allowHidden) {
   if (!node || node.cvoxGetNameMarked == true) {
     return '';
   }
   node.cvoxGetNameMarked = true;
-  var ret = cvox.DomUtil.getName_(node, recursive, includeControls);
+  var ret =
+      cvox.DomUtil.getName_(node, recursive, includeControls, opt_allowHidden);
   node.cvoxGetNameMarked = false;
-  return ret;
+  var prefix = cvox.DomUtil.getPrefixText(node);
+  return prefix + ret;
 };
 
 // TODO(dtseng): Seems like this list should be longer...
@@ -548,15 +552,16 @@ cvox.DomUtil.getName = function(node, recursive, includeControls) {
  * Determines if a node has a name obtained from concatinating the names of its
  * children.
  * @param {!Node} node The node under consideration.
+ * @param {boolean=} opt_allowHidden Allows hidden nodes in name computation.
  * @return {boolean} True if node has name based on children.
  * @private
  */
-cvox.DomUtil.hasChildrenBasedName_ = function(node) {
+cvox.DomUtil.hasChildrenBasedName_ = function(node, opt_allowHidden) {
   if (!!cvox.DomPredicates.linkPredicate([node]) ||
       !!cvox.DomPredicates.headingPredicate([node]) ||
       node.tagName == 'BUTTON' ||
       cvox.AriaUtil.isControlWidget(node) ||
-      !cvox.DomUtil.isLeafNode(node)) {
+      !cvox.DomUtil.isLeafNode(node, opt_allowHidden)) {
     return true;
   } else {
     return false;
@@ -586,10 +591,12 @@ cvox.DomUtil.hasChildrenBasedName_ = function(node) {
  *     be used; true by default.
  * @param {boolean=} includeControls Whether or not controls in the subtree
  *     should be included; true by default.
+ * @param {boolean=} opt_allowHidden Allows hidden nodes in name computation.
  * @return {string} The name of the node.
  * @private
  */
-cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
+cvox.DomUtil.getName_ = function(
+    node, recursive, includeControls, opt_allowHidden) {
   if (typeof(recursive) === 'undefined') {
     recursive = true;
   }
@@ -611,7 +618,6 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
     label = cvox.DomUtil.getInputName_(node);
   }
 
-  label = label;
   if (cvox.DomUtil.isInputTypeText(node) && node.hasAttribute('placeholder')) {
     var placeholder = node.getAttribute('placeholder');
     if (label.length > 0) {
@@ -629,6 +635,13 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
     return label;
   }
 
+  // Fall back to naming via title only if there is no text content.
+  if (node.textContent.length == 0 &&
+      node.hasAttribute &&
+      node.hasAttribute('title')) {
+    return node.getAttribute('title');
+  }
+
   if (!recursive) {
     return '';
   }
@@ -636,8 +649,9 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
   if (cvox.AriaUtil.isCompositeControl(node)) {
     return '';
   }
-  if (cvox.DomUtil.hasChildrenBasedName_(node)) {
-    return cvox.DomUtil.getNameFromChildren(node, includeControls);
+  if (cvox.DomUtil.hasChildrenBasedName_(node, opt_allowHidden)) {
+    return cvox.DomUtil.getNameFromChildren(
+        node, includeControls, opt_allowHidden);
   }
   return '';
 };
@@ -649,9 +663,11 @@ cvox.DomUtil.getName_ = function(node, recursive, includeControls) {
  * @param {Node} node The node to get the name from.
  * @param {boolean=} includeControls Whether or not controls in the subtree
  *     should be included; true by default.
+ * @param {boolean=} opt_allowHidden Allow hidden nodes in name computation.
  * @return {string} The concatenated text of all child nodes.
  */
-cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
+cvox.DomUtil.getNameFromChildren = function(
+    node, includeControls, opt_allowHidden) {
   if (includeControls == undefined) {
     includeControls = true;
   }
@@ -664,7 +680,7 @@ cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
       continue;
     }
     var isVisible = cvox.DomUtil.isVisible(child, {checkAncestors: false});
-    if (isVisible && !cvox.AriaUtil.isHidden(child)) {
+    if (opt_allowHidden || (isVisible && !cvox.AriaUtil.isHidden(child))) {
       delimiter = (prevChild.tagName == 'SPAN' ||
                    child.tagName == 'SPAN' ||
                    child.parentNode.tagName == 'SPAN') ?
@@ -674,6 +690,50 @@ cvox.DomUtil.getNameFromChildren = function(node, includeControls) {
   }
 
   return name;
+};
+
+/**
+ * Get any prefix text for the given node.
+ * This includes list style text for the leftmost leaf node under a listitem.
+ * @param {Node} node Compute prefix for this node.
+ * @param {number} opt_index Starting offset into the given node's text.
+ * @return {string} Prefix text, if any.
+ */
+cvox.DomUtil.getPrefixText = function(node, opt_index) {
+  opt_index = opt_index || 0;
+
+  // Generate list style text.
+  var ancestors = cvox.DomUtil.getAncestors(node);
+  var prefix = '';
+  var firstListitem = cvox.DomPredicates.listItemPredicate(ancestors);
+
+  var leftmost = firstListitem;
+  while (leftmost && leftmost.firstChild) {
+    leftmost = leftmost.firstChild;
+  }
+
+  // Do nothing if we're not at the leftmost leaf.
+  if (firstListitem &&
+      firstListitem.parentNode &&
+      opt_index == 0 &&
+      firstListitem.parentNode.tagName == 'OL' &&
+          node == leftmost &&
+      document.defaultView.getComputedStyle(firstListitem.parentNode)
+          .listStyleType != 'none') {
+    var items = cvox.DomUtil.toArray(firstListitem.parentNode.children).filter(
+        function(li) { return li.tagName == 'LI'; });
+    var position = items.indexOf(firstListitem) + 1;
+    // TODO(dtseng): Support all list style types.
+    if (document.defaultView.getComputedStyle(
+            firstListitem.parentNode).listStyleType.indexOf('latin') != -1) {
+      position--;
+      prefix = String.fromCharCode('A'.charCodeAt(0) + position % 26);
+    } else {
+      prefix = position;
+    }
+    prefix += '. ';
+  }
+  return prefix;
 };
 
 
@@ -1226,6 +1286,10 @@ cvox.DomUtil.getStateMsgs = function(targetNode, primary) {
   if (cvox.DomPredicates.linkPredicate([targetNode]) &&
       cvox.ChromeVox.visitedUrls[targetNode.href]) {
     info.push(['visited_url']);
+  }
+
+  if (targetNode.accessKey) {
+    info.push(['access_key', targetNode.accessKey]);
   }
 
   return info;
@@ -2318,18 +2382,16 @@ cvox.DomUtil.isMathJax = function(node) {
 /**
  * Computes the id of the math span in a MathJax DOM element.
  * @param {string} jaxId The id of the MathJax node.
- * @return {?string} The id of the span node.
+ * @return {string} The id of the span node.
  */
 cvox.DomUtil.getMathSpanId = function(jaxId) {
   var node = document.getElementById(jaxId + '-Frame');
-  if (!node) {
-    return null;
+  if (node) {
+    var span = node.querySelector('span.math');
+    if (span) {
+      return span.id;
+    }
   }
-  var span = node.querySelector('span.math');
-  if (span) {
-    return span.id;
-  }
-  return null;
 };
 
 

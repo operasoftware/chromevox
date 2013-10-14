@@ -20,10 +20,13 @@ goog.provide('cvox.TextChangeEvent');
 goog.provide('cvox.TextHandlerInterface');
 goog.provide('cvox.TypingEcho');
 
+
+goog.require('cvox.BrailleTextHandler');
 goog.require('cvox.ContentEditableExtractor');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EditableTextAreaShadow');
 goog.require('cvox.TtsInterface');
+goog.require('goog.i18n.MessageFormat');
 
 /**
  * @fileoverview Gives the user spoken feedback as they type, select text,
@@ -63,6 +66,13 @@ cvox.TextChangeEvent = function(newValue, newStart, newEnd, triggeredByUser) {
   this.start = newStart;
   this.end = newEnd;
   this.triggeredByUser = triggeredByUser;
+
+  // Adjust offsets to be in left to right order.
+  if (this.start > this.end) {
+    var tempOffset = this.end;
+    this.end = this.start;
+    this.start = tempOffset;
+  }
 };
 
 
@@ -113,10 +123,9 @@ cvox.TextHandlerInterface = function() {};
 
 /**
  * Called when text changes.
- * @param {boolean} triggeredByUser True if the event is believed to result
- *     directly from a user-initiated event.
+ * @param {cvox.TextChangeEvent} evt The text change event.
  */
-cvox.TextHandlerInterface.prototype.update = function(triggeredByUser) {};
+cvox.TextHandlerInterface.prototype.changed = function(evt) {};
 
 
 /**
@@ -170,6 +179,14 @@ cvox.ChromeVoxEditableTextBase = function(value, start, end, isPassword, tts) {
    * @protected
    */
   this.multiline = false;
+
+  /**
+   * An optional handler for braille output.
+   * @type {cvox.BrailleTextHandler|undefined}
+   * @private
+   */
+  this.brailleHandler_ = cvox.ChromeVox.braille ?
+      new cvox.BrailleTextHandler(cvox.ChromeVox.braille) : undefined;
 };
 
 /**
@@ -357,6 +374,7 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
     this.lastChangeDescribed = false;
     return;
   }
+
   if (evt.value == this.value) {
     this.describeSelectionChanged(evt);
   } else {
@@ -367,6 +385,14 @@ cvox.ChromeVoxEditableTextBase.prototype.changed = function(evt) {
   this.value = evt.value;
   this.start = evt.start;
   this.end = evt.end;
+
+  if (this.brailleHandler_) {
+    var line = this.getLine(this.getLineIndex(evt.start));
+    var lineStart = this.getLineStart(this.getLineIndex(evt.start));
+    var start = evt.start - lineStart;
+    var end = evt.end - lineStart;
+    this.brailleHandler_.changed(line, start, end, this.multiline);
+  }
 };
 
 /**
@@ -382,7 +408,8 @@ cvox.ChromeVoxEditableTextBase.prototype.describeSelectionChanged =
   // TODO(deboer): Reconcile this function with this.getValue()
 
   if (this.isPassword) {
-    this.speak(cvox.ChromeVox.msgs.getMsg('dot'), evt.triggeredByUser);
+    this.speak((new goog.i18n.MessageFormat(cvox.ChromeVox.msgs.getMsg('dot'))
+        .format({'COUNT': 1})), evt.triggeredByUser);
     return;
   }
   if (evt.start == evt.end) {
@@ -468,8 +495,8 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
     personality = cvox.AbstractTts.PERSONALITY_DELETED;
   }
   if (this.isPassword) {
-    this.speak(cvox.ChromeVox.msgs.getMsg('dot'),
-               evt.triggeredByUser, personality);
+    this.speak((new goog.i18n.MessageFormat(cvox.ChromeVox.msgs.getMsg('dot'))
+        .format({'COUNT': 1})), evt.triggeredByUser, personality);
     return;
   }
 
@@ -492,15 +519,24 @@ cvox.ChromeVoxEditableTextBase.prototype.describeTextChanged = function(evt) {
 
   // Now see if the previous selection (if any) was deleted
   // and any new text was inserted at that character position.
-  // This handles pasting and entering text by typing, both from
+  // This would handle pasting and entering text by typing, both from
   // a cursor and from a selection.
   var prefixLen = this.start;
   var suffixLen = len - this.end;
   if (newLen >= prefixLen + suffixLen + (evtEnd - evt.start) &&
       evtValue.substr(0, prefixLen) == value.substr(0, prefixLen) &&
       evtValue.substr(newLen - suffixLen) == value.substr(this.end)) {
-    this.describeTextChangedHelper(
-        evt, prefixLen, suffixLen, autocompleteSuffix, personality);
+    // However, in a dynamic content editable, defer to authoritative events
+    // (clipboard, key press) to reduce guess work when observing insertions.
+    // Only use this logic when observing deletions (and insertion of word
+    // breakers).
+    // TODO(dtseng): Think about a more reliable way to do this.
+    if (!(this instanceof cvox.ChromeVoxEditableContentEditable) ||
+        newLen < len ||
+        this.isWordBreakChar(evt.value[newLen - 1] || '')) {
+      this.describeTextChangedHelper(
+          evt, prefixLen, suffixLen, autocompleteSuffix, personality);
+    }
     return;
   }
 

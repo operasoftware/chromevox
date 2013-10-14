@@ -69,6 +69,12 @@ cvox.AbstractMathJax.prototype.injectScripts = goog.abstractMethod;
 
 
 /**
+ * @override
+ */
+cvox.AbstractMathJax.prototype.configMediaWiki = goog.abstractMethod;
+
+
+/**
  * Get MathML represententations for all images that have latex alt text.
  * @param {function(Node, string)} callback A function taking a MathML node and
  * an id string.

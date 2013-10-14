@@ -7,7 +7,7 @@
 
 goog.provide('cvox.Search');
 
-goog.require('cvox.Api');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.SearchConstants');
 goog.require('cvox.SearchResults');
 goog.require('cvox.SearchUtil');
@@ -80,14 +80,32 @@ cvox.Search.isPane = false;
  */
 cvox.Search.SELECTED_PANE_CLASS = 'hdtb_mitem hdtb_msel';
 
+
+/**
+ * Speak and sync.
+ * @private
+ */
+cvox.Search.speakSync_ = function() {
+  var result = cvox.Search.results[cvox.Search.index];
+  var resultType = cvox.Search.getResultType(result);
+  var isSpoken = resultType.speak(result);
+  cvox.ChromeVox.syncToNode(resultType.getSyncNode(result), !isSpoken);
+  cvox.Search.isPane = false;
+};
+
 /**
  * Sync the search result index to ChromeVox.
  */
 cvox.Search.syncToIndex = function() {
-  var result = cvox.Search.results[cvox.Search.index];
-  var isSpoken = cvox.Search.speakResult(result);
-  cvox.Api.syncToNode(result, !isSpoken);
-  cvox.Search.isPane = false;
+  cvox.ChromeVox.tts.stop();
+  var prop = { endCallback: cvox.Search.speakSync_ };
+  if (cvox.Search.index === 0) {
+    cvox.ChromeVox.tts.speak('First result', 1, prop);
+  } else if (cvox.Search.index === cvox.Search.results.length - 1) {
+    cvox.ChromeVox.tts.speak('Last result', 1, prop);
+  } else {
+    cvox.Search.speakSync_();
+  }
 };
 
 /**
@@ -97,9 +115,9 @@ cvox.Search.syncPaneToIndex = function() {
   var pane = cvox.Search.panes[cvox.Search.paneIndex];
   var anchor = pane.querySelector('a');
   if (anchor) {
-    cvox.Api.syncToNode(anchor, true);
+    cvox.ChromeVox.syncToNode(anchor, true);
   } else {
-    cvox.Api.syncToNode(pane, true);
+    cvox.ChromeVox.syncToNode(pane, true);
   }
   cvox.Search.isPane = true;
 };
@@ -117,16 +135,6 @@ cvox.Search.getResultType = function(result) {
     }
   }
   return new cvox.UnknownResult();
-};
-
-/**
- * Speak the result based on the type of search result.
- * @param {Element} result Result to be spoken.
- * @return {boolean} True if spoken, false otherwise.
- */
-cvox.Search.speakResult = function(result) {
-  var resultType = cvox.Search.getResultType(result);
-  return resultType.speak(result);
 };
 
 /**
@@ -156,14 +164,17 @@ cvox.Search.navigatePage = function(next) {
   var navEnds = document.getElementsByClassName(NAV_END_CLASS);
   var navEnd = next ? navEnds[1] : navEnds[0];
   var url = cvox.SearchUtil.extractURL(navEnd);
+  var navToUrl = function() {
+    window.location = url;
+  };
+  var prop = { endCallback: navToUrl };
   if (url) {
     var pageNumber = cvox.Search.getPageNumber(url);
     if (!isNaN(pageNumber)) {
-      cvox.Api.speak('Page ' + pageNumber);
+      cvox.ChromeVox.tts.speak('Page ' + pageNumber, 0, prop);
     } else {
-      cvox.Api.speak('Unknown page.');
+      cvox.ChromeVox.tts.speak('Unknown page.', 0, prop);
     }
-    window.location = url;
   }
 };
 
@@ -173,11 +184,11 @@ cvox.Search.navigatePage = function(next) {
 cvox.Search.goToPane = function() {
   var pane = cvox.Search.panes[cvox.Search.paneIndex];
   if (pane.className === cvox.Search.SELECTED_PANE_CLASS) {
-    cvox.Api.speak('You are already on that page.');
+    cvox.ChromeVox.tts.speak('You are already on that page.');
     return;
   }
   var anchor = pane.querySelector('a');
-  cvox.Api.speak(anchor.textContent);
+  cvox.ChromeVox.tts.speak(anchor.textContent);
   var url = cvox.SearchUtil.extractURL(pane);
   if (url) {
     window.location = url;
@@ -222,14 +233,18 @@ cvox.Search.keyhandler = function(evt) {
       /* Add results.length because JS Modulo is silly. */
       cvox.Search.index = cvox.SearchUtil.subOneWrap(cvox.Search.index,
         cvox.Search.results.length);
-      cvox.Api.stop();
+      if (cvox.Search.index === cvox.Search.results.length - 1) {
+        cvox.ChromeVox.earcons.playEarconByName('WRAP');
+      }
       cvox.Search.syncToIndex();
       break;
 
     case cvox.SearchConstants.KeyCode.DOWN:
       cvox.Search.index = cvox.SearchUtil.addOneWrap(cvox.Search.index,
         cvox.Search.results.length);
-      cvox.Api.stop();
+      if (cvox.Search.index === 0) {
+        cvox.ChromeVox.earcons.playEarconByName('WRAP');
+      }
       cvox.Search.syncToIndex();
       break;
 
@@ -328,7 +343,9 @@ cvox.Search.observeMutation = function() {
     cvox.Search.populateResults();
   });
 
-  var config = { attributes: true, childList: true, characterData: true };
+  var config =
+      /** @type MutationObserverInit */
+      ({ attributes: true, childList: true, characterData: true });
   observer.observe(target, config);
 };
 
@@ -367,9 +384,9 @@ cvox.Search.getAncestorResult = function(node) {
 
 /**
  * Sync to the correct initial node.
- * @param {Node} currNode Current node ChromeVox is synced to.
  */
-cvox.Search.initialSync = function(currNode) {
+cvox.Search.initialSync = function() {
+  var currNode = cvox.ChromeVox.navigationManager.getCurrentNode();
   var result = cvox.Search.getAncestorResult(currNode);
   cvox.Search.index = cvox.Search.results.indexOf(result);
   if (cvox.Search.index === -1) {
@@ -388,7 +405,7 @@ cvox.Search.init = function() {
   cvox.Search.index = 0;
 
   /* Flush out anything that may have been speaking. */
-  cvox.Api.stop();
+  cvox.ChromeVox.tts.stop();
 
   /* Determine the type of search. */
   var SELECTED_CLASS = 'hdtb_msel';
@@ -415,6 +432,6 @@ cvox.Search.init = function() {
   cvox.Search.populatePanes();
   cvox.Search.paneIndex = cvox.Search.getSelectedPaneIndex();
 
-  cvox.Api.getCurrentNode(cvox.Search.initialSync);
+  cvox.Search.initialSync();
 
 };

@@ -57,6 +57,9 @@ cvox.ChromeVoxPrefs = function() {
   // This is to keep the position dictionary from growing excessively large.
   localStorage['position'] = '{}';
 
+  // Default per session sticky to off.
+  localStorage['sticky'] = false;
+
   this.init(loadExistingSettings);
 };
 

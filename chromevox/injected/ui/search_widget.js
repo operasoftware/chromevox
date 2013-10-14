@@ -78,7 +78,7 @@ cvox.SearchWidget.prototype.show = function() {
   this.active = true;
   this.hasMatch_ = false;
   cvox.ChromeVox.navigationManager.setGranularity(
-      cvox.NavigationShifter.GRANULARITIES.OBJECT, true);
+      cvox.NavigationShifter.GRANULARITIES.OBJECT, true, false);
 
   // Always start search forward.
   cvox.ChromeVox.navigationManager.setReversed(false);
@@ -358,7 +358,7 @@ cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
   }
 
   cvox.ChromeVox.navigationManager.setGranularity(
-      cvox.NavigationShifter.GRANULARITIES.OBJECT, true);
+      cvox.NavigationShifter.GRANULARITIES.OBJECT, true, false);
 
   do {
     if (this.getPredicate()) {
@@ -404,6 +404,7 @@ cvox.SearchWidget.prototype.getNextResult_ = function(searchStr) {
 cvox.SearchWidget.prototype.beginSearch_ = function(searchStr) {
   var result = this.getNextResult_(searchStr);
   this.outputSearchResult_(result, searchStr);
+  this.onNavigate();
 };
 
 

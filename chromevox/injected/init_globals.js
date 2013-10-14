@@ -29,7 +29,6 @@ goog.require('cvox.HostFactory');
 goog.require('cvox.NavigationManager');
 goog.require('cvox.Serializer');
 goog.require('cvox.SpokenMessages');
-goog.require('cvox.TtsHistory');
 
 
 
@@ -49,10 +48,12 @@ cvox.InitGlobals.initGlobals = function() {
 
   cvox.ChromeVox.tts = new cvox.CompositeTts()
       .add(cvox.HostFactory.getTts())
-      .add(new cvox.TtsHistory())
+      .add(cvox.History.getInstance())
       .add(cvox.ConsoleTts.getInstance());
 
-  cvox.ChromeVox.braille = cvox.HostFactory.getBraille();
+  if (!cvox.ChromeVox.braille) {
+    cvox.ChromeVox.braille = cvox.HostFactory.getBraille();
+  }
   cvox.ChromeVox.mathJax = cvox.HostFactory.getMathJax();
 
   cvox.ChromeVox.earcons = cvox.HostFactory.getEarcons();
@@ -61,6 +62,7 @@ cvox.InitGlobals.initGlobals = function() {
   cvox.ChromeVox.navigationManager = new cvox.NavigationManager();
   cvox.ChromeVox.navigationManager.updateIndicator();
   cvox.ChromeVox.syncToNode = cvox.ApiImplementation.syncToNode;
+  cvox.ChromeVox.speakNode = cvox.ApiImplementation.speakNode;
 
   cvox.ChromeVox.serializer = new cvox.Serializer();
 

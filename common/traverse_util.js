@@ -60,6 +60,7 @@ cvox.TraverseUtil.getNodeText = function(node) {
 cvox.TraverseUtil.treatAsLeafNode = function(node) {
   return node.childNodes.length == 0 ||
          node.nodeName == 'SELECT' ||
+         node.getAttribute('role') == 'listbox' ||
          node.nodeName == 'OBJECT';
 };
 

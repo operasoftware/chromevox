@@ -48,7 +48,7 @@ cvox.ChromeVoxKbHandler.loadKeyToFunctionsTable = function(
   }
 
   cvox.ChromeVoxKbHandler.handlerKeyMap =
-      cvox.KeyMap.fromJSON(keyToFunctionsTable, true);
+      cvox.KeyMap.fromJSON(keyToFunctionsTable);
 };
 
 /**
@@ -95,7 +95,6 @@ cvox.ChromeVoxKbHandler.sortKeyToFunctionsTable_ = function(
  */
 cvox.ChromeVoxKbHandler.basicKeyDownActionsListener = function(evt) {
   var keySequence = cvox.KeyUtil.keyEventToKeySequence(evt);
-
   var functionName;
   if (cvox.ChromeVoxKbHandler.handlerKeyMap != undefined) {
     functionName =

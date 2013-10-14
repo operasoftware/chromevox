@@ -38,3 +38,12 @@ cvox.AbstractResult.prototype.speak = function(result) {
  * @return {?string} URL.
  */
 cvox.AbstractResult.prototype.getURL = cvox.SearchUtil.extractURL;
+
+/**
+ * Returns the node to sync to.
+ * @param {Element} result Result.
+ * @return {?Node} Node to sync to.
+ */
+cvox.AbstractResult.prototype.getSyncNode = function(result) {
+  return result;
+};

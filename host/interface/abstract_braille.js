@@ -38,18 +38,4 @@ cvox.AbstractBraille.prototype.write = goog.abstractMethod;
 
 
 /** @override */
-cvox.AbstractBraille.prototype.setPanOutListener = goog.abstractMethod;
-
-
-/**
- * User has panned out on the left edge of the buffer.
- * @type {number}
- */
-cvox.AbstractBraille.PAN_OUT_LEFT = 0;
-
-
-/**
- * User has panned out on the right edge of the buffer.
- * @type {number}
- */
-cvox.AbstractBraille.PAN_OUT_RIGHT = 1;
+cvox.AbstractBraille.prototype.setCommandListener = goog.abstractMethod;

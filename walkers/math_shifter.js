@@ -23,8 +23,10 @@ goog.require('cvox.AbstractShifter');
 goog.require('cvox.BrailleUtil');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
-goog.require('cvox.MathSpeak');
+goog.require('cvox.MathmlStore');
+goog.require('cvox.MathmlStoreRules');
 goog.require('cvox.NavDescription');
+goog.require('cvox.SpeechRuleEngine');
 goog.require('cvox.TraverseMath');
 
 
@@ -35,17 +37,6 @@ goog.require('cvox.TraverseMath');
  */
 cvox.MathShifter = function(sel) {
   goog.base(this);
-  // TODO (sorge)
-  // Here we can put in some effort to determine the actual domain
-  // of the math expression in which the shifter lives via a function
-  // in MathUtils!
-  /**
-   * The Math Speak object of the shifter.
-   * @type {!cvox.MathSpeak}
-   */
-  this.speak = new cvox.MathSpeak(
-      {domain: cvox.TraverseMath.getInstance().domain,
-       rule: cvox.TraverseMath.getInstance().style});
 
   /**
    * Indicates the depth of the currently read expression.
@@ -106,7 +97,8 @@ cvox.MathShifter.prototype.getName = function() {
  * @override
  */
 cvox.MathShifter.prototype.getDescription = function(prevSel, sel) {
-  var descs = this.speak.speakTree(cvox.TraverseMath.getInstance().activeNode);
+  var descs = cvox.SpeechRuleEngine.getInstance().evaluateNode(
+      cvox.TraverseMath.getInstance().activeNode);
   if (this.bumped_ && descs.length > 0) {
     descs[0].pushEarcon(cvox.AbstractEarcons.WRAP_EDGE);
   }
@@ -161,6 +153,15 @@ cvox.MathShifter.prototype.makeMoreGranular = function() {
 cvox.MathShifter.create = function(sel) {
   if (cvox.DomPredicates.mathPredicate(
       cvox.DomUtil.getAncestors(sel.start.node))) {
+    var mathNode = cvox.DomUtil.getContainingMath(sel.end.node);
+    cvox.TraverseMath.getInstance().initialize(mathNode);
+    cvox.SpeechRuleEngine.getInstance().parameterize(
+        cvox.MathmlStore.getInstance());
+    // TODO (sorge) Embed these changes into a local context menu/options menu.
+    var dynamicCstr = cvox.MathStore.createDynamicConstraint(
+        cvox.TraverseMath.getInstance().domain,
+        cvox.TraverseMath.getInstance().style);
+    cvox.SpeechRuleEngine.getInstance().setDynamicConstraint(dynamicCstr);
     return new cvox.MathShifter(sel);
   }
   return null;
@@ -173,5 +174,5 @@ cvox.MathShifter.create = function(sel) {
  * @return {string} The name of the current Math Domain.
  */
 cvox.MathShifter.prototype.getDomainMsg = function() {
-  return this.speak.domain;
+  return cvox.TraverseMath.getInstance().domain;
 };

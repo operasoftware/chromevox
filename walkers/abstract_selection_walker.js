@@ -81,10 +81,30 @@ cvox.AbstractSelectionWalker.prototype.sync = function(sel) {
   var newSel = null;
   if (sel.start.equals(sel.end) && sel.start.node.constructor.name != 'Text') {
     var node = sel.start.node;
+
+    // Find the deepest visible node; written specifically here because we want
+    // to move across siblings if necessary and take the deepest node which can
+    // be BODY.
     while (node &&
         cvox.DomUtil.directedFirstChild(node, r) &&
         !cvox.TraverseUtil.treatAsLeafNode(node)) {
-      node = cvox.DomUtil.directedFirstChild(node, r);
+      var child = cvox.DomUtil.directedFirstChild(node, r);
+
+      // Find the first visible child.
+      while (child) {
+        if (cvox.DomUtil.isVisible(child,
+            {checkAncestors: false, checkDescendants: false})) {
+          node = child;
+          break;
+        } else {
+          child = cvox.DomUtil.directedNextSibling(child, r);
+        }
+      }
+
+      // node has no visible children; it's therefore the deepest visible node.
+      if (!child) {
+        break;
+      }
     }
     newSel = cvox.CursorSelection.fromNode(node);
   } else {

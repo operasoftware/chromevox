@@ -21,6 +21,7 @@
 
 if (typeof(goog) != 'undefined' && goog.provide) {
   goog.provide('cvox.Api');
+  goog.provide('cvox.Api.Math');
 }
 
 if (typeof(goog) != 'undefined' && goog.require) {
@@ -125,6 +126,21 @@ if (typeof(goog) != 'undefined' && goog.require) {
      channel_.port1.postMessage(JSON.stringify(message));
    }
 
+   /**
+    * Wraps callAsync_ for sending speak requests.
+    * @param {Object} message A serializable message.
+    * @param {Object=} properties Speech properties to use for this utterance.
+    * @private
+    */
+   function callSpeakAsync_(message, properties) {
+     var callback = null;
+     /* Use the user supplied callback as callAsync_'s callback. */
+     if (properties && properties['endCallback']) {
+       callback = properties['endCallback'];
+     }
+     callAsync_(message, callback);
+   };
+
 
    /*
     * Public API.
@@ -217,7 +233,7 @@ if (typeof(goog) != 'undefined' && goog.require) {
          'cmd': 'speak',
          'args': [textString, queueMode, properties]
        };
-       channel_.port1.postMessage(JSON.stringify(message));
+       callSpeakAsync_(message, properties);
      }
    };
 
@@ -242,7 +258,7 @@ if (typeof(goog) != 'undefined' && goog.require) {
          'args': [cvox.ApiUtils.makeNodeReference(targetNode), queueMode,
              properties]
        };
-       channel_.port1.postMessage(JSON.stringify(message));
+       callSpeakAsync_(message, properties);
      }
    };
 
@@ -516,6 +532,43 @@ if (typeof(goog) != 'undefined' && goog.require) {
          'args': [keyEcho]
        };
        channel_.port1.postMessage(JSON.stringify(message));
+     }
+   };
+
+   /**
+    * Exports the ChromeVox math API.
+    * TODO(dtseng, sorge): Requires more detailed documentation for class
+    * members.
+    * @constructor
+    */
+   cvox.Api.Math = function() {};
+
+   // TODO(dtseng, sorge): This need not be specific to math; once speech engine
+   // stabilizes, we can generalize.
+   // TODO(dtseng, sorge): This API is way too complicated; consolidate args
+   // when re-thinking underlying representation. Some of the args don't have a
+   // well-defined purpose especially for a caller.
+   /**
+    * Defines a math speech rule.
+    * @param {string} name Rule name.
+    * @param {string} dynamic Dynamic constraint annotation. In the case of a
+    *      math rule it consists of a domain.style string.
+    * @param {string} action An action of rule components.
+    * @param {string} prec XPath or custom function constraining match.
+    * @param {...string} constraints Additional constraints.
+    */
+   cvox.Api.Math.defineRule =
+       function(name, dynamic, action, prec, constraints) {
+     if (!cvox.Api.isChromeVoxActive()) {
+       return;
+     }
+     var constraintList = Array.prototype.slice.call(arguments, 4);
+     var args = [name, dynamic, action, prec].concat(constraintList);
+     if (implementation_) {
+       implementation_.Math.defineRule.apply(implementation_.Math, args);
+     } else {
+       var msg = {'cmd': 'Math.defineRule', args: args};
+       channel_.port1.postMessage(JSON.stringify(msg));
      }
    };
 

@@ -61,6 +61,15 @@ cvox.NavBraille = function(kwargs) {
   this.endIndex = kwargs.endIndex ? kwargs.endIndex : 0;
 };
 
+/**
+ * Convenience for creating simple braille output.
+ * @param {string|!cvox.Spannable} text Text to represent in braille.
+ * @return {!cvox.NavBraille} Braille output without a cursor.
+ */
+cvox.NavBraille.fromText = function(text) {
+  return new cvox.NavBraille({'text': text});
+};
+
 
 /**
  * @return {boolean} true if this braille description is empty.
@@ -101,14 +110,8 @@ cvox.NavBraille.prototype.toJson = function() {
  * Sends braille to the background page.
  */
 cvox.NavBraille.prototype.write = function() {
-  // TODO(dtseng): Prototype braille on development versions of ChromeVox only.
-  // This prevents a call out to the host braille connection.
-  // Remove once we ship or replace with logic to detect presence of braille
-  // display.
-  if ((cvox.ChromeVox.version != '1.0' &&
-      !cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.ANDROID_DEV)) ||
-          cvox.ChromeVox.isChromeOS) {
-    return;
+  if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.CHROMEOS |
+      cvox.PlatformFilter.ANDROID)) {
+    cvox.ChromeVox.braille.write(this);
   }
-  cvox.ChromeVox.braille.write(this);
 };

@@ -134,6 +134,8 @@ cvox.CommandStore.commandsForCategory = function(category) {
  *                  undefined, the command applies to all platforms.
  *  skipInput: Explicitly skips this command when text input has focus.
  *             Defaults to false.
+ *  allowOOBE: Explicitly allows this command when in chrome://oobe/*.
+ *             Defaults to false.
  *  allowEvents: Allows EventWatcher to continue processing events which can
  * trump TTS.
  *  disallowContinuation: Disallows continuous read to proceed. Defaults to
@@ -199,24 +201,30 @@ cvox.CommandStore.CMD_WHITELIST = {
   'forward': {forward: true,
               announce: true,
               msgId: 'forward',
+              'allowOOBE': true,
               category: 'navigation'},
   'backward': {backward: true,
                announce: true,
                msgId: 'backward',
+               'allowOOBE': true,
                category: 'navigation'},
   'right': {forward: true,
             announce: true,
             msgId: 'right',
+            'allowOOBE': true,
             category: 'navigation'},
   'left': {backward: true,
            announce: true,
            msgId: 'left',
+           'allowOOBE': true,
            category: 'navigation'},
   'previousGranularity': {announce: true,
                           msgId: 'previous_granularity',
+                          'allowOOBE': true,
                           category: 'navigation'},
   'nextGranularity': {announce: true,
                           msgId: 'next_granularity',
+                      'allowOOBE': true,
                           category: 'navigation'},
 
   'previousCharacter': {backward: true,
@@ -333,11 +341,13 @@ cvox.CommandStore.CMD_WHITELIST = {
   'toggleSearchWidget': {announce: false,
                          disallowContinuation: true,
                          msgId: 'toggle_search_widget',
+                         'allowOOBE': true,
                          category: 'information'},
 
   'toggleKeyboardHelp': {announce: false,
                          disallowContinuation: true,
                          msgId: 'show_power_key',
+                         'allowOOBE': true,
                          category: 'help_commands'},
   'help': {announce: false,
            msgId: 'help',
@@ -624,8 +634,42 @@ cvox.CommandStore.CMD_WHITELIST = {
                    category: 'information'},
 
   'pauseAllMedia': {announce: false,
-                   msgId: 'pause_all_media',
-                   category: 'information'},
+                    msgId: 'pause_all_media',
+                    category: 'information'},
+
+  // Math specific commands.
+  'toggleSemantics': {announce: false,
+                      msgId: 'toggle_semantics',
+                      category: 'information'},
+
+  // Braille specific commands.
+  'routing': {announce: true,
+                    msgId: 'braille_routing',
+                    category: 'braille'},
+  'pan_left': {backward: true,
+               announce: true,
+               msgId: 'braille_pan_left',
+               category: 'braille'},
+  'pan_right': {forward: true,
+                announce: true,
+                msgId: 'braille_pan_right',
+                category: 'braille'},
+  'line_up': {backward: true,
+              announce: true,
+              msgId: 'braille_line_up',
+              category: 'braille'},
+  'line_down': {forward: true,
+                announce: true,
+                msgId: 'braille_line_down',
+                category: 'braille'},
+  'top': {backward: true,
+                announce: true,
+                msgId: 'braille_top',
+                category: 'braille'},
+  'bottom': {forward: true,
+                announce: true,
+                msgId: 'braille_bottom',
+                category: 'braille'},
 
   'debug': {announce: false},
 

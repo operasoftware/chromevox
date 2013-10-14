@@ -77,13 +77,6 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   this.backgroundTts_ = new cvox.TtsBackground();
 
   /**
-   * The actual Braille service.
-   * @type {cvox.BrailleBackground}
-   * @private
-   */
-  this.backgroundBraille_ = new cvox.BrailleBackground();
-
-  /**
    * @type {cvox.TtsInterface}
    */
   this.tts = new cvox.CompositeTts()
@@ -93,8 +86,19 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   this.earcons = new cvox.EarconsBackground();
   this.addBridgeListener();
 
+  /**
+   * The actual Braille service.
+   * @type {cvox.BrailleBackground}
+   * @private
+   */
+  this.backgroundBraille_ = new cvox.BrailleBackground();
+
   this.accessibilityApiHandler = new cvox.AccessibilityApiHandler(
-      this.tts, this.earcons);
+      this.tts, this.backgroundBraille_, this.earcons);
+
+  // Export globals on cvox.ChromeVox.
+  cvox.ChromeVox.tts = this.tts;
+  cvox.ChromeVox.braille = this.backgroundBraille_;
 
   var listOfFiles;
 
@@ -152,13 +156,8 @@ cvox.ChromeVoxBackground.prototype.init = function() {
   } else if (cvox.PlatformUtil.matchesPlatform(cvox.PlatformFilter.WML)) {
     // Introductory message.
     this.tts.speak(cvox.ChromeVox.msgs.getMsg('chromevox_intro'), 1);
-    if (localStorage['sticky'] == 'true') {
-      // Warn the user if sticky mode is on.
-      this.tts.speak(cvox.ChromeVox.msgs.getMsg('sticky_mode_enabled'), 1);
-    }
   }
 };
-
 
 
 /**

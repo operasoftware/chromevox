@@ -29,10 +29,10 @@
 goog.provide('cvox.ChromeVoxUserCommands');
 
 goog.require('cvox.AutoRunner');
+goog.require('cvox.BrailleKeyCommand');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.CommandStore');
 goog.require('cvox.ConsoleTts');
-goog.require('cvox.CssSpace');
 goog.require('cvox.DomPredicates');
 goog.require('cvox.DomUtil');
 goog.require('cvox.FocusUtil');
@@ -44,6 +44,7 @@ goog.require('cvox.SearchWidget');
 goog.require('cvox.SelectWidget');
 goog.require('cvox.TypingEcho');
 goog.require('cvox.UserEventDetail');
+goog.require('goog.object');
 
 
 /**
@@ -65,7 +66,7 @@ cvox.ChromeVoxUserCommands.init_ = function() {
 
 
 /**
- * @type {!Object.<string, function(): boolean>}
+ * @type {!Object.<string, function(Object=): boolean>}
  */
 cvox.ChromeVoxUserCommands.commands;
 
@@ -213,28 +214,26 @@ cvox.ChromeVoxUserCommands.createTabDummySpan_ = function() {
 
 /**
  * @param {string} cmd The programmatic command name.
- * @return {function(): boolean} The callable command.
+ * @return {function(Object=): boolean} The callable command taking an optional
+ * args dictionary.
  * @private
  */
 cvox.ChromeVoxUserCommands.createCommand_ = function(cmd) {
-  return goog.bind(function() {
-    return cvox.ChromeVoxUserCommands.dispatchCommand_(cmd);
+  return goog.bind(function(opt_kwargs) {
+    var cmdStruct = cvox.ChromeVoxUserCommands.lookupCommand_(cmd, opt_kwargs);
+    return cvox.ChromeVoxUserCommands.dispatchCommand_(cmdStruct);
   }, cvox.ChromeVoxUserCommands);
 };
 
 
 /**
- * @param {string} cmd The command to do.
+ * @param {Object} cmdStruct The command to do.
  * @return {boolean} False to prevent the default action. True otherwise.
  * @private
  */
-cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmd) {
+cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmdStruct) {
   if (cvox.Widget.isActive()) {
     return true;
-  }
-  var cmdStruct = cvox.CommandStore.CMD_WHITELIST[cmd];
-  if (!cmdStruct) {
-    throw 'Invalid command: ' + cmd;
   }
   if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter) ||
       (cmdStruct.skipInput && cvox.FocusUtil.isFocusInTextInputField())) {
@@ -242,8 +241,8 @@ cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmd) {
   }
   // Handle dispatching public command events
   if (cvox.ChromeVoxUserCommands.enableCommandDispatchingToPage &&
-      (cvox.UserEventDetail.COMMANDS.indexOf(cmd) != -1)) {
-    var detail = new cvox.UserEventDetail({command: cmd});
+      (cvox.UserEventDetail.JUMP_COMMANDS.indexOf(cmdStruct.command) != -1)) {
+    var detail = new cvox.UserEventDetail({command: cmdStruct.command});
     var evt = detail.createEventObject();
     var currentNode = cvox.ChromeVox.navigationManager.getCurrentNode();
     if (!currentNode) {
@@ -253,35 +252,30 @@ cvox.ChromeVoxUserCommands.dispatchCommand_ = function(cmd) {
     return false;
   }
   // Not a public command; act on this command directly.
-  return cvox.ChromeVoxUserCommands.doCommand_(cmd);
+  return cvox.ChromeVoxUserCommands.doCommand_(cmdStruct);
 };
 
 
 /**
- * @param {string} cmd The command to do.
- * @param {string=} opt_status Optional string that indicates the status of this
- *     command.
- * @param {Node=} opt_resultNode Optional result node that can be included if
- *     this command was already performed successfully by the page itself.
+ * @param {Object} cmdStruct The command to do.
  * @return {boolean} False to prevent the default action. True otherwise.
  * @private
  */
-cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
-      opt_resultNode) {
-  opt_status = opt_status || cvox.UserEventDetail.Status.PENDING;
-  opt_resultNode = opt_resultNode || null;
+cvox.ChromeVoxUserCommands.doCommand_ = function(cmdStruct) {
   if (cvox.Widget.isActive()) {
     return true;
-  }
-  var cmdStruct = cvox.CommandStore.CMD_WHITELIST[cmd];
-  if (!cmdStruct) {
-    throw 'Invalid command: ' + cmd;
   }
 
   if (!cvox.PlatformUtil.matchesPlatform(cmdStruct.platformFilter) ||
       (cmdStruct.skipInput && cvox.FocusUtil.isFocusInTextInputField())) {
     return true;
   }
+
+  if (!cmdStruct.allowOOBE && document.URL.match(/^chrome:\/\/oobe/i)) {
+    return true;
+  }
+
+  var cmd = cmdStruct.command;
 
   if (!cmdStruct.allowEvents) {
     cvox.ChromeVoxEventSuspender.enterSuspendEvents();
@@ -302,8 +296,8 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
     cmdStruct.announce = true;
   }
 
-  var prefixMsg = '';
   var errorMsg = '';
+  var prefixMsg = '';
   var ret = false;
   switch (cmd) {
     case 'handleTab':
@@ -336,11 +330,13 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
         error = cvox.ChromeVox.msgs.getMsg(NodeInfoStruct.backwardError);
       }
       var found = null;
-      switch (opt_status) {
+      var status = cmdStruct.status || cvox.UserEventDetail.Status.PENDING;
+      var resultNode = cmdStruct.resultNode || null;
+      switch (status) {
         case cvox.UserEventDetail.Status.SUCCESS:
-          if (opt_resultNode) {
+          if (resultNode) {
             cvox.ChromeVox.navigationManager.updateSelToArbitraryNode(
-                opt_resultNode, true);
+                resultNode, true);
           }
           break;
         case cvox.UserEventDetail.Status.FAILURE:
@@ -368,17 +364,13 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
         cmdStruct.announce = false;
       }
       break;
-    case 'skipForward':
-    case 'skipBackward':
-      ret = !cvox.ChromeVox.navigationManager.skip();
-      break;
     // TODO(stoarca): Bad naming. Should be less instead of previous.
     case 'previousGranularity':
-      cvox.ChromeVox.navigationManager.makeLessGranular();
+      cvox.ChromeVox.navigationManager.makeLessGranular(true);
       prefixMsg = cvox.ChromeVox.navigationManager.getGranularityMsg();
       break;
     case 'nextGranularity':
-      cvox.ChromeVox.navigationManager.makeMoreGranular();
+      cvox.ChromeVox.navigationManager.makeMoreGranular(true);
       prefixMsg = cvox.ChromeVox.navigationManager.getGranularityMsg();
       break;
 
@@ -456,6 +448,8 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       break;
 
     case 'readFromHere':
+      cvox.ChromeVox.navigationManager.setGranularity(
+          cvox.NavigationShifter.GRANULARITIES.OBJECT, true, true);
       cvox.ChromeVox.navigationManager.startReading(
           cvox.AbstractTts.QUEUE_MODE_FLUSH);
       break;
@@ -469,9 +463,11 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       });
       break;
     case 'jumpToTop':
+    case cvox.BrailleKeyCommand.TOP:
       cvox.ChromeVox.navigationManager.syncToBeginning();
       break;
     case 'jumpToBottom':
+    case cvox.BrailleKeyCommand.BOTTOM:
       cvox.ChromeVox.navigationManager.syncToBeginning();
       break;
     case 'stopSpeech':
@@ -590,10 +586,6 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       break;
     case 'stopHistoryRecording':
       cvox.History.getInstance().stopRecording();
-      break;
-    case 'enterCssSpace':
-      cvox.CssSpace.initializeSpace();
-      cvox.CssSpace.enterExploration();
       break;
     case 'enableConsoleTts':
       cvox.ConsoleTts.getInstance().setEnabled(true);
@@ -719,6 +711,36 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
       }
       break;
 
+    // Math specific commands.
+    case 'toggleSemantics':
+      if (cvox.TraverseMath.toggleSemantic()) {
+        cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('semantics_on'));
+      } else {
+        cvox.ChromeVox.tts.speak(cvox.ChromeVox.msgs.getMsg('semantics_off'));
+      }
+      break;
+
+    // Braille specific commands.
+    case cvox.BrailleKeyCommand.ROUTING:
+      var braille = cvox.ChromeVox.navigationManager.getBraille();
+      var nodes = braille.text.getSpans(cmdStruct.displayPosition || 0);
+      var node = nodes.filter(function(n) { return n instanceof Node; })[0];
+      cvox.DomUtil.clickElem(node ||
+                             cvox.ChromeVox.navigationManager.getCurrentNode(),
+          false, true);
+      break;
+    case cvox.BrailleKeyCommand.PAN_LEFT:
+    case cvox.BrailleKeyCommand.LINE_UP:
+    case cvox.BrailleKeyCommand.PAN_RIGHT:
+    case cvox.BrailleKeyCommand.LINE_DOWN:
+      // TODO(dtseng, plundblad): This needs to sync to the last pan position
+      // after line up/pan left and move the display to the far right on the
+      // line in case the synced to node is longer than one display line.
+      // Should also work with all widgets.
+      cvox.ChromeVox.navigationManager.navigate(false,
+          cvox.NavigationShifter.GRANULARITIES.LINE);
+      break;
+
     case 'debug':
       // TODO(stoarca): This doesn't belong here.
       break;
@@ -737,7 +759,7 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
   } else if (cvox.ChromeVox.navigationManager.isReading()) {
     if (cmdStruct.disallowContinuation) {
       cvox.ChromeVox.navigationManager.stopReading(true);
-    } else {
+    } else if (cmd != 'readFromHere') {
       cvox.ChromeVox.navigationManager.skip();
     }
   } else {
@@ -762,9 +784,31 @@ cvox.ChromeVoxUserCommands.doCommand_ = function(cmd, opt_status,
 cvox.ChromeVoxUserCommands.handleChromeVoxUserEvent = function(cvoxUserEvent) {
   var detail = new cvox.UserEventDetail(cvoxUserEvent.detail);
   if (detail.command) {
-    cvox.ChromeVoxUserCommands.doCommand_(detail.command, detail.status,
-        detail.resultNode);
+    cvox.ChromeVoxUserCommands.doCommand_(
+        cvox.ChromeVoxUserCommands.lookupCommand_(detail.command, detail));
   }
+};
+
+
+/**
+ * Returns an object containing information about the given command.
+ * @param {string} cmd The name of the command.
+ * @param {Object=} opt_kwargs Optional key values to add to the command
+ * structure.
+ * @return {Object} A key value mapping.
+ * @private
+ */
+cvox.ChromeVoxUserCommands.lookupCommand_ = function(cmd, opt_kwargs) {
+  var cmdStruct = cvox.CommandStore.CMD_WHITELIST[cmd];
+  if (!cmdStruct) {
+    throw 'Invalid command: ' + cmd;
+  }
+  cmdStruct = goog.object.clone(cmdStruct);
+  cmdStruct.command = cmd;
+  if (opt_kwargs) {
+    goog.object.extend(cmdStruct, opt_kwargs);
+  }
+  return cmdStruct;
 };
 
 

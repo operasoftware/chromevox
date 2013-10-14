@@ -62,6 +62,12 @@ cvox.TestMathJax.prototype.injectScripts = function() { };
 /**
  * @override
  */
+cvox.TestMathJax.prototype.configMediaWiki = function() { };
+
+
+/**
+ * @override
+ */
 cvox.TestMathJax.prototype.getTex = function(callback, texNode) { };
 
 

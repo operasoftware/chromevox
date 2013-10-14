@@ -19,6 +19,7 @@
  */
 
 goog.provide('cvox.ApiImplementation');
+goog.provide('cvox.ApiImplementation.Math');
 
 goog.require('cvox.ApiUtil');
 goog.require('cvox.AriaUtil');
@@ -108,6 +109,9 @@ cvox.ApiImplementation.dispatchApiMessage = function(message) {
         break;
     case 'isKeyShortcut': method = cvox.ApiImplementation.isKeyShortcut; break;
     case 'setKeyEcho': method = cvox.ApiImplementation.setKeyEcho; break;
+    case 'Math.defineRule':
+      method = cvox.ApiImplementation.Math.defineRule; break;
+      break;
   }
   if (!method) {
     throw 'Unknown API call: ' + message['cmd'];
@@ -117,14 +121,38 @@ cvox.ApiImplementation.dispatchApiMessage = function(message) {
 };
 
 /**
+ * Sets endCallback in properties to call callbackId's function.
+ * @param {Object} properties Speech properties to use for this utterance.
+ * @param {number} callbackId The callback Id.
+ * @private
+ */
+function setupEndCallback_(properties, callbackId) {
+  var endCallback = function() {
+    cvox.ApiImplementation.port.postMessage(cvox.ChromeVoxJSON.stringify(
+        {
+          'id': callbackId
+        }));
+  };
+  if (properties) {
+    properties['endCallback'] = endCallback;
+  }
+}
+
+/**
  * Speaks the given string using the specified queueMode and properties.
  *
+ * @param {number} callbackId The callback Id.
  * @param {string} textString The string of text to be spoken.
  * @param {number=} queueMode Valid modes are 0 for flush; 1 for queue.
  * @param {Object=} properties Speech properties to use for this utterance.
  */
-cvox.ApiImplementation.speak = function(textString, queueMode, properties) {
+cvox.ApiImplementation.speak = function(
+    callbackId, textString, queueMode, properties) {
   if (cvox.ChromeVox.isActive) {
+    if (!properties) {
+      properties = {};
+    }
+    setupEndCallback_(properties, callbackId);
     cvox.ChromeVox.tts.speak(textString, queueMode, properties);
   }
 };
@@ -132,17 +160,35 @@ cvox.ApiImplementation.speak = function(textString, queueMode, properties) {
 /**
  * Speaks the given node.
  *
+ * @param {Node} node The node that ChromeVox should be synced to.
+ * @param {number=} queueMode Valid modes are 0 for flush; 1 for queue.
+ * @param {Object=} properties Speech properties to use for this utterance.
+ */
+cvox.ApiImplementation.speakNode = function(node, queueMode, properties) {
+  if (cvox.ChromeVox.isActive) {
+    cvox.ChromeVox.tts.speak(
+        cvox.DomUtil.getName(node),
+        queueMode,
+        properties);
+  }
+};
+
+/**
+ * Speaks the given node.
+ *
+ * @param {number} callbackId The callback Id.
  * @param {Object} nodeRef A serializable reference to a node.
  * @param {number=} queueMode Valid modes are 0 for flush; 1 for queue.
  * @param {Object=} properties Speech properties to use for this utterance.
  */
-cvox.ApiImplementation.speakNodeRef = function(nodeRef, queueMode, properties) {
-  if (cvox.ChromeVox.isActive) {
-    cvox.ApiImplementation.speak(
-        cvox.DomUtil.getName(cvox.ApiUtils.getNodeFromRef(nodeRef)),
-        queueMode,
-        properties);
+cvox.ApiImplementation.speakNodeRef = function(
+    callbackId, nodeRef, queueMode, properties) {
+  var node = cvox.ApiUtils.getNodeFromRef(nodeRef);
+  if (!properties) {
+    properties = {};
   }
+  setupEndCallback_(properties, callbackId);
+  cvox.ApiImplementation.speakNode(node, queueMode, properties);
 };
 
 /**
@@ -373,4 +419,27 @@ cvox.ApiImplementation.setKeyEcho = function(keyEcho) {
   'pref': 'keyEcho',
   'value': JSON.stringify(msg)
   });
+};
+
+/**
+ * @constructor
+ */
+cvox.ApiImplementation.Math = function() {};
+
+/**
+ * Defines a math speech rule.
+ * @param {string} name Rule name.
+ * @param {string} dynamic Dynamic constraint annotation. In the case of a
+ *      math rule it consists of a domain.style string.
+ * @param {string} action An action of rule components.
+ * @param {string} prec XPath or custom function constraining match.
+ * @param {...string} constraints Additional constraints.
+ */
+cvox.ApiImplementation.Math.defineRule =
+    function(name, dynamic, action, prec, constraints) {
+  var mathStore = cvox.MathmlStore.getInstance();
+  var constraintList = Array.prototype.slice.call(arguments, 4);
+  var args = [name, dynamic, action, prec].concat(constraintList);
+
+  mathStore.defineRule.apply(mathStore, args);
 };

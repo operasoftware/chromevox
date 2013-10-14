@@ -84,6 +84,9 @@ if (typeof(goog) != 'undefined' && goog.require) {
       case 'InjectScripts':
         cvox.MathJax.injectScripts();
       break;
+      case 'ConfWikipedia':
+        cvox.MathJax.configMediaWiki();
+      break;
       case 'RegSig':
         cvox.MathJax.registerSignal(msg.id, args.sig);
       break;
@@ -142,6 +145,14 @@ if (typeof(goog) != 'undefined' && goog.require) {
 
 
   /**
+   * Loads configurations for MediaWiki pages (e.g., Wikipedia).
+   */
+  cvox.MathJax.configMediaWiki = function() {
+        cvox.MathJaxExternalUtil.configMediaWiki();
+  };
+
+
+  /**
    * Translates a LaTeX expressions into a MathML element.
    * @param {string} callbackId A string representing the callback id.
    * @param {string} tex The LaTeX expression.
@@ -149,10 +160,10 @@ if (typeof(goog) != 'undefined' && goog.require) {
    */
   cvox.MathJax.texToMml = function(callbackId, tex, cvoxId) {
     cvox.MathJaxExternalUtil.texToMml(
-        tex, true,
         function(mml) {
           cvox.MathJax.getMathmlCallback_(callbackId)(mml, cvoxId);
-        });
+        },
+        tex);
   };
 
 
@@ -164,10 +175,10 @@ if (typeof(goog) != 'undefined' && goog.require) {
    */
   cvox.MathJax.asciiMathToMml = function(callbackId, asciiMath, cvoxId) {
     cvox.MathJaxExternalUtil.asciiMathToMml(
-        asciiMath, true,
         function(mml) {
           cvox.MathJax.getMathmlCallback_(callbackId)(mml, cvoxId);
-        });
+        },
+        asciiMath);
   };
 
 

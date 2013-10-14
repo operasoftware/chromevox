@@ -26,8 +26,10 @@ goog.require('cvox.BareObjectWalker');
 goog.require('cvox.CursorSelection');
 goog.require('cvox.DomUtil');
 goog.require('cvox.EarconUtil');
-goog.require('cvox.MathSpeak');
+goog.require('cvox.MathmlStore');
 goog.require('cvox.NavDescription');
+goog.require('cvox.SpeechRuleEngine');
+goog.require('cvox.TraverseMath');
 
 
 /**
@@ -196,12 +198,10 @@ cvox.DescriptionUtil.getDescriptionFromNavigation =
     return [];
   }
 
-  // First, try generating descriptions for specialized content. These
-  // descriptions live here because our navigation shifter should have some
-  // basic notion of how to describe nodes of all types without necessarily
-  // knowing how to traverse it.
-  if (cvox.DomUtil.isMath(node) && !cvox.AriaUtil.isMath(node)) {
-    return cvox.MathSpeak.getDescriptionForNode(node);
+  // Specialized math descriptions.
+  if (cvox.DomUtil.isMath(node) &&
+      !cvox.AriaUtil.isMath(node)) {
+    return cvox.DescriptionUtil.getMathDescription(node);
   }
 
   // Next, check to see if the current node is a collection type.
@@ -282,9 +282,16 @@ cvox.DescriptionUtil.getRawDescriptions_ = function(prevSel, sel) {
 
   while (cvox.DomUtil.isDescendantOfNode(node, sel.start.node)) {
     var ancestors = cvox.DomUtil.getUniqueAncestors(prevNode, node);
-    var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
-        ancestors, true, cvox.ChromeVox.verbosity);
-    descriptions.push(description);
+    // Specialized math descriptions.
+    if (cvox.DomUtil.isMath(node) &&
+        !cvox.AriaUtil.isMath(node)) {
+      descriptions =
+          descriptions.concat(cvox.DescriptionUtil.getMathDescription(node));
+    } else {
+      var description = cvox.DescriptionUtil.getDescriptionFromAncestors(
+          ancestors, true, cvox.ChromeVox.verbosity);
+      descriptions.push(description);
+    }
     curSel = cvox.DescriptionUtil.subWalker_.next(curSel);
     if (!curSel) {
       break;
@@ -448,29 +455,27 @@ cvox.DescriptionUtil.shouldDescribeExit_ = function(ancestors) {
 };
 
 
+// TODO(sorge): Bad naming...this thing returns *multiple* descriptions.
 /**
- * Adds relative personality entries to the personality of a Navigation
- * Description.
- * @param {cvox.NavDescription|cvox.NavMathDescription} nav Nav Description.
- * @param {!Object} personality Dictionary with relative personality entries.
- * @return {cvox.NavDescription|cvox.NavMathDescription} Updated description.
+ * Generates a description for a math node.
+ * @param {!Node} node The given node.
+ * @return {!Array.<cvox.NavDescription>} A list of Navigation descriptions.
  */
-cvox.DescriptionUtil.addPersonality = function(nav, personality) {
-  if (!nav['personality']) {
-    nav['personality'] = personality;
-    return nav;
+cvox.DescriptionUtil.getMathDescription = function(node) {
+  // TODO (sorge) This function should evantually be removed. Descriptions
+  //     should come directly from the speech rule engine, taking information on
+  //     verbosity etc. into account.
+  var speechEngine = cvox.SpeechRuleEngine.getInstance();
+  var traverse = cvox.TraverseMath.getInstance();
+  speechEngine.parameterize(cvox.MathmlStore.getInstance());
+  traverse.initialize(node);
+  var ret = speechEngine.evaluateNode(traverse.activeNode);
+  if (ret == []) {
+    return [new cvox.NavDescription({'text': 'empty math'})];
   }
-  var navPersonality = nav['personality'];
-  for (var p in personality) {
-    // Although values could exceed boundaries, they will be limited to the
-    // correct interval via the call to
-    // cvox.AbstractTts.prototype.mergeProperties in
-    // cvox.TtsBackground.prototype.speak
-    if (navPersonality[p] && typeof(navPersonality[p]) == 'number') {
-      navPersonality[p] = navPersonality[p] + personality[p];
-    } else {
-      navPersonality[p] = personality[p];
-    }
+  if (cvox.ChromeVox.verbosity == cvox.VERBOSITY_VERBOSE) {
+    ret[ret.length - 1].annotation = 'math';
   }
-  return nav;
+  ret[0].pushEarcon(cvox.AbstractEarcons.SPECIAL_CONTENT);
+  return ret;
 };

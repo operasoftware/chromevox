@@ -22,6 +22,7 @@
 goog.provide('cvox.AbstractTts');
 
 goog.require('cvox.TtsInterface');
+goog.require('goog.i18n.MessageFormat');
 
 /**
  * Creates a new instance.
@@ -241,7 +242,10 @@ cvox.AbstractTts.prototype.preprocess = function(text, properties) {
 
   // Handle single characters that we want to make sure we pronounce.
   if (text.length == 1) {
-    return cvox.AbstractTts.CHARACTER_DICTIONARY[text] ||
+    return cvox.AbstractTts.CHARACTER_DICTIONARY[text] ?
+        (new goog.i18n.MessageFormat(cvox.ChromeVox.msgs.getMsg(
+                cvox.AbstractTts.CHARACTER_DICTIONARY[text])))
+            .format({'COUNT': 1}) :
         text.toUpperCase();
   }
 
@@ -442,25 +446,25 @@ cvox.AbstractTts.CHARACTER_DICTIONARY = {
   '^': 'caret',
   '&': 'ampersand',
   '*': 'asterisk',
-  '(': 'open paren',
-  ')': 'close paren',
+  '(': 'open_paren',
+  ')': 'close_paren',
   '-': 'dash',
   '_': 'underscore',
   '=': 'equals',
   '+': 'plus',
-  '[': 'left bracket',
-  ']': 'right bracket',
-  '{': 'left brace',
-  '}': 'right brace',
+  '[': 'left_bracket',
+  ']': 'right_bracket',
+  '{': 'left_brace',
+  '}': 'right_brace',
   '|': 'pipe',
   ';': 'semicolon',
   ':': 'colon',
   ',': 'comma',
   '.': 'dot',
-  '<': 'less than',
-  '>': 'greater than',
+  '<': 'less_than',
+  '>': 'greater_than',
   '/': 'slash',
-  '?': 'question mark',
+  '?': 'question_mark',
   '"': 'quote',
   '\'': 'apostrophe',
   '\t': 'tab',
@@ -575,7 +579,7 @@ cvox.AbstractTts.substitutionDictionaryRegexp_;
  * @private
  */
 cvox.AbstractTts.repetitionRegexp_ =
-    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>])\1{3,}/g;
+    /([-\/\\|!@#$%^&*\(\)=_+\[\]\{\}.?;'":<>])\1{2,}/g;
 
 
 /**
@@ -587,7 +591,9 @@ cvox.AbstractTts.repetitionRegexp_ =
  */
 cvox.AbstractTts.repetitionReplace_ = function(match) {
   var count = match.length;
-  return count + ' ' + cvox.AbstractTts.CHARACTER_DICTIONARY[match[0]];
+  return ' ' + (new goog.i18n.MessageFormat(cvox.ChromeVox.msgs.getMsg(
+      cvox.AbstractTts.CHARACTER_DICTIONARY[match[0]])))
+          .format({'COUNT': count}) + ' ';
 };
 
 

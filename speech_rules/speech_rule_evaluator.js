@@ -24,6 +24,7 @@ goog.provide('cvox.SpeechRuleEvaluator');
 
 goog.require('cvox.SpeechRule');
 
+
 /**
  * @interface
  */
@@ -31,9 +32,8 @@ cvox.SpeechRuleEvaluator = goog.abstractMethod;
 
 
 /**
- * Evaluates a speech rule.
- * @param {cvox.SpeechRule.Rule} rule The applicable rule.
- * @param {Node} node The target node (or root of subtree).
- * @return {Array.<cvox.NavDescription>} The resulting description.
+ * Default evaluation of a node if no speech rule is applicable.
+ * @param {!Node} node The target node (or root of subtree).
+ * @return {!Array.<cvox.NavDescription>} The resulting description.
  */
-cvox.SpeechRuleEvaluator.prototype.evaluateRule = goog.abstractMethod;
+cvox.SpeechRuleEvaluator.prototype.evaluateDefault = goog.abstractMethod;

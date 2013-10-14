@@ -82,7 +82,7 @@ cvox.AbstractShifter.prototype.getDescription = goog.abstractMethod;
  * Gets the current braille.
  * @param {!cvox.CursorSelection} prevSel The previous selection, for context.
  * @param {!cvox.CursorSelection} sel The current selection.
- * @return {cvox.NavBraille} The braille description.
+ * @return {!cvox.NavBraille} The braille description.
  */
 cvox.AbstractShifter.prototype.getBraille = goog.abstractMethod;
 

@@ -12,6 +12,7 @@
     "history",
     "tabs",
     "tts",
+    "brailleDisplayPrivate",
     "<all_urls>"
   ],
   "content_scripts": [
@@ -37,15 +38,7 @@
     "chromevox/injected/api_util.js",
     "chromevox/injected/api.js",
     "chromevox/injected/mathjax_external_util.js",
-    "chromevox/injected/mathjax.js",
-    "extensions/searchvox/search.js",
-    "extensions/searchvox/search_tools.js",
-    "extensions/searchvox/constants.js",
-    "extensions/searchvox/util.js",
-    "extensions/searchvox/context_menu.js",
-    "extensions/searchvox/results.js",
-    "extensions/searchvox/abstract_result.js",
-    "closure/base.js"
+    "chromevox/injected/mathjax.js"
   ],
   "options_page": "chromevox/background/options.html",
 

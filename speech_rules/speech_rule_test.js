@@ -133,7 +133,7 @@ cvox.SpeechRuleTest.prototype.testRules = function() {
         {'type': cvox.SpeechRule.Type.PERSONALITY,
          'pause': '400'}
       ],
-      cvox.SpeechRule.Rule.fromString(
+      cvox.SpeechRule.Action.fromString(
           '[t] "Square root of"; [n] ./*[1] (rate:0.2); [p] (pause:400)')
               .components
       );
@@ -157,7 +157,7 @@ cvox.SpeechRuleTest.prototype.testRules = function() {
         {'type': cvox.SpeechRule.Type.PERSONALITY,
          'pause': '300'}
       ],
-      cvox.SpeechRule.Rule.fromString(
+      cvox.SpeechRule.Action.fromString(
           '[n] ./*[1]/*[1]/*[1]; [t] "sub"; [n] ./*[1]/*[3]/*[1] ' +
           '(pitch:-0.35) ;[p](pause:200); [t] "super";' +
           '[n] ./*[1]/*[2]/*[1] (pitch:0.35) ;  [p] (pause:300)   ').components
@@ -229,14 +229,14 @@ var comp1 = '[m] ./* (ctxtfunc:element, separator:"plus", volume:0.5)';
 cvox.SpeechRuleTest.prototype.testRulesString = function() {
 var rule1 = '[t] "Square root of"; [n] ./*[1] (rate:0.2); [p] (pause:400)';
   this.assertStructEquals(rule1,
-      cvox.SpeechRule.Rule.fromString(rule1).toString());
+      cvox.SpeechRule.Action.fromString(rule1).toString());
 
   var rule2 =
       '[n] ./*[1]/*[1]/*[1]; [t] "sub"; [n] ./*[1]/*[3]/*[1] ' +
       '(pitch:-0.35); [p] (pause:200); [t] "super";' +
       ' [n] ./*[1]/*[2]/*[1] (pitch:0.35); [p] (pause:300)';
   this.assertStructEquals(rule2,
-      cvox.SpeechRule.Rule.fromString(rule2).toString());
+      cvox.SpeechRule.Action.fromString(rule2).toString());
 };
 
 
@@ -246,15 +246,15 @@ var rule1 = '[t] "Square root of"; [n] ./*[1] (rate:0.2); [p] (pause:400)';
 cvox.SpeechRuleTest.prototype.testSeparatorsInStrings = function() {
   var rule1 = '[t] "matrix; 3 by 3"; [n] ./*[1]';
   this.assertStructEquals(
-      rule1, cvox.SpeechRule.Rule.fromString(rule1).toString());
+      rule1, cvox.SpeechRule.Action.fromString(rule1).toString());
 
   var rule2 = '[t] "matrix; 3;""by 3"; [n] ./*[1]';
   this.assertStructEquals(
-      rule2, cvox.SpeechRule.Rule.fromString(rule2).toString());
+      rule2, cvox.SpeechRule.Action.fromString(rule2).toString());
 
   var rule3 = '[t] "matrix; by 3"; [n] ./*[1] ' +
               '(context:"where, who; why, when", separator:@separator)';
-  var sprule3 = cvox.SpeechRule.Rule.fromString(rule3);
+  var sprule3 = cvox.SpeechRule.Action.fromString(rule3);
   this.assertStructEquals(rule3, sprule3.toString());
   this.assertEquals('[t] "matrix; by 3"', sprule3.components[0].toString());
   this.assertEquals('"where, who; why, when"',

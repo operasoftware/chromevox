@@ -110,17 +110,25 @@ cvox.AndroidMathJax.prototype.injectScripts = function() {
 /**
  * @override
  */
+cvox.AndroidMathJax.prototype.configMediaWiki = function() {
+  cvox.MathJaxExternalUtil.configMediaWiki();
+};
+
+
+/**
+ * @override
+ */
 cvox.AndroidMathJax.prototype.getTex = function(callback, texNode) {
   var altText = texNode['alt'] || texNode['title'];
   if (altText) {
     var newId = 'cvoxId-' + this.altMathNodeId_++;
     texNode.setAttribute('cvoxId', newId);
     cvox.MathJaxExternalUtil.texToMml(
-        altText, true,
         goog.bind(function(mmlStr) {
                     this.convertMarkupToDom(callback, mmlStr, newId);
                   },
-                  this));
+                  this),
+        altText);
   }
 };
 
@@ -134,11 +142,11 @@ cvox.AndroidMathJax.prototype.getAsciiMath = function(callback, asciiMathNode) {
     var newId = 'cvoxId-' + this.altMathNodeId_++;
     asciiMathNode.setAttribute('cvoxId', newId);
     cvox.MathJaxExternalUtil.asciiMathToMml(
-        altText, true,
         goog.bind(function(mmlStr) {
                     this.convertMarkupToDom(callback, mmlStr, newId);
                   },
-                  this));
+                  this),
+        altText);
   }
 };
 

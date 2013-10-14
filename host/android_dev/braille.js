@@ -41,7 +41,7 @@ cvox.AndroidBraille.prototype.write = function(params) {
 };
 
 /** @override */
-cvox.AndroidBraille.prototype.setPanOutListener = function(func) {
+cvox.AndroidBraille.prototype.setCommandListener = function(func) {
   // This is not needed on Android since it will be handled by BrailleBack.
 };
 

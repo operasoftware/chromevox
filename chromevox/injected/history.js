@@ -168,6 +168,7 @@ cvox.HistoryEvent.prototype.outputJs = function() {
 
 /**
  * @constructor
+ * @implements {cvox.TtsInterface}
  */
 cvox.History = function() {
   this.recording_ = false;
@@ -330,23 +331,31 @@ cvox.History.prototype.exitUserCommand = function(functionName) {
 };
 
 
-/**
- * Called by ChromeVox when it sends text to the TTS engine.
- * @param {string} str The string of text to be spoken.
- * @param {number=} mode The queue mode: cvox.AbstractTts.QUEUE_MODE_FLUSH
- *        for flush, cvox.AbstractTts.QUEUE_MODE_QUEUE for adding to queue.
- * @param {Object=} props Speech properties to use for this utterance.
- */
+/** @override */
 cvox.History.prototype.speak = function(str, mode, props) {
   if (!this.recording_) {
-    return;
+    return this;
   }
   if (!this.currentEvent_) {
     window.console.error('Speak called outside of a user command.');
-    return;
+    return this;
   }
   this.currentEvent_.speak(str);
+  return this;
 };
+
+
+/** @override */
+cvox.History.prototype.isSpeaking = function() { return false; };
+/** @override */
+cvox.History.prototype.stop = function() { };
+/** @override */
+cvox.History.prototype.addCapturingEventListener = function(listener) { };
+/** @override */
+cvox.History.prototype.increaseOrDecreaseProperty =
+    function(propertyName, increase) { };
+/** @override */
+cvox.History.prototype.getDefaultProperty = function(property) { };
 
 
 cvox.History.dumpJs = function() {

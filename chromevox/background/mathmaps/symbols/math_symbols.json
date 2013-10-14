@@ -2,7 +2,9 @@
 {"category": "Po",
  "mappings": {
   "default": {
-   "default": "exclamation mark"
+   "default": "factorial operator",
+   "alternative": "exclamation mark",
+   "short": "factorial"
   }
  },
  "key": "0021"

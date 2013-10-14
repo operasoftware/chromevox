@@ -33,16 +33,12 @@ goog.require('cvox.NavDescription');
  *          annotation: (undefined|string),
  *          earcons: (undefined|Array.<number>),
  *          personality: (undefined|Object),
- *          type: (undefined|string),
  *          domain: (undefined|string),
- *          rule: (undefined|string),
- *          alternative: (undefined|string)}} kwargs The arguments for
+ *          style: (undefined|string)}} kwargs The arguments for
  * the specialised math navigationdescription. See arguments of nav
  * description plus the following:
- * type The type of math object to be translated (e.g, symbol, function).
  * domain Domain for translation.
- * rule Speech rule.
- * alternative Alternative text that is spoken if no translation exists.
+ * style Style for translation.
  * @constructor
  * @extends {cvox.NavDescription}
  */
@@ -52,10 +48,9 @@ cvox.NavMathDescription = function(kwargs) {
   var newPersonality = this.personality ? this.personality : {};
   var mathDescr = new Object();
 
-  mathDescr['type'] = kwargs.type ? kwargs.type : '';
   mathDescr['domain'] = kwargs.domain ? kwargs.domain : '';
-  mathDescr['rule'] = kwargs.rule ? kwargs.rule : '';
-  mathDescr['alternative'] = kwargs.alternative ? kwargs.alternative : '';
+  // TODO (sorge) Collate and document styles in an enum structure.
+  mathDescr['style'] = kwargs.style ? kwargs.style : '';
   newPersonality['math'] = mathDescr;
   this.personality = newPersonality;
 };

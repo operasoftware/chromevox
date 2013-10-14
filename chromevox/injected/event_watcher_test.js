@@ -125,7 +125,7 @@ cvox.EventWatcherTest.prototype.testTextFocusFeedback = function() {
       '</div>');
 
   this.setFocus('mytext');
-  this.waitForCalm(this.assertSpoken, 'Title Value Edit text');
+  this.waitForCalm(this.assertSpoken, 'Label Value Edit text');
 };
 
 

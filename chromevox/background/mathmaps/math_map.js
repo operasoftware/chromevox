@@ -22,8 +22,7 @@
 
 goog.provide('cvox.MathMap');
 
-goog.require('cvox.MathFunction');
-goog.require('cvox.MathSymbol');
+goog.require('cvox.MathCompoundStore');
 goog.require('cvox.MathUtil');
 
 
@@ -34,36 +33,35 @@ goog.require('cvox.MathUtil');
 cvox.MathMap = function() {
 
   /**
-   * A symbol mapping object.
-   * @type {cvox.MathSymbol}
-   * @private
+   * The compund store for symbol and function mappings.
+   * @type {cvox.MathCompoundStore}
    */
-  this.symbols_ = new cvox.MathSymbol(cvox.MathMap.fromJSON(
-      cvox.MathMap.SYMBOLS_FILES_.map(
-          function(x) {return cvox.MathMap.SYMBOLS_PATH_ + x;})));
-
-  /**
-   * A function mapping object.
-   * @type {cvox.MathFunction}
-   * @private
-   */
-  this.functions_ = new cvox.MathFunction(cvox.MathMap.fromJSON(
+  this.store = cvox.MathCompoundStore.getInstance();
+  cvox.MathMap.parseFiles(
       cvox.MathMap.FUNCTIONS_FILES_.map(
-          function(x) {return cvox.MathMap.FUNCTIONS_PATH_ + x;})));
+          function(file) {
+            return cvox.MathMap.FUNCTIONS_PATH_ + file;
+          }))
+              .forEach(goog.bind(this.store.addFunctionRules, this.store));
+  cvox.MathMap.parseFiles(
+      cvox.MathMap.SYMBOLS_FILES_.map(
+          function(file) {
+            return cvox.MathMap.SYMBOLS_PATH_ + file;
+          }))
+              .forEach(goog.bind(this.store.addSymbolRules, this.store));
 
+  var cstrValues = this.store.getDynamicConstraintValues();
   /**
    * Array of domain names.
    * @type {Array.<string>}
    */
-  this.allDomains = cvox.MathUtil.union(this.functions_.domains,
-                                        this.symbols_.domains);
+  this.allDomains = cstrValues.domain;
 
   /**
    * Array of style names.
    * @type {Array.<string>}
    */
-  this.allStyles = cvox.MathUtil.union(this.functions_.styles,
-                                       this.symbols_.styles);
+  this.allStyles = cstrValues.style;
 };
 
 
@@ -73,24 +71,6 @@ cvox.MathMap = function() {
  */
 cvox.MathMap.prototype.stringify = function() {
   return JSON.stringify(this);
-};
-
-
-/**
- *
- * @return {cvox.MathSymbol} Array for symbol mappings in JSON format.
- */
-cvox.MathMap.prototype.symbols = function() {
-  return this.symbols_;
-};
-
-
-/**
- *
- * @return {cvox.MathFunction} Array for function mappings in JSON format.
- */
-cvox.MathMap.prototype.functions = function() {
- return this.functions_;
 };
 
 
@@ -130,7 +110,10 @@ cvox.MathMap.FUNCTIONS_PATH_ = cvox.MathMap.MATHMAP_PATH_ + 'functions/';
 cvox.MathMap.SYMBOLS_FILES_ = [
   // Greek
   'greek-capital.json', 'greek-small.json', 'greek-scripts.json',
-  'greek-mathfonts.json',
+  'greek-mathfonts.json', 'greek-symbols.json',
+
+  // Hebrew
+  'hebrew_letters.json',
 
   // Latin
   'latin-lower-double-accent.json', 'latin-lower-normal.json',
@@ -142,8 +125,8 @@ cvox.MathMap.SYMBOLS_FILES_ = [
   // Math Symbols
   'math_angles.json', 'math_arrows.json', 'math_characters.json',
   'math_delimiters.json', 'math_digits.json', 'math_geometry.json',
-  'math_harpoons.json', 'math_symbols.json', 'math_whitespace.json',
-  'other_stars.json'
+  'math_harpoons.json', 'math_non_characters.json', 'math_symbols.json',
+  'math_whitespace.json', 'other_stars.json'
 ];
 
 
@@ -187,7 +170,7 @@ cvox.MathMap.loadFiles = function(files) {
  * @param {Array.<string>} files An array of filenames.
  * @return {Array.<Object>} Array of JSON objects.
  */
-cvox.MathMap.fromJSON = function(files) {
+cvox.MathMap.parseFiles = function(files) {
   var strs = cvox.MathMap.loadFiles(files);
 
   return [].concat.apply([], strs.map(

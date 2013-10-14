@@ -25,7 +25,6 @@ goog.require('cvox.AbstractTts');
 goog.require('cvox.ChromeTtsBase');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.MathMap');
-goog.require('cvox.MathSpeak');
 
 /**
  * @constructor
@@ -66,7 +65,7 @@ cvox.TtsBackground = function(opt_enableMath) {
 
   this.loadPreferredVoice_();
 
-  /** @type {number} @private */
+  /** @private {number} */
   this.currentPunctuationEcho_ =
       parseInt(localStorage[cvox.AbstractTts.PUNCTUATION_ECHO] || 1, 10);
 
@@ -383,12 +382,10 @@ cvox.TtsBackground.prototype.preprocess = function(text, properties) {
   }
 
   // Try looking up in our unicode tables for a short description.
-  if (text.length == 1 && this.mathmap) {
-    var mathAtom = this.mathmap.symbols().getSymbolByCode(
-        text.toLowerCase().charCodeAt(0));
-    if (mathAtom) {
-      text = mathAtom.mappingString('', 'short');
-    }
+  if (!properties.math && text.length == 1 && this.mathmap) {
+    text = this.mathmap.store.lookupString(
+        text.toLowerCase(),
+        cvox.MathStore.createDynamicConstraint('default', 'short')) || text;
   }
 
   //  Remove all whitespace from the beginning and end, and collapse all
@@ -425,28 +422,13 @@ cvox.TtsBackground.prototype.preprocessMath_ = function(text, math) {
     return text;
   }
   var result = '';
-  var type = math['type'];
-  switch (type) {
-  case cvox.MathAtom.Types.FUNCTION:
-    result = this.mathmap.functions().getFunctionByName(text);
-    break;
-  case cvox.MathAtom.Types.SYMBOL:
-    result = (this.mathmap.symbols()).getSymbolByCode(text.charCodeAt(0));
-    break;
-  case cvox.MathAtom.Types.SURROGATE:
-    var hi = text.charCodeAt(0);
-    var low = text.charCodeAt(1);
-    var code = ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
-    result = (this.mathmap.symbols()).getSymbolByCode(code);
-    break;
-  case cvox.MathAtom.Types.REST:
-    return text;
-  }
+  var dynamicCstr = cvox.MathStore.createDynamicConstraint(
+      math['domain'], math['style']);
+  result = this.mathmap.store.lookupString(text, dynamicCstr);
   if (result) {
-    return result.mappingString(math['domain'], math['rule']);
-  } else {
-    return math['alternative'];
+    return result;
   }
+  return text;
 };
 
 

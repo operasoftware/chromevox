@@ -45,6 +45,17 @@ cvox.StructuralLineWalker.prototype.getGranularityMsg = function() {
 /**
  * @override
  */
+cvox.StructuralLineWalker.prototype.getDescription = function(prevSel, sel) {
+  var desc = goog.base(this, 'getDescription', prevSel, sel);
+  desc[0].text = cvox.DomUtil.getPrefixText(
+      sel.absStart().node, sel.absStart().index) + desc[0].text;
+  return desc;
+};
+
+
+/**
+ * @override
+ */
 cvox.StructuralLineWalker.prototype.getBraille = function(prevSel, sel) {
   var braille = goog.base(this, 'getBraille', prevSel, sel);
 
@@ -59,8 +70,11 @@ cvox.StructuralLineWalker.prototype.getBraille = function(prevSel, sel) {
   // but these reflect the initial value of the node only, and are not updated
   // as content changes.
   var name = undefined;
-  if (!sel.start.equals(sel.end) && !(objNode instanceof HTMLTextAreaElement)) {
-    name = sel.getText();
+  if (!sel.start.equals(sel.end) &&
+      !cvox.DomPredicates.editTextPredicate([objNode])) {
+    var prefix =
+        cvox.DomUtil.getPrefixText(sel.absStart().node, sel.absStart().index);
+    name = prefix + sel.getText();
   }
   var spannable =
       cvox.BrailleUtil.getTemplated(prevNode, objNode, {name: name});

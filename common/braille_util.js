@@ -63,8 +63,9 @@ cvox.BrailleUtil.CONTAINER = [
  * @type {Object.<string, string>}
  */
 cvox.BrailleUtil.TEMPLATE = {
-  'base': 'c n r s',
+  'base': 'c n v r s',
   'aria_role_button': '[n]',
+  'aria_role_textbox': 'n: v r',
   'input_type_button': '[n]',
   'input_type_checkbox': 'n (s)',
   'input_type_email': 'n: v r',
@@ -112,6 +113,9 @@ cvox.BrailleUtil.ValueSelectionSpan = function() {
  * @return {string} The string representation.
  */
 cvox.BrailleUtil.getName = function(node) {
+  if (!node) {
+    return '';
+  }
   return cvox.DomUtil.getName(node).trim();
 };
 
@@ -123,6 +127,9 @@ cvox.BrailleUtil.getName = function(node) {
  * @return {string} The string representation.
  */
 cvox.BrailleUtil.getRoleMsg = function(node) {
+  if (!node) {
+    return '';
+  }
   var roleMsg = cvox.DomUtil.getRoleMsg(node, cvox.VERBOSITY_VERBOSE);
   if (roleMsg) {
     roleMsg = cvox.DomUtil.collapseWhitespace(roleMsg);
@@ -143,6 +150,9 @@ cvox.BrailleUtil.getRoleMsg = function(node) {
  * @return {string} The string representation.
  */
 cvox.BrailleUtil.getRole = function(node) {
+  if (!node) {
+    return '';
+  }
   var roleMsg = cvox.BrailleUtil.getRoleMsg(node);
   return roleMsg ? cvox.ChromeVox.msgs.getMsg(roleMsg) : '';
 };
@@ -154,6 +164,9 @@ cvox.BrailleUtil.getRole = function(node) {
  * @return {string} The string representation.
  */
 cvox.BrailleUtil.getState = function(node) {
+  if (!node) {
+    return '';
+  }
   return cvox.NodeStateUtil.expand(
       cvox.DomUtil.getStateMsgs(node, true).map(function(state) {
           if (cvox.ChromeVox.msgs.getMsg(state[0] + '_brl')) {
@@ -171,6 +184,9 @@ cvox.BrailleUtil.getState = function(node) {
  * @return {string} The string representation.
  */
 cvox.BrailleUtil.getContainer = function(prev, node) {
+  if (!prev || !node) {
+    return '';
+  }
   var ancestors = cvox.DomUtil.getUniqueAncestors(prev, node);
   for (var i = 0, container; container = ancestors[i]; i++) {
     var msg = cvox.BrailleUtil.getRoleMsg(container);
@@ -189,6 +205,9 @@ cvox.BrailleUtil.getContainer = function(prev, node) {
  * @return {!cvox.Spannable} The value spannable.
  */
 cvox.BrailleUtil.getValue = function(node) {
+  if (!node) {
+    return new cvox.Spannable();
+  }
   var valueSpan = new cvox.BrailleUtil.ValueSpan(0 /* offset */);
   if (cvox.DomUtil.isInputTypeText(node)) {
     var value = node.value
@@ -230,6 +249,7 @@ cvox.BrailleUtil.getValue = function(node) {
  * @param {Node} node The node.
  * @param {{name:(undefined|string),
  * role:(undefined|string),
+ * roleMsg:(undefined|string),
  * state:(undefined|string),
  * container:(undefined|string),
  * value:(undefined|string)}|Object} opt_override Override a specific property
@@ -238,7 +258,8 @@ cvox.BrailleUtil.getValue = function(node) {
  */
 cvox.BrailleUtil.getTemplated = function(prev, node, opt_override) {
   opt_override = opt_override ? opt_override : {};
-  var roleMsg = cvox.DomUtil.getRoleMsg(node, cvox.VERBOSITY_VERBOSE);
+  var roleMsg = opt_override.roleMsg ||
+      (node ? cvox.DomUtil.getRoleMsg(node, cvox.VERBOSITY_VERBOSE) : '');
   var template = cvox.BrailleUtil.TEMPLATE[roleMsg] ||
       cvox.BrailleUtil.TEMPLATE['base'];
 
@@ -266,7 +287,12 @@ cvox.BrailleUtil.getTemplated = function(prev, node, opt_override) {
     }
   };
   for (var i = 0; i < template.length; i++) {
-    templated.append(mapChar(template[i]));
+    var component = mapChar(template[i]);
+    templated.append(component);
+    // Ignore the next whitespace separator if the current component is empty.
+    if (!component.toString() && template[i + 1] == ' ') {
+      i++;
+    }
   }
   return templated.trim();
 };

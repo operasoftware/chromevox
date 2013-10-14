@@ -43,6 +43,7 @@ cvox.AndroidHost = function() {
 };
 goog.inherits(cvox.AndroidHost, cvox.AbstractHost);
 
+/** @override */
 cvox.AndroidHost.prototype.init = function() {
   cvox.ChromeVox.version = 'AndroidVox';
   var keyBindings = cvox.AndroidKeyMap.getStringifiedKeyMap();
@@ -69,9 +70,13 @@ cvox.AndroidHost.prototype.init = function() {
   cvox.InitialSpeech.speak();
 };
 
+
+/** @override */
 cvox.AndroidHost.prototype.reinit = function() {
 };
 
+
+/** @override */
 cvox.AndroidHost.prototype.onPageLoad = function() {
   // Enable touch exploration
   cvox.ChromeVoxEventWatcher.focusFollowsMouse = true;
@@ -80,33 +85,38 @@ cvox.AndroidHost.prototype.onPageLoad = function() {
   cvox.ChromeVoxEventWatcher.mouseoverDelayMs = 0;
 };
 
+
+/** @override */
 cvox.AndroidHost.prototype.ttsLoaded = function() {
   return (typeof(accessibility) != 'undefined');
 };
 
+
 // TODO (clchen): Implement this.
+/** @override */
 cvox.AndroidHost.prototype.getApiSrc = function() {
   return '';
 };
 
-/**
- * @return {boolean} True if the TTS has been loaded.
- */
+
+/** @override */
 cvox.AndroidHost.prototype.hasTtsCallback = function() {
   return false;
 };
 
+
 /**
- * @return {boolean} True if the ChromeVox is supposed to intercept and handle
  * mouse clicks for the platform, instead of just letting the clicks fall
  * through.
  *
  * Note: This behavior is only needed for Android because of the way touch
  * exploration and double-tap to click is implemented by the platform.
+ * @override
  */
 cvox.AndroidHost.prototype.mustRedispatchClickEvent = function() {
   return true;
 };
+
 
 /**
  * Activates or deactivates ChromeVox.
@@ -114,30 +124,15 @@ cvox.AndroidHost.prototype.mustRedispatchClickEvent = function() {
  * enable/disable ChromeVox depending on which tab is active and it cannot
  * use cvox.ChromeVoxUserCommands.commands['toggleChromeVox'] since that relies
  * on going through the background page and there isn't one in the Android case.
- *
- * @param {boolean} active Whether ChromeVox should be active.
+ * @override
  * @export
  */
 cvox.AndroidHost.prototype.activateOrDeactivateChromeVox = function(active) {
-  if (active == cvox.ChromeVox.isActive) {
-    return;
-  }
+  // Not sure if this call is needed.
   cvox.ChromeVox.tts.stop();
-  cvox.ChromeVox.isActive = active;
-  cvox.ChromeVox.navigationManager.showOrHideIndicator(active);
-
-  // If ChromeVox is inactive, the event watcher will only listen
-  // for key events.
-  cvox.ChromeVoxEventWatcher.cleanup(window);
-  cvox.ChromeVoxEventWatcher.init(window);
+  goog.base(this, 'activateOrDeactivateChromeVox', active);
   this.onPageLoad();
-
-  if (document.activeElement) {
-    var speakNodeAlso = document.hasFocus();
-    cvox.ApiImplementation.syncToNode(document.activeElement, speakNodeAlso);
-  } else {
-    cvox.ChromeVox.navigationManager.updateIndicator();
-  }
 };
+
 
 cvox.HostFactory.hostConstructor = cvox.AndroidHost;

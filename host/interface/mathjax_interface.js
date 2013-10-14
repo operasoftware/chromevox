@@ -62,6 +62,12 @@ cvox.MathJaxInterface.prototype.injectScripts = function() { };
 
 
 /**
+ * Loads configurations for MediaWiki pages (e.g., Wikipedia).
+ */
+cvox.MathJaxInterface.prototype.configMediaWiki = function() { };
+
+
+/**
  * Get MathML representation of images with tex or latex class if it has an
  * alt text or title.
  * @param {function(Node, string)} callback A function taking a MathML node and

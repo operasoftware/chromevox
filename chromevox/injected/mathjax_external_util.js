@@ -203,8 +203,6 @@ cvox.MathJaxExternalUtil.getAllJax = function(callback) {
 
 
 // Functionality for direct translation from LaTeX to MathML without rendering.
-// TODO (sorge): Get specialised config script of Wikipedia as it uses some
-//      macros that are not handled by MathJax by default.
 /**
  * Injects a MathJax config script into the page.
  * This script is picked up by MathJax at load time. It only runs in the page,
@@ -225,7 +223,9 @@ cvox.MathJaxExternalUtil.injectConfigScript = function() {
           // Do not change any rendering in the page.
       '  skipStartupTypeset: true,\n' +
           // Do not display any MathJax status message.
-      '  messageStyle: "none"\n' +
+      '  messageStyle: "none",\n' +
+          // Load AMS math extensions.
+      '  TeX: {extensions: ["AMSmath.js","AMSsymbols.js"]}\n' +
       '});\n' +
       'MathJax.Hub.Queue(\n' +
           // Force InputJax to load.
@@ -253,42 +253,183 @@ cvox.MathJaxExternalUtil.injectLoadScript = function() {
   var script = document.createElement('script');
   script.setAttribute('type', 'text/javascript');
   script.setAttribute(
-      'src', 'http://cdn.mathjax.org/mathjax/latest/MathJax.js?');
+      'src', 'http://cdn.mathjax.org/mathjax/latest/MathJax.js');
   document.activeElement.appendChild(script);
 };
 
 
-// TODO (sorge) Merge the following two functions, ideally with MathJax making
-//     the decision if we have LaTeX or AsciiMath.
 /**
- * Converts a LaTeX expression into MathML string.
- * @param {string} math Expression latex.
- * @param {boolean} display If true translation in display mode. Otherwise text
- * mode.
+ * Configures MathJax for MediaWiki pages (e.g., Wikipedia) by adding
+ * some special mappings to MathJax's symbol definitions. The function
+ * can only be successfully executed, once MathJax is injected and
+ * configured in the page.
+ */
+// Adapted from
+// https://en.wikipedia.org/wiki/User:Nageh/mathJax/config/TeX-AMS-texvc_HTML.js
+cvox.MathJaxExternalUtil.configMediaWiki = function() {
+  if (mediaWiki) {
+    MathJax.Hub.Register.StartupHook(
+      'TeX Jax Ready', function() {
+        var MML = MathJax.ElementJax.mml;
+        MathJax.Hub.Insert(
+          MathJax.InputJax.TeX.Definitions,
+          {
+            mathchar0mi: {
+              thetasym: '03B8',
+              koppa: '03DF',
+              stigma: '03DB',
+              varstigma: '03DB',
+              coppa: '03D9',
+              varcoppa: '03D9',
+              sampi: '03E1',
+              C: ['0043', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              cnums: ['0043', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              Complex: ['0043', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              H: ['210D', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              N: ['004E', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              natnums: ['004E', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              Q: ['0051', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              R: ['0052', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              reals: ['0052', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              Reals: ['0052', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              Z: ['005A', {mathvariant: MML.VARIANT.DOUBLESTRUCK}],
+              sect: '00A7',
+              P: '00B6',
+              AA: ['00C5', {mathvariant: MML.VARIANT.NORMAL}],
+              alef: ['2135', {mathvariant: MML.VARIANT.NORMAL}],
+              alefsym: ['2135', {mathvariant: MML.VARIANT.NORMAL}],
+              weierp: ['2118', {mathvariant: MML.VARIANT.NORMAL}],
+              real: ['211C', {mathvariant: MML.VARIANT.NORMAL}],
+              part: ['2202', {mathvariant: MML.VARIANT.NORMAL}],
+              infin: ['221E', {mathvariant: MML.VARIANT.NORMAL}],
+              empty: ['2205', {mathvariant: MML.VARIANT.NORMAL}],
+              O: ['2205', {mathvariant: MML.VARIANT.NORMAL}],
+              ang: ['2220', {mathvariant: MML.VARIANT.NORMAL}],
+              exist: ['2203', {mathvariant: MML.VARIANT.NORMAL}],
+              clubs: ['2663', {mathvariant: MML.VARIANT.NORMAL}],
+              diamonds: ['2662', {mathvariant: MML.VARIANT.NORMAL}],
+              hearts: ['2661', {mathvariant: MML.VARIANT.NORMAL}],
+              spades: ['2660', {mathvariant: MML.VARIANT.NORMAL}],
+              textvisiblespace: '2423',
+              geneuro: '20AC',
+              euro: '20AC'
+            },
+            mathchar0mo: {
+              and: '2227',
+              or: '2228',
+              bull: '2219',
+              plusmn: '00B1',
+              sdot: '22C5',
+              Dagger: '2021',
+              sup: '2283',
+              sub: '2282',
+              supe: '2287',
+              sube: '2286',
+              isin: '2208',
+              hAar: '21D4',
+              hArr: '21D4',
+              Harr: '21D4',
+              Lrarr: '21D4',
+              lrArr: '21D4',
+              lArr: '21D0',
+              Larr: '21D0',
+              rArr: '21D2',
+              Rarr: '21D2',
+              harr: '2194',
+              lrarr: '2194',
+              larr: '2190',
+              gets: '2190',
+              rarr: '2192',
+              oiint: ['222F', {texClass: MML.TEXCLASS.OP}],
+              oiiint: ['2230', {texClass: MML.TEXCLASS.OP}]
+            },
+            mathchar7: {
+              Alpha: '0391',
+              Beta: '0392',
+              Epsilon: '0395',
+              Zeta: '0396',
+              Eta: '0397',
+              Iota: '0399',
+              Kappa: '039A',
+              Mu: '039C',
+              Nu: '039D',
+              Omicron: '039F',
+              Rho: '03A1',
+              Tau: '03A4',
+              Chi: '03A7',
+              Koppa: '03DE',
+              Stigma: '03DA',
+              Digamma: '03DC',
+              Coppa: '03D8',
+              Sampi: '03E0'
+            },
+            delimiter: {
+              '\\uarr': '2191',
+              '\\darr': '2193',
+              '\\Uarr': '21D1',
+              '\\uArr': '21D1',
+              '\\Darr': '21D3',
+              '\\dArr': '21D3',
+              '\\rang': '27E9',
+              '\\lang': '27E8'
+            },
+            macros: {
+              sgn: 'NamedFn',
+              arccot: 'NamedFn',
+              arcsec: 'NamedFn',
+              arccsc: 'NamedFn',
+              sen: 'NamedFn',
+              image: ['Macro', '\\Im'],
+              bold: ['Macro', '\\mathbf{#1}', 1],
+              pagecolor: ['Macro', '', 1],
+              emph: ['Macro', '\\textit{#1}', 1],
+              textsf: ['Macro', '\\mathord{\\sf{\\text{#1}}}', 1],
+              texttt: ['Macro', '\\mathord{\\tt{\\text{#1}}}', 1],
+              vline: ['Macro', '\\smash{\\large\\lvert}', 0]
+            }
+          });
+      });
+  }
+};
+
+
+/**
+ * Converts an expression into MathML string.
  * @param {function(string)} callback Callback function called with the MathML
  * string after it is produced.
+ * @param {string} math The math Expression.
+ * @param {string} typeString Type of the expression to be converted (e.g.,
+ * "math/tex", "math/asciimath")
+ * @param {string} filterString Name of object specifying the filters to be used
+ * by MathJax (e.g., TeX, AsciiMath)
+ * @param {string} errorString Name of the error object used by MathJax (e.g.,
+ * texError, asciimathError).
+ * @param {!function(string)} parseFunction The MathJax function used for
+ * parsing the particular expression. This depends on the kind of expression we
+ * have.
  * @return {Function} If a restart occurs, the callback for it is
  * returned, so this can be used in MathJax.Hub.Queue() calls reliably.
  */
-cvox.MathJaxExternalUtil.texToMml = function(math, display, callback) {
+cvox.MathJaxExternalUtil.convertToMml = function(
+    callback, math, typeString, filterString, errorString, parseFunction) {
   //  Make a fake script and pass it to the pre-filters.
-  var script = MathJax.HTML.Element(
-      'script', {type: 'math/tex' + (display ? ';mode=display' : '')}, [math]);
-  var data = {math: math, display: display, script: script};
-  MathJax.InputJax.TeX.prefilterHooks.Execute(data);
+  var script = MathJax.HTML.Element('script', {type: typeString}, [math]);
+  var data = {math: math, script: script};
+  MathJax.InputJax[filterString].prefilterHooks.Execute(data);
 
-  //  Attempt to parse the TeX code, processing any errors.
+  //  Attempt to parse the code, processing any errors.
   var mml;
   try {
-    mml = MathJax.InputJax.TeX.Parse(data.math).mml();
+    mml = parseFunction(data.math);
   } catch (err) {
-    if (err.texError) {
-      // Put TeX errors into <merror> tags.
+    if (err[errorString]) {
+      // Put errors into <merror> tags.
       mml = MathJax.ElementJax.mml.merror(err.message.replace(/\n.*/, ''));
     } else if (err['restart']) {
       //  Wait for file to load, then do this routine again.
       return MathJax.Callback.After(
-          [cvox.MathJaxExternalUtil.texToMml, math, display, callback],
+          [cvox.MathJaxExternalUtil.convertToMml, callback, math,
+           typeString, filterString, errorString, parseFunction],
           err['restart']);
     } else {
       //  It's an actual error, so pass it on.
@@ -303,58 +444,38 @@ cvox.MathJaxExternalUtil.texToMml = function(math, display, callback) {
   } else {
     mml = MathJax.ElementJax.mml(mml);
   }
-  if (display) {
-    mml.root.display = 'block';
-  }
+  mml.root.display = 'block';
   data.math = mml;
   // This is necessary to make this function work even if MathJax is already
   // properly injected into the page, as this object is used in MathJax's
   // AMSmath.js file.
   data.script['MathJax'] = {};
-  MathJax.InputJax.TeX.postfilterHooks.Execute(data);
+  MathJax.InputJax[filterString].postfilterHooks.Execute(data);
   return cvox.MathJaxExternalUtil.getMathml(data.math, callback);
 };
 
 
 /**
- * Converts an AsciiMath expression into MathML string.
- * @param {string} math Expression in AsciiMath.
- * @param {boolean} display If true translation in display mode. Otherwise text
- * mode.
+ * Converts a LaTeX expression into MathML string.
  * @param {function(string)} callback Callback function called with the MathML
  * string after it is produced.
- * @return {Function} If a restart occurs, the callback for it is
- * returned, so this can be used in MathJax.Hub.Queue() calls reliably.
+ * @param {string} math Expression latex.
  */
-cvox.MathJaxExternalUtil.asciiMathToMml = function(math, display, callback) {
-  //  Make a fake script and pass it to the pre-filters.
-  var script = MathJax.HTML.Element(
-      'script',
-      {type: 'math/asciimath' + (display ? ';mode=display' : '')}, [math]);
-  var data = {math: math, display: display, script: script};
-  MathJax.InputJax.AsciiMath.prefilterHooks.Execute(data);
+cvox.MathJaxExternalUtil.texToMml = function(callback, math) {
+  cvox.MathJaxExternalUtil.convertToMml(
+      callback, math, 'math/tex;mode=display', 'TeX', 'texError',
+      function(data) {return MathJax.InputJax.TeX.Parse(data).mml();});
+};
 
-  //  Attempt to parse the Asciimath code, processing any errors.
-  var mml;
-  try {
-    mml = MathJax.InputJax.AsciiMath.AM.parseMath(data.math).toMathML();
-  } catch (err) {
-    if (err['restart']) {
-      //  Wait for file to load, then do this routine again.
-      return MathJax.Callback.After(
-          [cvox.MathJaxExternalUtil.asciiMathToMml, math, display, callback],
-          err['restart']);
-    } else {
-      //  It's an actual error, so pass it on.
-      throw err;
-    }
-  }
 
-  data.math = mml;
-  // This is necessary to make this function work even if MathJax is already
-  // properly injected into the page, as this object is used in MathJax's
-  // AMSmath.js file.
-  data.script['MathJax'] = {};
-  MathJax.InputJax.AsciiMath.postfilterHooks.Execute(data);
-  callback(mml);
+/**
+ * Converts an AsciiMath expression into MathML string.
+ * @param {function(string)} callback Callback function called with the MathML
+ * string after it is produced.
+ * @param {string} math Expression in AsciiMath.
+ */
+cvox.MathJaxExternalUtil.asciiMathToMml = function(callback, math) {
+  cvox.MathJaxExternalUtil.convertToMml(
+      callback, math, 'math/asciimath', 'AsciiMath', 'asciimathError',
+      MathJax.InputJax.AsciiMath.AM.parseMath);
 };

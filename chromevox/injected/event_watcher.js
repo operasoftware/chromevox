@@ -24,7 +24,6 @@ goog.provide('cvox.ChromeVoxEventWatcherUtil');
 goog.require('cvox.ActiveIndicator');
 goog.require('cvox.ApiImplementation');
 goog.require('cvox.AriaUtil');
-goog.require('cvox.BrailleTextHandler');
 goog.require('cvox.ChromeVox');
 goog.require('cvox.ChromeVoxEditableTextBase');
 goog.require('cvox.ChromeVoxEventSuspender');
@@ -38,10 +37,10 @@ goog.require('cvox.Focuser');
 goog.require('cvox.History');
 goog.require('cvox.LiveRegions');
 goog.require('cvox.LiveRegionsDeprecated');
-goog.require('cvox.MacroWriter');  // TODO: Find a better place for this.
 goog.require('cvox.NavigationSpeaker');
 goog.require('cvox.PlatformFilter');  // TODO: Find a better place for this.
 goog.require('cvox.TextHandlerInterface');
+goog.require('cvox.UserEventDetail');
 
 /**
  * @constructor
@@ -162,17 +161,6 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
   cvox.ChromeVoxEventWatcher.currentTextHandler = null;
 
   /**
-   * @type {cvox.TextHandlerInterface}
-   */
-  cvox.ChromeVoxEventWatcher.brailleTextHandler = null;
-  if (cvox.ChromeVox.braille && cvox.ChromeVox.navigationManager) {
-    cvox.ChromeVoxEventWatcher.brailleTextHandler =
-        new cvox.BrailleTextHandler(
-            cvox.ChromeVox.braille,
-            cvox.ChromeVox.navigationManager);
-  }
-
-  /**
    * The last timestamp for the last keypress; that helps us separate
    * user-triggered events from other events.
    * @type {number}
@@ -250,9 +238,8 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
    * the user switches tabs before letting go of the key being held).
    *
    * @type {boolean}
-   * @private
    */
-  cvox.ChromeVoxEventWatcher.searchKeyHeld_ = false;
+  cvox.ChromeVox.searchKeyHeld = false;
 
   /**
    * The mutation observer that listens for chagnes to text controls
@@ -286,7 +273,7 @@ cvox.ChromeVoxEventWatcher.init = function(doc) {
  * @param {Object} store The object.
  */
 cvox.ChromeVoxEventWatcher.storeOn = function(store) {
-  store['searchKeyHeld'] = cvox.ChromeVoxEventWatcher.searchKeyHeld_;
+  store['searchKeyHeld'] = cvox.ChromeVox.searchKeyHeld;
 };
 
 /**
@@ -295,7 +282,7 @@ cvox.ChromeVoxEventWatcher.storeOn = function(store) {
  * @param {Object} store The object.
  */
 cvox.ChromeVoxEventWatcher.readFrom = function(store) {
-  cvox.ChromeVoxEventWatcher.searchKeyHeld_ = store['searchKeyHeld'];
+  cvox.ChromeVox.searchKeyHeld = store['searchKeyHeld'];
 };
 
 /**
@@ -377,22 +364,23 @@ cvox.ChromeVoxEventWatcher.maybeCallReadyCallbacks_ = function() {
  * @private
  */
 cvox.ChromeVoxEventWatcher.addEventListeners_ = function(doc) {
-  // We always need key listeners.
-  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
-      'keypress', cvox.ChromeVoxEventWatcher.keyPressEventWatcher, true);
+  // We always need key down listeners to intercept activate/deactivate.
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'keydown', cvox.ChromeVoxEventWatcher.keyDownEventWatcher, true);
-  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
-      'keyup', cvox.ChromeVoxEventWatcher.keyUpEventWatcher, true);
 
   // If ChromeVox isn't active, skip all other event listeners.
   if (!cvox.ChromeVox.isActive || cvox.ChromeVox.entireDocumentIsHidden) {
     return;
   }
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'keypress', cvox.ChromeVoxEventWatcher.keyPressEventWatcher, true);
+  cvox.ChromeVoxEventWatcher.addEventListener_(doc,
+      'keyup', cvox.ChromeVoxEventWatcher.keyUpEventWatcher, true);
   // Listen for our own events to handle public user commands if the web app
   // doesn't do it for us.
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
-      'cvoxUserEvent', cvox.ChromeVoxUserCommands.handleChromeVoxUserEvent, false);
+      cvox.UserEventDetail.Category.JUMP, cvox.ChromeVoxUserCommands.handleChromeVoxUserEvent,
+      false);
 
   cvox.ChromeVoxEventWatcher.addEventListener_(doc,
       'focus', cvox.ChromeVoxEventWatcher.focusEventWatcher, true);
@@ -768,15 +756,17 @@ cvox.ChromeVoxEventWatcher.blurEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
   if (cvox.ChromeVox.isChromeOS && evt.keyCode == 91) {
-    cvox.ChromeVoxEventWatcher.searchKeyHeld_ = true;
+    cvox.ChromeVox.searchKeyHeld = true;
   }
 
   // Store some extra ChromeVox-specific properties in the event.
-  // Use associative array syntax (foo['bar'] rather than foo.bar)
-  // so that the jscompiler doesn't try to rename these.
-  evt['searchKeyHeld'] = cvox.ChromeVoxEventWatcher.searchKeyHeld_;
-  evt['stickyMode'] = cvox.ChromeVox.isStickyOn;
-  evt['keyPrefix'] = cvox.ChromeVox.keyPrefixOn;
+  /** @expose */
+  evt.searchKeyHeld =
+      cvox.ChromeVox.searchKeyHeld && cvox.ChromeVox.isActive;
+  /** @expose */
+  evt.stickyMode = cvox.ChromeVox.isStickyOn && cvox.ChromeVox.isActive;
+  /** @expose */
+  evt.keyPrefix = cvox.ChromeVox.keyPrefixOn && cvox.ChromeVox.isActive;
 
   cvox.ChromeVox.keyPrefixOn = false;
 
@@ -804,7 +794,7 @@ cvox.ChromeVoxEventWatcher.keyDownEventWatcher = function(evt) {
  */
 cvox.ChromeVoxEventWatcher.keyUpEventWatcher = function(evt) {
   if (evt.keyCode == 91) {
-    cvox.ChromeVoxEventWatcher.searchKeyHeld_ = false;
+    cvox.ChromeVox.searchKeyHeld = false;
   }
   if (cvox.ChromeVoxEventWatcher.eventToEat &&
       evt.keyCode == cvox.ChromeVoxEventWatcher.eventToEat.keyCode) {
@@ -1096,9 +1086,6 @@ cvox.ChromeVoxEventWatcher.setUpTextHandler = function() {
  * @return {boolean} True if an editable text control has focus.
  */
 cvox.ChromeVoxEventWatcher.handleTextChanged = function(isKeypress) {
-  if (cvox.ChromeVoxEventWatcher.brailleTextHandler) {
-    cvox.ChromeVoxEventWatcher.brailleTextHandler.update(isKeypress);
-  }
   if (cvox.ChromeVoxEventWatcher.currentTextHandler) {
     var handler = cvox.ChromeVoxEventWatcher.currentTextHandler;
     handler.update(isKeypress);
@@ -1194,7 +1181,7 @@ cvox.ChromeVoxEventWatcher.handleControlChanged = function(control) {
     cvox.ChromeVox.tts.speak(newValue,
                              cvox.ChromeVoxEventWatcher.queueMode_(),
                              null);
-    cvox.ChromeVox.navigationManager.getBraille().write();
+    cvox.NavBraille.fromText(newValue).write();
   }
 };
 

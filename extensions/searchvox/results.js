@@ -9,6 +9,7 @@ goog.provide('cvox.SearchResults');
 goog.provide('cvox.UnknownResult');
 
 goog.require('cvox.AbstractResult');
+goog.require('cvox.ChromeVox');
 goog.require('cvox.SearchUtil');
 
 /**
@@ -28,11 +29,11 @@ cvox.SearchResults.speakResultBySelectTexts = function(result, selectTexts) {
     if (selectText.select) {
       var elems = result.querySelectorAll(selectText.select);
       for (var i = 0; i < elems.length; i++) {
-        cvox.Api.speakNode(elems.item(i), 1);
+        cvox.ChromeVox.speakNode(elems.item(i), 1);
       }
     }
     if (selectText.text) {
-      cvox.Api.speak(selectText.text, 1);
+      cvox.ChromeVox.tts.speak(selectText.text, 1);
     }
   }
 };
@@ -73,6 +74,9 @@ cvox.NormalResult.prototype.isType = function(result) {
  * @override
  */
 cvox.NormalResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   var NORMAL_TITLE_SELECT = '.rc .r';
   var NORMAL_URL_SELECT = '.kv';
   var NORMAL_DESC_SELECT = '.rc .st';
@@ -94,8 +98,8 @@ cvox.NormalResult.prototype.speak = function(result) {
   var discussTitles = result.querySelectorAll(DISCUSS_TITLE_SELECT);
   var discussDates = result.querySelectorAll(DISCUSS_DATE_SELECT);
   for (var i = 0; i < discussTitles.length; i++) {
-    cvox.Api.speakNode(discussTitles.item(i), 1);
-    cvox.Api.speakNode(discussDates.item(i), 1);
+    cvox.ChromeVox.speakNode(discussTitles.item(i), 1);
+    cvox.ChromeVox.speakNode(discussDates.item(i), 1);
   }
   return true;
 };
@@ -125,6 +129,9 @@ cvox.WeatherResult.prototype.isType = function(result) {
  * @param {Element} forecast Weather forecast to be spoken.
  */
 cvox.WeatherResult.speakForecast = function(forecast) {
+  if (!forecast) {
+    return;
+  }
   var FORE_DAY_SELECT = '.vk_lgy';
   var FORE_COND_SELECT = 'img';
   var FORE_HIGH_SELECT = '.vk_gy';
@@ -146,6 +153,9 @@ cvox.WeatherResult.speakForecast = function(forecast) {
  * @override
  */
 cvox.WeatherResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   /* TODO(peterxiao): Internationalization? */
   var WEATHER_INTRO = 'The weather forcast for';
   var WEATHER_TEMP_UNITS = 'degrees fahrenheit';
@@ -179,7 +189,7 @@ cvox.WeatherResult.prototype.speak = function(result) {
 
   var WEATHER_FORCAST_CLASS = 'wob_df';
   var forecasts = result.getElementsByClassName(WEATHER_FORCAST_CLASS);
-  cvox.Api.speak(FORE_INTRO, 1);
+  cvox.ChromeVox.tts.speak(FORE_INTRO, 1);
   for (var i = 0; i < forecasts.length; i++) {
     var forecast = forecasts.item(i);
     cvox.WeatherResult.speakForecast(forecast);
@@ -208,6 +218,17 @@ cvox.KnowResult.prototype.isType = function(result) {
 };
 
 /**
+ * Speak a knowledge panel search result.
+ * @param {Element} result Knowledge panel result to be spoken.
+ * @return {boolean} Whether or not the result was spoken.
+ * @override
+ */
+cvox.KnowResult.prototype.speak = function(result) {
+  cvox.ChromeVox.speakNode(result, 1);
+  return true;
+};
+
+/**
  * Extracts the wikipedia URL from knowledge panel.
  * @param {Element} result Result to extract from.
  * @return {?string} URL.
@@ -216,6 +237,17 @@ cvox.KnowResult.prototype.isType = function(result) {
 cvox.KnowResult.prototype.getURL = function(result) {
   var LINK_SELECTOR = '.q';
   return cvox.SearchUtil.extractURL(result.querySelector(LINK_SELECTOR));
+};
+
+/**
+ * Extracts the node to sync to in the knowledge panel.
+ * @param {Element} result Result.
+ * @return {?Node} Node to sync to.
+ * @override
+ */
+cvox.KnowResult.prototype.getSyncNode = function(result) {
+  var HEADER_SELECTOR = '.kno-ecr-pt';
+  return result.querySelector(HEADER_SELECTOR);
 };
 
 /* Calculator Type */
@@ -245,6 +277,9 @@ cvox.CalcResult.prototype.isType = function(result) {
  * @override
  */
 cvox.CalcResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   var CALC_QUERY_SELECT = '#cwles';
   var CALC_RESULT_SELECT = '#cwos';
   var CALC_SELECTORS = [
@@ -302,6 +337,9 @@ cvox.ImageResult.prototype.isType = function(result) {
  * @override
  */
 cvox.ImageResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   /* Grab image result metadata. */
   var META_CLASS = 'rg_meta';
   var metaDiv = result.querySelector('.' + META_CLASS);
@@ -359,9 +397,12 @@ cvox.CategoryResult.prototype.isType = function(result) {
  * @override
  */
 cvox.CategoryResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   var LABEL_SELECT = '.rg_bb_label';
   var label = result.querySelector(LABEL_SELECT);
-  cvox.Api.speakNode(label, 1);
+  cvox.ChromeVox.speakNode(label, 1);
   return true;
 };
 
@@ -392,6 +433,9 @@ cvox.AdResult.prototype.isType = function(result) {
  * @override
  */
 cvox.AdResult.prototype.speak = function(result) {
+  if (!result) {
+    return false;
+  }
   var HEADER_SELECT = 'h3';
   var DESC_SELECT = '.ads-creative';
   var URL_SELECT = '.ads-visurl';

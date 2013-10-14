@@ -19,8 +19,15 @@
               }},
 
  {"command": "toggleStickyMode",
+  "sequence": {"keys": {"keyCode": [45]},
+               "doubleTap": true,
+               "platformFilter": 5
+              }},
+
+ {"command": "toggleStickyMode",
   "sequence": {"keys": {"keyCode": [91]},
-               "doubleTap": true
+               "doubleTap": true,
+               "platformFilter": 10
               }},
 
  {"command": "performDefaultAction",
@@ -81,12 +88,26 @@
 
  {"command": "jumpToTop",
   "sequence": {"cvoxModifier": true,
-               "keys": {"keyCode": [36]}
+               "keys": {"keyCode": [36]},
+               "platformFilter": 7
+              }},
+
+ {"command": "jumpToTop",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [65]},
+               "platformFilter": 8
               }},
 
  {"command": "jumpToBottom",
   "sequence": {"cvoxModifier": true,
-               "keys": {"keyCode": [35]}
+               "keys": {"keyCode": [35]},
+               "platformFilter": 7
+              }},
+
+ {"command": "jumpToBottom",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [90]},
+               "platformFilter": 8
               }},
 
  {"command": "nextGranularity",
@@ -507,6 +528,11 @@
  {"command": "enableConsoleTts",
   "sequence": {"cvoxModifier": true,
                "keys": {"keyCode": [66, 67]}
+              }},
+
+ {"command": "toggleSemantics",
+  "sequence": {"cvoxModifier": true,
+               "keys": {"keyCode": [77, 83]}
               }}
   ]
 }

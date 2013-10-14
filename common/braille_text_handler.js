@@ -14,41 +14,50 @@
 
 goog.provide('cvox.BrailleTextHandler');
 
-goog.require('cvox.EditableTextAreaShadow');
-goog.require('cvox.TextHandlerInterface');
 
 /**
  * @fileoverview Updates braille display contents following text changes.
  *
- * @author jbroman@google.com (Jeremy Roman)
+ * @author dtseng@google.com (David Tseng)
  */
 
 /**
  * Represents an editable text region.
  *
  * @constructor
- * @implements {cvox.TextHandlerInterface}
  * @param {!cvox.BrailleInterface} braille Braille interface.
- * @param {!cvox.NavigationManager} navigationManager Current nav manager.
  */
-cvox.BrailleTextHandler = function(braille, navigationManager) {
+cvox.BrailleTextHandler = function(braille) {
   /**
    * Braille interface used to produce output.
    * @type {!cvox.BrailleInterface}
    * @private
    */
   this.braille_ = braille;
-
-  /**
-   * Navigation manager. Used to update braille display based on current focus.
-   * @type {!cvox.NavigationManager}
-   * @private
-   */
-  this.navigationManager_ = navigationManager;
 };
 
-/** @override */
-cvox.BrailleTextHandler.prototype.update = function(triggeredByUser) {
-  var content = this.navigationManager_.getBraille();
-  this.braille_.write(content);
+
+/**
+ * Called by controller class when text changes.
+ * @param {string} line The text of the line.
+ * @param {number} start The 0-based index starting selection.
+ * @param {number} end The 0-based index ending selection.
+ * @param {boolean} multiline True if the text comes from a multi line text
+ * field.
+ */
+cvox.BrailleTextHandler.prototype.changed = function(
+    line, start, end, multiline) {
+  var content;
+  if (multiline) {
+    content = cvox.NavBraille.fromText(line);
+    content.startIndex = start;
+    content.endIndex = end;
+  } else {
+    if (cvox.ChromeVox.navigationManager) {
+      content = cvox.ChromeVox.navigationManager.getBraille();
+    }
+  }
+  if (content) {
+    this.braille_.write(content);
+  }
 };

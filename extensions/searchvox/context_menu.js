@@ -7,6 +7,8 @@
 
 goog.provide('cvox.SearchContextMenu');
 
+goog.require('cvox.ChromeVoxKbHandler');
+goog.require('cvox.KeySequence');
 goog.require('cvox.Search');
 goog.require('cvox.SearchTool');
 
@@ -56,9 +58,11 @@ cvox.SearchContextMenu.contextMenuHandler = function(evt) {
  */
 cvox.SearchContextMenu.keyhandler = function(evt) {
   var ret = false;
-  cvox.Api.isKeyShortcut(evt, function(isHandled) {
-    if (!isHandled) {
-      switch (cvox.SearchContextMenu.currState) {
+  var keySeq = new cvox.KeySequence(evt);
+  var command = cvox.ChromeVoxKbHandler.handlerKeyMap.commandForKey(keySeq);
+  /* Handle if just default action. */
+  if (!command || command === 'performDefaultAction') {
+    switch (cvox.SearchContextMenu.currState) {
       case Command.TOOLS:
         ret = cvox.SearchTool.keyhandler(evt);
         break;
@@ -66,9 +70,8 @@ cvox.SearchContextMenu.keyhandler = function(evt) {
       case Command.MAIN:
         ret = cvox.Search.keyhandler(evt);
         break;
-      }
     }
-  });
+  }
   return ret;
 };
 
@@ -79,7 +82,7 @@ cvox.SearchContextMenu.focusMain = function() {
   if (cvox.SearchContextMenu.currState === Command.TOOLS) {
     cvox.SearchTool.toggleMenu();
   }
-  cvox.Search.populateWebResults();
+  cvox.Search.populateResults();
   cvox.Search.index = 0;
   cvox.Search.syncToIndex();
   cvox.SearchContextMenu.currState = Command.MAIN;
@@ -128,23 +131,9 @@ cvox.SearchContextMenu.init = function() {
   body.setAttribute('contextMenuActions', JSON.stringify(ACTIONS));
 
   /* Listen for ContextMenu events. */
-  body.addEventListener('cvoxUserEvent',
+  body.addEventListener('ATCustomEvent',
     cvox.SearchContextMenu.contextMenuHandler, true);
 
   window.addEventListener('keydown', cvox.SearchContextMenu.keyhandler, true);
   cvox.Search.init();
 };
-
-function cvoxApiExists() {
-  return (typeof(cvox) != 'undefined') && cvox && cvox.Api;
-}
-
-function watchForCvoxLoad() {
-  if (cvoxApiExists()) {
-    cvox.SearchContextMenu.init();
-  } else {
-    window.setTimeout(watchForCvoxLoad, 500);
-  }
-}
-
-watchForCvoxLoad();

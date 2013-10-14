@@ -61,20 +61,6 @@
  },
  "key": "210E"
 },
-{"category": "Ll",
- "mappings": {
-  "default": {
-   "default": "mathematical italic small h over two time greek letter pi",
-   "alternative": "italic small h over two pi",
-   "short": "italic h over two pi"
-  },
-  "physics": {
-   "default": "planck constant over two pi",
-   "alternative": "planck constant over 2 pi"
-  }
- },
- "key": "210F"
-},
 {"category": "Lu",
  "mappings": {
   "default": {
@@ -114,15 +100,6 @@
  },
  "key": "2113"
 },
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "l b bar symbol",
-   "short": "l b bar"
-  }
- },
- "key": "2114"
-},
 {"category": "Lu",
  "mappings": {
   "default": {
@@ -132,24 +109,6 @@
   }
  },
  "key": "2115"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "numero sign",
-   "alternative": "numero",
-   "short": "numero"
-  }
- },
- "key": "2116"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "sound recording copyright"
-  }
- },
- "key": "2117"
 },
 {"category": "Sm",
  "mappings": {
@@ -211,57 +170,6 @@
  },
  "key": "211D"
 },
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "prescription take"
-  }
- },
- "key": "211E"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "response"
-  }
- },
- "key": "211F"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "service mark"
-  }
- },
- "key": "2120"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "telephone sign",
-   "alternative": "t e l symbol"
-  }
- },
- "key": "2121"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "trade mark sign",
-   "alternative": "trademark",
-   "short": "trade mark"
-  }
- },
- "key": "2122"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "versicle"
-  }
- },
- "key": "2123"
-},
 {"category": "Lu",
  "mappings": {
   "default": {
@@ -272,36 +180,6 @@
  },
  "key": "2124"
 },
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "ounce sign",
-   "alternative": "ounce",
-   "short": "ounce"
-  }
- },
- "key": "2125"
-},
-{"category": "Lu",
- "mappings": {
-  "default": {
-   "default": "ohm sign",
-   "alternative": "ohm",
-   "short": "ohm"
-  }
- },
- "key": "2126"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "inverted ohm sign",
-   "alternative": "mho",
-   "short": "inverted ohm"
-  }
- },
- "key": "2127"
-},
 {"category": "Lu",
  "mappings": {
   "default": {
@@ -311,26 +189,6 @@
   }
  },
  "key": "2128"
-},
-{"category": "Lu",
- "mappings": {
-  "default": {
-   "default": "kelvin sign",
-   "alternative": "degrees kelvin",
-   "short": "kelvin"
-  }
- },
- "key": "212A"
-},
-{"category": "Lu",
- "mappings": {
-  "default": {
-   "default": "angstrom sign",
-   "alternative": "angstrom unit",
-   "short": "angstrom"
-  }
- },
- "key": "212B"
 },
 {"category": "Lu",
  "mappings": {
@@ -351,15 +209,6 @@
   }
  },
  "key": "212D"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "estimated symbol",
-   "short": "estimated"
-  }
- },
- "key": "212E"
 },
 {"category": "Ll",
  "mappings": {
@@ -393,16 +242,6 @@
 {"category": "Lu",
  "mappings": {
   "default": {
-   "default": "turned capital f",
-   "alternative": "turned f",
-   "short": "turned cap f"
-  }
- },
- "key": "2132"
-},
-{"category": "Lu",
- "mappings": {
-  "default": {
    "default": "script capital m",
    "alternative": "script m",
    "short": "script cap m"
@@ -418,71 +257,6 @@
   }
  },
  "key": "2134"
-},
-{"category": "Lo",
- "mappings": {
-  "default": {
-   "default": "alef symbol",
-   "alternative": "first transfinite cardinal",
-   "short": "alef"
-  }
- },
- "key": "2135"
-},
-{"category": "Lo",
- "mappings": {
-  "default": {
-   "default": "bet symbol",
-   "alternative": "second transfinite cardinal",
-   "short": "bet"
-  }
- },
- "key": "2136"
-},
-{"category": "Lo",
- "mappings": {
-  "default": {
-   "default": "gimel symbol",
-   "alternative": "third transfinite cardinal",
-   "short": "gimel"
-  }
- },
- "key": "2137"
-},
-{"category": "Lo",
- "mappings": {
-  "default": {
-   "default": "dalet symbol",
-   "alternative": "fourth transfinite cardinal",
-   "short": "dalet"
-  }
- },
- "key": "2138"
-},
-{"category": "Ll",
- "mappings": {
-  "default": {
-   "default": "information source"
-  }
- },
- "key": "2139"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "rotated capital q",
-   "short": "rotated cap q"
-  }
- },
- "key": "213A"
-},
-{"category": "So",
- "mappings": {
-  "default": {
-   "default": "facsimile sign"
-  }
- },
- "key": "213B"
 },
 {"category": "Ll",
  "mappings": {
@@ -527,42 +301,6 @@
   }
  },
  "key": "2140"
-},
-{"category": "Sm",
- "mappings": {
-  "default": {
-   "default": "turned sans serif capital g",
-   "short": "turned sans serif cap g"
-  }
- },
- "key": "2141"
-},
-{"category": "Sm",
- "mappings": {
-  "default": {
-   "default": "turned sans serif capital l",
-   "short": "turned sans serif cap l"
-  }
- },
- "key": "2142"
-},
-{"category": "Sm",
- "mappings": {
-  "default": {
-   "default": "reversed sans serif capital l",
-   "short": "reversed sans serif cap l"
-  }
- },
- "key": "2143"
-},
-{"category": "Sm",
- "mappings": {
-  "default": {
-   "default": "turned sans serif capital y",
-   "short": "turned sans serif cap y"
-  }
- },
- "key": "2144"
 },
 {"category": "Lu",
  "mappings": {
