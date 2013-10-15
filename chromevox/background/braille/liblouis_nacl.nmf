@@ -1,0 +1,7 @@
+{
+  "program": {
+    "x86-32": {"url": "liblouis_nacl_x86_32.nexe"},
+    "x86-64": {"url": "liblouis_nacl_x86_64.nexe"},
+    "arm": {"url": "liblouis_nacl_arm.nexe"}
+  }
+}
