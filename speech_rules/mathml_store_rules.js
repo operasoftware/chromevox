@@ -778,17 +778,17 @@ cvox.MathmlStoreRules.initSemanticRules_ = function() {
   defineRule(
       'end-punct', 'default.default',
       '[m] children/*; [p] (pause:300)',
-      'self::punctuated[@role="endpunct"]');
+      'self::punctuated', '@role="endpunct"');
 
   defineRule(
       'start-punct', 'default.default',
       '[n] content/*[1]; [p] (pause:200); [m] children/*',
-      'self::punctuated[@role="startpunct"]');
+      'self::punctuated', '@role="startpunct"');
 
   defineRule(
-    'integral-punct', 'default.default',
-    '[n] children/*[1] (rate:0.35); [n] children/*[3] (rate:0.35)',
-    'self::punctuated[@role="integral"]');
+      'integral-punct', 'default.default',
+      '[n] children/*[1] (rate:0.2); [n] children/*[3] (rate:0.2)',
+      'self::punctuated', '@role="integral"');
 
   defineRule(
       'punctuated', 'default.default',
