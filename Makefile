@@ -5,13 +5,10 @@
 #
 
 
-# /usr/local/lib/closure doesn't exist.  To use this Makefile outside of
-# google3, copy /google/data/ro/teams/chromevox-eng/closure_root to
-# /usr/local/lib/closure
+CLOSURE_ROOT=/usr/local/lib/closure
 
-CLOSURE_ROOT=/google/data/ro/teams/chromevox-eng/closure_root
-
-RHINO=/google/data/ro/teams/chromevox-eng/closure_root/rhino_shell
+# On Debian, rhino is available through apt-get.
+RHINO=rhino
 
 
 # The closure compiler is available at http://code.google.com/closure/compiler/
