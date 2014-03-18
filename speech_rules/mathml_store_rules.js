@@ -111,6 +111,7 @@ cvox.MathmlStoreRules.initCustomFunctions_ = function() {
 cvox.MathmlStoreRules.initDefaultRules_ = function() {
   // Initial rule
   defineDefaultMathmlRule('math', '[m] ./*');
+  defineDefaultMathmlRule('semantics', '[n] ./*[1]');
 
   // Space elements
   defineDefaultMathmlRule('mspace', '[p] (pause:250)');

@@ -409,6 +409,7 @@ cvox.SemanticTree.prototype.parseMathml_ = function(mml) {
     case 'MROW':
     case 'MPADDED':
     case 'MSTYLE':
+    case 'SEMANTICS':
       children = cvox.SemanticUtil.purgeNodes(children);
       // Single child node, i.e. the row is meaningless.
       if (children.length == 1) {
