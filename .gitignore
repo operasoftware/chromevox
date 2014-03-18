@@ -1,0 +1,7 @@
+.ninja_deps
+.ninja_log
+deps.js
+*.pyc
+androidvox/objects
+androidvox/imported
+chromevox/messages/i18n_messages_localized__en.node.js

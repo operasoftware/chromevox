@@ -1,0 +1,45 @@
+################################################################################
+# Copyright (c) 2014 Opera Software ASA. All Rights Reserved.
+################################################################################
+
+# Drip can be used to reduce the JVM bootstrapping time. On some cases like when
+# running on fast system this actually slows the build time down, in which case
+# it is recommended to just use java. Default uses plain old java.
+java = java
+
+# To use system wide copy of closure-compiler, change this.
+closure_compiler_root = closure-compiler
+closure_compiler = $java -jar $closure_compiler_root/compiler.jar $closure_flags
+closure_flags = --manage_closure_dependencies
+
+# For debug purposes.
+# closure_flags = --manage_closure_dependencies --formatting PRETTY_PRINT
+
+rule cc
+  command = $closure_compiler $closure_flags --js $in --js_output_file $out
+
+# Configuration for running with V8 / Node.js.
+
+rule cpp
+  command = cat $in | sed s/print\(/console.log\(/g > $out
+
+rule jsshell
+  command = node $in > $out
+
+# Configuration for running with Carakan's jsshell.
+
+# rule cpp
+#   command = cat $in > $out
+
+# rule jsshell
+#   command = jsshell $in > $out
+
+rule ld
+  command = cat $in > $out
+
+build chromevox/messages/i18n_messages_localized__en.js: cc closure/base.js chromevox/messages/messages.js external/closure_json_json.js external/extensions_i18n.js external/messages_wrapper.js
+build chromevox/messages/i18n_messages_localized__en.node.js: cpp chromevox/messages/i18n_messages_localized__en.js
+build chromevox/messages/_locales/en/messages.json: jsshell chromevox/messages/i18n_messages_localized__en.node.js
+build host/testing/test_messages.js: ld host/testing/test_messages.jsfragment chromevox/messages/_locales/en/messages.json
+
+build androidVoxDev.js: cc closure/base.js common/chromevox.js common/cursor.js external/closure_debug_error.js external/closure_dom_nodetype.js external/closure_string_string.js external/closure_asserts_asserts.js external/closure_array_array.js external/closure_math_math.js external/closure_i18n_compactnumberformatsymbols.js external/closure_i18n_currency.js external/closure_i18n_numberformatsymbols.js external/closure_i18n_numberformat.js external/closure_i18n_ordinalrules.js external/closure_i18n_pluralrules.js external/closure_i18n_messageformat.js host/interface/tts_interface.js host/interface/abstract_tts.js host/interface/abstract_earcons.js common/node_state.js common/aria_util.js common/dom_predicates.js common/xpath_util.js common/dom_util.js common/selection_util.js common/traverse_util.js common/cursor_selection.js common/platform_util.js common/spannable.js host/interface/abstract_host.js host/interface/mathjax_interface.js host/interface/abstract_mathjax.js host/interface/abstract_msgs.js host/interface/host_factory.js chromevox/messages/spoken_message.js chromevox/messages/spoken_messages.js common/composite_tts.js common/buildinfo.js common/chromevox_json.js chromevox/injected/api_util.js chromevox/injected/script_installer.js chromevox/injected/api_implementation.js chromevox/injected/console_tts.js common/date_widget.js common/content_editable_extractor.js common/editable_text_area_shadow.js common/editable_text.js chromevox/injected/event_suspender.js common/focuser.js common/media_widget.js common/time_widget.js chromevox/injected/active_indicator.js chromevox/injected/node_breadcrumb.js chromevox/injected/history.js common/key_sequence.js common/key_util.js chromevox/background/keymaps/key_map.js common/command_store.js chromevox/injected/ui/widget.js common/nav_description.js common/nav_math_description.js common/math_semantic_util.js common/math_semantic_attr.js common/math_semantic_tree.js common/traverse_math.js common/math_util.js speech_rules/speech_rule.js speech_rules/speech_rule_evaluator.js speech_rules/speech_rule_functions.js speech_rules/speech_rule_store.js speech_rules/base_rule_store.js speech_rules/math_store.js speech_rules/mathml_store.js speech_rules/speech_rule_engine.js walkers/abstract_walker.js walkers/abstract_node_walker.js walkers/bare_object_walker.js common/aural_style_util.js common/earcon_util.js common/description_util.js common/find_util.js common/interframe.js common/page_selection.js speech_rules/mathml_store_util.js speech_rules/store_util.js speech_rules/mathml_store_rules.js walkers/abstract_shifter.js walkers/math_shifter.js common/table_util.js common/traverse_table.js walkers/table_walker.js walkers/column_walker.js walkers/row_walker.js walkers/table_shifter.js chromevox/injected/navigation_history.js common/traverse_content.js walkers/abstract_selection_walker.js walkers/character_walker.js common/group_util.js walkers/group_walker.js walkers/structural_line_walker.js walkers/layout_line_walker.js walkers/object_walker.js walkers/sentence_walker.js walkers/word_walker.js chromevox/injected/navigation_shifter.js chromevox/injected/navigation_speaker.js chromevox/injected/navigation_manager.js chromevox/injected/ui/search_widget.js chromevox/injected/ui/overlay_widget.js chromevox/injected/ui/keyboard_help_widget.js external/closure_object_object.js chromevox/injected/user_event_detail.js chromevox/injected/ui/context_menu_widget.js chromevox/injected/ui/node_search_widget.js chromevox/injected/ui/select_widget.js common/focus_util.js chromevox/testing/spoken_list_builder.js chromevox/injected/runner_interface.js chromevox/testing/abstract_test_case.js host/testing/tts.js chromevox/injected/runner.js chromevox/injected/user_commands.js chromevox/injected/keyboard_handler.js chromevox/injected/live_regions.js chromevox/injected/live_regions_deprecated.js chromevox/injected/event_watcher.js chromevox/injected/serializer.js chromevox/injected/init_globals.js chromevox/injected/init_document.js host/android_dev/earcons.js chromevox/injected/api.js chromevox/injected/initial_speech.js host/android_dev/android_keymap.js speech_rules/math_simple_store.js host/android_dev/android_mathmap.js host/android_dev/androidvox.js host/android_dev/host.js chromevox/injected/mathjax_external_util.js host/android_dev/mathjax.js host/android_dev/tts.js host/testing/test_messages.js host/testing/msgs.js android/injected/loader.js common/nav_braille.js host/chrome/braille_key_types.js host/interface/braille_interface.js host/interface/abstract_braille.js common/braille_text_handler.js common/braille_util.js host/android_dev/braille.js

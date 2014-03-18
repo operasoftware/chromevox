@@ -5,14 +5,14 @@
 #
 
 
-CLOSURE_ROOT=/usr/local/lib/closure
+CLOSURE_ROOT=third_party
 
 # On Debian, rhino is available through apt-get.
-RHINO=rhino
+RHINO=java -classpath third_party/js.jar org.mozilla.javascript.tools.shell.Main
 
 
 # The closure compiler is available at http://code.google.com/closure/compiler/
-CLOSURE_COMPILER=java -jar $(CLOSURE_ROOT)/compiler.jar --manage_closure_dependencies
+CLOSURE_COMPILER=java -jar closure-compiler/compiler.jar --manage_closure_dependencies
 
 # The closure DepsWriter, available at
 #     http://code.google.com/closure/library/docs/depswriter.html
@@ -61,7 +61,7 @@ CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS = $(CHROMEVOX_MESSAGES_i18n_
 chromevox/messages/i18n_messages_localized__en.js_FILES = chromevox/messages/i18n_messages_localized__en.js
 chromevox/messages/i18n_messages_localized__en.js: $(CHROMEVOX_MESSAGES_i18n_messages_localized__en_DEPS)
 	@echo Building Javascript binary chromevox/messages/i18n_messages_localized__en.js
-	@$(CLOSURE_COMPILER) --js $^ --js_output_file chromevox/messages/i18n_messages_localized__en.js
+	$(CLOSURE_COMPILER) --js $^ --js_output_file chromevox/messages/i18n_messages_localized__en.js
 
 
 CHROMEVOX_MESSAGES_i18n_messages_localized__en.js_FILES = chromevox/messages/i18n_messages_localized__en.js
@@ -70,7 +70,7 @@ CHROMEVOX_MESSAGES_messages_en.json_FILES = chromevox/messages/_locales/en/messa
 chromevox/messages/_locales/en/messages.json: $(CHROMEVOX_MESSAGES_messages_en.json_SRCS)
 	@echo Generating file chromevox/messages/_locales/en/messages.json
 	@mkdir -p $(dir chromevox/messages/_locales/en/messages.json)
-	@$(RHINO) $(CHROMEVOX_MESSAGES_messages_en.json_SRCS) > $(CHROMEVOX_MESSAGES_messages_en.json_FILES)
+	$(RHINO) $(CHROMEVOX_MESSAGES_messages_en.json_SRCS) > $(CHROMEVOX_MESSAGES_messages_en.json_FILES)
 
 
 CHROMEVOX_MESSAGES__locales/en/messages.json_FILES = $(CHROMEVOX_MESSAGES_messages_en.json_FILES)
@@ -799,7 +799,7 @@ HOST_TESTING_test_messages_FILES = host/testing/test_messages.js
 host/testing/test_messages.js: $(HOST_TESTING_test_messages_SRCS)
 	@echo Generating file host/testing/test_messages.js
 	@mkdir -p $(dir host/testing/test_messages.js)
-	@cat $(HOST_TESTING_test_messages_SRCS) >$(HOST_TESTING_test_messages_FILES)
+	cat $(HOST_TESTING_test_messages_SRCS) >$(HOST_TESTING_test_messages_FILES)
 
 
 HOST_TESTING_test_messages.js_FILES = $(HOST_TESTING_test_messages_FILES)
@@ -1046,7 +1046,7 @@ CHROMEVIS_i18n_messages_localized__en_DEPS = $(CHROMEVIS_i18n_messages_messages_
 chromevis/i18n_messages_localized__en.js_FILES = chromevis/i18n_messages_localized__en.js
 chromevis/i18n_messages_localized__en.js: $(CHROMEVIS_i18n_messages_localized__en_DEPS)
 	@echo Building Javascript binary chromevis/i18n_messages_localized__en.js
-	@$(CLOSURE_COMPILER) --js $^ --js_output_file chromevis/i18n_messages_localized__en.js
+	$(CLOSURE_COMPILER) --js $^ --js_output_file chromevis/i18n_messages_localized__en.js
 
 
 CHROMEVIS_i18n_messages_localized__en.js_FILES = chromevis/i18n_messages_localized__en.js
