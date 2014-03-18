@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/overlay_widget.js
+ */
+
+/**
  * @fileoverview A widget hosting an HTML snippet.
  * @author dtseng@google.com (David Tseng)
  */

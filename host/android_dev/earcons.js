@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/earcons.js
+ */
+
+/**
  * @fileoverview Earcons library for the Android platform.
  *
  * @author clchen@google.com (Charles L. Chen)

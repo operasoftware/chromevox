@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename chromevox/injected/runner_interface.js
+ */
+
 
 /**
  * @fileoverview A runner runs macros / tests.

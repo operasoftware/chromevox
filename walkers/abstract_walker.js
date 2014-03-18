@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/abstract_walker.js
+ */
+
+/**
  * @fileoverview An interface (and partial implementation) for the basic
  * traversal through some piece of the dom.
  * For each different ordered (either in dom or by any other metric) set

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/aural_style_util.js
+ */
+
+/**
  * @fileoverview A set of classes to support aural CSS.
  * @author dtseng@google.com (David Tseng)
  */

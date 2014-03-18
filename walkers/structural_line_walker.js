@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/structural_line_walker.js
+ */
+
+/**
  * @fileoverview A JavaScript class for walking lines.
  * @author dtseng@google.com (David Tseng)
  */

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/mathjax_external_util.js
+ */
+
+/**
  * @fileoverview Utility functions for the MathJax bridge. It contains
  * functionality that changes the normal behaviour of MathJax contributed by
  * Davide Cervone (dpvc@union.edu) and adapted by Volker Sorge

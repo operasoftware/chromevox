@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/spannable.js
+ */
+
+/**
  * @fileoverview Class which allows construction of annotated strings.
  * @author jbroman@google.com (Jeremy Roman)
  */

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/speech_rule_evaluator.js
+ */
+
+/**
  * @fileoverview Interface definition for a class which evaluates speech rules.
  *
  * A speech rule evaluator knows how to generate a description given a node and

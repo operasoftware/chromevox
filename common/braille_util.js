@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/braille_util.js
+ */
+
+/**
  * @fileoverview A utility class for general braille functionality.
  * @author dtseng@google.com (David Tseng)
  */

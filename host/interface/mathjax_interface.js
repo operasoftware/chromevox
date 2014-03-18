@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/mathjax_interface.js
+ */
+
+/**
  * @fileoverview Interface of ChromeVox's bridge to MathJax.
  *
  * @author sorge@google.com (Volker Sorge)

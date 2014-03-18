@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_i18n_messageformat.js
+ */
+
+/**
  * @fileoverview Message/plural format library with locale support.
  * @author cira@google.com (Nebojsa Ciric)
  *

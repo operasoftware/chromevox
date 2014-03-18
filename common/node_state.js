@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/node_state.js
+ */
+
+/**
  * @fileoverview The cvox.NodeState typedef.
  */
 

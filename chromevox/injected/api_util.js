@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/api_util.js
+ */
+
+/**
  * @fileoverview Shared util methods between api.js and api_implementation.js
  * for doing common tasks such as passing node references between page script
  * and ChromeVox.

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/aria_util.js
+ */
+
+/**
  * @fileoverview A collection of JavaScript utilities used to simplify working
  * with ARIA (http://www.w3.org/TR/wai-aria).
  * @author clchen@google.com (Charles L. Chen)

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/nav_math_description.js
+ */
+
+/**
  * @fileoverview A subclass of the navigation description container
  * specialising on math objects.
  *

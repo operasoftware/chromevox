@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/base_rule_store.js
+ */
+
+/**
  * @fileoverview Base class for all speech rule stores.
  *
  * The base rule store implements some basic functionality that is common to

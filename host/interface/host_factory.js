@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename host/interface/host_factory.js
+ */
 
 /**
  * @fileoverview A host factory.  This factory allows us to decouple the

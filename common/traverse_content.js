@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename common/traverse_content.js
+ */
 
 /**
  * @fileoverview A DOM traversal interface for moving a selection around a

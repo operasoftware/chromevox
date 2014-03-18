@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/active_indicator.js
+ */
+
+/**
  * @fileoverview Draws and animates the graphical indicator around the active
  *    object or text range, and handles animation when the indicator is moving.
  * @author dmazzoni@google.com (Dominic Mazzoni)

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/math_semantic_util.js
+ */
+
+/**
  * @fileoverview Utility functions for semantic tree computations.
  * @author sorge@google.com (Volker Sorge)
  */

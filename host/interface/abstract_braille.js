@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/abstract_braille.js
+ */
+
+/**
  * @fileoverview Base class for Braille engines that output to the Braille
  * display.
  *

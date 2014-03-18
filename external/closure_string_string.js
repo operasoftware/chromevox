@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_string_string.js
+ */
+
+/**
  * @fileoverview Utilities for string manipulation.
  * @author pupius@google.com (Daniel Pupius)
  * @author arv@google.com (Erik Arvidsson)

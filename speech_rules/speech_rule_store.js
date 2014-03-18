@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/speech_rule_store.js
+ */
+
+/**
  * @fileoverview Base interface for all speech rule stores.
  *
  * A speech rule store exposes the minimal set of methods a speech rule

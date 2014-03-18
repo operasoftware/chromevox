@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/key_sequence.js
+ */
+
+/**
  * @fileoverview A JavaScript class that represents a sequence of keys entered
  * by the user.
  * @author rshearer@google.com (Rachel Shearer)

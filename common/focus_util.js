@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/focus_util.js
+ */
+
+/**
  * @fileoverview A collection of JavaScript utilities used to manage focus
  * within a document.
  * @author rshearer@google.com (Rachel Shearer)

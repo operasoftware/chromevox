@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/abstract_node_walker.js
+ */
+
+/**
  * @fileoverview A base class for walkers that have a concept of lowest-level
  * node. Base classes must override the stopNodeDescent method to define
  * what a lowest-level node is. Then this walker will use those nodes as the

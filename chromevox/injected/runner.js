@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/runner.js
+ */
+
+/**
  * @fileoverview The AutoRunner runs a macro/test.
  * @author deboer@google.com (James deBoer)
  */

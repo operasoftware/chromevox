@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/traverse_table.js
+ */
+
+/**
  * TODO(stoarca): This class has become obsolete except for the shadow table.
  * Chop most of it away.
  * @fileoverview A DOM traversal interface for navigating data in tables.

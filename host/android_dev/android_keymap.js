@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/android_keymap.js
+ */
+
+/**
  * @fileoverview Android-specific keymap.
  *
  * @author clchen@google.com (Charles L. Chen)

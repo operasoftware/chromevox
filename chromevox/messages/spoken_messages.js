@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/messages/spoken_messages.js
+ */
+
+/**
  * @fileoverview Useful abstraction when  speaking messages.
  *
  * Usage:

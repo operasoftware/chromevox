@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/navigation_shifter.js
+ */
+
+/**
  * @fileoverview The purpose of this class is to delegate to the correct walker
  * based on the navigation state that it is in. The navigation state is a
  * simplified view of the external environment; the smallest amount of knowledge

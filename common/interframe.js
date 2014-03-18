@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/interframe.js
+ */
+
+/**
  * @fileoverview Tools for interframe communication. To use this class, every
  * window that wants to communicate with its child iframes should enumerate
  * them using document.getElementsByTagName('iframe'), create an ID to
@@ -54,6 +59,7 @@ cvox.Interframe.SET_ID = 'cvox.INTERFRAME_SET_ID';
 /**
  * The ID of this window (relative to its parent farme).
  * @type {number|string|undefined}
+ * @preserve
  */
 cvox.Interframe.id;
 

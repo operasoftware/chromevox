@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/android_mathmap.js
+ */
+
+/**
  * @fileoverview Contains the mappings for ChromeVox on Android.
  * @author sorge@google.com (Volker Sorge)
  */

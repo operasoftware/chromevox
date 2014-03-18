@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/chrome/braille_key_types.js
+ */
+
+/**
  * @fileoverview Braille command definitions.
  * These types are adapted from Chrome's private braille API.
  * They can be found in the Chrome source repo at:

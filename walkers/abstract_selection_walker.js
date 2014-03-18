@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/abstract_selection_walker.js
+ */
+
+/**
  * @fileoverview An abstract class for walking at the sub-element level.
  * For example, walking at the sentence, word, or character level.
  * This class is an adapter around TraverseContent which exposes the interface

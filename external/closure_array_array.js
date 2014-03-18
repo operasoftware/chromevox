@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_array_array.js
+ */
+
+/**
  * @fileoverview Utilities for manipulating arrays.
  *
  * @author pupius@google.com (Daniel Pupius)

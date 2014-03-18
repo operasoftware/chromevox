@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/node_breadcrumb.js
+ */
+
+/**
  * @fileoverview Responsible for tagging nodes used by ChromeVox.
  * @author deboer@google.com (James deBoer)
  */

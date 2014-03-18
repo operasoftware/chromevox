@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/bare_object_walker.js
+ */
+
+/**
  * @fileoverview A JavaScript class for walking the leaf nodes of the dom.
  * This is a bare class that tries to limit dependencies. It should only be used
  * when traversal of the leaf nodes is required (e.g. by other walkers), but

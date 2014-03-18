@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/widget.js
+ */
+
+/**
  * @fileoverview Base class for all ChromeVox widgets.
  *
  * Widgets are keyboard driven and modal mediums for ChromeVox to expose

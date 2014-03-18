@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/androidvox.js
+ */
+
+/**
  * @fileoverview Android-specific code needed to integrate AndroidVox with
  * the accessibility framework in Android.
  *

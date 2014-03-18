@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/abstract_host.js
+ */
+
+/**
  * @fileoverview Abstract interface to methods that differ depending on the
  * host platform.
  *

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/abstract_msgs.js
+ */
+
+/**
  * @fileoverview Defined the convenience function cvox.Msgs.getMsg.
  * @author deboer@google.com (James deBoer)
  */

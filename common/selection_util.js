@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/selection_util.js
+ */
+
+/**
  * @fileoverview A collection of JavaScript utilities used to improve selection
  * at different granularities.
  * @author rshearer@google.com (Rachel Shearer)

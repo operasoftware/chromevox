@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/live_regions.js
+ */
+
+/**
  * @fileoverview Keeps track of live regions on the page and speaks updates
  * when they change.
  *

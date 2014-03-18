@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/messages/spoken_message.js
+ */
+
+/**
  * @fileoverview A basic abstraction of messages.
  *
  * @author dtseng@google.com (David Tseng)

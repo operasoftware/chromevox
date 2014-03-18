@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/testing/abstract_test_case.js
+ */
+
+/**
  * @fileoverview A test case can run itself, so it is a runner.
  * But, we don't know how it is run yet, so make everything abstract.
  * @author deboer@google.com (James deBoer)

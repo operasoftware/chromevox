@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/user_event_detail.js
+ */
+
+/**
  * @fileoverview The ChromeVox User Event Detail object.
  *
  * This is the detail object for a CustomEvent that ChromeVox sends to the

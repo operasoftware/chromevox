@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/testing/tts.js
+ */
+
+/**
  * @fileoverview Dummy implementation of TTS for testing.
  *
  * @author dmazzoni@google.com (Dominic Mazzoni)

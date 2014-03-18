@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/platform_util.js
+ */
+
+/**
  * @fileoverview Utilities for working with platforms.
  * @author dtseng@google.com (David Tseng)
  */

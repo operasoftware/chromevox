@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_dom_nodetype.js
+ */
+
+/**
  * @fileoverview Definition of goog.dom.NodeType.
  */
 

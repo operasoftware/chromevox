@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/math_semantic_attr.js
+ */
+
+/**
  * @fileoverview Semantic attributes of Math symbols and expressions.
  *
  * This file contains the basic functionality to lookup and assign semantic

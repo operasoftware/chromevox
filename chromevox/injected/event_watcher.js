@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/event_watcher.js
+ */
+
+/**
  * @fileoverview Watches for events in the browser such as focus changes.
  *
  * @author clchen@google.com (Charles L. Chen)

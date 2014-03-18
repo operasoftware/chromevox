@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/init_document.js
+ */
+
+/**
  * @fileoverview Initializes the injected content script on the document.
  *
  * NOTE(deboer): This file will automatically initialize ChromeVox.  If you can

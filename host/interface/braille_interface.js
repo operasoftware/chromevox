@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/braille_interface.js
+ */
+
+/**
  * @fileoverview Defines a Braille interface.
  *
  * All Braille engines in ChromeVox conform to this interface.

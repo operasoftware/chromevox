@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/mathml_store.js
+ */
+
+/**
  * @fileoverview Speech rule store for mathml and mathjax trees.
  * @author sorge@google.com (Volker Sorge)
  */

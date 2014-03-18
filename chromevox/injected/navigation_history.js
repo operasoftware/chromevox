@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/navigation_history.js
+ */
+
+/**
  * @fileoverview Navigation history tracks recently visited nodes. The
  * state of this class (the node history), is used to ensure the user is
  * navigating to and from valid nodes.

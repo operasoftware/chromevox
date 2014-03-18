@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/keyboard_help_widget.js
+ */
+
+/**
  * @fileoverview Widget presenting all keyboard commands.
  * @author dtseng@google.com (David Tseng)
  */

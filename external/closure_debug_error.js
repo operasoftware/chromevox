@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_debug_error.js
+ */
+
+/**
  * @fileoverview Provides a base class for custom Error objects such that the
  * stack is correctly maintained.
  *

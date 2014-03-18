@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/word_walker.js
+ */
+
+/**
  * @fileoverview A class for walking one word at a time.
  * @author stoarca@google.com (Sergiu Toarca)
  */

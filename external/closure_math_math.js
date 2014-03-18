@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_math_math.js
+ */
+
+/**
  * @fileoverview Additional mathematical functions.
  * @author pupius@google.com (Daniel Pupius)
  */

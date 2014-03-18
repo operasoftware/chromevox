@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/math_shifter.js
+ */
+
+/**
  * @fileoverview A class for walking mathml expressions.
  * @author sorge@google.com (Volker Sorge)
  */

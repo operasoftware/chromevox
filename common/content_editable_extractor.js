@@ -13,6 +13,12 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/content_editable_extractor.js
+ */
+
+
+/**
  * @fileoverview Defines the ContentEditableExtractor class.
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */

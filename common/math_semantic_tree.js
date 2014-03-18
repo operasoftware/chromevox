@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/math_semantic_tree.js
+ */
+
+/**
  * @fileoverview A semantic tree for MathML expressions.
  *
  * This file contains functionality to compute a semantic interpretation from a

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/host.js
+ */
+
+/**
  * @fileoverview Android-specific implementation of methods that differ
  * depending on the host platform.
  *

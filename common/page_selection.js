@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/page_selection.js
+ */
+
+/**
  * @fileoverview A class representing a DOM selection conveyed through
  * CursorSelection idioms.
  * A PageSelection is just a DOM selection. The class itself manages a single

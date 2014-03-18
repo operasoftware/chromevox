@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/object_walker.js
+ */
+
+/**
  * @fileoverview A JavaScript class for walking the leaf nodes of the dom.
  * @author stoarca@google.com (Sergiu Toarca)
  */

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename closure/base.js
+ */
+
+/**
  * @fileoverview Bootstrap for the Google JS Library (Closure).
  *
  * In uncompiled mode base.js will write out Closure's deps file, unless the

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/group_walker.js
+ */
+
+/**
  * @fileoverview A class for walking "groups". Groups, intuitively, are logical
  * collections of dom elements. See AbstractNodeWalker and the
  * stopNodeDescent() method here for how groups are defined.

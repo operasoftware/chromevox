@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/search_widget.js
+ */
+
+/**
  * @fileoverview JavaScript for poppup up a search widget and performing
  * search within a page.
  * @author clchen@google.com (Charles L. Chen)

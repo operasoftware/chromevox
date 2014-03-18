@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/dom_util.js
+ */
+
+/**
  * @fileoverview A collection of JavaScript utilities used to simplify working
  * with the DOM.
  * @author clchen@google.com (Charles L. Chen)

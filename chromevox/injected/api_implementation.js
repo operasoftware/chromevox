@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/api_implementation.js
+ */
+
+/**
  * @fileoverview Implentation of ChromeVox's public API.
  *
  * @author clchen@google.com (Charles L. Chen)

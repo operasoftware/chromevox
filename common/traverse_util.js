@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/traverse_util.js
+ */
+
+/**
  * @fileoverview Low-level DOM traversal utility functions to find the
  *     next (or previous) character, word, sentence, line, or paragraph,
  *     in a completely stateless manner without actually manipulating the

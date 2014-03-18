@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/table_shifter.js
+ */
+
+/**
  * @fileoverview Walkers to traverse a table.
  * @author dtseng@google.com (David Tseng)
  */

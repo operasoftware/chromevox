@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/table_util.js
+ */
+
+/**
  * @fileoverview DOM utility functions to aid in table navigation.
  * @author rshearer@google.com (Rachel Shearer)
  */

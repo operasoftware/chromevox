@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/init_globals.js
+ */
+
+/**
  * @fileoverview Initializes the injected content script.
  *
  * @author clchen@google.com (Charles Chen)

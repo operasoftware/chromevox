@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/abstract_earcons.js
+ */
+
+/**
  * @fileoverview Base class for implementing earcons.
  *
  * When adding earcons, please add them to getEarconName and getEarconId.

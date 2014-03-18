@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/tts_interface.js
+ */
+
+/**
  * @fileoverview Defines a Tts interface.
  *
  * All TTS engines in ChromeVox conform to the this interface.

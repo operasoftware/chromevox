@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/interface/abstract_tts.js
+ */
+
+/**
  * @fileoverview Base class for Text-to-Speech engines that actually transform
  * text to speech.
  *

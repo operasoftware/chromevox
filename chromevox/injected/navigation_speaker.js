@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/navigation_speaker.js
+ */
+
+/**
  * @fileoverview A class for speaking navigation information.
  * @author stoarca@google.com (Sergiu Toarca)
  */

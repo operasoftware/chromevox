@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/row_walker.js
+ */
+
+/**
  * @fileoverview A class for walking rows.
  * @author dtseng@google.com (David Tseng)
  */

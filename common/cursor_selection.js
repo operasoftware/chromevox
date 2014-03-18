@@ -13,6 +13,12 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/cursor_selection.js
+ */
+
+
+/**
  * @fileoverview Simple class to represent a cursor selection.
  * A cursor selection is just two cursors; one for the start and one for
  * the end of some interval in the document.

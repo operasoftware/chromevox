@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/speech_rule_functions.js
+ */
+
+/**
  * @fileoverview Classes for custom functions for the speech rule engine.
  *
  * @author sorge@google.com (Volker Sorge)

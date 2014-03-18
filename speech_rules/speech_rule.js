@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/speech_rule.js
+ */
+
+/**
  * @fileoverview An interface definition of a speech rule.
  *
  * A speech rule is a data structure along with supporting methods that

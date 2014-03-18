@@ -13,6 +13,12 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/composite_tts.js
+ */
+
+
+/**
  * @fileoverview A composite TTS sends allows ChromeVox to use
  * multiple TTS engines at the same time.
  *

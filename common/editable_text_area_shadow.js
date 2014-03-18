@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/editable_text_area_shadow.js
+ */
+
+/**
  * @fileoverview Defines the EditableTextAreaShadow class.
  * @author deboer@google.com (James deBoer)
  */

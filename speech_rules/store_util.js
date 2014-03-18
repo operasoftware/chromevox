@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/store_util.js
+ */
+
+/**
  * @fileoverview General utility functions for rule stores.
  * @author sorge@google.com (Volker Sorge)
  */

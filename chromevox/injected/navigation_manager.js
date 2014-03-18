@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/navigation_manager.js
+ */
+
+/**
  * @fileoverview Manages navigation within a page.
  * This unifies navigation by the DOM walker and by WebKit selection.
  * NOTE: the purpose of this class is only to hold state

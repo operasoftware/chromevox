@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/layout_line_walker.js
+ */
+
+/**
  * @fileoverview A JavaScript class for walking lines consisting of one or more
  * clickable nodes.
  * @author dtseng@google.com (David Tseng)

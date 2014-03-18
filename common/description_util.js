@@ -13,6 +13,12 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/description_util.js
+ */
+
+
+/**
  * @fileoverview A utility class for building NavDescriptions from the dom.
  * @author stoarca@google.com (Sergiu Toarca)
  */

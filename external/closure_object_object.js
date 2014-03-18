@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_object_object.js
+ */
+
+/**
  * @fileoverview Utilities for manipulating objects/maps/hashes.
  * @author pupius@google.com (Daniel Pupius)
  * @author arv@google.com (Erik Arvidsson)

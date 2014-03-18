@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/group_util.js
+ */
+
+/**
  * @fileoverview Some utilities for defining what groups are.
  * @author stoarca@google.com (Sergiu Toarca)
  */

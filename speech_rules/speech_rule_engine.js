@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/speech_rule_engine.js
+ */
+
+/**
  * @fileoverview Implementation of the speech rule engine.
  *
  * The speech rule engine chooses and applies speech rules. Rules are chosen

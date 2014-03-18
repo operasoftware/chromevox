@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/table_walker.js
+ */
+
+/**
  * @fileoverview A class for walking tables.
  * NOTE: This class has a very different interface than the other walkers.
  * This means it does not lend itself easily to e.g. decorators.

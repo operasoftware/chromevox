@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename chromevox/injected/keyboard_handler.js
+ */
+
 goog.provide('cvox.ChromeVoxKbHandler');
 
 goog.require('cvox.ChromeVox');

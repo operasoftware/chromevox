@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/select_widget.js
+ */
+
+/**
  * @fileoverview A widget hosting an HTML <select> element.
  * In most cases, the browser's native key-driven usage model works for user
  * interaction and manipulation of a <select>. However, on platforms like Mac

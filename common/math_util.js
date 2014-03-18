@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/math_util.js
+ */
+
+/**
  * @fileoverview DOM utility functions to aid in math expressions navigation.
  * @author sorge@google.com (Volker Sorge)
  */

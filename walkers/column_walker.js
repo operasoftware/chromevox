@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/column_walker.js
+ */
+
+/**
  * @fileoverview A class for walking columns.
  * @author dtseng@google.com (David Tseng)
  */

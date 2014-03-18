@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename external/closure_asserts_asserts.js
+ */
+
+/**
  * @fileoverview Utilities to check the preconditions, postconditions and
  * invariants runtime.
  *

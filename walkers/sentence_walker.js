@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/sentence_walker.js
+ */
+
+/**
  * @fileoverview A JavaScript class for walking sentences.
  * @author stoarca@google.com (Sergiu Toarca)
  */

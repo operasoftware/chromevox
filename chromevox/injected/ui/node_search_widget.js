@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/node_search_widget.js
+ */
+
+/**
  * @fileoverview A search Widget presenting a list of nodes with the ability
  * to sync selection when chosen.
  * @author dtseng@google.com (David Tseng)

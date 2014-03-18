@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/braille.js
+ */
+
+/**
  * @fileoverview Braille for Android.
  *
  * @author clchen@google.com (Charles L. Chen)

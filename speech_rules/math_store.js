@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename speech_rules/math_store.js
+ */
+
+/**
  * @fileoverview Rule store for math syntax tree nodes.
  * @author sorge@google.com (Volker Sorge)
  */

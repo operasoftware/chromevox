@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/nav_description.js
+ */
+
+/**
  * @fileoverview A simple container object for the description of a
  * navigation from one object to another.
  *

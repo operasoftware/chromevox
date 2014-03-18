@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/script_installer.js
+ */
+
+/**
  * @fileoverview Defines the ScriptInstaller functions which install scripts
  * into the web page (not a content script)
  *

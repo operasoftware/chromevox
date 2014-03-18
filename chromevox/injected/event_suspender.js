@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/event_suspender.js
+ */
+
+/**
  * @fileoverview Allows events to be suspended.
  *
  * @author stoarca@google.com (Sergiu Toarca)

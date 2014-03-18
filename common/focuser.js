@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/focuser.js
+ */
+
+/**
  * @fileoverview Implements the setFocus function.
  * @author deboer@google.com (James deBoer)
  */

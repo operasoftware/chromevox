@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/find_util.js
+ */
+
+/**
  * @fileoverview Utilities for finding DOM nodes and CursorSelection's.
  * @author dtseng@google.com (David Tseng)
  */

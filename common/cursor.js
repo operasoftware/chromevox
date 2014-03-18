@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/cursor.js
+ */
+
+/**
  * @fileoverview Simple class to represent a cursor location in the document.
  * @author dmazzoni@google.com (Dominic Mazzoni)
  */

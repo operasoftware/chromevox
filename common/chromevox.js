@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/chromevox.js
+ */
+
+/**
  * @fileoverview Defines a global object. The initialization of this
  *   object happens in init.js.
  *
@@ -97,14 +102,17 @@ cvox.ChromeVox = function() {};
 cvox.ChromeVox.host = null;
 /**
  * @type {cvox.TtsInterface}
+ * @preserve
  */
 cvox.ChromeVox.tts;
 /**
  * @type {cvox.BrailleInterface}
+ * @preserve
  */
 cvox.ChromeVox.braille;
 /**
  * @type {cvox.MathJaxInterface}
+ * @preserve
  */
 cvox.ChromeVox.mathJax;
 /**

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename external/closure_i18n_currency.js
+ */
 
 /**
  * @fileoverview A utility to get better currency format pattern.

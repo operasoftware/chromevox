@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/earcon_util.js
+ */
+
+/**
  * @fileoverview Earcon utils.
  * @author deboer@google.com (James deBoer)
  */

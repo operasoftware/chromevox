@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/xpath_util.js
+ */
+
+/**
  * @fileoverview A collection of JavaScript utilities used to simplify working
  * with xpaths.
  * @author clchen@google.com (Charles L. Chen)

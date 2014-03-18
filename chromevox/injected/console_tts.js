@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/console_tts.js
+ */
+
+/**
  * @fileoverview A TTS engine that writes to window.console.
  * @author deboer@google.com (James deBoer)
  */

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/initial_speech.js
+ */
+
+/**
  * @fileoverview Defines the initial speech call.
  */
 

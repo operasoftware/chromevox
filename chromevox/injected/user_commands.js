@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/user_commands.js
+ */
+
+/**
  * @fileoverview High level commands that the user can invoke using hotkeys.
  *
  * Usage:

@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/abstract_shifter.js
+ */
+
+/**
  * @fileoverview An interface for an ordered collection of walkers, called a
  * shifter.
  */

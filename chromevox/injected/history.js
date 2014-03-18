@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename chromevox/injected/history.js
+ */
 
 /**
  * @fileoverview Stores the history of a ChromeVox session.

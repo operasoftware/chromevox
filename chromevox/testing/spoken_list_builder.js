@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/testing/spoken_list_builder.js
+ */
+
+/**
  * @fileoverview The spoken list builder. Used in test cases.
  * @author deboer@google.com (James deBoer)
  */

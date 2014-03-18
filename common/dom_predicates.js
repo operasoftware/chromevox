@@ -13,6 +13,12 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename common/dom_predicates.js
+ */
+
+
+/**
  * @fileoverview A bunch of predicates that take as input an array of
  * nodes with the unique ancestors of a node. They output true if a
  * certain category of node has been found.

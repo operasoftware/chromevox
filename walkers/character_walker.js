@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename walkers/character_walker.js
+ */
+
+/**
  * @fileoverview A class for walking one character at a time.
  * @author stoarca@google.com (Sergiu Toarca)
  */

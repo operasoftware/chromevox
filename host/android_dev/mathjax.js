@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename host/android_dev/mathjax.js
+ */
+
+/**
  * @fileoverview Implementation of AndroidVox's bridge to MathJax.
  *
  * @author sorge@google.com (Volker Sorge)

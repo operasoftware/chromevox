@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/serializer.js
+ */
+
+/**
  * @fileoverview A global serializer object which returns the current
  * ChromeVox system state.
  * @author deboer@google.com (James deBoer)

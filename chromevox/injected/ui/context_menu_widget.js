@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/ui/context_menu_widget.js
+ */
+
+/**
  * @fileoverview Widget presenting context menus.
  * @author peterxiao@google.com (Peter Xiao)
  */

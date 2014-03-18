@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @preserve
+ * @filename chromevox/background/keymaps/key_map.js
+ */
 
 /**
  * @fileoverview This class provides a stable interface for initializing,

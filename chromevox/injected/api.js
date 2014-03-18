@@ -13,6 +13,11 @@
 // limitations under the License.
 
 /**
+ * @preserve
+ * @filename chromevox/injected/api.js
+ */
+
+/**
  * @fileoverview Public APIs to enable web applications to communicate
  * with ChromeVox.
  *
